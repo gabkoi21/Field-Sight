@@ -1,0 +1,33 @@
+:root {
+  --app-primary: #0b51b7;
+  --app-primary-hover: #084394;
+  --app-primary-soft: rgba(11, 81, 183, 0.08);
+  --app-ink: #303e67;
+  --app-muted: #7081b9;
+  --app-border: #eceff5;
+}
+
+body { color: var(--app-ink); background: #f7f9fc; }
+
+.app aside { background: #071f47; }
+.organization { border-color: #234d82; background: #103564; }
+.app nav a.active, .app nav a:hover { background: rgba(11, 81, 183, 0.52); }
+.brand b, .btn, .form-card footer button:last-child { background: var(--app-primary); border-color: var(--app-primary); }
+.btn:hover, .form-card footer button:last-child:hover { background: var(--app-primary-hover); }
+.eyebrow, .table-link:hover strong, .attention button, .role-strip button { color: var(--app-primary); }
+.topbar { border-bottom-color: var(--app-border); }
+
+.view-tabs button.active, .project-tabs button.active { border-color: var(--app-primary); color: var(--app-primary); }
+.online, .activity-dot, .progress i, .bar > i b { background: var(--app-primary); }
+.ring { background: conic-gradient(var(--app-primary) 0 87%, #e4eaf6 87%); }
+.metric-icon.green, .avatar, .map-placeholder, .connection-icon, .role-strip > svg, .export-grid svg { color: var(--app-primary); }
+.metric-icon.green, .avatar, .connection-icon { background: var(--app-primary-soft); }
+.map-placeholder { border-color: #b9cbea; background: radial-gradient(circle,#eef4fd 1px,transparent 1px); background-size:16px 16px; }
+.connection, .role-strip { border-color: #cbdcf3; background: #f2f6fd; }
+.login-aside { background: linear-gradient(145deg, #071f47, #0b51b7); }
+.quote-mark { color: #8db6f5; }
+.login-row a, .login-foot a { color: var(--app-primary); }
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline-color: rgba(11, 81, 183, 0.3);
+}
