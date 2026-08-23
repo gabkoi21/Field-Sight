@@ -1,0 +1,24 @@
+.login-panel input[type='text'] {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #dfe4e8;
+  border-radius: 7px;
+  outline: none;
+  color: #303e67;
+  font: 14px 'Roboto', Arial, sans-serif;
+}
+
+.login-panel input[type='text']:focus,
+.login-panel input[type='password']:focus {
+  border-color: #0b51b7;
+  box-shadow: 0 0 0 3px rgba(11, 81, 183, 0.16);
+}
+
+.login-error {
+  margin: 14px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 500;
+}
