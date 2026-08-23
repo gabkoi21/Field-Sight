@@ -1,0 +1,16 @@
+# Runtime dependencies
+alembic>=1.14
+email-validator>=2.2
+fastapi>=0.115
+pwdlib[argon2]>=0.2
+pydantic-settings>=2.7
+PyJWT>=2.10
+sqlmodel>=0.0.22
+uvicorn[standard]>=0.34
+
+# Development and test dependencies
+httpx>=0.28
+mypy>=1.14
+pytest>=8.3
+pytest-asyncio>=0.25
+ruff>=0.9

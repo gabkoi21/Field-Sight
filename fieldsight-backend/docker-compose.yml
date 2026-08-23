@@ -1,0 +1,14 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      FIELDSIGHT_ENVIRONMENT: development
+      FIELDSIGHT_DATABASE_URL: sqlite:////data/fieldsight.db
+      FIELDSIGHT_CORS_ORIGINS: http://localhost:5173
+    volumes:
+      - fieldsight_sqlite:/data
+
+volumes:
+  fieldsight_sqlite:
