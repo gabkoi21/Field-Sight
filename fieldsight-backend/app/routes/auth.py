@@ -7,25 +7,21 @@ from uuid import UUID
 
 import jwt
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response, status
-from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
 from app.core.security import create_access_token, hash_refresh_token, new_refresh_token, verify_password
 from app.db.session import get_session
 from app.models.identity import OrganizationMembership, RefreshSession, User
+from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth")
 
 
-class LoginRequest(BaseModel):
-    login: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=8, max_length=1024)
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+def _is_expired(value: datetime) -> bool:
+    """Compare SQLite-naive and timezone-aware expiration values consistently."""
+    normalized = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    return normalized <= datetime.now(UTC)
 
 
 def _issue_tokens(response: Response, user: User, db: Session, settings: Settings) -> TokenResponse:
@@ -49,6 +45,7 @@ def _issue_tokens(response: Response, user: User, db: Session, settings: Setting
     return TokenResponse(access_token=create_access_token(user.id, refresh.id, settings))
 
 
+# Why: exchanges valid user credentials for an authenticated API session.
 @router.post("/login", response_model=TokenResponse)
 def login(
     payload: LoginRequest,
@@ -62,6 +59,7 @@ def login(
     return _issue_tokens(response, user, db, settings)
 
 
+# Why: renews an expired access token without asking the user to sign in again.
 @router.post("/refresh", response_model=TokenResponse)
 def refresh(
     response: Response,
@@ -74,7 +72,7 @@ def refresh(
     record = db.exec(
         select(RefreshSession).where(RefreshSession.token_hash == hash_refresh_token(refresh_token))
     ).first()
-    if record is None or record.revoked_at or record.expires_at <= datetime.now(UTC):
+    if record is None or record.revoked_at or _is_expired(record.expires_at):
         raise HTTPException(status_code=401, detail="Refresh session is invalid.")
     user = db.get(User, record.user_id)
     if user is None or not user.is_active:
@@ -108,6 +106,7 @@ def get_current_user(
     return user
 
 
+# Why: revokes the current refresh session when a user signs out.
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
     response: Response, refresh_token: str | None = Cookie(default=None), db: Session = Depends(get_session)
@@ -124,6 +123,7 @@ def logout(
     return response
 
 
+# Why: gives the frontend the signed-in user and tenant membership context.
 @router.get("/me")
 def me(user: User = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, object]:
     memberships = db.exec(

@@ -1,28 +1,84 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { Building2, ChevronDown, ExternalLink, MoreHorizontal, Plus, Search, X } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2, ChevronDown, MoreHorizontal, Plus, Search, X } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { Button, PageHeader } from "../../components/ui";
 import { AdminPanel, AdminStatus, AdminTableFooter, adminInputClass } from "../../components/superadmin/AdminUi";
-import { organizations as seedOrganizations, type Organization, type OrganizationStatus } from "./data";
+import { type OrganizationStatus } from "./data";
+import { apiClient, ApiError, type UpdateOrganizationInput } from "../../services/apiClient";
+
+interface OrganizationRow {
+  id: string;
+  name: string;
+  slug: string;
+  initials: string;
+  ownerEmail: string;
+  country: string;
+  timezone: string;
+  sectorIds: string[];
+  sectors: string;
+  status: OrganizationStatus;
+  created: string;
+}
 
 export function OrganizationsPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [organizations, setOrganizations] = useState(seedOrganizations);
+  const queryClient = useQueryClient();
+  const { data: apiOrganizations = [], isLoading, error: loadError } = useQuery({
+    queryKey: ["platform-organizations"],
+    queryFn: apiClient.organizations,
+  });
+  const { data: sectors = [] } = useQuery({ queryKey: ["sectors"], queryFn: apiClient.sectors });
+  const sectorNames = useMemo(() => new Map(sectors.map((sector) => [sector.id, sector.name])), [sectors]);
+  const organizations = useMemo<OrganizationRow[]>(() => apiOrganizations.map((item) => ({
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    initials: item.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(),
+    ownerEmail: item.owner_email ?? "—",
+    country: item.country ?? "—",
+    timezone: item.timezone,
+    sectorIds: item.sector_ids,
+    sectors: item.sector_ids.map((sectorId) => sectorNames.get(sectorId) ?? sectorId).join(", ") || "—",
+    status: (item.is_active ? "Active" : "Suspended") as OrganizationStatus,
+    created: new Date(item.created_at).toLocaleDateString(),
+  })), [apiOrganizations, sectorNames]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"All" | OrganizationStatus>("All");
   const [showCreate, setShowCreate] = useState(searchParams.get("create") === "1");
   const [drawerClosing, setDrawerClosing] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(searchParams.get("create") === "1");
   const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
   const [owner, setOwner] = useState("");
-  const [plan, setPlan] = useState<Organization["plan"]>("Starter");
+  const [ownerUsername, setOwnerUsername] = useState("");
+  const [ownerPassword, setOwnerPassword] = useState("");
+  const [sectorId, setSectorId] = useState("");
+  const [country, setCountry] = useState("");
+  const [timezone, setTimezone] = useState("UTC");
+  const [formError, setFormError] = useState("");
+  const [editingOrganization, setEditingOrganization] = useState<OrganizationRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editSlug, setEditSlug] = useState("");
+  const [editCountry, setEditCountry] = useState("");
+  const [editTimezone, setEditTimezone] = useState("UTC");
+  const [editSectorIds, setEditSectorIds] = useState<string[]>([]);
+  const [editError, setEditError] = useState("");
+  const createMutation = useMutation({
+    mutationFn: apiClient.createOrganization,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["platform-organizations"] }),
+  });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ organizationId, input }: { organizationId: string; input: UpdateOrganizationInput }) =>
+      apiClient.updateOrganization(organizationId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["platform-organizations"] }),
+  });
   const filteredOrganizations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return organizations.filter((organization) =>
       (status === "All" || organization.status === status) &&
-      (!normalizedQuery || `${organization.name} ${organization.owner}`.toLowerCase().includes(normalizedQuery)),
+      (!normalizedQuery || `${organization.name} ${organization.ownerEmail} ${organization.country} ${organization.timezone} ${organization.sectors}`.toLowerCase().includes(normalizedQuery)),
     );
   }, [organizations, query, status]);
 
@@ -40,39 +96,88 @@ export function OrganizationsPage() {
     window.setTimeout(() => setShowCreate(false), 220);
   }
 
-  function createOrganization(event: FormEvent<HTMLFormElement>) {
+  async function createOrganization(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const organizationName = name.trim();
-    if (!organizationName || !owner.trim()) return;
-    const initials = organizationName.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
-    setOrganizations((current) => [{ id: Date.now(), name: organizationName, initials, plan, owner: owner.trim(), users: 1, projects: 0, submissions: "0", status: "Trial", activity: "Just now" }, ...current]);
-    setName(""); setOwner(""); setPlan("Starter"); closeCreate();
+    if (!organizationName || !slug.trim() || !owner.trim() || !ownerUsername.trim() || !ownerPassword) return;
+    setFormError("");
+    try {
+      await createMutation.mutateAsync({
+        name: organizationName,
+        slug: slug.trim(),
+        owner_email: owner.trim(),
+        owner_username: ownerUsername.trim(),
+        owner_password: ownerPassword,
+        sector_ids: sectorId ? [sectorId] : [],
+        country: country.trim() || undefined,
+        timezone: timezone.trim(),
+      });
+      setName(""); setSlug(""); setOwner(""); setOwnerUsername(""); setOwnerPassword(""); setSectorId(""); setCountry(""); setTimezone("UTC"); closeCreate();
+    } catch (requestError) {
+      setFormError(requestError instanceof ApiError ? requestError.message : "Unable to create the organization.");
+    }
   }
 
+  function openEdit(organization: OrganizationRow) {
+    setEditingOrganization(organization);
+    setEditName(organization.name);
+    setEditSlug(organization.slug);
+    setEditCountry(organization.country === "—" ? "" : organization.country);
+    setEditTimezone(organization.timezone);
+    setEditSectorIds(organization.sectorIds);
+    setEditError("");
+  }
+
+  function closeEdit() {
+    if (!updateMutation.isPending) setEditingOrganization(null);
+  }
+
+  async function updateOrganization(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingOrganization) return;
+    setEditError("");
+    try {
+      await updateMutation.mutateAsync({
+        organizationId: editingOrganization.id,
+        input: {
+          name: editName.trim(),
+          slug: editSlug.trim(),
+          country: editCountry.trim() || null,
+          timezone: editTimezone.trim(),
+          sector_ids: editSectorIds,
+        },
+      });
+      setEditingOrganization(null);
+    } catch (requestError) {
+      setEditError(requestError instanceof ApiError ? requestError.message : "Unable to update the organization.");
+    }
+  }
   return (
     <>
       <PageHeader eyebrow="Tenant administration" title="Organizations" description="Create and manage every organization using the FieldSight platform.">
         <Button onClick={openCreate}><Plus size={15} /> New organization</Button>
       </PageHeader>
 
-      <AdminPanel title="Platform organizations" description="Plans, owners, usage, and tenant access">
+      {loadError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">Unable to load organizations from the API.</p>}
+      <AdminPanel title="Platform organizations" description="Owners, location settings, sectors, and tenant access">
         <div className="flex gap-2 border-b border-line p-4 max-[680px]:flex-col">
           <label className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[7px] border border-[#dfe4e8] bg-white px-3 text-[#8793a2]">
-            <Search size={15} /><input className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name or owner..." />
+            <Search size={15} /><input className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, owner, country, or sector..." />
           </label>
           <label className="relative flex min-h-[38px] min-w-[150px] items-center rounded-[7px] border border-[#dfe4e8] bg-white px-3">
             <select className="w-full appearance-none border-0 bg-transparent pr-5 text-xs text-[#455467] outline-none" value={status} onChange={(event) => setStatus(event.target.value as "All" | OrganizationStatus)}><option value="All">All statuses</option><option value="Active">Active</option><option value="Trial">Trial</option><option value="Suspended">Suspended</option></select><ChevronDown className="pointer-events-none absolute right-3 text-[#8793a2]" size={14} />
           </label>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[980px]">
-            <thead><tr><th>Organization</th><th>Owner</th><th>Plan</th><th>Users</th><th>Projects</th><th>Submissions</th><th>Status</th><th>Last activity</th><th /></tr></thead>
+          <table className="min-w-[1050px]">
+            <thead><tr><th>Organization</th><th>Owner email</th><th>Country</th><th>Time zone</th><th>Sectors</th><th>Status</th><th>Created</th><th /></tr></thead>
             <tbody>
+              {isLoading && <tr><td colSpan={8} className="text-center">Loading organizations…</td></tr>}
               {filteredOrganizations.map((organization) => (
                 <tr key={organization.id} className="hover:bg-[#fbfcfe]">
                   <td><div className="flex items-center gap-2.5"><span className="grid size-8 place-items-center rounded-[7px] bg-[#e9f1ff] text-[10px] font-bold text-brand">{organization.initials}</span><strong>{organization.name}</strong></div></td>
-                  <td>{organization.owner}</td><td>{organization.plan}</td><td>{organization.users}</td><td>{organization.projects}</td><td><strong>{organization.submissions}</strong></td><td><AdminStatus value={organization.status} /></td><td>{organization.activity}</td>
-                  <td><div className="flex items-center gap-2"><button title="Open organization workspace" className="border-0 bg-transparent text-brand" onClick={() => navigate("/")}><ExternalLink size={15} /></button><button aria-label={`Actions for ${organization.name}`} className="border-0 bg-transparent text-[#8793a2]"><MoreHorizontal size={17} /></button></div></td>
+                  <td>{organization.ownerEmail}</td><td>{organization.country}</td><td>{organization.timezone}</td><td className="max-w-[220px]">{organization.sectors}</td><td><AdminStatus value={organization.status} /></td><td>{organization.created}</td>
+                  <td><button type="button" title="Edit organization" aria-label={"Edit " + organization.name} className="border-0 bg-transparent text-[#8793a2]" onClick={() => openEdit(organization)}><MoreHorizontal size={17} /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -87,13 +192,52 @@ export function OrganizationsPage() {
           <form className={`absolute bottom-0 right-0 top-0 flex w-[min(470px,100%)] flex-col bg-white shadow-[-16px_0_35px_rgba(16,42,67,.18)] transition-[opacity,transform] max-[460px]:w-full ${drawerClosing ? "translate-x-[36px] opacity-0 duration-[220ms] ease-[cubic-bezier(.4,0,1,1)]" : `${drawerVisible ? "translate-x-0 opacity-100" : "translate-x-[36px] opacity-0"} duration-[280ms] ease-[cubic-bezier(.22,1,.36,1)]`}`} onClick={(event) => event.stopPropagation()} onSubmit={createOrganization}>
             <header className="!flex !items-start !justify-between !border-b !border-[#e8edf4] !bg-white !px-[22px] !py-[20px]"><div><p className="!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase">PLATFORM TENANT</p><h2 className="!m-0 !mb-[6px] !mt-[4px] text-[21px] font-normal tracking-[-.3px] text-[#303e67]">Create organization</h2><p className="!m-0 text-[11px] text-[#8391a5]">Set up a new organization on the FieldSight platform.</p></div><button className="cursor-pointer border-0 bg-transparent p-0 text-[#8290a2]" type="button" onClick={closeCreate} aria-label="Close form"><X size={19} /></button></header>
             <div className="flex flex-1 flex-col gap-[15px] overflow-auto px-[22px] py-[21px]">
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Organization name<input autoFocus className={`${adminInputClass} placeholder:text-[#a0acba]`} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Community Health Initiative" required /></label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Organization owner<input className={`${adminInputClass} placeholder:text-[#a0acba]`} value={owner} onChange={(event) => setOwner(event.target.value)} placeholder="e.g. Amara Johnson" required /></label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Initial plan<select className={adminInputClass} value={plan} onChange={(event) => setPlan(event.target.value as Organization["plan"])}><option>Starter</option><option>Professional</option><option>Enterprise</option></select></label>
-              <label className="flex flex-row items-start gap-[9px] rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px] text-[11px] font-bold text-[#526177]"><input className="!m-0 !mt-[1px] !h-[15px] !w-[15px] accent-[#0b51b7]" type="checkbox" defaultChecked /><span className="flex flex-col gap-[3px]"><strong className="text-[11px] text-[#48586e]">Send owner invitation</strong><small className="text-[10px] font-normal leading-[1.4] text-[#8997a9]">Invite the organization owner to set up their workspace access.</small></span></label>
-              <p className="!m-0 text-[10px] leading-[1.5] text-[#8997a9]">The organization starts in trial status. Billing and platform policies can be configured after creation.</p>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Organization name<input autoFocus className={`${adminInputClass} placeholder:text-[#a0acba]`} value={name} onChange={(event) => { const nextName = event.target.value; setSlug((currentSlug) => !currentSlug || currentSlug === name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") ? nextName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : currentSlug); setName(nextName); }} placeholder="e.g. Community Health Initiative" required /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Slug<input className={`${adminInputClass} placeholder:text-[#a0acba]`} value={slug} onChange={(event) => setSlug(event.target.value.toLowerCase())} placeholder="community-health-initiative" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" title="Use lowercase letters, numbers, and single hyphens only." required /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Organization owner email<input type="email" className={`${adminInputClass} placeholder:text-[#a0acba]`} value={owner} onChange={(event) => setOwner(event.target.value)} placeholder="owner@organization.org" required /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Owner username<input className={`${adminInputClass} placeholder:text-[#a0acba]`} value={ownerUsername} onChange={(event) => setOwnerUsername(event.target.value)} placeholder="e.g. edu@gmail.com" minLength={3} maxLength={100} autoComplete="off" required /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Temporary owner password<input type="password" className={`${adminInputClass} placeholder:text-[#a0acba]`} value={ownerPassword} onChange={(event) => setOwnerPassword(event.target.value)} placeholder="At least 12 characters" minLength={12} maxLength={1024} autoComplete="new-password" required /><small className="text-[10px] font-normal text-[#8997a9]">The organization administrator uses this password for their first login.</small></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Primary sector<select className={adminInputClass} value={sectorId} onChange={(event) => setSectorId(event.target.value)}><option value="">No sector selected</option>{sectors.map((sector) => <option key={sector.id} value={sector.id}>{sector.name}</option>)}</select></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Country<input className={`${adminInputClass} placeholder:text-[#a0acba]`} value={country} onChange={(event) => setCountry(event.target.value)} placeholder="e.g. Liberia" /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Time zone<input className={`${adminInputClass} placeholder:text-[#a0acba]`} value={timezone} onChange={(event) => setTimezone(event.target.value)} placeholder="e.g. Africa/Monrovia" required /></label>
+              <div className="rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px] text-[10px] leading-[1.5] text-[#8997a9]">This creates the organization and its organization administrator account together. No invitation is sent.</div>
+              {formError && <p className="!m-0 text-[11px] text-[#b42318]">{formError}</p>}
             </div>
-            <footer className="flex justify-end gap-[8px] border-t border-[#e8edf4] bg-white px-[22px] py-[14px]"><button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold leading-normal text-[#5b6a7e]" type="button" onClick={closeCreate}>Cancel</button><button className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold leading-normal text-white" type="submit"><Plus size={15} />Create organization</button></footer>
+            <footer className="flex justify-end gap-[8px] border-t border-[#e8edf4] bg-white px-[22px] py-[14px]"><button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold leading-normal text-[#5b6a7e]" type="button" onClick={closeCreate}>Cancel</button><button className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold leading-normal text-white" type="submit" disabled={createMutation.isPending}><Plus size={15} />{createMutation.isPending ? "Creating…" : "Create organization"}</button></footer>
+          </form>
+        </div>
+      )}
+      {editingOrganization && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeEdit}>
+          <form className="flex max-h-[calc(100vh-32px)] w-full max-w-[520px] flex-col overflow-hidden rounded-[6px] border border-[#dfe4e8] bg-white shadow-[0_12px_32px_rgba(16,42,67,.16)]" onClick={(event) => event.stopPropagation()} onSubmit={updateOrganization}>
+            <header className="flex items-center justify-between border-b border-[#e8edf4] px-5 py-4">
+              <h2 className="m-0 text-[16px] font-semibold text-[#253342]">Update organization</h2>
+              <button type="button" className="border-0 bg-transparent p-0 text-[#8290a2]" onClick={closeEdit} aria-label="Close update card"><X size={19} /></button>
+            </header>
+            <div className="grid flex-1 gap-3 overflow-y-auto p-5 sm:grid-cols-2">
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177] sm:col-span-2">Organization name<input className={adminInputClass} value={editName} onChange={(event) => setEditName(event.target.value)} minLength={2} maxLength={200} required /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177] sm:col-span-2">Slug<input className={adminInputClass} value={editSlug} onChange={(event) => setEditSlug(event.target.value.toLowerCase())} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" required /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177] sm:col-span-2">Owner email<input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={editingOrganization.ownerEmail} readOnly /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Country<input className={adminInputClass} value={editCountry} onChange={(event) => setEditCountry(event.target.value)} maxLength={100} placeholder="e.g. Liberia" /></label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Time zone<input className={adminInputClass} value={editTimezone} onChange={(event) => setEditTimezone(event.target.value)} maxLength={64} placeholder="e.g. Africa/Monrovia" required /></label>
+              <fieldset className="m-0 rounded-[5px] border border-[#dfe4e8] px-3 pb-3 pt-2 sm:col-span-2">
+                <legend className="px-1 text-[11px] font-bold text-[#526177]">Sectors</legend>
+                <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                  {sectors.map((sector) => (
+                    <label key={sector.id} className="flex items-center gap-2 text-[11px] font-medium text-[#526177]">
+                      <input type="checkbox" checked={editSectorIds.includes(sector.id)} onChange={() => setEditSectorIds((current) => current.includes(sector.id) ? current.filter((id) => id !== sector.id) : [...current, sector.id])} />
+                      {sector.name}
+                    </label>
+                  ))}
+                  {sectors.length === 0 && <span className="text-[10px] text-[#8997a9]">No active sectors are available.</span>}
+                </div>
+              </fieldset>
+              {editError && <p className="m-0 text-[11px] text-[#b42318] sm:col-span-2">{editError}</p>}
+            </div>
+            <footer className="flex justify-end gap-2 border-t border-[#e8edf4] bg-[#fbfcfd] px-5 py-3">
+              <button type="button" className="rounded-[5px] border border-[#dce5ef] bg-white px-3 py-2 text-[11px] font-semibold text-[#5b6a7e]" onClick={closeEdit}>Cancel</button>
+              <button type="submit" className="rounded-[5px] border border-brand bg-brand px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-60" disabled={updateMutation.isPending}>{updateMutation.isPending ? "Saving…" : "Save changes"}</button>
+            </footer>
           </form>
         </div>
       )}

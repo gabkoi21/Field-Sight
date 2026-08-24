@@ -14,6 +14,9 @@ from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.errors import install_exception_handlers
 from app.core.logging import configure_logging, get_logger
+from app.routes.auth import login
+from app.routes.organizations import organization_lookup_router
+from app.schemas.auth import TokenResponse
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -61,6 +64,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         expose_headers=["X-Request-ID"],
     )
     install_exception_handlers(app)
+    app.add_api_route(
+        "/login",
+        login,
+        methods=["POST"],
+        response_model=TokenResponse,
+        tags=["authentication"],
+        name="short_login",
+    )
+    app.include_router(organization_lookup_router, tags=["organizations"])
     app.include_router(api_router, prefix="/api/v1")
     return app
 

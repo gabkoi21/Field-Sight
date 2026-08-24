@@ -16,9 +16,9 @@ uvicorn app.main:app --reload
 
 Development probes:
 
-- `GET /api/v1/health/live`
-- `GET /api/v1/health/ready`
-- `GET /api/v1/status`
+- `GET /health/live`
+- `GET /health/ready`
+- `GET /status`
 
 Run `ruff check .`, `mypy app`, and `pytest` before committing.
 

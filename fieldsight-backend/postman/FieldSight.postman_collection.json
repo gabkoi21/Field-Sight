@@ -1,0 +1,102 @@
+{
+  "info": {
+    "name": "FieldSight API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Local FieldSight API demo flow. Run requests in folder order."
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000" },
+    { "key": "access_token", "value": "" },
+    { "key": "organization_id", "value": "" },
+    { "key": "sector_id", "value": "" },
+    { "key": "organization_sector_id", "value": "" },
+    { "key": "membership_id", "value": "" },
+    { "key": "project_id", "value": "" },
+    { "key": "location_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        { "name": "Live", "request": { "method": "GET", "url": "{{base_url}}/health/live" } },
+        { "name": "Ready", "request": { "method": "GET", "url": "{{base_url}}/health/ready" } },
+        { "name": "Status", "request": { "method": "GET", "url": "{{base_url}}/status" } }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login as super admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"login\": \"admin@example.com\",\n  \"password\": \"AdminPass123!\"\n}" },
+            "url": "{{base_url}}/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.access_token) pm.collectionVariables.set('access_token', body.access_token);"] } }]
+        },
+        {
+          "name": "Login as organization admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"login\": \"owner@example.com\",\n  \"password\": \"OwnerPass123!\"\n}" },
+            "url": "{{base_url}}/login"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.access_token) pm.collectionVariables.set('access_token', body.access_token);"] } }]
+        },
+        { "name": "Current user", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }], "url": "{{base_url}}/auth/me" } }
+      ]
+    },
+    {
+      "name": "Platform setup (super admin)",
+      "item": [
+        {
+          "name": "List sectors",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }], "url": "{{base_url}}/sectors" },
+          "event": [{ "listen": "test", "script": { "exec": ["const health = pm.response.json().find((sector) => sector.code === 'health');", "if (health) pm.collectionVariables.set('sector_id', health.id);"] } }]
+        },
+        {
+          "name": "Create organization and admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Community Health Initiative\",\n  \"slug\": \"community-health-demo\",\n  \"owner_email\": \"owner@example.com\",\n  \"owner_username\": \"organization.admin\",\n  \"owner_password\": \"OwnerPass123!\",\n  \"sector_ids\": [\"{{sector_id}}\"],\n  \"country\": \"Liberia\",\n  \"timezone\": \"Africa/Monrovia\"\n}" },
+            "url": "{{base_url}}/organizations"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.organization_id) pm.collectionVariables.set('organization_id', body.organization_id);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "Organization setup (organization admin)",
+      "item": [
+        {
+          "name": "Get organization sectors",
+          "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }], "url": "{{base_url}}/organizations/{{organization_id}}/sectors" },
+          "event": [{ "listen": "test", "script": { "exec": ["const rows = pm.response.json();", "if (rows.length) pm.collectionVariables.set('organization_sector_id', rows[0].id);"] } }]
+        },
+        {
+          "name": "Create project",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Community Health Baseline 2026\",\n  \"organization_sector_id\": \"{{organization_sector_id}}\",\n  \"target_sample_size\": 500\n}" }, "url": "{{base_url}}/organizations/{{organization_id}}/projects" },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.id) pm.collectionVariables.set('project_id', body.id);"] } }]
+        },
+        {
+          "name": "Create location",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"code\": \"PAY-DEMO\",\n  \"name\": \"Paynesville\",\n  \"level\": \"district\"\n}" }, "url": "{{base_url}}/organizations/{{organization_id}}/locations" },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.id) pm.collectionVariables.set('location_id', body.id);"] } }]
+        },
+        {
+          "name": "Create enumerator",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"enumerator@example.com\",\n  \"username\": \"demo.enumerator\",\n  \"password\": \"EnumeratorPass123!\"\n}" }, "url": "{{base_url}}/organizations/{{organization_id}}/enumerators" },
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.membership_id) pm.collectionVariables.set('membership_id', body.membership_id);"] } }]
+        },
+        {
+          "name": "Create enumerator assignment",
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"membership_id\": \"{{membership_id}}\",\n  \"project_id\": \"{{project_id}}\",\n  \"location_id\": \"{{location_id}}\",\n  \"daily_target\": 20\n}" }, "url": "{{base_url}}/organizations/{{organization_id}}/assignments" }
+        }
+      ]
+    }
+  ]
+}

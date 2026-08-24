@@ -1,0 +1,68 @@
+{
+    "prerequisites":  {
+                          "migration_command":  "alembic upgrade head",
+                          "note":  "Create the demo super-admin in the database before running the collection. Generated UUIDs must come from API responses."
+                      },
+    "accounts":  {
+                     "super_admin":  {
+                                         "email":  "admin@example.com",
+                                         "username":  "admin",
+                                         "password":  "AdminPass123!",
+                                         "role":  "super_admin"
+                                     },
+                     "organization_owner":  {
+                                                "email":  "owner@example.com",
+                                                "username":  "organization.admin",
+                                                "password":  "OwnerPass123!",
+                                                "role":  "organization_admin"
+                                            },
+                     "enumerator":  {
+                                        "email":  "enumerator@example.com",
+                                        "username":  "demo.enumerator",
+                                        "password":  "EnumeratorPass123!",
+                                        "role":  "enumerator"
+                                    }
+                 },
+    "organization":  {
+                         "name":  "Community Health Initiative",
+                         "slug":  "community-health-demo",
+                         "owner_email":  "owner@example.com",
+                         "country":  "Liberia",
+                         "timezone":  "Africa/Monrovia",
+                         "owner_username":  "organization.admin",
+                         "owner_password":  "OwnerPass123!"
+                     },
+    "project":  {
+                    "name":  "Community Health Baseline 2026",
+                    "description":  "Demo household health assessment",
+                    "country":  "Liberia",
+                    "status":  "active",
+                    "start_date":  "2026-08-23",
+                    "end_date":  "2026-12-31",
+                    "target_sample_size":  500,
+                    "is_private":  false
+                },
+    "location":  {
+                     "code":  "PAY-DEMO",
+                     "name":  "Paynesville",
+                     "level":  "district"
+                 },
+    "assignment":  {
+                       "daily_target":  20
+                   },
+    "execution_order":  [
+                            "System / Live",
+                            "System / Ready",
+                            "Authentication / Login",
+                            "Authentication / Current user",
+                            "Sectors / List sectors",
+                            "Organizations / Create organization",
+                            "Authentication / Login as organization owner",
+                            "Organizations / Get organization sectors",
+                            "Organizations / Create project",
+                            "Organizations / Create location",
+                            "Organizations / Create enumerator assignment",
+                            "Organizations / Create enumerator",
+                            "Organizations / Create enumerator assignment"
+                        ]
+}

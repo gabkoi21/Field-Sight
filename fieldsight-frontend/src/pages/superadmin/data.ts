@@ -2,7 +2,7 @@ export type OrganizationStatus = "Active" | "Trial" | "Suspended";
 export type UserStatus = "Active" | "Invited" | "Suspended";
 
 export interface Organization {
-  id: number;
+  id: number | string;
   name: string;
   initials: string;
   plan: "Starter" | "Professional" | "Enterprise";
@@ -15,7 +15,7 @@ export interface Organization {
 }
 
 export interface PlatformUser {
-  id: number;
+  id: number | string;
   name: string;
   initials: string;
   email: string;
@@ -35,7 +35,7 @@ export interface Invoice {
 }
 
 export interface AuditEvent {
-  id: number;
+  id: number | string;
   actor: string;
   initials: string;
   action: string;

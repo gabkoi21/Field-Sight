@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 
 interface NavigationItem {
   label: string;
@@ -64,12 +65,13 @@ const pageTitles: Record<string, string> = {
 };
 
 export function SuperAdminShell() {
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileClosing, setProfileClosing] = useState(false);
   const [profileVisible, setProfileVisible] = useState(false);
-  const [profileName, setProfileName] = useState("Gabriel Akoi");
-  const [profileEmail, setProfileEmail] = useState("gabriel@fieldsight.io");
+  const [profileName, setProfileName] = useState(user?.username ?? "Super Admin");
+  const [profileEmail, setProfileEmail] = useState(user?.email ?? "");
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const pageTitle = pageTitles[pathname] ?? "Super administration";
@@ -157,7 +159,7 @@ export function SuperAdminShell() {
           </NavLink>
           <button
             className="flex w-full items-center gap-3 rounded-[7px] border-0 bg-transparent px-[13px] py-2.5 text-left text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"
-            onClick={() => navigate("/login")}
+            onClick={async () => { await logout(); navigate("/login", { replace: true }); }}
           >
             <LogOut size={17} /> Sign out
           </button>

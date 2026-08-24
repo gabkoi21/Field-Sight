@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Activity,
   ArrowUpRight,
@@ -108,32 +108,6 @@ export function SuperAdminDashboardPage() {
   const [period, setPeriod] = useState("This month");
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState(19);
-  const [showCreate, setShowCreate] = useState(false);
-  const [drawerClosing, setDrawerClosing] = useState(false);
-  const [drawerVisible, setDrawerVisible] = useState(false);
-  const [organizationName, setOrganizationName] = useState("");
-  const [organizationOwner, setOrganizationOwner] = useState("");
-  const [organizationPlan, setOrganizationPlan] = useState("Starter");
-
-  function openCreate() {
-    setDrawerClosing(false);
-    setDrawerVisible(false);
-    setShowCreate(true);
-    window.requestAnimationFrame(() => setDrawerVisible(true));
-  }
-  function closeCreate() {
-    setDrawerClosing(true);
-    setDrawerVisible(false);
-    window.setTimeout(() => setShowCreate(false), 220);
-  }
-  function createOrganization(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!organizationName.trim() || !organizationOwner.trim()) return;
-    setOrganizationName("");
-    setOrganizationOwner("");
-    setOrganizationPlan("Starter");
-    closeCreate();
-  }
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="mb-[2px] flex items-end justify-between max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-[14px]">
@@ -163,7 +137,7 @@ export function SuperAdminDashboardPage() {
               </div>
             )}
           </div>
-          <button className={buttonStyles + " max-[600px]:justify-center"} onClick={openCreate}>
+          <button className={buttonStyles + " max-[600px]:justify-center"} onClick={() => navigate("/superadmin/organizations?create=1")}>
             <Plus size={15} /> Add organization
           </button>
         </div>
@@ -400,98 +374,6 @@ export function SuperAdminDashboardPage() {
           );
         })}
       </section>
-      {showCreate && (
-        <div
-          className={`fixed inset-0 z-50 bg-[rgba(16,42,67,.23)] transition-opacity ${drawerClosing ? "duration-[220ms] ease-in" : "duration-[220ms] ease-out"} ${drawerVisible ? "opacity-100" : "opacity-0"}`}
-          onClick={closeCreate}
-        >
-          <form
-            className={`absolute bottom-0 right-0 top-0 flex w-[min(470px,100%)] flex-col bg-white shadow-[-16px_0_35px_rgba(16,42,67,.18)] transition-[opacity,transform] max-[460px]:w-full ${drawerClosing ? "translate-x-[36px] opacity-0 duration-[220ms] ease-[cubic-bezier(.4,0,1,1)]" : `${drawerVisible ? "translate-x-0 opacity-100" : "translate-x-[36px] opacity-0"} duration-[280ms] ease-[cubic-bezier(.22,1,.36,1)]`}`}
-            onClick={(event) => event.stopPropagation()}
-            onSubmit={createOrganization}
-          >
-            <header className="!flex !items-start !justify-between !border-b !border-[#e8edf4] !bg-white !px-[22px] !py-[20px]">
-              <div>
-                <p className="!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase">
-                  PLATFORM TENANT
-                </p>
-                <h2 className="!m-0 !mb-[6px] !mt-[4px] text-[21px] font-normal tracking-[-.3px] text-[#303e67]">
-                  Create organization
-                </h2>
-                <p className="!m-0 text-[11px] text-[#8391a5]">Set up a new organization on the FieldSight platform.</p>
-              </div>
-              <button
-                className="cursor-pointer border-0 bg-transparent p-0 text-[#8290a2]"
-                type="button"
-                onClick={closeCreate}
-                aria-label="Close form"
-              >
-                ×
-              </button>
-            </header>
-            <div className="flex flex-1 flex-col gap-[15px] overflow-auto px-[22px] py-[21px]">
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
-                Organization name
-                <input
-                  autoFocus
-                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
-                  value={organizationName}
-                  onChange={(event) => setOrganizationName(event.target.value)}
-                  placeholder="e.g. Community Health Initiative"
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
-                Organization owner
-                <input
-                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
-                  value={organizationOwner}
-                  onChange={(event) => setOrganizationOwner(event.target.value)}
-                  placeholder="e.g. Amara Johnson"
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
-                Initial plan
-                <select
-                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
-                  value={organizationPlan}
-                  onChange={(event) => setOrganizationPlan(event.target.value)}
-                >
-                  <option>Starter</option>
-                  <option>Professional</option>
-                  <option>Enterprise</option>
-                </select>
-              </label>
-              <label className="flex flex-row items-start gap-[9px] rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px] text-[11px] font-bold text-[#526177]">
-                <input className="!m-0 !mt-[1px] !h-[15px] !w-[15px] accent-[#0b51b7]" type="checkbox" defaultChecked />
-                <span className="flex flex-col gap-[3px]">
-                  <strong className="text-[11px] text-[#48586e]">Send owner invitation</strong>
-                  <small className="text-[10px] font-normal leading-[1.4] text-[#8997a9]">
-                    Invite the organization owner to set up their workspace access.
-                  </small>
-                </span>
-              </label>
-            </div>
-            <footer className="flex justify-end gap-[8px] border-t border-[#e8edf4] bg-white px-[22px] py-[14px]">
-              <button
-                className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold text-[#5b6a7e]"
-                type="button"
-                onClick={closeCreate}
-              >
-                Cancel
-              </button>
-              <button
-                className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold text-white"
-                type="submit"
-              >
-                <Plus size={15} />
-                Create organization
-              </button>
-            </footer>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

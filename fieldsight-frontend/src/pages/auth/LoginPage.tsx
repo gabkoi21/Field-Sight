@@ -2,25 +2,30 @@ import { useState, type FormEvent } from "react";
 import { BarChart3 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
+import { ApiError } from "../../services/apiClient";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (username === "Admin" && password === "12345") {
-      navigate("/superadmin");
-      return;
+    setSubmitting(true);
+    try {
+      const user = await login(username.trim(), password, remember);
+      navigate(user.platform_role === "super_admin" ? "/superadmin" : "/", { replace: true });
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : "Unable to connect to FieldSight.");
+    } finally {
+      setSubmitting(false);
     }
-    if (username === "Manager" && password === "12345") {
-      navigate("/");
-      return;
-    }
-    setError("Invalid username or password");
   }
 
   const inputClass =
@@ -44,13 +49,13 @@ export function LoginPage() {
           Manage trusted data from collection through reporting.
         </p>
         <label className="mt-[22px] block text-xs font-bold text-[#485767]">
-          Username
+          Email or username
           <input
             className={inputClass}
             type="text"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
-            placeholder="Admin or Manager"
+            placeholder="superadmin or name@example.org"
             autoComplete="username"
             autoFocus
           />
@@ -73,7 +78,7 @@ export function LoginPage() {
         )}
         <div className="my-[17px] flex items-center justify-between">
           <label className="m-0 text-xs text-[#758092]">
-            <input type="checkbox" /> Remember me
+            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /> Remember me
           </label>
           <a className="text-xs font-bold no-underline text-brand" href="#">
             Forgot password?
