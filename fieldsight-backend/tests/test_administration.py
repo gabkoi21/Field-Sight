@@ -42,7 +42,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     app = create_app(settings)
     app.dependency_overrides[get_session] = override_session
     response = TestClient(app).post(
-        "/api/v1/organizations",
+        "/organizations",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "name": "Community Health Initiative",
@@ -59,7 +59,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert response.status_code == 201
     assert response.json()["owner_role"] == "organization_admin"
 
-    listed = TestClient(app).get("/api/v1/organizations", headers={"Authorization": f"Bearer {token}"})
+    listed = TestClient(app).get("/organizations", headers={"Authorization": f"Bearer {token}"})
     assert listed.status_code == 200
     organization = listed.json()[0]
     assert organization["country"] == "Liberia"
@@ -67,7 +67,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert organization["owner_email"] == "owner@example.com"
     assert organization["sector_ids"] == [str(sector_id)]
 
-    directory = TestClient(app).get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
+    directory = TestClient(app).get("/users", headers={"Authorization": f"Bearer {token}"})
     assert directory.status_code == 200
     users = directory.json()
     assert len(users) == 2
@@ -95,27 +95,29 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
         owner_token = create_access_token(owner_account.id, owner_refresh.id, settings)
 
     forbidden_directory = TestClient(app).get(
-        "/api/v1/users",
+        "/users",
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert forbidden_directory.status_code == 403
 
     organization_id = response.json()["organization_id"]
     enumerator = TestClient(app).post(
-        f"/api/v1/organizations/{organization_id}/enumerators",
+        f"/organizations/{organization_id}/enumerators",
         headers={"Authorization": f"Bearer {owner_token}"},
         json={
+            "full_name": "Mary Kamara",
             "email": "enumerator@example.com",
             "username": "field.enumerator",
             "password": "EnumeratorPass123!",
         },
     )
     assert enumerator.status_code == 201
+    assert enumerator.json()["full_name"] == "Mary Kamara"
     assert enumerator.json()["role"] == "enumerator"
     assert enumerator.json()["is_active"] is True
 
     complete_directory = TestClient(app).get(
-        "/api/v1/users",
+        "/users",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert complete_directory.status_code == 200
@@ -125,16 +127,100 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert enumerator_entry["memberships"][0]["role"] == "enumerator"
 
     enumerator_list = TestClient(app).get(
-        f"/api/v1/organizations/{organization_id}/enumerators",
+        f"/organizations/{organization_id}/enumerators",
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert enumerator_list.status_code == 200
     assert enumerator_list.json()[0]["email"] == "enumerator@example.com"
+    assert enumerator_list.json()[0]["full_name"] == "Mary Kamara"
+
+    membership_id = enumerator.json()["membership_id"]
+    enumerator_detail = TestClient(app).get(
+        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert enumerator_detail.status_code == 200
+    assert enumerator_detail.json()["username"] == "field.enumerator"
+
+    suspended = TestClient(app).patch(
+        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={"is_active": False},
+    )
+    assert suspended.status_code == 200
+    assert suspended.json()["is_active"] is False
+
+    reactivated = TestClient(app).patch(
+        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={"is_active": True},
+    )
+    assert reactivated.status_code == 200
+    assert reactivated.json()["is_active"] is True
+
+    deactivated = TestClient(app).delete(
+        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert deactivated.status_code == 204
+
+    deactivated_detail = TestClient(app).get(
+        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert deactivated_detail.status_code == 200
+    assert deactivated_detail.json()["is_active"] is False
+
+    token_scoped_enumerator = TestClient(app).post(
+        "/enumerators",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={
+            "full_name": "Token Scoped Enumerator",
+            "email": "token.scoped@example.com",
+            "username": "token.scoped",
+            "password": "EnumeratorPass123!",
+        },
+    )
+    assert token_scoped_enumerator.status_code == 201
+    token_scoped_membership_id = token_scoped_enumerator.json()["membership_id"]
+
+    token_scoped_list = TestClient(app).get(
+        "/enumerators", headers={"Authorization": f"Bearer {owner_token}"}
+    )
+    assert token_scoped_list.status_code == 200
+    assert any(item["membership_id"] == token_scoped_membership_id for item in token_scoped_list.json())
+
+    token_scoped_detail = TestClient(app).get(
+        f"/enumerators/{token_scoped_membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert token_scoped_detail.status_code == 200
+    assert token_scoped_detail.json()["full_name"] == "Token Scoped Enumerator"
+
+    token_scoped_suspended = TestClient(app).patch(
+        f"/enumerators/{token_scoped_membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={"is_active": False},
+    )
+    assert token_scoped_suspended.status_code == 200
+    assert token_scoped_suspended.json()["is_active"] is False
+
+    token_scoped_deactivated = TestClient(app).delete(
+        f"/enumerators/{token_scoped_membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert token_scoped_deactivated.status_code == 204
+
+    token_scoped_super_admin = TestClient(app).get(
+        "/enumerators", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert token_scoped_super_admin.status_code == 403
 
     super_admin_create = TestClient(app).post(
-        f"/api/v1/organizations/{organization_id}/enumerators",
+        f"/organizations/{organization_id}/enumerators",
         headers={"Authorization": f"Bearer {token}"},
         json={
+            "full_name": "Blocked Enumerator",
             "email": "blocked@example.com",
             "username": "blocked.enumerator",
             "password": "EnumeratorPass123!",
@@ -143,7 +229,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert super_admin_create.status_code == 404
 
     updated = TestClient(app).patch(
-        f"/api/v1/organizations/{response.json()['organization_id']}",
+        f"/organizations/{response.json()['organization_id']}",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "name": "Community Health Initiative Updated",
@@ -155,7 +241,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     )
     assert updated.status_code == 200
 
-    relisted = TestClient(app).get("/api/v1/organizations", headers={"Authorization": f"Bearer {token}"})
+    relisted = TestClient(app).get("/organizations", headers={"Authorization": f"Bearer {token}"})
     updated_organization = relisted.json()[0]
     assert updated_organization["name"] == "Community Health Initiative Updated"
     assert updated_organization["slug"] == "community-health-updated"

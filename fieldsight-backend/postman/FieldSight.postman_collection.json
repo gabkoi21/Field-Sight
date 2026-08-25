@@ -89,7 +89,7 @@
         },
         {
           "name": "Create enumerator",
-          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"email\": \"enumerator@example.com\",\n  \"username\": \"demo.enumerator\",\n  \"password\": \"EnumeratorPass123!\"\n}" }, "url": "{{base_url}}/organizations/{{organization_id}}/enumerators" },
+          "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"full_name\": \"Demo Enumerator\",\n  \"email\": \"enumerator@example.com\",\n  \"username\": \"demo.enumerator\",\n  \"password\": \"Pass1234\"\n}" }, "url": "{{base_url}}/enumerators" },
           "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.membership_id) pm.collectionVariables.set('membership_id', body.membership_id);"] } }]
         },
         {

@@ -40,7 +40,7 @@ def _issue_tokens(response: Response, user: User, db: Session, settings: Setting
         secure=not settings.is_development,
         samesite="lax",
         max_age=settings.refresh_token_days * 86400,
-        path="/api/v1/auth",
+        path="/auth",
     )
     return TokenResponse(access_token=create_access_token(user.id, refresh.id, settings))
 
@@ -119,7 +119,7 @@ def logout(
             record.revoked_at = datetime.now(UTC)
             db.add(record)
             db.commit()
-    response.delete_cookie("refresh_token", path="/api/v1/auth")
+    response.delete_cookie("refresh_token", path="/auth")
     return response
 
 

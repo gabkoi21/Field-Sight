@@ -27,7 +27,7 @@ The frontend uses React Router 7, TanStack Query, and Recharts. Only `ProjectsPa
 ### Important implementation gaps to close
 
 - The login screen accepts the hard-coded credentials `Admin`/`12345` and `Manager`/`12345`; replace this completely with email-or-username authentication against the API. Never seed those credentials in production.
-- Organization context, current user name, role, and navigation counts are hard-coded. Return them from `/api/v1/auth/me` and tenant summary endpoints.
+- Organization context, current user name, role, and navigation counts are hard-coded. Return them from `/auth/me` and tenant summary endpoints.
 - `/superadmin/*` and all organization routes are public in the router. The frontend must add auth and authorization route guards after API integration; the backend remains the authority and must enforce them independently.
 - `QualityCenterPage.tsx` contains a full quality-review experience but is not imported or routed in `App.tsx`. Build its backend now, then add an intended route such as `/quality` or `/projects/:projectId/quality` when the frontend exposes it.
 - Forms, team, sync history, reports, settings, billing, audit, and system-health buttons are presentation-only. Do not infer that a click has succeeded until an API response and refetch/mutation update are wired.
@@ -158,7 +158,7 @@ fieldsight-backend/
   docker-compose.yml        # local only
 ```
 
-Use `/api/v1` for all application endpoints. Keep routers thin: parse/validate input, obtain dependencies, call a service, and serialize a response. Put transactions, side effects, state transitions, authorization-aware business rules, and audit writing in services. Use `UUID` primary keys exposed publicly; avoid auto-incrementing integer IDs in the external API. Add `created_at`, `updated_at`, and where relevant `deleted_at`/`archived_at`, `created_by_id`, and an optimistic `version` value.
+Expose application endpoints at the API root (for example, `/auth/me` and `/organizations`). Keep routers thin: parse/validate input, obtain dependencies, call a service, and serialize a response. Put transactions, side effects, state transitions, authorization-aware business rules, and audit writing in services. Use `UUID` primary keys exposed publicly; avoid auto-incrementing integer IDs in the external API. Add `created_at`, `updated_at`, and where relevant `deleted_at`/`archived_at`, `created_by_id`, and an optimistic `version` value.
 
 ### Tenant isolation and authorization
 
@@ -199,7 +199,7 @@ All collection endpoints return typed Pydantic response models, not ORM objects.
 
 ### Endpoint map
 
-| Area                        | Endpoints (representative, all under `/api/v1`)                                                                                                                                                                                                                           |
+| Area                        | Endpoints (representative, exposed at the API root)                                                                                                                                                                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Authentication              | `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/password/forgot`, `POST /auth/password/reset`, `POST /auth/invitations/accept`, `POST /auth/mfa/verify`                                                                        |
 | Profile/session             | `PATCH /me`, `GET /me/sessions`, `DELETE /me/sessions/{id}`, `DELETE /me/sessions`                                                                                                                                                                                        |
@@ -239,7 +239,7 @@ Validate normalized email, password policy, IANA time zones, country/locale valu
 
 ### Phase 1 — project foundation
 
-1. Create the FastAPI app factory, `/api/v1` router, settings via `pydantic-settings`, structured JSON logging, correlation-ID middleware, CORS for approved frontend origins, and global exception handlers.
+1. Create the FastAPI app factory and root API router, settings via `pydantic-settings`, structured JSON logging, correlation-ID middleware, CORS for approved frontend origins, and global exception handlers.
 2. Add `pyproject.toml`, lock dependencies, lint/format/type-check tooling, Dockerfile, optional Docker Compose for Redis/local object storage when needed, `.env.example`, and pre-commit hooks. Store the SQLite database outside the container image in a mounted volume for local persistence.
 3. Configure SQLModel engine/session dependency, Alembic, first migration, health/live and health/ready endpoints, and test application factory.
 4. Establish CI for formatting, typing, unit tests, migration-upgrade test, and dependency/security scanning.

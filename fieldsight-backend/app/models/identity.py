@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Column, Date, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -25,6 +25,15 @@ class User(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     email: str = Field(sa_column=Column(String(320), unique=True, index=True, nullable=False))
     username: str | None = Field(default=None, sa_column=Column(String(100), unique=True, index=True, nullable=True))
+    full_name: str | None = Field(default=None, sa_column=Column(String(200), nullable=True))
+    phone_number: str | None = Field(default=None, sa_column=Column(String(32), nullable=True))
+    employee_id: str | None = Field(default=None, sa_column=Column(String(64), nullable=True))
+    gender: str | None = Field(default=None, sa_column=Column(String(32), nullable=True))
+    date_of_birth: date | None = Field(default=None, sa_column=Column(Date, nullable=True))
+    address: str | None = Field(default=None, sa_column=Column(String(300), nullable=True))
+    emergency_contact_name: str | None = Field(default=None, sa_column=Column(String(200), nullable=True))
+    emergency_contact_phone: str | None = Field(default=None, sa_column=Column(String(32), nullable=True))
+    notes: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     password_hash: str
     is_active: bool = Field(default=True, nullable=False)
     platform_role: Role | None = Field(default=None, sa_column=Column(Enum(Role), nullable=True))

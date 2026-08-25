@@ -15,7 +15,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const handleSessionExpired = () => setUser(null);
+    window.addEventListener("fieldsight-session-expired", handleSessionExpired);
     apiClient.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
+    return () => window.removeEventListener("fieldsight-session-expired", handleSessionExpired);
   }, []);
 
   const value = useMemo<AuthValue>(() => ({

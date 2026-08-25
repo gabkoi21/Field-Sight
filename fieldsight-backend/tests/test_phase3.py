@@ -57,11 +57,11 @@ def test_tenant_boundary_and_project_sector_validation(tmp_path: object) -> None
     client = TestClient(app)
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    cross_tenant = client.get(f"/api/v1/organizations/{other_org_id}", headers=headers)
+    cross_tenant = client.get(f"/organizations/{other_org_id}", headers=headers)
     assert cross_tenant.status_code == 404
 
     invalid_sector = client.post(
-        f"/api/v1/organizations/{own_org_id}/projects",
+        f"/organizations/{own_org_id}/projects",
         headers=headers,
         json={"name": "Invalid project", "organization_sector_id": str(other_sector_id)},
     )

@@ -30,6 +30,7 @@ from app.schemas.organizations import (
 )
 
 router = APIRouter(prefix="/organizations")
+enumerator_router = APIRouter(prefix="/enumerators")
 organization_lookup_router = APIRouter(prefix="/organization")
 CurrentUser = Annotated[User, Depends(get_current_user)]
 Database = Annotated[Session, Depends(get_session)]
@@ -92,13 +93,13 @@ def _assignment(org_id: UUID, assignment_id: UUID, db: Session) -> FieldAssignme
 
 
 # Organization: Read → Update (platform Create/Delete are in administration.py)
-@router.get("/{org_id}")
+@router.get("/{org_id}", tags=["organizations"])
 def get_organization(org_id: UUID, user: CurrentUser, db: Database) -> Organization:
     _authorize(org_id, user, db)
     return _organization(org_id, db)
 
 
-@router.patch("/{org_id}")
+@router.patch("/{org_id}", tags=["organizations"])
 def update_organization(org_id: UUID, payload: OrganizationUpdate, user: CurrentUser, db: Database) -> Organization:
     _authorize(org_id, user, db, admin=True)
     organization = _organization(org_id, db)
@@ -141,7 +142,7 @@ def update_organization(org_id: UUID, payload: OrganizationUpdate, user: Current
 
 
 # Settings: Read → Update (singleton resource; Create/Delete are not applicable)
-@router.get("/{org_id}/settings")
+@router.get("/{org_id}/settings", tags=["organizations"])
 def get_settings_route(org_id: UUID, user: CurrentUser, db: Database) -> OrganizationSettings:
     _authorize(org_id, user, db)
     settings = db.get(OrganizationSettings, org_id)
@@ -153,7 +154,7 @@ def get_settings_route(org_id: UUID, user: CurrentUser, db: Database) -> Organiz
     return settings
 
 
-@router.patch("/{org_id}/settings")
+@router.patch("/{org_id}/settings", tags=["organizations"])
 def update_settings(org_id: UUID, payload: SettingsUpdate, user: CurrentUser, db: Database) -> OrganizationSettings:
     _authorize(org_id, user, db, admin=True)
     settings = db.get(OrganizationSettings, org_id) or OrganizationSettings(organization_id=org_id)
@@ -167,7 +168,7 @@ def update_settings(org_id: UUID, payload: SettingsUpdate, user: CurrentUser, db
 
 
 # Members: List only; enumerator CRUD follows below.
-@router.get("/{org_id}/members")
+@router.get("/{org_id}/members", tags=["organizations"])
 def list_members(org_id: UUID, user: CurrentUser, db: Database) -> list[OrganizationMembership]:
     _authorize(org_id, user, db, admin=True)
     return list(db.exec(select(OrganizationMembership).where(OrganizationMembership.organization_id == org_id)))
@@ -183,6 +184,25 @@ def _authorize_organization_admin(org_id: UUID, user: User, db: Session) -> Orga
     return membership
 
 
+def _current_organization_admin_org_id(user: User, db: Session) -> UUID:
+    """Resolve the single organization an authenticated admin can manage."""
+    memberships = db.exec(
+        select(OrganizationMembership).where(
+            OrganizationMembership.user_id == user.id,
+            OrganizationMembership.role == Role.ORGANIZATION_ADMIN,
+            OrganizationMembership.is_active,
+        )
+    ).all()
+    if not memberships:
+        raise HTTPException(status_code=403, detail="Organization administrator permission is required.")
+    if len(memberships) > 1:
+        raise HTTPException(
+            status_code=409,
+            detail="More than one active organization-admin membership exists; select an organization explicitly.",
+        )
+    return memberships[0].organization_id
+
+
 def _enumerator_read(membership: OrganizationMembership, db: Session) -> EnumeratorRead:
     account = db.get(User, membership.user_id)
     if account is None:
@@ -192,13 +212,22 @@ def _enumerator_read(membership: OrganizationMembership, db: Session) -> Enumera
         membership_id=membership.id,
         email=account.email,
         username=account.username,
+        full_name=account.full_name,
+        phone_number=account.phone_number,
+        employee_id=account.employee_id,
+        gender=account.gender,
+        date_of_birth=account.date_of_birth,
+        address=account.address,
+        emergency_contact_name=account.emergency_contact_name,
+        emergency_contact_phone=account.emergency_contact_phone,
+        notes=account.notes,
         role=membership.role.value,
         is_active=account.is_active and membership.is_active,
         created_at=membership.created_at,
     )
 
 
-@router.get("/{org_id}/enumerators", response_model=list[EnumeratorRead])
+@router.get("/{org_id}/enumerators", response_model=list[EnumeratorRead], tags=["enumerators"])
 def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[EnumeratorRead]:
     _authorize_organization_admin(org_id, user, db)
     memberships = db.exec(
@@ -210,7 +239,12 @@ def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[Enum
     return [_enumerator_read(membership, db) for membership in memberships]
 
 
-@router.post("/{org_id}/enumerators", response_model=EnumeratorRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{org_id}/enumerators",
+    response_model=EnumeratorRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["enumerators"],
+)
 def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser, db: Database) -> EnumeratorRead:
     _authorize_organization_admin(org_id, user, db)
     _organization(org_id, db)
@@ -219,7 +253,20 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Enumerator email already exists.")
     if db.exec(select(User).where(User.username == payload.username)).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Enumerator username already exists.")
-    enumerator = User(email=email, username=payload.username, password_hash=password_hasher.hash(payload.password))
+    enumerator = User(
+        email=email,
+        username=payload.username,
+        full_name=payload.full_name.strip(),
+        phone_number=payload.phone_number,
+        employee_id=payload.employee_id,
+        gender=payload.gender,
+        date_of_birth=payload.date_of_birth,
+        address=payload.address,
+        emergency_contact_name=payload.emergency_contact_name,
+        emergency_contact_phone=payload.emergency_contact_phone,
+        notes=payload.notes,
+        password_hash=password_hasher.hash(payload.password),
+    )
     db.add(enumerator)
     db.flush()
     membership = OrganizationMembership(organization_id=org_id, user_id=enumerator.id, role=Role.ENUMERATOR)
@@ -229,13 +276,13 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
     return _enumerator_read(membership, db)
 
 
-@router.get("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead)
+@router.get("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
 def get_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> EnumeratorRead:
     _authorize_organization_admin(org_id, user, db)
     return _enumerator_read(_enumerator(org_id, membership_id, db), db)
 
 
-@router.patch("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead)
+@router.patch("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
 def update_enumerator(
     org_id: UUID, membership_id: UUID, payload: EnumeratorUpdate, user: CurrentUser, db: Database
 ) -> EnumeratorRead:
@@ -249,7 +296,7 @@ def update_enumerator(
     return _enumerator_read(membership, db)
 
 
-@router.delete("/{org_id}/enumerators/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{org_id}/enumerators/{membership_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["enumerators"])
 def deactivate_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> Response:
     _authorize_organization_admin(org_id, user, db)
     membership = _enumerator(org_id, membership_id, db)
@@ -259,8 +306,43 @@ def deactivate_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# Token-scoped enumerator routes. An organization admin with one active organization
+# membership does not need to send an organization ID from the frontend.
+@enumerator_router.get("", response_model=list[EnumeratorRead], tags=["enumerators"])
+def list_current_organization_enumerators(user: CurrentUser, db: Database) -> list[EnumeratorRead]:
+    return list_enumerators(_current_organization_admin_org_id(user, db), user, db)
+
+
+@enumerator_router.post("", response_model=EnumeratorRead, status_code=status.HTTP_201_CREATED, tags=["enumerators"])
+def create_current_organization_enumerator(
+    payload: EnumeratorCreate, user: CurrentUser, db: Database
+) -> EnumeratorRead:
+    return create_enumerator(_current_organization_admin_org_id(user, db), payload, user, db)
+
+
+@enumerator_router.get("/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
+def get_current_organization_enumerator(
+    membership_id: UUID, user: CurrentUser, db: Database
+) -> EnumeratorRead:
+    return get_enumerator(_current_organization_admin_org_id(user, db), membership_id, user, db)
+
+
+@enumerator_router.patch("/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
+def update_current_organization_enumerator(
+    membership_id: UUID, payload: EnumeratorUpdate, user: CurrentUser, db: Database
+) -> EnumeratorRead:
+    return update_enumerator(_current_organization_admin_org_id(user, db), membership_id, payload, user, db)
+
+
+@enumerator_router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["enumerators"])
+def deactivate_current_organization_enumerator(
+    membership_id: UUID, user: CurrentUser, db: Database
+) -> Response:
+    return deactivate_enumerator(_current_organization_admin_org_id(user, db), membership_id, user, db)
+
+
 # Organization sectors: List → Replace
-@router.get("/{org_id}/sectors")
+@router.get("/{org_id}/sectors", tags=["organization sectors"])
 def list_organization_sectors(org_id: UUID, user: CurrentUser, db: Database) -> list[OrganizationSector]:
     _authorize(org_id, user, db)
     return list(
@@ -270,7 +352,7 @@ def list_organization_sectors(org_id: UUID, user: CurrentUser, db: Database) -> 
     )
 
 
-@router.put("/{org_id}/sectors")
+@router.put("/{org_id}/sectors", tags=["organization sectors"])
 def replace_organization_sectors(
     org_id: UUID, payload: SectorAssignmentRequest, user: CurrentUser, db: Database
 ) -> list[OrganizationSector]:
@@ -295,13 +377,13 @@ def replace_organization_sectors(
 
 
 # Projects: List → Create → Read → Update → Delete (archive)
-@router.get("/{org_id}/projects")
+@router.get("/{org_id}/projects", tags=["projects"])
 def list_projects(org_id: UUID, user: CurrentUser, db: Database) -> list[Project]:
     _authorize(org_id, user, db)
     return list(db.exec(select(Project).where(Project.organization_id == org_id).order_by(Project.created_at.desc())))
 
 
-@router.post("/{org_id}/projects", status_code=status.HTTP_201_CREATED)
+@router.post("/{org_id}/projects", status_code=status.HTTP_201_CREATED, tags=["projects"])
 def create_project(org_id: UUID, payload: ProjectCreate, user: CurrentUser, db: Database) -> Project:
     _authorize(org_id, user, db, admin=True)
     sector = db.get(OrganizationSector, payload.organization_sector_id)
@@ -316,13 +398,13 @@ def create_project(org_id: UUID, payload: ProjectCreate, user: CurrentUser, db: 
     return project
 
 
-@router.get("/{org_id}/projects/{project_id}")
+@router.get("/{org_id}/projects/{project_id}", tags=["projects"])
 def get_project(org_id: UUID, project_id: UUID, user: CurrentUser, db: Database) -> Project:
     _authorize(org_id, user, db)
     return _project(org_id, project_id, db)
 
 
-@router.patch("/{org_id}/projects/{project_id}")
+@router.patch("/{org_id}/projects/{project_id}", tags=["projects"])
 def update_project(org_id: UUID, project_id: UUID, payload: ProjectUpdate, user: CurrentUser, db: Database) -> Project:
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
@@ -340,7 +422,7 @@ def update_project(org_id: UUID, project_id: UUID, payload: ProjectUpdate, user:
     return project
 
 
-@router.delete("/{org_id}/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{org_id}/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["projects"])
 def archive_project(org_id: UUID, project_id: UUID, user: CurrentUser, db: Database) -> Response:
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
@@ -352,13 +434,13 @@ def archive_project(org_id: UUID, project_id: UUID, user: CurrentUser, db: Datab
 
 
 # Locations: List → Create → Read → Update → Delete (deactivate)
-@router.get("/{org_id}/locations")
+@router.get("/{org_id}/locations", tags=["locations"])
 def list_locations(org_id: UUID, user: CurrentUser, db: Database) -> list[Location]:
     _authorize(org_id, user, db)
     return list(db.exec(select(Location).where(Location.organization_id == org_id, Location.is_active)))
 
 
-@router.post("/{org_id}/locations", status_code=status.HTTP_201_CREATED)
+@router.post("/{org_id}/locations", status_code=status.HTTP_201_CREATED, tags=["locations"])
 def create_location(org_id: UUID, payload: LocationCreate, user: CurrentUser, db: Database) -> Location:
     _authorize(org_id, user, db, admin=True)
     if payload.parent_id:
@@ -372,13 +454,13 @@ def create_location(org_id: UUID, payload: LocationCreate, user: CurrentUser, db
     return location
 
 
-@router.get("/{org_id}/locations/{location_id}")
+@router.get("/{org_id}/locations/{location_id}", tags=["locations"])
 def get_location(org_id: UUID, location_id: UUID, user: CurrentUser, db: Database) -> Location:
     _authorize(org_id, user, db)
     return _location(org_id, location_id, db)
 
 
-@router.patch("/{org_id}/locations/{location_id}")
+@router.patch("/{org_id}/locations/{location_id}", tags=["locations"])
 def update_location(
     org_id: UUID, location_id: UUID, payload: LocationUpdate, user: CurrentUser, db: Database
 ) -> Location:
@@ -397,7 +479,7 @@ def update_location(
     return location
 
 
-@router.delete("/{org_id}/locations/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{org_id}/locations/{location_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["locations"])
 def deactivate_location(org_id: UUID, location_id: UUID, user: CurrentUser, db: Database) -> Response:
     _authorize(org_id, user, db, admin=True)
     location = _location(org_id, location_id, db)
@@ -408,13 +490,13 @@ def deactivate_location(org_id: UUID, location_id: UUID, user: CurrentUser, db: 
 
 
 # Assignments: List → Create → Read → Update → Delete (disable)
-@router.get("/{org_id}/assignments")
+@router.get("/{org_id}/assignments", tags=["field assignments"])
 def list_assignments(org_id: UUID, user: CurrentUser, db: Database) -> list[FieldAssignment]:
     _authorize(org_id, user, db, admin=True)
     return list(db.exec(select(FieldAssignment).where(FieldAssignment.organization_id == org_id)))
 
 
-@router.post("/{org_id}/assignments", status_code=status.HTTP_201_CREATED)
+@router.post("/{org_id}/assignments", status_code=status.HTTP_201_CREATED, tags=["field assignments"])
 def create_assignment(org_id: UUID, payload: AssignmentCreate, user: CurrentUser, db: Database) -> FieldAssignment:
     _authorize(org_id, user, db, admin=True)
     membership, project = db.get(OrganizationMembership, payload.membership_id), db.get(Project, payload.project_id)
@@ -431,13 +513,13 @@ def create_assignment(org_id: UUID, payload: AssignmentCreate, user: CurrentUser
     return assignment
 
 
-@router.get("/{org_id}/assignments/{assignment_id}")
+@router.get("/{org_id}/assignments/{assignment_id}", tags=["field assignments"])
 def get_assignment(org_id: UUID, assignment_id: UUID, user: CurrentUser, db: Database) -> FieldAssignment:
     _authorize(org_id, user, db, admin=True)
     return _assignment(org_id, assignment_id, db)
 
 
-@router.patch("/{org_id}/assignments/{assignment_id}")
+@router.patch("/{org_id}/assignments/{assignment_id}", tags=["field assignments"])
 def update_assignment(
     org_id: UUID, assignment_id: UUID, payload: AssignmentUpdate, user: CurrentUser, db: Database
 ) -> FieldAssignment:
@@ -451,7 +533,11 @@ def update_assignment(
     return assignment
 
 
-@router.delete("/{org_id}/assignments/{assignment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{org_id}/assignments/{assignment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["field assignments"],
+)
 def disable_assignment(org_id: UUID, assignment_id: UUID, user: CurrentUser, db: Database) -> Response:
     _authorize(org_id, user, db, admin=True)
     assignment = _assignment(org_id, assignment_id, db)
@@ -462,7 +548,7 @@ def disable_assignment(org_id: UUID, assignment_id: UUID, user: CurrentUser, db:
 
 
 # Branding upload intent (command endpoint; CRUD does not apply)
-@router.post("/{org_id}/uploads/logo-intent")
+@router.post("/{org_id}/uploads/logo-intent", tags=["storage"])
 def create_logo_upload_intent(
     org_id: UUID,
     payload: UploadIntentRequest,

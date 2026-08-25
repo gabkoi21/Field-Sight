@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -9,7 +9,7 @@ import {
   Users,
   UserX,
 } from "lucide-react";
-import { PageHeader } from "../../components/ui";
+import { PageHeader, Ring } from "../../components/ui";
 import {
   AdminMetric,
   AdminPanel,
@@ -57,6 +57,7 @@ function initials(value: string) {
 }
 
 export function UsersPage() {
+  const [showNavigationLoader, setShowNavigationLoader] = useState(true);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<RoleFilter>("All");
   const usersQuery = useQuery({
@@ -121,8 +122,21 @@ export function UsersPage() {
         ? "Unable to load users from the API."
         : "";
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setShowNavigationLoader(false), 350);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
   return (
     <>
+      {showNavigationLoader && (
+        <div className="fixed bottom-0 left-[258px] right-0 top-[74px] z-40 grid place-items-center bg-white/70 backdrop-blur-[1px] max-[1440px]:left-[232px] max-[1050px]:left-0 max-[1050px]:top-16 max-[560px]:top-[58px]" role="status">
+          <span className="inline-flex items-center gap-3 rounded-lg border border-[#e5e9ed] bg-white px-5 py-4 text-sm text-[#526274] shadow-lg">
+            <Ring className="size-5 text-brand" aria-hidden="true" />
+            Loading users…
+          </span>
+        </div>
+      )}
       <PageHeader
         eyebrow="Platform access"
         title="Users & roles"
@@ -209,8 +223,11 @@ export function UsersPage() {
             <tbody>
               {usersQuery.isLoading && (
                 <tr>
-                  <td colSpan={6} className="text-center">
-                    Loading users…
+                  <td colSpan={6} className="py-10 text-center">
+                    <span className="inline-flex items-center gap-2 text-xs text-[#758092]">
+                      <Ring className="size-4 text-brand" aria-hidden="true" />
+                      Loading users…
+                    </span>
                   </td>
                 </tr>
               )}

@@ -16,8 +16,10 @@ import {
   Settings,
   UserCog,
   Users,
+  LogOut,
 } from "lucide-react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 
 interface NavigationItem {
   name: string;
@@ -42,7 +44,7 @@ const navigation: NavSection[] = [
     items: [
       { name: "Forms & sources", path: "/forms", icon: FileText },
       { name: "Submissions", path: "/submissions", icon: FileText },
-      { name: "Field operations", path: "/enumerators", icon: Users },
+      { name: "Field Enumerator", path: "/enumerators", icon: Users },
       { name: "Sync history", path: "/sync", icon: RefreshCw },
     ],
   },
@@ -64,6 +66,8 @@ const navigation: NavSection[] = [
 
 export function AppShell() {
   const [open, setOpen] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const { pathname } = useLocation();
   const page =
     pathname === "/" ? "Dashboard" : pathname.split("/")[1].replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -129,6 +133,15 @@ export function AppShell() {
           </div>
           <MoreHorizontal className="ml-auto" size={17} />
         </div>
+        <button
+          className="mx-3 mb-3 flex items-center gap-2 rounded-[7px] border-0 bg-transparent px-3 py-2 text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"
+          onClick={async () => {
+            await logout();
+            navigate("/login", { replace: true });
+          }}
+        >
+          <LogOut size={16} /> Sign out
+        </button>
       </aside>
       <main className="ml-[258px] min-h-screen max-[1440px]:ml-[232px] max-[1050px]:ml-0">
         <header className="sticky top-0 z-[4] flex h-[74px] w-full items-center justify-between border-b border-line bg-white px-[38px] text-[#657182] shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[1050px]:px-5 max-[560px]:h-[58px] max-[560px]:px-[14px] [@media(max-height:760px)_and_(min-width:1051px)]:h-[58px]">

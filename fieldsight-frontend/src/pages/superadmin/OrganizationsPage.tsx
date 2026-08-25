@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -8,11 +8,12 @@ import {
   MoreVertical,
   Plus,
   Search,
+  Tags,
   Trash2,
   X,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { Button, PageHeader } from "../../components/ui";
+import { Button, PageHeader, Ring } from "../../components/ui";
 import {
   AdminMetric,
   AdminPanel,
@@ -42,6 +43,7 @@ interface OrganizationRow {
 }
 
 export function OrganizationsPage() {
+  const [showNavigationLoader, setShowNavigationLoader] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const {
@@ -148,6 +150,10 @@ export function OrganizationsPage() {
     );
   }, [organizations, query, status]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setShowNavigationLoader(false), 350);
+    return () => window.clearTimeout(timeout);
+  }, []);
   function openCreate() {
     setDrawerClosing(false);
     setDrawerVisible(false);
@@ -255,6 +261,14 @@ export function OrganizationsPage() {
   }
   return (
     <>
+      {showNavigationLoader && (
+        <div className="fixed bottom-0 left-[258px] right-0 top-[74px] z-40 grid place-items-center bg-white/70 backdrop-blur-[1px] max-[1440px]:left-[232px] max-[1050px]:left-0 max-[1050px]:top-16 max-[560px]:top-[58px]" role="status">
+          <span className="inline-flex items-center gap-3 rounded-lg border border-[#e5e9ed] bg-white px-5 py-4 text-sm text-[#526274] shadow-lg">
+            <Ring className="size-5 text-brand" aria-hidden="true" />
+            Loading organizations…
+          </span>
+        </div>
+      )}
       <PageHeader
         eyebrow="Tenant administration"
         title="Organizations"
@@ -350,8 +364,11 @@ export function OrganizationsPage() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={8} className="text-center">
-                    Loading organizations…
+                  <td colSpan={8} className="py-10 text-center">
+                    <span className="inline-flex items-center gap-2 text-xs text-[#758092]">
+                      <Ring className="size-4 text-brand" aria-hidden="true" />
+                      Loading organizations…
+                    </span>
                   </td>
                 </tr>
               )}

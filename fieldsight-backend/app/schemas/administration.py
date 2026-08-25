@@ -52,6 +52,7 @@ class UserDirectoryItem(BaseModel):
     id: UUID
     email: str
     username: str | None
+    full_name: str | None
     is_active: bool
     platform_role: str | None
     created_at: datetime

@@ -8,7 +8,7 @@ This is the approved contract for Phase 1 implementation. It turns the decisions
 
 | Concern | Decision for the current build |
 | --- | --- |
-| Web API | FastAPI REST API, versioned under `/api/v1` |
+| Web API | FastAPI REST API, exposed at the API root |
 | Persistence | SQLModel table models with Alembic migrations |
 | Current database | SQLite at `sqlite:///./fieldsight.db` |
 | Validation | Pydantic v2 request and response schemas, separate from table models |
@@ -83,7 +83,7 @@ OrganizationSector 1 ──< Project
 
 ## 4. Initial public API contract
 
-All endpoints live below `/api/v1`. Error response shape:
+All endpoints are exposed at the API root. Error response shape:
 
 ```json
 {

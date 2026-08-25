@@ -251,7 +251,7 @@ export function OrganizationDashboardPage() {
             {project} · {location} · {period}
           </p>
         </div>
-        <div className="flex gap-[7px] max-[900px]:items-center max-[700px]:w-full max-[700px]:flex-wrap max-[600px]:grid max-[600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-[600px]:gap-[6px]">
+        <div className="flex gap-[7px] max-[900px]:items-center max-[700px]:w-full max-[700px]:flex-wrap max-[600px]:grid max-[600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-[600px]:gap-[6px] ">
           <label className={selectStyles}>
             <FolderCheck size={15} />
             <select
@@ -305,41 +305,6 @@ export function OrganizationDashboardPage() {
           </button>
         </div>
       </div>
-
-      <section
-        className="flex items-center gap-[12px] rounded-[6px] border border-[#f0d8b8] bg-[#fffbf4] px-[15px] py-[13px] max-[900px]:flex-wrap max-[900px]:items-start"
-        aria-label="Today’s operations briefing"
-      >
-        <span className="grid size-[34px] place-items-center rounded-full bg-[#fff0dc] text-[#ca792b]">
-          <AlertTriangle size={19} />
-        </span>
-        <div className="flex-1">
-          <strong className="block text-[13px] text-[#4b3825]">3 items require attention today</strong>
-          <p className="mb-0 mt-[3px] text-[12px] text-[#80664d]">
-            24 high-risk records, 1 delayed sync, and 3 locations below target.
-          </p>
-        </div>
-        <div className="flex gap-[7px] max-[900px]:w-full max-[900px]:pl-[46px] max-[600px]:flex-wrap max-[600px]:pl-0">
-          <button
-            className="rounded-[5px] border border-[#ecd7ba] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-[normal] text-[#965c26]"
-            onClick={() => navigate("/quality")}
-          >
-            Review records
-          </button>
-          <button
-            className="rounded-[5px] border border-[#ecd7ba] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-[normal] text-[#965c26]"
-            onClick={() => navigate("/sync")}
-          >
-            Check sync
-          </button>
-          <button
-            className="rounded-[5px] border border-[#ecd7ba] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-[normal] text-[#965c26]"
-            onClick={() => navigate("/analytics")}
-          >
-            View coverage
-          </button>
-        </div>
-      </section>
 
       <section
         className="flex items-center gap-[11px] px-[2px] text-[11px] text-[#71808e] max-[900px]:flex-wrap max-[900px]:gap-[7px] [&_strong]:text-[#465667] [&_svg]:text-[#0b51b7]"

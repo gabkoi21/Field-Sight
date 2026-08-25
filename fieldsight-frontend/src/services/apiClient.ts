@@ -16,6 +16,7 @@ export interface ApiUserDirectoryItem {
   id: string;
   email: string;
   username: string | null;
+  full_name: string | null;
   is_active: boolean;
   platform_role: Role | null;
   created_at: string;
@@ -72,9 +73,22 @@ export interface SectorUpdateInput {
 }
 
 export interface EnumeratorCreateInput {
+  full_name: string;
   email: string;
   username: string;
   password: string;
+  phone_number?: string;
+  employee_id?: string;
+  gender?: string;
+  date_of_birth?: string;
+  address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  notes?: string;
+}
+
+export interface EnumeratorUpdateInput {
+  is_active: boolean;
 }
 
 export interface ApiEnumerator {
@@ -82,6 +96,15 @@ export interface ApiEnumerator {
   membership_id: string;
   email: string;
   username: string | null;
+  full_name: string | null;
+  phone_number: string | null;
+  employee_id: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  notes: string | null;
   role: "enumerator";
   is_active: boolean;
   created_at: string;
@@ -118,20 +141,44 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1"
+  import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 const ACCESS_TOKEN_KEY = "fieldsight_access_token";
+const SESSION_EXPIRED_EVENT = "fieldsight-session-expired";
+const REFRESH_LEEWAY_MS = 60_000;
 
 let accessToken =
   localStorage.getItem(ACCESS_TOKEN_KEY) ??
   sessionStorage.getItem(ACCESS_TOKEN_KEY);
+let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
+let refreshInFlight: Promise<boolean> | null = null;
+
+function scheduleAccessTokenRefresh(token: string) {
+  if (refreshTimer) window.clearTimeout(refreshTimer);
+  try {
+    const encoded = token.split(".")[1];
+    const padded = encoded
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+    const { exp } = JSON.parse(window.atob(padded)) as { exp?: number };
+    if (!exp) return;
+    const delay = Math.max(0, exp * 1000 - Date.now() - REFRESH_LEEWAY_MS);
+    refreshTimer = window.setTimeout(() => void refreshAccessToken(), delay);
+  } catch {
+    // The normal 401 retry remains available if a token cannot be decoded.
+  }
+}
 
 function saveAccessToken(token: string | null, remember = false) {
+  if (refreshTimer) window.clearTimeout(refreshTimer);
+  refreshTimer = null;
   accessToken = token;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   if (token)
     (remember ? localStorage : sessionStorage).setItem(ACCESS_TOKEN_KEY, token);
+  if (token) scheduleAccessTokenRefresh(token);
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -165,20 +212,28 @@ async function parseError(response: Response): Promise<ApiError> {
 }
 
 async function refreshAccessToken(): Promise<boolean> {
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const remembered = localStorage.getItem(ACCESS_TOKEN_KEY) !== null;
+    const response = await fetch(API_BASE_URL + "/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) {
+      saveAccessToken(null);
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+      return false;
+    }
+    const body = (await response.json()) as { access_token: string };
+    saveAccessToken(body.access_token, remembered);
+    return true;
+  })().finally(() => {
+    refreshInFlight = null;
   });
-  if (!response.ok) {
-    saveAccessToken(null);
-    return false;
-  }
-  const body = (await response.json()) as { access_token: string };
-  const remembered = localStorage.getItem(ACCESS_TOKEN_KEY) !== null;
-  saveAccessToken(body.access_token, remembered);
-  return true;
+  return refreshInFlight;
 }
 
+if (accessToken) scheduleAccessTokenRefresh(accessToken);
 async function request<T>(
   path: string,
   init: RequestInit = {},
@@ -263,18 +318,20 @@ export const apiClient = {
   live: () => request<{ status: string }>("/health/live"),
   ready: () => request<ReadinessStatus>("/health/ready"),
   status: () => request<ApiStatus>("/status"),
-  enumerators: (organizationId: string) =>
-    request<ApiEnumerator[]>(`/organizations/${organizationId}/enumerators`),
-  createEnumerator: (organizationId: string, input: EnumeratorCreateInput) =>
-    request<ApiEnumerator>(`/organizations/${organizationId}/enumerators`, {
+  enumerators: () => request<ApiEnumerator[]>("/enumerators"),
+  enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
+  updateEnumerator: (membershipId: string, input: EnumeratorUpdateInput) =>
+    request<ApiEnumerator>(`/enumerators/${membershipId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  createEnumerator: (input: EnumeratorCreateInput) =>
+    request<ApiEnumerator>("/enumerators", {
       method: "POST",
       body: JSON.stringify(input),
     }),
-  deactivateEnumerator: (organizationId: string, membershipId: string) =>
-    request<void>(
-      `/organizations/${organizationId}/enumerators/${membershipId}`,
-      {
-        method: "DELETE",
-      },
-    ),
+  deactivateEnumerator: (membershipId: string) =>
+    request<void>(`/enumerators/${membershipId}`, {
+      method: "DELETE",
+    }),
 };

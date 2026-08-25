@@ -33,14 +33,14 @@ def test_login_cookie_can_refresh_on_versioned_auth_route(tmp_path: Path) -> Non
     client = TestClient(app)
 
     login = client.post(
-        "/api/v1/auth/login",
+        "/auth/login",
         json={"login": "superadmin", "password": "SuperAdmin123!"},
     )
 
     assert login.status_code == 200
-    assert "Path=/api/v1/auth" in login.headers["set-cookie"]
+    assert "Path=/auth" in login.headers["set-cookie"]
 
-    refreshed = client.post("/api/v1/auth/refresh")
+    refreshed = client.post("/auth/refresh")
 
     assert refreshed.status_code == 200
     assert refreshed.json()["access_token"]

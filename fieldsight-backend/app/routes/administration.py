@@ -47,6 +47,7 @@ def list_users(_: Annotated[User, Depends(require_super_admin)], db: Database) -
             id=user.id,
             email=user.email,
             username=user.username,
+            full_name=user.full_name,
             is_active=user.is_active,
             platform_role=user.platform_role.value if user.platform_role else None,
             created_at=user.created_at,
