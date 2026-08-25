@@ -13,7 +13,14 @@ from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, Role, Sector, User
 from app.models.phase3 import OrganizationSettings
 from app.routes.auth import get_current_user
-from app.schemas.administration import OrganizationCreate, OrganizationListItem, SectorCreate, SectorUpdate
+from app.schemas.administration import (
+    OrganizationCreate,
+    OrganizationListItem,
+    SectorCreate,
+    SectorUpdate,
+    UserDirectoryItem,
+    UserOrganizationAccess,
+)
 
 router = APIRouter()
 Database = Annotated[Session, Depends(get_session)]
@@ -24,6 +31,37 @@ def require_super_admin(user: CurrentUser) -> User:
     if user.platform_role != Role.SUPER_ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super administrator permission is required.")
     return user
+
+
+# Users: platform-wide directory for Super Admin access management.
+@router.get("/users", response_model=list[UserDirectoryItem])
+def list_users(_: Annotated[User, Depends(require_super_admin)], db: Database) -> list[UserDirectoryItem]:
+    users = db.exec(select(User).order_by(User.created_at.desc())).all()
+    organizations = {row.id: row.name for row in db.exec(select(Organization)).all()}
+    memberships = db.exec(select(OrganizationMembership)).all()
+    memberships_by_user: dict[UUID, list[OrganizationMembership]] = {}
+    for membership in memberships:
+        memberships_by_user.setdefault(membership.user_id, []).append(membership)
+    return [
+        UserDirectoryItem(
+            id=user.id,
+            email=user.email,
+            username=user.username,
+            is_active=user.is_active,
+            platform_role=user.platform_role.value if user.platform_role else None,
+            created_at=user.created_at,
+            memberships=[
+                UserOrganizationAccess(
+                    organization_id=membership.organization_id,
+                    organization_name=organizations.get(membership.organization_id, "Unknown organization"),
+                    role=membership.role.value,
+                    is_active=membership.is_active,
+                )
+                for membership in memberships_by_user.get(user.id, [])
+            ],
+        )
+        for user in users
+    ]
 
 
 # Sectors: Create → Read → Update → Delete (list is public-to-authenticated in sectors.py)
@@ -121,7 +159,7 @@ def create_organization(
         raise HTTPException(status_code=409, detail="Organization slug already exists.")
     if db.exec(select(User).where(User.email == owner_email)).first():
         raise HTTPException(status_code=409, detail="Owner email already exists.")
-    if db.exec(select(User).where(User.username == payload.owner_username)).first():
+    if payload.owner_username and db.exec(select(User).where(User.username == payload.owner_username)).first():
         raise HTTPException(status_code=409, detail="Owner username already exists.")
     requested_sector_ids = set(payload.sector_ids)
     sectors = db.exec(select(Sector).where(Sector.id.in_(requested_sector_ids), Sector.is_active)).all()
@@ -140,7 +178,7 @@ def create_organization(
         OrganizationMembership(
             organization_id=organization.id,
             user_id=owner.id,
-            role=Role.ORGANIZATION_ADMIN,
+            role=Role(payload.owner_role),
         )
     )
     db.add(

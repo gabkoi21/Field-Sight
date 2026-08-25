@@ -18,7 +18,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
 
     with Session(engine) as db:
         super_admin = User(
-            email="super@example.com",
+            email="superadmin@fieldsight.local",
             password_hash=password_hasher.hash("SuperAdmin123!"),
             platform_role=Role.SUPER_ADMIN,
         )
@@ -48,8 +48,8 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
             "name": "Community Health Initiative",
             "slug": "community-health-demo",
             "owner_email": "owner@example.com",
-            "owner_username": "edu@gmail.com",
             "owner_password": "OwnerPass123!",
+            "owner_role": "organization_admin",
             "sector_ids": [str(sector_id)],
             "country": "Liberia",
             "timezone": "Africa/Monrovia",
@@ -66,6 +66,81 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert organization["timezone"] == "Africa/Monrovia"
     assert organization["owner_email"] == "owner@example.com"
     assert organization["sector_ids"] == [str(sector_id)]
+
+    directory = TestClient(app).get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
+    assert directory.status_code == 200
+    users = directory.json()
+    assert len(users) == 2
+    owner_entry = next(user for user in users if user["email"] == "owner@example.com")
+    assert owner_entry["username"] is None
+    assert owner_entry["platform_role"] is None
+    assert owner_entry["memberships"] == [
+        {
+            "organization_id": response.json()["organization_id"],
+            "organization_name": "Community Health Initiative",
+            "role": "organization_admin",
+            "is_active": True,
+        }
+    ]
+
+    with Session(engine) as db:
+        owner_account = db.exec(select(User).where(User.email == "owner@example.com")).one()
+        owner_refresh = RefreshSession(
+            user_id=owner_account.id,
+            token_hash="organization-admin-enumerator-token",
+            expires_at=datetime.now(UTC) + timedelta(days=1),
+        )
+        db.add(owner_refresh)
+        db.commit()
+        owner_token = create_access_token(owner_account.id, owner_refresh.id, settings)
+
+    forbidden_directory = TestClient(app).get(
+        "/api/v1/users",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert forbidden_directory.status_code == 403
+
+    organization_id = response.json()["organization_id"]
+    enumerator = TestClient(app).post(
+        f"/api/v1/organizations/{organization_id}/enumerators",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={
+            "email": "enumerator@example.com",
+            "username": "field.enumerator",
+            "password": "EnumeratorPass123!",
+        },
+    )
+    assert enumerator.status_code == 201
+    assert enumerator.json()["role"] == "enumerator"
+    assert enumerator.json()["is_active"] is True
+
+    complete_directory = TestClient(app).get(
+        "/api/v1/users",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert complete_directory.status_code == 200
+    complete_users = complete_directory.json()
+    assert len(complete_users) == 3
+    enumerator_entry = next(user for user in complete_users if user["email"] == "enumerator@example.com")
+    assert enumerator_entry["memberships"][0]["role"] == "enumerator"
+
+    enumerator_list = TestClient(app).get(
+        f"/api/v1/organizations/{organization_id}/enumerators",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert enumerator_list.status_code == 200
+    assert enumerator_list.json()[0]["email"] == "enumerator@example.com"
+
+    super_admin_create = TestClient(app).post(
+        f"/api/v1/organizations/{organization_id}/enumerators",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "email": "blocked@example.com",
+            "username": "blocked.enumerator",
+            "password": "EnumeratorPass123!",
+        },
+    )
+    assert super_admin_create.status_code == 404
 
     updated = TestClient(app).patch(
         f"/api/v1/organizations/{response.json()['organization_id']}",
@@ -90,7 +165,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     with Session(engine) as db:
         owner = db.exec(select(User).where(User.email == "owner@example.com")).one()
         membership = db.exec(select(OrganizationMembership).where(OrganizationMembership.user_id == owner.id)).one()
-        assert owner.username == "edu@gmail.com"
+        assert owner.username is None
         assert membership.is_active
         assert membership.role == Role.ORGANIZATION_ADMIN
         assert password_hasher.verify("OwnerPass123!", owner.password_hash)

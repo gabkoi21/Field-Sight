@@ -1,5 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { RequireOrganizationMember, RequireSuperAdmin } from "../auth/RouteGuards";
+import {
+  RequireOrganizationMember,
+  RequireSuperAdmin,
+} from "../auth/RouteGuards";
 import { AppShell } from "../components/layout/AppShell";
 import { ExploreAnalyzePage } from "../pages/organization/ExploreAnalyzePage";
 import { LoginPage } from "../pages/auth/LoginPage";
@@ -16,6 +19,7 @@ import {
   BillingPage,
   OrganizationsPage,
   PlatformSettingsPage,
+  SectorsPage,
   SuperAdminDashboardPage,
   SuperAdminShell,
   SystemHealthPage,
@@ -28,16 +32,30 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/superadmin" element={<RequireSuperAdmin><SuperAdminShell /></RequireSuperAdmin>}>
+      <Route
+        path="/superadmin"
+        element={
+          <RequireSuperAdmin>
+            <SuperAdminShell />
+          </RequireSuperAdmin>
+        }
+      >
         <Route index element={<SuperAdminDashboardPage />} />
         <Route path="organizations" element={<OrganizationsPage />} />
+        <Route path="sectors" element={<SectorsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="billing" element={<BillingPage />} />
         <Route path="system" element={<SystemHealthPage />} />
         <Route path="audit" element={<AuditLogPage />} />
         <Route path="settings" element={<PlatformSettingsPage />} />
       </Route>
-      <Route element={<RequireOrganizationMember><AppShell /></RequireOrganizationMember>}>
+      <Route
+        element={
+          <RequireOrganizationMember>
+            <AppShell />
+          </RequireOrganizationMember>
+        }
+      >
         <Route index element={<OrganizationDashboardPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />

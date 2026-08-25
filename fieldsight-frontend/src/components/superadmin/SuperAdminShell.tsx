@@ -5,7 +5,6 @@ import {
   Bell,
   Building2,
   CircleDollarSign,
-  FileClock,
   HelpCircle,
   LayoutDashboard,
   LogOut,
@@ -35,28 +34,47 @@ const navigation: NavigationSection[] = [
   {
     label: "Platform",
     items: [
-      { label: "Dashboard", path: "/superadmin", icon: LayoutDashboard, end: true },
-      { label: "Organizations", path: "/superadmin/organizations", icon: Building2 },
+      {
+        label: "Dashboard",
+        path: "/superadmin",
+        icon: LayoutDashboard,
+        end: true,
+      },
+      {
+        label: "Organizations",
+        path: "/superadmin/organizations",
+        icon: Building2,
+      },
       { label: "Users & roles", path: "/superadmin/users", icon: Users },
     ],
   },
   {
     label: "Operations",
     items: [
-      { label: "Billing & plans", path: "/superadmin/billing", icon: CircleDollarSign },
+      {
+        label: "Billing & plans",
+        path: "/superadmin/billing",
+        icon: CircleDollarSign,
+      },
       { label: "System health", path: "/superadmin/system", icon: Server },
-      { label: "Audit log", path: "/superadmin/audit", icon: FileClock },
     ],
   },
   {
     label: "Configuration",
-    items: [{ label: "Platform settings", path: "/superadmin/settings", icon: Settings }],
+    items: [
+      {
+        label: "Platform settings",
+        path: "/superadmin/settings",
+        icon: Settings,
+      },
+    ],
   },
 ];
 
 const pageTitles: Record<string, string> = {
   "/superadmin": "Platform overview",
   "/superadmin/organizations": "Organizations",
+  "/superadmin/sectors": "Sectors",
   "/superadmin/users": "Users & roles",
   "/superadmin/billing": "Billing & plans",
   "/superadmin/system": "System health",
@@ -67,10 +85,13 @@ const pageTitles: Record<string, string> = {
 export function SuperAdminShell() {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileClosing, setProfileClosing] = useState(false);
   const [profileVisible, setProfileVisible] = useState(false);
-  const [profileName, setProfileName] = useState(user?.username ?? "Super Admin");
+  const [profileName, setProfileName] = useState(
+    user?.username ?? "Super Admin",
+  );
   const [profileEmail, setProfileEmail] = useState(user?.email ?? "");
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -118,10 +139,16 @@ export function SuperAdminShell() {
         </NavLink>
 
         <div className="mx-4 mb-3 flex flex-none items-center gap-2.5 rounded-[9px] border border-[#234d82] bg-[#103564] p-3 max-[1440px]:mx-3">
-          <span className="grid size-[30px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15]">SA</span>
+          <span className="grid size-[30px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15]">
+            SA
+          </span>
           <div className="min-w-0">
-            <small className="block text-[9px] font-semibold tracking-[.1em] text-[#91a9bb]">PLATFORM</small>
-            <strong className="block truncate text-xs text-white">Super Administration</strong>
+            <small className="block text-[9px] font-semibold tracking-[.1em] text-[#91a9bb]">
+              PLATFORM
+            </small>
+            <strong className="block truncate text-xs text-white">
+              Super Administration
+            </strong>
           </div>
           <ShieldCheck className="ml-auto text-[#8db6f5]" size={15} />
         </div>
@@ -159,7 +186,10 @@ export function SuperAdminShell() {
           </NavLink>
           <button
             className="flex w-full items-center gap-3 rounded-[7px] border-0 bg-transparent px-[13px] py-2.5 text-left text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"
-            onClick={async () => { await logout(); navigate("/login", { replace: true }); }}
+            onClick={async () => {
+              await logout();
+              navigate("/login", { replace: true });
+            }}
           >
             <LogOut size={17} /> Sign out
           </button>
@@ -178,12 +208,31 @@ export function SuperAdminShell() {
             </button>
             <span>Super admin</span>
             <i className="not-italic text-[#d0d5dc]">/</i>
-            <strong className="font-medium text-[#1b2836] max-[560px]:hidden">{pageTitle}</strong>
+            <strong className="font-medium text-[#1b2836] max-[560px]:hidden">
+              {pageTitle}
+            </strong>
           </div>
           <div className="flex items-center gap-4 text-[#657182]">
-            <button aria-label="Search" className="border-0 bg-transparent p-0 text-inherit"><Search size={18} /></button>
-            <button aria-label="Notifications" className="relative border-0 bg-transparent p-0 text-inherit after:absolute after:-right-0.5 after:-top-0.5 after:size-1.5 after:rounded-full after:bg-[#d85962] after:content-['']"><Bell size={18} /></button>
-            <button type="button" onClick={openProfile} className="grid size-8 place-items-center rounded-full border-2 border-white bg-[#d9af63] p-0 text-[10px] font-bold text-[#563d15] shadow-[0_2px_8px_rgba(177,124,38,.35)] transition hover:scale-105 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#71808e]" aria-label="Open profile settings">GA</button>
+            <button
+              aria-label="Search"
+              className="border-0 bg-transparent p-0 text-inherit"
+            >
+              <Search size={18} />
+            </button>
+            <button
+              aria-label="Notifications"
+              className="relative border-0 bg-transparent p-0 text-inherit after:absolute after:-right-0.5 after:-top-0.5 after:size-1.5 after:rounded-full after:bg-[#d85962] after:content-['']"
+            >
+              <Bell size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={openProfile}
+              className="grid size-8 place-items-center rounded-full border-2 border-white bg-[#d9af63] p-0 text-[10px] font-bold text-[#563d15] shadow-[0_2px_8px_rgba(177,124,38,.35)] transition hover:scale-105 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#71808e]"
+              aria-label="Open profile settings"
+            >
+              GA
+            </button>
           </div>
         </header>
         <div className="mx-auto max-w-[1560px] p-[34px_38px_48px] max-[1440px]:p-7 max-[700px]:p-4">
@@ -191,11 +240,93 @@ export function SuperAdminShell() {
         </div>
       </main>
       {profileOpen && (
-        <div className={`fixed inset-0 z-50 bg-[rgba(16,42,67,.23)] transition-opacity ${profileClosing ? "duration-[220ms] ease-in" : "duration-[220ms] ease-out"} ${profileVisible ? "opacity-100" : "opacity-0"}`} onClick={closeProfile}>
-          <form className={`absolute bottom-0 right-0 top-0 flex w-[min(470px,100%)] flex-col bg-white text-[#25324a] shadow-[-16px_0_35px_rgba(16,42,67,.18)] transition-[opacity,transform] max-[460px]:w-full ${profileClosing ? "translate-x-[36px] opacity-0 duration-[220ms] ease-[cubic-bezier(.4,0,1,1)]" : `${profileVisible ? "translate-x-0 opacity-100" : "translate-x-[36px] opacity-0"} duration-[280ms] ease-[cubic-bezier(.22,1,.36,1)]`}`} onClick={(event) => event.stopPropagation()} onSubmit={saveProfile}>
-            <header className="!flex !items-start !justify-between !border-b !border-[#e8edf4] !bg-white !px-[22px] !py-[20px]"><div><p className="!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase">PROFILE SETTINGS</p><h2 className="!m-0 !mb-[6px] !mt-[4px] text-[21px] font-normal tracking-[-.3px] text-[#303e67]">Update profile</h2><p className="!m-0 text-[11px] text-[#8391a5]">Manage your platform administrator details.</p></div><button className="cursor-pointer border-0 bg-transparent p-0 text-[#8290a2]" type="button" onClick={closeProfile} aria-label="Close profile form">×</button></header>
-            <div className="flex flex-1 flex-col gap-[15px] overflow-auto px-[22px] py-[21px]"><div className="flex items-center gap-[11px] rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px]"><span className="grid size-10 place-items-center rounded-full bg-[#d9af63] text-[11px] font-bold text-[#563d15]">GA</span><div><strong className="block text-[12px] text-[#48586e]">Platform administrator</strong><small className="text-[10px] text-[#8997a9]">Full platform access</small></div></div><label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Full name<input className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]" value={profileName} onChange={(event) => setProfileName(event.target.value)} required /></label><label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Email address<input className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]" type="email" value={profileEmail} onChange={(event) => setProfileEmail(event.target.value)} required /></label><label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">Role<input className="min-h-[36px] w-full cursor-not-allowed rounded-[5px] border border-[#e2e7ec] bg-[#f7f9fb] px-[9px] text-[12px] text-[#84909b] outline-none" value="Super Admin" readOnly /></label></div>
-            <footer className="flex justify-end gap-[8px] border-t border-[#e8edf4] bg-white px-[22px] py-[14px]"><button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold text-[#5b6a7e]" type="button" onClick={closeProfile}>Cancel</button><button className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold text-white" type="submit">Save changes</button></footer>
+        <div
+          className={`fixed inset-0 z-50 bg-[rgba(16,42,67,.23)] transition-opacity ${profileClosing ? "duration-[220ms] ease-in" : "duration-[220ms] ease-out"} ${profileVisible ? "opacity-100" : "opacity-0"}`}
+          onClick={closeProfile}
+        >
+          <form
+            className={`absolute bottom-0 right-0 top-0 flex w-[min(470px,100%)] flex-col bg-white text-[#25324a] shadow-[-16px_0_35px_rgba(16,42,67,.18)] transition-[opacity,transform] max-[460px]:w-full ${profileClosing ? "translate-x-[36px] opacity-0 duration-[220ms] ease-[cubic-bezier(.4,0,1,1)]" : `${profileVisible ? "translate-x-0 opacity-100" : "translate-x-[36px] opacity-0"} duration-[280ms] ease-[cubic-bezier(.22,1,.36,1)]`}`}
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={saveProfile}
+          >
+            <header className="!flex !items-start !justify-between !border-b !border-[#e8edf4] !bg-white !px-[22px] !py-[20px]">
+              <div>
+                <p className="!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase">
+                  PROFILE SETTINGS
+                </p>
+                <h2 className="!m-0 !mb-[6px] !mt-[4px] text-[21px] font-normal tracking-[-.3px] text-[#303e67]">
+                  Update profile
+                </h2>
+                <p className="!m-0 text-[11px] text-[#8391a5]">
+                  Manage your platform administrator details.
+                </p>
+              </div>
+              <button
+                className="cursor-pointer border-0 bg-transparent p-0 text-[#8290a2]"
+                type="button"
+                onClick={closeProfile}
+                aria-label="Close profile form"
+              >
+                ×
+              </button>
+            </header>
+            <div className="flex flex-1 flex-col gap-[15px] overflow-auto px-[22px] py-[21px]">
+              <div className="flex items-center gap-[11px] rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px]">
+                <span className="grid size-10 place-items-center rounded-full bg-[#d9af63] text-[11px] font-bold text-[#563d15]">
+                  GA
+                </span>
+                <div>
+                  <strong className="block text-[12px] text-[#48586e]">
+                    Platform administrator
+                  </strong>
+                  <small className="text-[10px] text-[#8997a9]">
+                    Full platform access
+                  </small>
+                </div>
+              </div>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+                Full name
+                <input
+                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
+                  value={profileName}
+                  onChange={(event) => setProfileName(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+                Email address
+                <input
+                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
+                  type="email"
+                  value={profileEmail}
+                  onChange={(event) => setProfileEmail(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+                Role
+                <input
+                  className="min-h-[36px] w-full cursor-not-allowed rounded-[5px] border border-[#e2e7ec] bg-[#f7f9fb] px-[9px] text-[12px] text-[#84909b] outline-none"
+                  value="Super Admin"
+                  readOnly
+                />
+              </label>
+            </div>
+            <footer className="flex justify-end gap-[8px] border-t border-[#e8edf4] bg-white px-[22px] py-[14px]">
+              <button
+                className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold text-[#5b6a7e]"
+                type="button"
+                onClick={closeProfile}
+              >
+                Cancel
+              </button>
+              <button
+                className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold text-white"
+                type="submit"
+              >
+                Save changes
+              </button>
+            </footer>
           </form>
         </div>
       )}

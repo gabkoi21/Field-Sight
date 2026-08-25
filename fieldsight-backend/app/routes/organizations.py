@@ -18,7 +18,7 @@ from app.models.identity import Organization, OrganizationMembership, Organizati
 from app.models.phase3 import FieldAssignment, Location, OrganizationSettings, Project, ProjectStatus
 from app.routes.auth import get_current_user
 from app.schemas.crud import AssignmentUpdate, EnumeratorUpdate, LocationUpdate, ProjectUpdate
-from app.schemas.enumerators import EnumeratorCreate
+from app.schemas.enumerators import EnumeratorCreate, EnumeratorRead
 from app.schemas.organizations import (
     AssignmentCreate,
     LocationCreate,
@@ -91,29 +91,11 @@ def _assignment(org_id: UUID, assignment_id: UUID, db: Session) -> FieldAssignme
     return assignment
 
 
-# Organizations: List accessible organizations.
-@organization_lookup_router.get("")
-def get_all_organizations(user: CurrentUser, db: Database) -> list[Organization]:
-    query = select(Organization).where(Organization.is_active)
-    if user.platform_role != Role.SUPER_ADMIN:
-        query = query.join(OrganizationMembership).where(
-            OrganizationMembership.user_id == user.id,
-            OrganizationMembership.is_active,
-        )
-    return list(db.exec(query.order_by(Organization.name)))
-
-
 # Organization: Read → Update (platform Create/Delete are in administration.py)
 @router.get("/{org_id}")
 def get_organization(org_id: UUID, user: CurrentUser, db: Database) -> Organization:
     _authorize(org_id, user, db)
     return _organization(org_id, db)
-
-
-# Singular organization lookup for direct profile access.
-@organization_lookup_router.get("/{org_id}")
-def get_organization_by_id(org_id: UUID, user: CurrentUser, db: Database) -> Organization:
-    return get_organization(org_id, user, db)
 
 
 @router.patch("/{org_id}")
@@ -191,23 +173,46 @@ def list_members(org_id: UUID, user: CurrentUser, db: Database) -> list[Organiza
     return list(db.exec(select(OrganizationMembership).where(OrganizationMembership.organization_id == org_id)))
 
 
-# Enumerators: List → Create → Read → Update → Delete (deactivate)
-@router.get("/{org_id}/enumerators")
-def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[OrganizationMembership]:
-    _authorize(org_id, user, db, admin=True)
-    return list(
-        db.exec(
-            select(OrganizationMembership).where(
-                OrganizationMembership.organization_id == org_id,
-                OrganizationMembership.role == Role.ENUMERATOR,
-            )
-        )
+# Enumerators: managed only by an active Organization Admin membership.
+def _authorize_organization_admin(org_id: UUID, user: User, db: Session) -> OrganizationMembership:
+    membership = _membership(org_id, user, db)
+    if membership is None:
+        raise HTTPException(status_code=404, detail="Organization was not found.")
+    if membership.role != Role.ORGANIZATION_ADMIN:
+        raise HTTPException(status_code=403, detail="Organization administrator permission is required.")
+    return membership
+
+
+def _enumerator_read(membership: OrganizationMembership, db: Session) -> EnumeratorRead:
+    account = db.get(User, membership.user_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Enumerator account was not found.")
+    return EnumeratorRead(
+        user_id=account.id,
+        membership_id=membership.id,
+        email=account.email,
+        username=account.username,
+        role=membership.role.value,
+        is_active=account.is_active and membership.is_active,
+        created_at=membership.created_at,
     )
 
 
-@router.post("/{org_id}/enumerators", status_code=status.HTTP_201_CREATED)
-def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser, db: Database) -> dict[str, object]:
-    _authorize(org_id, user, db, admin=True)
+@router.get("/{org_id}/enumerators", response_model=list[EnumeratorRead])
+def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[EnumeratorRead]:
+    _authorize_organization_admin(org_id, user, db)
+    memberships = db.exec(
+        select(OrganizationMembership).where(
+            OrganizationMembership.organization_id == org_id,
+            OrganizationMembership.role == Role.ENUMERATOR,
+        )
+    ).all()
+    return [_enumerator_read(membership, db) for membership in memberships]
+
+
+@router.post("/{org_id}/enumerators", response_model=EnumeratorRead, status_code=status.HTTP_201_CREATED)
+def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser, db: Database) -> EnumeratorRead:
+    _authorize_organization_admin(org_id, user, db)
     _organization(org_id, db)
     email = str(payload.email).lower()
     if db.exec(select(User).where(User.email == email)).first():
@@ -221,38 +226,32 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
     db.add(membership)
     db.commit()
     db.refresh(membership)
-    return {
-        "user_id": str(enumerator.id),
-        "membership_id": str(membership.id),
-        "email": enumerator.email,
-        "username": enumerator.username,
-        "role": membership.role.value,
-    }
+    return _enumerator_read(membership, db)
 
 
-@router.get("/{org_id}/enumerators/{membership_id}")
-def get_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> OrganizationMembership:
-    _authorize(org_id, user, db, admin=True)
-    return _enumerator(org_id, membership_id, db)
+@router.get("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead)
+def get_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> EnumeratorRead:
+    _authorize_organization_admin(org_id, user, db)
+    return _enumerator_read(_enumerator(org_id, membership_id, db), db)
 
 
-@router.patch("/{org_id}/enumerators/{membership_id}")
+@router.patch("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead)
 def update_enumerator(
     org_id: UUID, membership_id: UUID, payload: EnumeratorUpdate, user: CurrentUser, db: Database
-) -> OrganizationMembership:
-    _authorize(org_id, user, db, admin=True)
+) -> EnumeratorRead:
+    _authorize_organization_admin(org_id, user, db)
     membership = _enumerator(org_id, membership_id, db)
     if payload.is_active is not None:
         membership.is_active = payload.is_active
     db.add(membership)
     db.commit()
     db.refresh(membership)
-    return membership
+    return _enumerator_read(membership, db)
 
 
 @router.delete("/{org_id}/enumerators/{membership_id}", status_code=status.HTTP_204_NO_CONTENT)
 def deactivate_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> Response:
-    _authorize(org_id, user, db, admin=True)
+    _authorize_organization_admin(org_id, user, db)
     membership = _enumerator(org_id, membership_id, db)
     membership.is_active = False
     db.add(membership)

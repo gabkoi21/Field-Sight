@@ -1,7 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Bell, CheckCircle2, Database, KeyRound, Mail, Save, ShieldCheck } from "lucide-react";
+import { Bell, CheckCircle2, Database, KeyRound, Mail, Save, ShieldCheck, Tags } from "lucide-react";
 import { Button, PageHeader } from "../../components/ui";
 import { AdminPanel, adminInputClass } from "../../components/superadmin/AdminUi";
+import { useNavigate } from "react-router-dom";
 
 function Toggle({ checked, onChange, label, detail }: { checked: boolean; onChange: (checked: boolean) => void; label: string; detail: string }) {
   return <label className="flex cursor-pointer items-center gap-4 border-b border-line py-4 last:border-b-0"><button type="button" role="switch" aria-checked={checked} className={`relative h-[22px] w-10 flex-none rounded-full border-0 transition-colors ${checked ? "bg-brand" : "bg-[#cfd6df]"}`} onClick={() => onChange(!checked)}><span className={`absolute top-[3px] size-4 rounded-full bg-white shadow transition-transform ${checked ? "left-[21px]" : "left-[3px]"}`} /></button><span><strong className="block text-[11px] text-[#324158]">{label}</strong><small className="mt-0.5 block text-[10px] leading-[1.5] text-[#8793a2]">{detail}</small></span></label>;
@@ -20,6 +21,8 @@ export function PlatformSettingsPage() {
   const [maintenanceNotices, setMaintenanceNotices] = useState(true);
   const [usageReports, setUsageReports] = useState(false);
   const [saved, setSaved] = useState(false);
+  const navigate = useNavigate();
+
 
   function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,7 +33,12 @@ export function PlatformSettingsPage() {
   return (
     <form onSubmit={saveSettings}>
       <PageHeader eyebrow="Platform configuration" title="Platform settings" description="Configure global defaults, security policies, notifications, and data governance.">
-        <Button type="submit">{saved ? <CheckCircle2 size={15} /> : <Save size={15} />}{saved ? "Saved" : "Save changes"}</Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="secondary" onClick={() => navigate("/superadmin/sectors")}>
+            <Tags size={15} /> Sectors
+          </Button>
+          <Button type="submit">{saved ? <CheckCircle2 size={15} /> : <Save size={15} />}{saved ? "Saved" : "Save changes"}</Button>
+        </div>
       </PageHeader>
 
       <AdminPanel title="General settings" description="Identity and global platform defaults">

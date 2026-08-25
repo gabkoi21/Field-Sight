@@ -62,7 +62,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }, { "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Community Health Initiative\",\n  \"slug\": \"community-health-demo\",\n  \"owner_email\": \"owner@example.com\",\n  \"owner_username\": \"organization.admin\",\n  \"owner_password\": \"OwnerPass123!\",\n  \"sector_ids\": [\"{{sector_id}}\"],\n  \"country\": \"Liberia\",\n  \"timezone\": \"Africa/Monrovia\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Community Health Initiative\",\n  \"slug\": \"community-health-demo\",\n  \"owner_email\": \"owner@example.com\",\n  \"owner_username\": \"organization.admin\",\n  \"owner_password\": \"OwnerPass123!\",\n  \"owner_role\": \"organization_admin\",\n  \"sector_ids\": [\"{{sector_id}}\"],\n  \"country\": \"Liberia\",\n  \"timezone\": \"Africa/Monrovia\"\n}" },
             "url": "{{base_url}}/organizations"
           },
           "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "if (body.organization_id) pm.collectionVariables.set('organization_id', body.organization_id);"] } }]

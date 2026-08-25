@@ -5,6 +5,23 @@ export interface Membership {
   role: Exclude<Role, "super_admin">;
 }
 
+export interface UserOrganizationAccess {
+  organization_id: string;
+  organization_name: string;
+  role: Exclude<Role, "super_admin">;
+  is_active: boolean;
+}
+
+export interface ApiUserDirectoryItem {
+  id: string;
+  email: string;
+  username: string | null;
+  is_active: boolean;
+  platform_role: Role | null;
+  created_at: string;
+  memberships: UserOrganizationAccess[];
+}
+
 export interface CurrentUser {
   id: string;
   email: string;
@@ -32,12 +49,51 @@ export interface Sector {
   is_active: boolean;
 }
 
+export interface ApiStatus {
+  status: string;
+  service: string;
+  environment: string;
+  api_version: string;
+}
+
+export interface ReadinessStatus {
+  status: string;
+  database: string;
+}
+
+export interface SectorCreateInput {
+  code: string;
+  name: string;
+}
+
+export interface SectorUpdateInput {
+  name?: string;
+  is_active?: boolean;
+}
+
+export interface EnumeratorCreateInput {
+  email: string;
+  username: string;
+  password: string;
+}
+
+export interface ApiEnumerator {
+  user_id: string;
+  membership_id: string;
+  email: string;
+  username: string | null;
+  role: "enumerator";
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface CreateOrganizationInput {
   name: string;
   slug: string;
   owner_email: string;
-  owner_username: string;
+  owner_username?: string;
   owner_password: string;
+  owner_role: "organization_admin";
   sector_ids: string[];
   country?: string;
   timezone: string;
@@ -61,20 +117,25 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:8001/api/v1").replace(/\/$/, "");
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1"
+).replace(/\/$/, "");
 const ACCESS_TOKEN_KEY = "fieldsight_access_token";
 
-let accessToken = localStorage.getItem(ACCESS_TOKEN_KEY) ?? sessionStorage.getItem(ACCESS_TOKEN_KEY);
+let accessToken =
+  localStorage.getItem(ACCESS_TOKEN_KEY) ??
+  sessionStorage.getItem(ACCESS_TOKEN_KEY);
 
 function saveAccessToken(token: string | null, remember = false) {
   accessToken = token;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-  if (token) (remember ? localStorage : sessionStorage).setItem(ACCESS_TOKEN_KEY, token);
+  if (token)
+    (remember ? localStorage : sessionStorage).setItem(ACCESS_TOKEN_KEY, token);
 }
 
 async function parseError(response: Response): Promise<ApiError> {
-  const body = await response.json().catch(() => null) as {
+  const body = (await response.json().catch(() => null)) as {
     message?: string;
     detail?: string | Array<{ loc?: Array<string | number>; msg?: string }>;
     details?: Array<{ loc?: Array<string | number>; msg?: string }> | unknown;
@@ -91,32 +152,53 @@ async function parseError(response: Response): Promise<ApiError> {
     })
     .filter(Boolean)
     .join(" ");
-  const fallbackMessage = typeof body?.detail === "string" ? body.detail : undefined;
+  const fallbackMessage =
+    typeof body?.detail === "string" ? body.detail : undefined;
   return new ApiError(
     response.status,
-    validationMessage || body?.message || fallbackMessage || "The request could not be completed.",
+    validationMessage ||
+      body?.message ||
+      fallbackMessage ||
+      "The request could not be completed.",
     body?.details ?? body?.detail,
   );
 }
 
 async function refreshAccessToken(): Promise<boolean> {
-  const response = await fetch(`${API_BASE_URL}/auth/refresh`, { method: "POST", credentials: "include" });
+  const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+  });
   if (!response.ok) {
     saveAccessToken(null);
     return false;
   }
-  const body = await response.json() as { access_token: string };
+  const body = (await response.json()) as { access_token: string };
   const remembered = localStorage.getItem(ACCESS_TOKEN_KEY) !== null;
   saveAccessToken(body.access_token, remembered);
   return true;
 }
 
-async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  retry = true,
+): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (init.body && !headers.has("Content-Type"))
+    headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers, credentials: "include" });
-  if (response.status === 401 && retry && !path.startsWith("/auth/login") && await refreshAccessToken()) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers,
+    credentials: "include",
+  });
+  if (
+    response.status === 401 &&
+    retry &&
+    !path.startsWith("/auth/login") &&
+    (await refreshAccessToken())
+  ) {
     return request<T>(path, init, false);
   }
   if (!response.ok) throw await parseError(response);
@@ -126,25 +208,73 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
 export const apiClient = {
   async login(login: string, password: string, remember: boolean) {
-    const result = await request<{ access_token: string }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ login, password }),
-    }, false);
+    const result = await request<{ access_token: string }>(
+      "/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ login, password }),
+      },
+      false,
+    );
     saveAccessToken(result.access_token, remember);
   },
   async logout() {
-    try { await request<void>("/auth/logout", { method: "POST" }, false); } finally { saveAccessToken(null); }
+    try {
+      await request<void>("/auth/logout", { method: "POST" }, false);
+    } finally {
+      saveAccessToken(null);
+    }
   },
   me: () => request<CurrentUser>("/auth/me"),
+  users: () => request<ApiUserDirectoryItem[]>("/users"),
   organizations: () => request<ApiOrganization[]>("/organizations"),
   sectors: () => request<Sector[]>("/sectors"),
-  createOrganization: (input: CreateOrganizationInput) => request<{ organization_id: string }>("/organizations", {
-    method: "POST",
-    body: JSON.stringify(input),
-  }),
-  updateOrganization: (organizationId: string, input: UpdateOrganizationInput) => request<unknown>(`/organizations/${organizationId}`, {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  }),
+  createOrganization: (input: CreateOrganizationInput) =>
+    request<{ organization_id: string }>("/organizations", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateOrganization: (
+    organizationId: string,
+    input: UpdateOrganizationInput,
+  ) =>
+    request<unknown>(`/organizations/${organizationId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  deleteOrganization: (organizationId: string) =>
+    request<void>(`/organizations/${organizationId}`, {
+      method: "DELETE",
+    }),
+  createSector: (input: SectorCreateInput) =>
+    request<Sector>("/sectors", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateSector: (sectorId: string, input: SectorUpdateInput) =>
+    request<Sector>(`/sectors/${sectorId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  deleteSector: (sectorId: string) =>
+    request<void>(`/sectors/${sectorId}`, {
+      method: "DELETE",
+    }),
+  live: () => request<{ status: string }>("/health/live"),
+  ready: () => request<ReadinessStatus>("/health/ready"),
+  status: () => request<ApiStatus>("/status"),
+  enumerators: (organizationId: string) =>
+    request<ApiEnumerator[]>(`/organizations/${organizationId}/enumerators`),
+  createEnumerator: (organizationId: string, input: EnumeratorCreateInput) =>
+    request<ApiEnumerator>(`/organizations/${organizationId}/enumerators`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  deactivateEnumerator: (organizationId: string, membershipId: string) =>
+    request<void>(
+      `/organizations/${organizationId}/enumerators/${membershipId}`,
+      {
+        method: "DELETE",
+      },
+    ),
 };
-

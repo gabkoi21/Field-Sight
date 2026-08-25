@@ -30,7 +30,8 @@
                          "country":  "Liberia",
                          "timezone":  "Africa/Monrovia",
                          "owner_username":  "organization.admin",
-                         "owner_password":  "OwnerPass123!"
+                         "owner_password":  "OwnerPass123!",
+                         "owner_role":  "organization_admin"
                      },
     "project":  {
                     "name":  "Community Health Baseline 2026",
@@ -61,7 +62,6 @@
                             "Organizations / Get organization sectors",
                             "Organizations / Create project",
                             "Organizations / Create location",
-                            "Organizations / Create enumerator assignment",
                             "Organizations / Create enumerator",
                             "Organizations / Create enumerator assignment"
                         ]

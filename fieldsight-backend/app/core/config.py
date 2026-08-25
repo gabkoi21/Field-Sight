@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     app_name: str = "FieldSight API"
     environment: str = "development"
     database_url: str = "sqlite:///./fieldsight.db"
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     log_level: str = "INFO"
     jwt_issuer: str = "fieldsight-api"
     jwt_audience: str = "fieldsight-web"
