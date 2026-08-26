@@ -390,6 +390,38 @@ export function FieldOperationsPage() {
                     Created
                     <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={new Date(selectedEnumerator.created_at).toLocaleDateString()} readOnly />
                   </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                    Phone number
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.phone_number ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                    Employee ID
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.employee_id ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                    Gender
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.gender ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                    Date of birth
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.date_of_birth ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                    Address
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.address ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                    Emergency contact name
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.emergency_contact_name ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                    Emergency contact phone
+                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.emergency_contact_phone ?? "—"} readOnly />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                    Notes
+                    <textarea className={adminInputClass + " min-h-20 resize-none bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.notes ?? "—"} readOnly />
+                  </label>
                 </>
               )}
               {actionError && <p className="m-0 text-xs text-[#b42318] sm:col-span-2">{actionError}</p>}
