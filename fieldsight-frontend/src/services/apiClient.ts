@@ -348,6 +348,8 @@ export const apiClient = {
     }),
   organizationProjects: (organizationId: string) =>
     request<ApiProject[]>(`/organizations/${organizationId}/projects`),
+  getProject: (organizationId: string, projectId: string) =>
+    request<ApiProject>(`/organizations/${organizationId}/projects/${projectId}`),
   assignProjectKoboForm: (projectId: string, connectionId: string, formId: string) =>
     request<KoboConnection>(`/kobo/connections/projects/${projectId}/form`, {
       method: "PUT",

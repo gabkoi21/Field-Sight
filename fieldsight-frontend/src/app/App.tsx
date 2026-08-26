@@ -8,7 +8,6 @@ import { ExploreAnalyzePage } from "../pages/organization/ExploreAnalyzePage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { OrganizationDashboardPage } from "../pages/dashboard/OrganizationDashboardPage";
 import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
-import { FormsPage } from "../pages/organization/FormsPage";
 import { KoboConnectionsPage } from "../pages/organization/KoboConnectionsPage";
 import { ProjectsPage } from "../pages/organization/ProjectsPage";
 import { ProjectWorkspacePage } from "../pages/organization/ProjectWorkspacePage";
@@ -60,7 +59,6 @@ export function App() {
         <Route index element={<OrganizationDashboardPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
-        <Route path="forms" element={<FormsPage />} />
         <Route path="forms/connections" element={<KoboConnectionsPage />} />
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />

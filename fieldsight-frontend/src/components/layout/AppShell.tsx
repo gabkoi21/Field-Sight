@@ -36,13 +36,13 @@ const navigation: NavSection[] = [
     label: "Workspace",
     items: [
       { name: "Dashboard", path: "/", icon: LayoutDashboard },
-      { name: "Projects", path: "/projects", icon: FolderKanban, count: 4 },
+      { name: "Projects", path: "/projects", icon: FolderKanban },
     ],
   },
   {
     label: "Data collection",
     items: [
-      { name: "Forms & sources", path: "/forms", icon: FileText },
+      { name: "Kobo connections", path: "/forms/connections", icon: FileText },
       { name: "Submissions", path: "/submissions", icon: FileText },
       { name: "Field Enumerator", path: "/enumerators", icon: Users },
       { name: "Sync history", path: "/sync", icon: RefreshCw },
@@ -78,14 +78,14 @@ export function AppShell() {
       >
         <NavLink
           to="/"
-          className="flex h-[74px] flex-none items-center px-[27px] text-[19px] font-bold tracking-[-.25px] text-white no-underline max-[1440px]:h-16 max-[1440px]:px-[21px] max-[1440px]:text-lg [@media(max-height:760px)_and_(min-width:1051px)]:h-[58px] [@media(max-height:760px)_and_(min-width:1051px)]:py-[13px]"
+          className="flex h-[60px] flex-none items-center px-5 text-[18px] font-bold tracking-[-.25px] text-white no-underline max-[1440px]:h-16 max-[1440px]:px-[21px] max-[1440px]:text-lg [@media(max-height:760px)_and_(min-width:1051px)]:h-[58px] [@media(max-height:760px)_and_(min-width:1051px)]:py-[13px]"
         >
           <b className="mr-[9px] grid size-[30px] place-items-center rounded-[7px] bg-brand shadow-[inset_0_0_0_1px_#ffffff20] max-[1440px]:size-7">
             <BarChart3 className="stroke-2" size={16} />
           </b>
           <span className="leading-none">FieldSight</span>
         </NavLink>
-        <div className="mx-4 mb-5 mt-[5px] flex flex-none items-center gap-[9px] rounded-[9px] border border-[#234d82] bg-[#103564] px-2.5 py-3 max-[1440px]:mx-3 max-[1440px]:mb-[13px] max-[1440px]:mt-1 max-[1440px]:p-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:mb-2 [@media(max-height:760px)_and_(min-width:1051px)]:px-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:py-[7px]">
+        <div className="mx-3 mb-4 mt-1 flex flex-none items-center gap-[9px] rounded-[9px] border border-[#234d82] bg-[#103564] px-2.5 py-3 max-[1440px]:mx-3 max-[1440px]:mb-[13px] max-[1440px]:mt-1 max-[1440px]:p-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:mb-2 [@media(max-height:760px)_and_(min-width:1051px)]:px-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:py-[7px]">
           <span className="grid size-[29px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15] max-[1440px]:size-[27px]">
             CH
           </span>
@@ -100,7 +100,7 @@ export function AppShell() {
         <nav className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navigation.map((section) => (
             <div key={section.label}>
-              <p className="mx-[14px] mb-[7px] mt-[18px] text-[10px] font-semibold uppercase tracking-[.09em] text-[#71899c] max-[1440px]:mx-3 max-[1440px]:mb-[5px] max-[1440px]:mt-3 max-[1440px]:text-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:mb-[3px] [@media(max-height:760px)_and_(min-width:1051px)]:mt-2">
+              <p className="mx-[14px] mb-[7px] mt-[18px] text-[10px] font-semibold uppercase tracking-[.09em] text-[#91a9bb] max-[1440px]:mx-3 max-[1440px]:mb-[5px] max-[1440px]:mt-3 max-[1440px]:text-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:mb-[3px] [@media(max-height:760px)_and_(min-width:1051px)]:mt-2">
                 {section.label}
               </p>
               {section.items.map(({ name, path, icon: Icon, count }) => (
@@ -144,7 +144,7 @@ export function AppShell() {
         </button>
       </aside>
       <main className="ml-[258px] min-h-screen max-[1440px]:ml-[232px] max-[1050px]:ml-0">
-        <header className="sticky top-0 z-[4] flex h-[74px] w-full items-center justify-between border-b border-line bg-white px-[38px] text-[#657182] shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[1050px]:px-5 max-[560px]:h-[58px] max-[560px]:px-[14px] [@media(max-height:760px)_and_(min-width:1051px)]:h-[58px]">
+        <header className="sticky top-0 z-[4] flex h-[60px] w-full items-center justify-between border-b border-[#eceff5] bg-white px-6 text-[#657182] shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[1050px]:px-5 max-[560px]:h-[58px] max-[560px]:px-[14px] [@media(max-height:760px)_and_(min-width:1051px)]:h-[58px]">
           <button
             className="hidden place-items-center border-0 bg-transparent max-[1050px]:grid"
             onClick={() => setOpen(!open)}
@@ -167,7 +167,7 @@ export function AppShell() {
             </span>
           </div>
         </header>
-        <div className="mx-auto max-w-[1500px] px-[38px] pb-12 pt-[34px] max-[1440px]:px-7 max-[1440px]:pb-[42px] max-[1440px]:pt-[27px] max-[560px]:px-[14px] max-[560px]:pb-[35px] max-[560px]:pt-[21px]">
+        <div className="mx-auto max-w-[1500px] px-6 pb-10 pt-6 max-[1440px]:px-7 max-[1440px]:pb-[42px] max-[1440px]:pt-[27px] max-[560px]:px-[14px] max-[560px]:pb-[35px] max-[560px]:pt-[21px]">
           <Outlet />
         </div>
       </main>

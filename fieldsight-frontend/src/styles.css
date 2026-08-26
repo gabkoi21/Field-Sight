@@ -8,13 +8,13 @@
     font-size: 14px;
     line-height: 1.5;
     color: #303e67;
-    background: #f7f9fc;
+    background: #f8f9fb;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
   }
 
   * { box-sizing: border-box; }
-  body { margin: 0; color: #303e67; background: #f7f9fc; }
+  body { margin: 0; color: #303e67; background: #f8f9fb; }
   button, input, select, textarea { font-family: 'Roboto', Arial, sans-serif; }
   svg { stroke-width: 1.75; }
   button:focus-visible, a:focus-visible {
@@ -23,8 +23,8 @@
   }
 
   table { width: 100%; border-collapse: collapse; text-align: left; }
-  th { padding: 12px 20px; background: #fafbfc; color: #84909e; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-  td { padding: 14px 20px; border-top: 1px solid #eff1f3; color: #475566; font-size: 13px; line-height: 1.45; white-space: nowrap; }
+  th { padding: 11px 16px; background: #fafbfb; color: #8997bd; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  td { padding: 12px 16px; border-top: 1px solid #edf0f5; color: #5a5c61; font-size: 13px; line-height: 1.45; white-space: nowrap; }
   td strong { color: #273546; }
   td small { display: block; margin-top: 3px; color: #758092; font-size: 12px; }
 }

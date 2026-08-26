@@ -8,6 +8,8 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Database,
   ExternalLink,
@@ -34,6 +36,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
 
 const statIconToneStyles = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
@@ -68,16 +71,6 @@ const periodButtonStyles =
   "inline-flex items-center gap-[6px] rounded-[5px] border-0 bg-transparent px-px py-1 font-sans text-[12px] font-medium leading-[normal] text-[#546271]";
 const textButtonStyles =
   "inline-flex items-center gap-[6px] rounded-[5px] border-0 bg-transparent font-sans text-[11px] font-semibold leading-[normal] text-[#0b51b7]";
-
-const submissionTrend = [
-  { day: "Aug 13", submissions: 246, approved: 218 },
-  { day: "Aug 14", submissions: 310, approved: 279 },
-  { day: "Aug 15", submissions: 284, approved: 260 },
-  { day: "Aug 16", submissions: 372, approved: 331 },
-  { day: "Aug 17", submissions: 341, approved: 308 },
-  { day: "Aug 18", submissions: 448, approved: 402 },
-  { day: "Today", submissions: 516, approved: 461 },
-];
 
 const projectPerformance = [
   { name: "Community Health", actual: 1842, target: 2560 },
@@ -165,7 +158,7 @@ function StatCard({
   icon: typeof Database;
   tone: keyof typeof statIconToneStyles;
   note: string;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   return (
     <button
@@ -223,6 +216,69 @@ function Panel({
   );
 }
 
+function CalendarPanel() {
+  const [month, setMonth] = useState(() => new Date(2026, 7, 1));
+  const [selectedDay, setSelectedDay] = useState(26);
+  const firstWeekday = (month.getDay() + 6) % 7;
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const calendarCells = [
+    ...Array<null>(firstWeekday).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+  const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  function moveMonth(direction: number) {
+    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
+    setSelectedDay(1);
+  }
+
+  return (
+    <Panel title="Calendar">
+      <div className="mt-3 border border-[#edf0f5] bg-white p-3">
+        <div className="flex items-center justify-between mb-3">
+          <button
+            type="button"
+            className="grid size-7 place-items-center border-0 bg-transparent text-[#9aa7b8] hover:text-[#0b51b7]"
+            onClick={() => moveMonth(-1)}
+            aria-label="Previous month"
+          >
+            <ChevronLeft size={19} />
+          </button>
+          <strong className="text-[12px] text-[#303e67]">{monthLabel}</strong>
+          <button
+            type="button"
+            className="grid size-7 place-items-center border-0 bg-transparent text-[#9aa7b8] hover:text-[#0b51b7]"
+            onClick={() => moveMonth(1)}
+            aria-label="Next month"
+          >
+            <ChevronRight size={19} />
+          </button>
+        </div>
+        <div className="grid grid-cols-7 gap-y-1 text-center text-[10px]">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+            <span key={day} className="py-1 font-medium text-[#0b51b7]">
+              {day}
+            </span>
+          ))}
+          {calendarCells.map((day, index) =>
+            day ? (
+              <button
+                key={`${monthLabel}-${day}`}
+                type="button"
+                onClick={() => setSelectedDay(day)}
+                className={`mx-auto grid size-7 place-items-center rounded-[3px] text-[11px] transition-colors ${selectedDay === day ? "bg-[#edf3fc] font-semibold text-[#0b51b7]" : "text-[#384a65] hover:bg-[#f1f5fa]"}`}
+              >
+                {day}
+              </button>
+            ) : (
+              <span key={`blank-${index}`} className="size-7" aria-hidden="true" />
+            ),
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}
 export function OrganizationDashboardPage() {
   const navigate = useNavigate();
   const [project, setProject] = useState("All projects");
@@ -366,117 +422,8 @@ export function OrganizationDashboardPage() {
       </div>
 
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <Panel
-          title="Submission activity"
-          subtitle="Incoming and approved records across active projects"
-          action={
-            <button className={textButtonStyles} onClick={() => navigate("/submissions")}>
-              View submissions <ExternalLink size={13} />
-            </button>
-          }
-        >
-          <div className="flex h-[24px] justify-end gap-[14px] pt-[5px] text-[10px] text-[#788591]">
-            <span className="flex items-center gap-[5px]">
-              <i className="size-[7px] rounded-full bg-[#0b51b7]" />
-              Submitted
-            </span>
-            <span className="flex items-center gap-[5px]">
-              <i className="size-[7px] rounded-full bg-[#6d81f5]" />
-              Approved
-            </span>
-          </div>
-          <div className="h-[235px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={submissionTrend} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="submittedFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#0b51b7" stopOpacity=".22" />
-                    <stop offset="1" stopColor="#0b51b7" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#7d8996", fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 10 }} />
-                <Tooltip
-                  contentStyle={{
-                    border: "1px solid #e5e8ec",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="submissions"
-                  stroke="#0b51b7"
-                  strokeWidth={2.4}
-                  fill="url(#submittedFill)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="approved"
-                  stroke="#6d81f5"
-                  strokeWidth={2}
-                  fill="transparent"
-                  strokeDasharray="4 3"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-
-        <Panel
-          title="Review status"
-          subtitle="Current submission decisions"
-          action={
-            <button className={periodButtonStyles}>
-              This week
-              <ChevronDown size={13} />
-            </button>
-          }
-        >
-          <div className="mt-3 grid grid-cols-[160px_1fr] items-center max-[700px]:grid-cols-[140px_1fr]">
-            <div className="relative size-[155px] max-[700px]:size-[135px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={qualityData}
-                    dataKey="value"
-                    innerRadius={58}
-                    outerRadius={74}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {qualityData.map((item) => (
-                      <Cell key={item.name} fill={item.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 grid text-center pointer-events-none place-content-center">
-                <strong className="block text-[21px]">87.2%</strong>
-                <span className="text-[10px] text-[#84909b]">approved</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-[9px]">
-              {qualityData.map((item) => (
-                <div className="flex justify-between text-[11px] text-[#667481]" key={item.name}>
-                  <span className="flex items-center gap-[6px]">
-                    <i className="size-[7px] rounded-full" style={{ background: item.color }} />
-                    {item.name}
-                  </span>
-                  <strong className="text-[#253342]">{item.value}%</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-          <button
-            className="mt-[8px] flex w-full items-center gap-[7px] rounded-[5px] border border-[#f0dcc3] bg-[#fff8ed] px-[10px] py-[9px] font-sans text-[11px] font-semibold leading-[normal] text-[#9b642f]"
-            onClick={() => navigate("/quality")}
-          >
-            <ShieldAlert size={15} />
-            Open quality review queue <span className="ml-auto rounded-[10px] bg-[#f6e5cf] px-[7px] py-[2px]">421</span>
-          </button>
-        </Panel>
+        <SubmissionActivityPanel />
+        <CalendarPanel />
       </div>
 
       <div className="grid grid-cols-[minmax(0,1.55fr)_minmax(300px,.75fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">

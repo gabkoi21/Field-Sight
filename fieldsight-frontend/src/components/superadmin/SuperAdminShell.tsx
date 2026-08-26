@@ -129,7 +129,7 @@ export function SuperAdminShell() {
       >
         <NavLink
           to="/superadmin"
-          className="flex h-[74px] flex-none items-center px-[27px] text-[19px] font-bold text-white no-underline max-[1440px]:h-16 max-[1440px]:px-[21px]"
+          className="flex h-[60px] flex-none items-center px-5 text-[18px] font-bold text-white no-underline max-[1440px]:h-16 max-[1440px]:px-[21px]"
           onClick={() => setMobileOpen(false)}
         >
           <b className="mr-[9px] grid size-[30px] place-items-center rounded-[7px] bg-brand shadow-[inset_0_0_0_1px_#ffffff20]">
@@ -138,7 +138,7 @@ export function SuperAdminShell() {
           FieldSight
         </NavLink>
 
-        <div className="mx-4 mb-3 flex flex-none items-center gap-2.5 rounded-[9px] border border-[#234d82] bg-[#103564] p-3 max-[1440px]:mx-3">
+        <div className="mx-3 mb-3 flex flex-none items-center gap-2.5 rounded-[9px] border border-[#234d82] bg-[#103564] p-3 max-[1440px]:mx-3">
           <span className="grid size-[30px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15]">
             SA
           </span>
@@ -156,7 +156,7 @@ export function SuperAdminShell() {
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navigation.map((section) => (
             <div key={section.label}>
-              <p className="mx-[14px] mb-1.5 mt-4 text-[9px] font-semibold uppercase tracking-[.1em] text-[#71899c]">
+              <p className="mx-[14px] mb-1.5 mt-4 text-[9px] font-semibold uppercase tracking-[.1em] text-[#91a9bb]">
                 {section.label}
               </p>
               {section.items.map(({ label, path, icon: Icon, end }) => (
@@ -197,7 +197,7 @@ export function SuperAdminShell() {
       </aside>
 
       <main className="ml-[258px] min-h-screen max-[1440px]:ml-[232px] max-[1050px]:ml-0">
-        <header className="sticky top-0 z-[5] flex h-[74px] items-center justify-between border-b border-line bg-white px-[38px] shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[560px]:h-[58px] max-[560px]:px-4">
+        <header className="sticky top-0 z-[5] flex h-[60px] items-center justify-between border-b border-[#eceff5] bg-white px-6 shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[560px]:h-[58px] max-[560px]:px-4">
           <div className="flex items-center gap-3 text-[13px] text-[#657182]">
             <button
               aria-label="Open navigation"
@@ -235,7 +235,7 @@ export function SuperAdminShell() {
             </button>
           </div>
         </header>
-        <div className="mx-auto max-w-[1560px] p-[34px_38px_48px] max-[1440px]:p-7 max-[700px]:p-4">
+        <div className="mx-auto max-w-[1560px] px-6 pb-10 pt-6 max-[1440px]:p-7 max-[700px]:p-4">
           <Outlet />
         </div>
       </main>

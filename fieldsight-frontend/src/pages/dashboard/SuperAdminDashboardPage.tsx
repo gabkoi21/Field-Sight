@@ -33,11 +33,7 @@ import {
 } from "recharts";
 import { AdminStatus } from "../../components/superadmin/AdminUi";
 import { apiClient } from "../../services/apiClient";
-import {
-  adoptionGrowth,
-  adoptionMonths,
-  auditEvents,
-} from "../superadmin/data";
+import { adoptionGrowth, adoptionMonths, auditEvents } from "../superadmin/data";
 
 const iconTones = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
@@ -82,28 +78,17 @@ function MetricCard({
 }) {
   return (
     <article className="relative grid w-full grid-cols-[auto_1fr_auto] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left">
-      <span
-        className={
-          "row-[1/3] grid size-[40px] place-items-center rounded-full " +
-          iconTones[tone]
-        }
-      >
+      <span className={"row-[1/3] grid size-[40px] place-items-center rounded-full " + iconTones[tone]}>
         <Icon size={19} />
       </span>
       <span>
-        <span className="block text-[11px] font-medium text-[#6f7d8a]">
-          {label}
-        </span>
-        <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-          {value}
-        </strong>
+        <span className="block text-[11px] font-medium text-[#6f7d8a]">{label}</span>
+        <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{value}</strong>
       </span>
       <span className="flex items-center gap-[2px] self-start text-[11px] font-semibold text-[#0b51b7]">
         <ArrowUpRight size={14} /> {change}
       </span>
-      <small className="col-[2/4] mt-[6px] text-[10px] text-[#88939d]">
-        {detail}
-      </small>
+      <small className="col-[2/4] mt-[6px] text-[10px] text-[#88939d]">{detail}</small>
     </article>
   );
 }
@@ -122,12 +107,8 @@ function Panel({
     <section className="min-w-0 rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">
-            {title}
-          </h2>
-          {subtitle && (
-            <p className="mb-0 mt-1 text-[11px] text-[#84909b]">{subtitle}</p>
-          )}
+          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">{title}</h2>
+          {subtitle && <p className="mb-0 mt-1 text-[11px] text-[#84909b]">{subtitle}</p>}
         </div>
         {action ?? <MoreHorizontal className="text-[#87929d]" size={18} />}
       </header>
@@ -137,15 +118,19 @@ function Panel({
 }
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
-  const { data: apiOrganizations = [], isLoading: organizationsLoading } =
-    useQuery({
-      queryKey: ["platform-organizations"],
-      queryFn: apiClient.organizations,
-    });
-  const { data: apiUsers = [], isLoading: usersLoading, error: usersError } = useQuery({
+  const { data: apiOrganizations = [], isLoading: organizationsLoading } = useQuery({
+    queryKey: ["platform-organizations"],
+    queryFn: apiClient.organizations,
+  });
+  const {
+    data: apiUsers = [],
+    isLoading: usersLoading,
+    error: usersError,
+  } = useQuery({
     queryKey: ["platform-users"],
     queryFn: apiClient.users,
-  });  const statusQuery = useQuery({
+  });
+  const statusQuery = useQuery({
     queryKey: ["health", "status"],
     queryFn: apiClient.status,
     refetchInterval: 30_000,
@@ -164,13 +149,9 @@ export function SuperAdminDashboardPage() {
     status: organization.is_active ? "Active" : "Suspended",
     activity: new Date(organization.created_at).toLocaleDateString(),
   }));
-  const activeOrganizationCount = apiOrganizations.filter(
-    (organization) => organization.is_active,
-  ).length;
+  const activeOrganizationCount = apiOrganizations.filter((organization) => organization.is_active).length;
   const platformHealthy = statusQuery.data?.status === "ok";
-  const platformUsers = apiUsers.filter(
-    (user) => user.platform_role !== "super_admin",
-  );
+  const platformUsers = apiUsers.filter((user) => user.platform_role !== "super_admin");
   const activeUserCount = platformUsers.filter((user) => user.is_active).length;
   const [period, setPeriod] = useState("This month");
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -186,8 +167,7 @@ export function SuperAdminDashboardPage() {
             Platform dashboard
           </h1>
           <p className="mb-0 mt-[6px] text-[13px] text-[#73808d]">
-            Global usage, platform health, security, and subscription
-            performance
+            Global usage, platform health, security, and subscription performance
           </p>
         </div>
         <div className="flex gap-[7px] max-[700px]:w-full max-[600px]:grid max-[600px]:grid-cols-2">
@@ -217,12 +197,8 @@ export function SuperAdminDashboardPage() {
             {calendarOpen && (
               <div className="absolute right-0 top-[43px] z-20 w-[254px] rounded-[8px] border border-[#e1e7ed] bg-white p-[13px] shadow-[0_12px_28px_rgba(16,42,67,.16)]">
                 <div className="mb-[10px] flex items-center justify-between">
-                  <strong className="text-[13px] text-[#253342]">
-                    August 2026
-                  </strong>
-                  <span className="text-[11px] text-[#84909b]">
-                    Choose a date
-                  </span>
+                  <strong className="text-[13px] text-[#253342]">August 2026</strong>
+                  <span className="text-[11px] text-[#84909b]">Choose a date</span>
                 </div>
                 <div className="mb-[5px] grid grid-cols-7 text-center text-[10px] font-semibold text-[#96a1ad]">
                   {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
@@ -265,9 +241,7 @@ export function SuperAdminDashboardPage() {
         </span>
         <div className="flex-1">
           <strong className="block text-[13px] text-[#4b3825]">
-            {platformHealthy
-              ? "Platform operations are healthy"
-              : "Platform status is unavailable"}
+            {platformHealthy ? "Platform operations are healthy" : "Platform status is unavailable"}
           </strong>
           <p className="mb-0 mt-[3px] text-[12px] text-[#80664d]">
             {statusQuery.data
@@ -297,10 +271,8 @@ export function SuperAdminDashboardPage() {
         <i className="size-[3px] rounded-full bg-[#c4cbd2] max-[900px]:hidden" />
         <span className="flex items-center gap-[5px]">
           <CheckCircle2 size={14} />
-          <strong>
-            {organizationsLoading ? "…" : activeOrganizationCount} organizations
-          </strong>{" "}
-          are actively using FieldSight
+          <strong>{organizationsLoading ? "…" : activeOrganizationCount} organizations</strong> are actively using
+          FieldSight
         </span>
         <i className="size-[3px] rounded-full bg-[#c4cbd2] max-[900px]:hidden" />
         <span className="flex items-center gap-[5px]">
@@ -361,44 +333,24 @@ export function SuperAdminDashboardPage() {
         >
           <div className="flex h-[24px] justify-end gap-[14px] pt-[5px] text-[10px] text-[#788591]">
             <span className="flex items-center gap-[5px]">
-              <i className="size-[7px] rounded-full bg-[#0b51b7]" /> Active
-              users
+              <i className="size-[7px] rounded-full bg-[#0b51b7]" /> Active users
             </span>
             <span className="flex items-center gap-[5px]">
-              <i className="size-[7px] rounded-full bg-[#6d81f5]" /> Engaged
-              users
+              <i className="size-[7px] rounded-full bg-[#6d81f5]" /> Engaged users
             </span>
           </div>
           <div className="h-[235px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={adoptionData}
-                margin={{ top: 10, right: 10, left: -22, bottom: 0 }}
-              >
+              <AreaChart data={adoptionData} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
                 <defs>
-                  <linearGradient
-                    id="platformUsersFill"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
+                  <linearGradient id="platformUsersFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0" stopColor="#0b51b7" stopOpacity=".22" />
                     <stop offset="1" stopColor="#0b51b7" stopOpacity="0" />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#7d8996", fontSize: 11 }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#9aa4ae", fontSize: 10 }}
-                />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#7d8996", fontSize: 11 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{
                     border: "1px solid #e5e8ec",
@@ -454,24 +406,16 @@ export function SuperAdminDashboardPage() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
-                <strong className="block text-[20px] text-[#1d2a38]">
-                  87.2%
-                </strong>
+              <div className="absolute inset-0 grid text-center pointer-events-none place-content-center">
+                <strong className="block text-[20px] text-[#1d2a38]">87.2%</strong>
                 <span className="text-[10px] text-[#84909b]">approved</span>
               </div>
             </div>
             <div className="flex flex-col gap-[9px]">
               {platformReviewData.map((item) => (
-                <div
-                  className="flex justify-between text-[11px] text-[#667481]"
-                  key={item.name}
-                >
+                <div className="flex justify-between text-[11px] text-[#667481]" key={item.name}>
                   <span className="flex items-center gap-[6px]">
-                    <i
-                      className="size-[7px] rounded-full"
-                      style={{ background: item.color }}
-                    />
+                    <i className="size-[7px] rounded-full" style={{ background: item.color }} />
                     {item.name}
                   </span>
                   <strong className="text-[#253342]">{item.value}%</strong>
@@ -484,9 +428,7 @@ export function SuperAdminDashboardPage() {
             onClick={() => navigate("/superadmin/organizations")}
           >
             <ShieldAlert size={15} /> Open platform review queue{" "}
-            <span className="ml-auto rounded-[10px] bg-[#f6e5cf] px-[7px] py-[2px]">
-              421
-            </span>
+            <span className="ml-auto rounded-[10px] bg-[#f6e5cf] px-[7px] py-[2px]">421</span>
           </button>
         </Panel>
       </section>
@@ -542,17 +484,12 @@ export function SuperAdminDashboardPage() {
         >
           <div className="mt-[8px]">
             {auditEvents.slice(0, 4).map((event) => (
-              <div
-                className="flex gap-[10px] border-b border-[#edf0f2] py-[12px] last:border-b-0"
-                key={event.id}
-              >
+              <div className="flex gap-[10px] border-b border-[#edf0f2] py-[12px] last:border-b-0" key={event.id}>
                 <span className="grid size-8 flex-none place-items-center rounded-[7px] bg-[#f0edfa] text-[9px] font-bold text-[#7564b2]">
                   {event.initials}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <strong className="block truncate text-[11px] text-[#253342]">
-                    {event.action}
-                  </strong>
+                  <strong className="block truncate text-[11px] text-[#253342]">{event.action}</strong>
                   <small className="mt-0.5 block truncate text-[10px] text-[#84909b]">
                     {event.actor} · {event.time}
                   </small>
@@ -563,7 +500,6 @@ export function SuperAdminDashboardPage() {
           </div>
         </Panel>
       </section>
-
     </div>
   );
 }
