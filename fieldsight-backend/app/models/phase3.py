@@ -99,6 +99,41 @@ class KoboConnection(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
+class SyncRun(SQLModel, table=True):
+    __tablename__ = "sync_runs"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
+    kobo_connection_id: UUID = Field(sa_column=Column(ForeignKey("kobo_connections.id"), nullable=False))
+    kobo_form_id: str = Field(sa_column=Column(String(255), nullable=False))
+    status: str = Field(default="completed", sa_column=Column(String(32), nullable=False))
+    received_count: int = 0
+    created_count: int = 0
+    updated_count: int = 0
+    error_message: str | None = Field(default=None, sa_column=Column(String(1000), nullable=True))
+    started_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    completed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+
+
+class Submission(SQLModel, table=True):
+    __tablename__ = "submissions"
+    __table_args__ = (UniqueConstraint("project_id", "external_id", name="uq_submission_project_external_id"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
+    kobo_connection_id: UUID = Field(sa_column=Column(ForeignKey("kobo_connections.id"), nullable=False))
+    kobo_form_id: str = Field(sa_column=Column(String(255), nullable=False))
+    external_id: str = Field(sa_column=Column(String(255), nullable=False))
+    submitted_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    enumerator: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+    location: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+    review_status: str = Field(default="ready", sa_column=Column(String(32), nullable=False))
+    raw_answers: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
 class FieldAssignment(SQLModel, table=True):
     __tablename__ = "field_assignments"
     __table_args__ = (

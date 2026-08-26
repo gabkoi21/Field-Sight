@@ -37,6 +37,7 @@ import {
   YAxis,
 } from "recharts";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
+import { apiClient } from "../../services/apiClient";
 
 const statIconToneStyles = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
@@ -284,11 +285,9 @@ export function OrganizationDashboardPage() {
   const [project, setProject] = useState("All projects");
   const [period, setPeriod] = useState("Last 7 days");
   const [location, setLocation] = useState("All locations");
-  const { isLoading } = useQuery({
-    queryKey: ["organization-overview"],
-    queryFn: async () => new Promise((resolve) => setTimeout(() => resolve(true), 180)),
-  });
-  if (isLoading)
+  const overviewQuery = useQuery({ queryKey: ["organization-overview"], queryFn: apiClient.analyticsOverview });
+  const overview = overviewQuery.data;
+  if (overviewQuery.isLoading)
     return (
       <div className="rounded-[10px] bg-white p-[60px] text-center text-[#758092]">Loading organization dashboard…</div>
     );
@@ -385,21 +384,21 @@ export function OrganizationDashboardPage() {
       <div className="grid grid-cols-[repeat(4,1fr)] gap-[14px] max-[1100px]:grid-cols-[repeat(2,1fr)] max-[700px]:grid-cols-[1fr]">
         <StatCard
           label="Total submissions"
-          value="10,284"
+          value={(overview?.total_submissions ?? 0).toLocaleString()}
           change="12.4%"
           direction="up"
           icon={Database}
           tone="blue"
-          note="1,306 received this week"
+          note="Imported Kobo records"
         />
         <StatCard
           label="Active projects"
-          value="4"
+          value={String(overview?.active_projects ?? 0)}
           change="1"
           direction="up"
           icon={FolderCheck}
           tone="teal"
-          note="7 projects in the portfolio"
+          note="Projects currently active"
         />
         <StatCard
           label="Active enumerators"
@@ -412,17 +411,17 @@ export function OrganizationDashboardPage() {
         />
         <StatCard
           label="Needs review"
-          value="421"
+          value={(overview?.needs_review ?? 0).toLocaleString()}
           change="31"
           direction="down"
           icon={ShieldAlert}
           tone="amber"
-          note="149 blocking export"
+          note="Records requiring review"
         />
       </div>
 
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <SubmissionActivityPanel />
+        <SubmissionActivityPanel data={overview?.trend} subtitle="Imported and ready Kobo records over time" />
         <CalendarPanel />
       </div>
 
@@ -438,7 +437,7 @@ export function OrganizationDashboardPage() {
         >
           <div className="mt-[16px] h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={projectPerformance} layout="vertical" margin={{ top: 0, right: 18, left: 28, bottom: 0 }}>
+              <BarChart data={overview?.projects ?? projectPerformance} layout="vertical" margin={{ top: 0, right: 18, left: 28, bottom: 0 }}>
                 <CartesianGrid horizontal={false} stroke="#edf0f2" />
                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#87929d" }} />
                 <YAxis

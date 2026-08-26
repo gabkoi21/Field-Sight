@@ -185,6 +185,49 @@ export interface UpdateOrganizationInput {
   timezone: string;
 }
 
+
+export interface ApiSubmission {
+  id: string;
+  external_id: string;
+  project_id: string;
+  project_name: string;
+  form_name: string | null;
+  submitted_at: string | null;
+  enumerator: string | null;
+  location: string | null;
+  review_status: string;
+  raw_answers: Record<string, unknown>;
+}
+
+
+export interface ApiAnalyticsOverview {
+  total_submissions: number;
+  ready_records: number;
+  needs_review: number;
+  invalid_records: number;
+  active_projects: number;
+  trend: { day: string; submissions: number; approved: number }[];
+  projects: { id: string; name: string; actual: number; target: number }[];
+}
+export interface ApiSyncResult {
+  sync_run_id: string;
+  status: string;
+  received: number;
+  created: number;
+  updated: number;
+}
+
+export interface ApiSyncRun {
+  id: string;
+  project_id: string;
+  status: string;
+  received: number;
+  created: number;
+  updated: number;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
+}
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -402,6 +445,10 @@ export const apiClient = {
       method: "PUT",
       body: JSON.stringify({ form_id: form.id, form_name: form.name }),
     }),
+  submissions: () => request<ApiSubmission[]>("/submissions"),
+  analyticsOverview: () => request<ApiAnalyticsOverview>("/analytics/overview"),
+  syncProjectKoboForm: (projectId: string) => request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
+  syncRuns: () => request<ApiSyncRun[]>("/sync-runs"),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
   updateEnumerator: (membershipId: string, input: EnumeratorUpdateInput) =>

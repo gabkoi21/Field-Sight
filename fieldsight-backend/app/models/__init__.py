@@ -1,7 +1,7 @@
 """Database models."""
 
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, RefreshSession, Sector, User
-from app.models.phase3 import FieldAssignment, Invitation, KoboConnection, Location, OrganizationSettings, Project
+from app.models.phase3 import FieldAssignment, Invitation, KoboConnection, Location, OrganizationSettings, Project, Submission, SyncRun
 
 __all__ = [
     "FieldAssignment",
@@ -13,6 +13,8 @@ __all__ = [
     "OrganizationSector",
     "OrganizationSettings",
     "Project",
+    "Submission",
+    "SyncRun",
     "RefreshSession",
     "Sector",
     "User",

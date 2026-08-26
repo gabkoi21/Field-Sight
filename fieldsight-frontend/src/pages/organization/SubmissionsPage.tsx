@@ -1,49 +1,25 @@
 import { useMemo, useState } from "react";
 import { Database, Download, ExternalLink, FileCheck2, Filter, MapPin, MoreHorizontal, Search, ShieldAlert, SlidersHorizontal, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { api, type Submission } from "../../services/mockApi";
+import { apiClient, type ApiSubmission } from "../../services/apiClient";
 
 type Review = "Ready" | "Needs review" | "Invalid";
-type Row = Submission & { project: string; form: string; sync: "Synced" | "Pending"; review: Review; device: string };
+type Row = { id: string; enumerator: string; location: string; submitted: string; project: string; form: string; sync: "Synced" | "Pending"; review: Review; device: string };
 
-const extras = [
-  {
-    project: "Community Health Assessment",
-    form: "CHA Baseline v3",
-    sync: "Synced" as const,
-    review: "Ready" as Review,
-    device: "Samsung SM-A135F",
-  },
-  {
-    project: "Maternal Health Survey",
-    form: "MHS Field Survey",
-    sync: "Synced" as const,
-    review: "Needs review" as Review,
-    device: "Tecno Spark 10",
-  },
-  {
-    project: "Community Health Assessment",
-    form: "CHA Baseline v3",
-    sync: "Pending" as const,
-    review: "Ready" as Review,
-    device: "Samsung SM-A135F",
-  },
-  {
-    project: "Water Access Mapping",
-    form: "Water Point Census",
-    sync: "Synced" as const,
-    review: "Ready" as Review,
-    device: "Redmi Note 11",
-  },
-  {
-    project: "Maternal Health Survey",
-    form: "MHS Field Survey",
-    sync: "Synced" as const,
-    review: "Invalid" as Review,
-    device: "Tecno Spark 10",
-  },
-];
-
+function toRow(submission: ApiSubmission): Row {
+  const review: Review = submission.review_status === "invalid" ? "Invalid" : submission.review_status === "needs_review" ? "Needs review" : "Ready";
+  return {
+    id: submission.external_id,
+    enumerator: submission.enumerator ?? "Unassigned",
+    location: submission.location ?? "Not captured",
+    submitted: submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : "Not recorded",
+    project: submission.project_name,
+    form: submission.form_name ?? "Kobo form",
+    sync: "Synced",
+    review,
+    device: "Kobo Collect",
+  };
+}
 const eyebrowClass = "!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase";
 const reviewBadgeClass = "inline-block rounded-[3px] px-[6px] py-[4px] text-[9px] font-bold";
 const reviewStyles: Record<Review, string> = {
@@ -55,13 +31,13 @@ const selectClass =
   "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]";
 
 export function SubmissionsPage() {
-  const { data = [], isLoading } = useQuery({ queryKey: ["submissions"], queryFn: api.submissions });
+  const { data = [], isLoading } = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions });
   const [query, setQuery] = useState("");
   const [project, setProject] = useState("All projects");
   const [review, setReview] = useState("All records");
   const [selected, setSelected] = useState<string | null>(null);
   const [checked, setChecked] = useState<string[]>([]);
-  const rows: Row[] = data.map((submission, index) => ({ ...submission, ...extras[index] }));
+  const rows: Row[] = data.map(toRow);
   const visible = useMemo(
     () =>
       rows.filter((row) => {
@@ -105,25 +81,25 @@ export function SubmissionsPage() {
         <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]"><Database size={19} /></span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">All submissions</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">10,284</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{rows.length.toLocaleString()}</strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Across active organization projects</small>
         </button>
         <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><FileCheck2 size={19} /></span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">Ready for analysis</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">9,742</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{rows.filter((row) => row.review === "Ready").length.toLocaleString()}</strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Validated and export-ready records</small>
         </button>
         <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]"><ShieldAlert size={19} /></span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">Needs review</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">421</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{rows.filter((row) => row.review === "Needs review").length.toLocaleString()}</strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Records waiting for quality review</small>
         </button>
         <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]"><ShieldAlert size={19} /></span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">Invalid records</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">149</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{rows.filter((row) => row.review === "Invalid").length.toLocaleString()}</strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Blocked from export until resolved</small>
         </button>
       </section>
@@ -312,7 +288,7 @@ export function SubmissionsPage() {
 
         <footer className="flex items-center justify-between border-t border-[#e9eef4] px-[14px] py-[11px] text-[10px] text-[#7e8da0]">
           <span>
-            Showing <strong className="text-[#4e5e74]">{visible.length}</strong> of 10,284 submissions
+            Showing <strong className="text-[#4e5e74]">{visible.length}</strong> of {rows.length.toLocaleString()} submissions
           </span>
           <div className="flex gap-[4px]">
             <button

@@ -74,3 +74,24 @@ def list_kobo_forms(server_url: str, api_token: str) -> list[dict[str, str | Non
             version = asset.get("version")
             forms.append({"id": form_id, "name": name, "version": str(version) if version else None})
     return forms
+
+
+def list_kobo_submissions(server_url: str, api_token: str, form_id: str) -> list[dict[str, object]]:
+    """Fetch one Kobo form's submissions while keeping provider credentials server-side."""
+    try:
+        response = httpx.get(
+            f"{server_url}/api/v2/assets/{form_id}/data/",
+            params={"format": "json", "limit": 1000},
+            headers={"Authorization": f"Token {api_token}"},
+            timeout=30.0,
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as exc:
+        raise ValueError("KoboToolbox could not be reached while importing submissions.") from exc
+    if response.status_code in {401, 403}:
+        raise ValueError("Kobo rejected the stored API token.")
+    if response.status_code >= 400:
+        raise ValueError("KoboToolbox could not download this form's submissions.")
+    payload = response.json()
+    results = payload.get("results", []) if isinstance(payload, dict) else payload
+    return [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []

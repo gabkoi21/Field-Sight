@@ -1,24 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router-dom";
 import {
   ArrowUpRight,
   Building2,
-  CalendarDays,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleDot,
   Clock3,
+  BarChart3,
+  ListChecks,
+  Timer,
   Database,
   ExternalLink,
   FileCheck2,
-  Flag,
-  Link2,
-  MapPin,
   RefreshCw,
-  Target,
   Users,
 } from "lucide-react";
 import { Badge, Button, LoadingState } from "../../components/ui";
@@ -32,16 +27,10 @@ const tone = {
   purple: "bg-[#f0edfa] text-[#7868b8]",
   orange: "bg-[#fff3e5] text-[#d88935]",
 };
-function date(value: string | null) {
-  return value
-    ? new Intl.DateTimeFormat("en", { day: "2-digit", month: "short", year: "numeric" }).format(
-        new Date(value + "T00:00:00"),
-      )
-    : "Not scheduled";
-}
-
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const queryClient = useQueryClient();
+  const [syncMessage, setSyncMessage] = useState("");
   const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
   const organizationId = userQuery.data?.memberships[0]?.organization_id;
   const enumeratorsQuery = useQuery({
@@ -53,6 +42,14 @@ export function ProjectWorkspacePage() {
     queryKey: ["project", organizationId, projectId],
     queryFn: () => apiClient.getProject(organizationId!, projectId!),
     enabled: Boolean(organizationId && projectId),
+  });
+  const syncMutation = useMutation({
+    mutationFn: () => apiClient.syncProjectKoboForm(projectId!),
+    onSuccess: async (result) => {
+      setSyncMessage(`Sync complete: ${result.created} new and ${result.updated} updated submission${result.created + result.updated === 1 ? "" : "s"}.`);
+      await queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      await queryClient.invalidateQueries({ queryKey: ["sync-runs"] });
+    },
   });
   if (userQuery.isLoading || projectQuery.isLoading) return <LoadingState />;
   if (projectQuery.error)
@@ -104,12 +101,19 @@ export function ProjectWorkspacePage() {
               <ExternalLink size={15} /> Open in Kobo
             </Button>
           )}
-          <Button>
-            <RefreshCw size={15} /> Sync data
+          <Button
+            disabled={!project.kobo_form_id || syncMutation.isPending}
+            onClick={() => {
+              setSyncMessage("");
+              syncMutation.mutate();
+            }}
+          >
+            <RefreshCw size={15} /> {syncMutation.isPending ? "Syncing…" : "Sync data"}
           </Button>
         </div>
       </div>
-      <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
+      {syncMessage && <p className="m-0 rounded-[5px] border border-[#bfe4cf] bg-[#f0fbf5] px-3 py-2 text-xs text-[#18794e]">{syncMessage}</p>}
+      {syncMutation.error && <p className="m-0 rounded-[5px] bg-[#fff0f2] px-3 py-2 text-xs text-[#b42318]">{syncMutation.error instanceof ApiError ? syncMutation.error.message : "Unable to sync Kobo data. Please try again."}</p>}      <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
         {tabs.map((tab, i) => (
           <button
             key={tab}
@@ -142,63 +146,11 @@ export function ProjectWorkspacePage() {
         <CalendarPanel />
       </div>
 
-      <section className="grid grid-cols-[minmax(0,.72fr)_minmax(0,1.5fr)] gap-[14px] max-[1000px]:grid-cols-1">
-        <TaskPerformance />
-        <ProjectProgress project={project} />
-      </section>
+      <WorkspaceInsights />
 
       <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
         <EnumeratorsTable enumerators={enumeratorsQuery.data ?? []} />
         <ProjectActivity projectName={project.name} hasForm={Boolean(project.kobo_form_name)} />
-      </section>
-      <section className="grid grid-cols-[minmax(0,1.55fr)_minmax(320px,1fr)] gap-[14px] max-[1050px]:grid-cols-1">
-        <article className="rounded-[6px] border border-[#e5e9ed] bg-white">
-          <div className="flex justify-between px-6 py-5">
-            <div>
-              <h2 className="m-0 text-base font-bold text-[#1d2a38]">Recent activity</h2>
-              <p className="mb-0 mt-1 text-xs text-[#7b899d]">Updates from this project</p>
-            </div>
-            <button className="text-xs font-bold text-brand">View all</button>
-          </div>
-          <div className="border-t border-[#edf0f4] px-6">
-            <Activity
-              icon={Link2}
-              tone="blue"
-              title={project.kobo_form_name ? "Kobo form is connected" : "Connect a Kobo form to begin"}
-              time="Project setup"
-            />
-            <Activity
-              icon={Target}
-              tone="purple"
-              title={target ? "Collection target set to " + target : "Add a collection target when you are ready"}
-              time="Collection planning"
-            />
-            <Activity
-              icon={MapPin}
-              tone="green"
-              title="Location and quality checks will appear here"
-              time="After submissions arrive"
-            />
-          </div>
-        </article>
-        <article className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
-          <div className="flex justify-between">
-            <div>
-              <h2 className="m-0 text-base font-bold text-[#1d2a38]">Attention needed</h2>
-              <p className="mb-0 mt-1 text-xs text-[#7b899d]">Priority actions for this project</p>
-            </div>
-            <Flag size={18} className="text-[#d99a35]" />
-          </div>
-          <div className="mt-5 rounded-lg border border-dashed border-[#dce4ed] bg-[#fafbfd] px-4 py-5 text-center">
-            <span className="mx-auto mb-2 grid size-9 place-items-center rounded-full bg-[#edf3fb] text-[#6d88ae]">
-              <CheckCircle2 size={18} />
-            </span>
-            <strong className="block text-[13px] text-[#435873]">Nothing needs attention</strong>
-            <p className="mb-0 mt-1 text-xs leading-5 text-[#7d8a9d]">
-              Quality and field alerts will show here as data is collected.
-            </p>
-          </div>
-        </article>
       </section>
     </div>
   );
@@ -231,58 +183,6 @@ function Metric({
     </article>
   );
 }
-function Detail({
-  icon: Icon,
-  label,
-  value,
-  border,
-}: {
-  icon: typeof CalendarDays;
-  label: string;
-  value: string;
-  border?: boolean;
-}) {
-  return (
-    <div
-      className={
-        "flex items-center gap-3 px-6 py-4 max-[560px]:px-4 " +
-        (border ? "border-l border-[#edf0f4] max-[560px]:border-l-0 max-[560px]:border-t" : "")
-      }
-    >
-      <span className="grid size-8 place-items-center rounded-lg bg-[#f0f4f9] text-[#6380a7]">
-        <Icon size={16} />
-      </span>
-      <div>
-        <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-[#8b98aa]">{label}</span>
-        <strong className="block text-[13px] text-[#425674]">{value}</strong>
-      </div>
-    </div>
-  );
-}
-function Activity({
-  icon: Icon,
-  tone: color,
-  title,
-  time,
-}: {
-  icon: typeof Link2;
-  tone: keyof typeof tone;
-  title: string;
-  time: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 border-b border-[#edf0f4] py-4 last:border-b-0">
-      <span className={"grid size-8 place-items-center rounded-lg " + tone[color]}>
-        <Icon size={15} />
-      </span>
-      <div>
-        <strong className="block text-[13px] text-[#415572]">{title}</strong>
-        <span className="text-xs text-[#8995a7]">{time}</span>
-      </div>
-    </div>
-  );
-}
-
 function CalendarPanel() {
   const [month, setMonth] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDate());
@@ -352,143 +252,75 @@ function CalendarPanel() {
     </section>
   );
 }
-function TaskPerformance() {
-  const segments = [
-    { name: "Completed", value: 25, color: "#0b51b7" },
-    { name: "In progress", value: 35, color: "#6d81f5" },
-    { name: "Pending", value: 40, color: "#e5e9ed" },
+function WorkspaceInsights() {
+  const tasks = [
+    { label: "On Going", value: 24, color: "#2e6be6" },
+    { label: "Under Review", value: 15, color: "#0aaec9" },
+    { label: "Finish", value: 8, color: "#0abf82" },
   ];
   return (
-    <section className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
-      <header className="flex items-start justify-between">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Tasks performance</h2>
-          <p className="mt-1 text-[11px] text-[#84909b]">Project setup and collection readiness</p>
-        </div>
-        <span className="rounded-[5px] border border-[#dce2e7] px-2 py-1 text-[10px] font-medium text-[#657382]">
-          This project
-        </span>
-      </header>
-      <div className="mt-2 grid grid-cols-[150px_1fr] items-center max-[520px]:grid-cols-[130px_1fr]">
-        <div className="relative h-[150px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={segments} dataKey="value" innerRadius={50} outerRadius={67} paddingAngle={2} stroke="none">
-                {segments.map((item) => (
-                  <Cell key={item.name} fill={item.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 grid text-center pointer-events-none place-content-center">
-            <strong className="text-[21px] text-[#1d2a38]">25%</strong>
-            <span className="text-[10px] text-[#84909b]">complete</span>
+    <section className="grid grid-cols-3 gap-[14px] max-[1100px]:grid-cols-1">
+      <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
+        <InsightHeader icon={ListChecks} title="Overall Tasks" />
+        <div className="grid grid-cols-[150px_1fr] items-center gap-4 px-5 py-7 max-[480px]:grid-cols-1">
+          <div className="relative mx-auto size-[140px] rounded-full" style={{ background: "conic-gradient(#2e6be6 0 51%, #fff 51% 53%, #0aaec9 53% 84%, #fff 84% 86%, #0abf82 86% 100%)" }}>
+            <span className="absolute inset-[19px] rounded-full bg-white" />
           </div>
-        </div>
-        <div className="flex flex-col gap-[10px]">
-          {segments.map((item) => (
-            <div key={item.name} className="flex items-center justify-between text-[11px] text-[#667481]">
-              <span className="flex items-center gap-[6px]">
-                <i className="size-[7px] rounded-full" style={{ backgroundColor: item.color }} />
-                {item.name}
-              </span>
-              <strong className="text-[#253342]">{item.value}%</strong>
+          <div>
+            <span className="text-sm text-[#1e2a39]">Total</span>
+            <strong className="mt-1 block text-[25px] leading-none text-[#111827]">47</strong>
+            <div className="mt-7 space-y-3">
+              {tasks.map((task) => (
+                <div key={task.label} className="flex items-center justify-between gap-2 text-[13px] text-[#637187]">
+                  <span className="flex items-center gap-2"><i className="size-2.5 rounded-full" style={{ backgroundColor: task.color }} />{task.label}</span>
+                  <strong className="font-medium text-[#172033]">{task.value} Task</strong>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-      </div>
-      <div className="mt-1 h-[4px] overflow-hidden rounded-full bg-[#edf0f2]">
-        <div className="w-1/4 h-full rounded-full bg-brand" />
-      </div>
-      <p className="mb-0 mt-2 text-[10px] text-[#87939f]">1 of 4 workflow stages completed</p>
+      </article>
+      <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
+        <InsightHeader icon={Timer} title="Effort Tracking" />
+        <div className="px-5 py-5">
+          <div className="flex items-baseline gap-2"><strong className="text-[25px] leading-none text-[#111827]">1,247</strong><span className="text-[13px] text-[#6b778c]">Hours Logged</span></div>
+          <p className="mt-2 text-[13px] text-[#1b2637]"><span className="mr-2 rounded bg-[#d9f9e8] px-2 py-1 text-[11px] font-semibold text-[#05a968]">? 8.5%</span>vs last month's hours</p>
+          <div className="mt-7 flex h-[71px] items-end justify-between border-y border-[#edf0f3] px-9 pt-2">
+            {[{ a: 3, b: 16 }, { a: 21, b: 8 }, { a: 49, b: 31 }, { a: 67, b: 53 }].map((bar, index) => (
+              <div key={index} className="flex h-full items-end gap-1"><i className="w-4 rounded-t bg-[#0aaec9]" style={{ height: bar.a }} /><i className="w-4 rounded-t bg-[#2e6be6]" style={{ height: bar.b }} /></div>
+            ))}
+          </div>
+          <div className="mt-2 flex justify-between px-11 text-[12px] text-[#66758a]"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span></div>
+        </div>
+      </article>
+      <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
+        <InsightHeader icon={BarChart3} title="Project Progress" />
+        <div className="space-y-8 px-5 py-5">
+          <ProgressMetric label="Performing Progress" value="89%" change="10.2%" color="bg-[#08bf7a]" filled={36} />
+          <ProgressMetric label="Task Completion" value="67%" change="2.2%" color="bg-[#2e6be6]" filled={27} />
+        </div>
+      </article>
     </section>
   );
 }
 
-function ProjectProgress({
-  project,
-}: {
-  project: { name: string; kobo_form_name?: string | null; start_date?: string | null; end_date?: string | null };
-}) {
-  const stages = ["Planning", "Design", "Collection", "Review"];
-  const currentStage = project.kobo_form_name ? 1 : 0;
+function InsightHeader({ icon: Icon, title }: { icon: typeof ListChecks; title: string }) {
   return (
-    <section className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
-      <header className="flex items-center justify-between border-b border-[#edf0f2] pb-3">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Project progress</h2>
-          <p className="mb-0 mt-1 text-[11px] text-[#84909b]">Collection readiness and delivery timeline</p>
-        </div>
-        <span className="size-3 rounded-full bg-[#20b889]" />
-      </header>
-      <div className="flex flex-wrap items-start justify-between gap-3 mt-4">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
-            <Building2 size={19} />
-          </span>
-          <div>
-            <strong className="block text-[14px] text-[#253342]">{project.name}</strong>
-            <span className="text-[11px] text-[#71809a]">
-              {project.kobo_form_name ? "Kobo form connected" : "Set up your Kobo form"}
-            </span>
-          </div>
-        </div>
-        <div className="text-right text-[11px] leading-6 text-[#64758b]">
-          <div>
-            Start: <strong className="font-medium text-[#405572]">{date(project.start_date ?? null)}</strong>
-          </div>
-          <div>
-            Deadline: <strong className="font-medium text-[#405572]">{date(project.end_date ?? null)}</strong>
-          </div>
-        </div>
-      </div>
-      <div className="relative grid grid-cols-4 mt-7">
-        {stages.map((stage, index) => (
-          <div key={stage} className="relative z-[1] text-center">
-            <span
-              className={
-                (index <= currentStage
-                  ? "border-brand bg-brand text-white"
-                  : "border-[#dce4ed] bg-white text-[#93a1b2]") +
-                " mx-auto grid size-7 place-items-center rounded-full border text-[11px] font-semibold"
-              }
-            >
-              {index + 1}
-            </span>
-            <span className="mt-2 block text-[10px] font-semibold uppercase text-[#53657a]">{stage}</span>
-            {index < stages.length - 1 && (
-              <i
-                className={
-                  (index < currentStage ? "bg-brand" : "bg-[#dce4ed]") +
-                  " absolute left-[calc(50%+14px)] top-[13px] h-px w-[calc(100%-28px)]"
-                }
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-5">
-        <div className="mb-2 flex justify-between text-[11px] text-[#71809a]">
-          <span>Project setup progress</span>
-          <strong className="text-[#0b51b7]">{currentStage === 1 ? "40% complete" : "20% complete"}</strong>
-        </div>
-        <div className="h-[4px] overflow-hidden rounded-full bg-[#edf0f2]">
-          <div className="h-full rounded-full bg-[#6d81f5]" style={{ width: currentStage === 1 ? "40%" : "20%" }} />
-        </div>
-      </div>
-      <footer className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#edf0f2] pt-3 text-[11px] text-[#71809a]">
-        <span>{project.kobo_form_name ? "Ready to begin field collection" : "Connect a form to continue setup"}</span>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 border-0 bg-transparent p-0 font-semibold text-[#0b51b7]"
-        >
-          Manage setup <ArrowUpRight size={13} />
-        </button>
-      </footer>
-    </section>
+    <header className="flex items-center justify-between border-b border-[#e5e8ec] px-4 py-2">
+      <div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-lg border border-[#cfd6de] text-[#1f2937] shadow-[inset_0_0_0_2px_#f7f8fa]"><Icon size={20} /></span><h2 className="text-[16px] font-bold text-[#121b2a]">{title}</h2></div>
+      <button type="button" className="rounded-lg border border-[#d3d8de] px-4 py-2 text-[13px] font-medium text-[#111827]">View details</button>
+    </header>
   );
 }
 
+function ProgressMetric({ label, value, change, color, filled }: { label: string; value: string; change: string; color: string; filled: number }) {
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between text-[14px]"><span className="text-[#59677d]">{label}</span><span><i className="mr-2 rounded bg-[#d9f9e8] px-2 py-1 text-[11px] font-semibold not-italic text-[#05a968]">? {change}</i><strong className="text-[16px] text-[#111827]">{value}</strong></span></div>
+      <div className="flex gap-[3px]">{Array.from({ length: 40 }, (_, index) => <i key={index} className={`h-7 flex-1 rounded-[2px] ${index < filled ? color : "bg-[#e2e4e7]"}`} />)}</div>
+    </div>
+  );
+}
 function EnumeratorsTable({
   enumerators,
 }: {
