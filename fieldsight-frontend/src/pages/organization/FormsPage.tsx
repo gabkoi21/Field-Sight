@@ -1,4 +1,5 @@
 import { FileText, MoreHorizontal, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Badge, Button, PageHeader } from "../../components/ui";
 
 const forms = [
@@ -44,6 +45,7 @@ const tabs = [
 ];
 
 export function FormsPage() {
+  const navigate = useNavigate();
   return (
     <>
       <PageHeader
@@ -51,9 +53,9 @@ export function FormsPage() {
         title="Forms & data sources"
         description="Manage form lifecycle, deployment versions, and connected collection sources."
       >
-        <Button>
+        <Button onClick={() => navigate("/forms/connections")}>
           <Plus size={16} />
-          Connect Kobo form
+          Kobo connections
         </Button>
       </PageHeader>
       <div className="mb-[-1px] flex gap-1 border-b border-[#e5e8ec]">

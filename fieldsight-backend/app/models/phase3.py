@@ -79,6 +79,21 @@ class Location(SQLModel, table=True):
     is_active: bool = True
 
 
+class KoboConnection(SQLModel, table=True):
+    __tablename__ = "kobo_connections"
+    __table_args__ = (UniqueConstraint("organization_id", "name", name="uq_kobo_connection_org_name"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    name: str = Field(sa_column=Column(String(120), nullable=False))
+    server_url: str = Field(sa_column=Column(String(255), nullable=False))
+    token_encrypted: str = Field(sa_column=Column(String, nullable=False))
+    is_verified: bool = Field(default=False, nullable=False)
+    verified_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
 class FieldAssignment(SQLModel, table=True):
     __tablename__ = "field_assignments"
     __table_args__ = (

@@ -335,7 +335,6 @@ export function OrganizationDashboardPage() {
           icon={Database}
           tone="blue"
           note="1,306 received this week"
-          onClick={() => navigate("/submissions")}
         />
         <StatCard
           label="Active projects"
@@ -345,7 +344,6 @@ export function OrganizationDashboardPage() {
           icon={FolderCheck}
           tone="teal"
           note="7 projects in the portfolio"
-          onClick={() => navigate("/projects")}
         />
         <StatCard
           label="Active enumerators"
@@ -355,7 +353,6 @@ export function OrganizationDashboardPage() {
           icon={UsersRound}
           tone="violet"
           note="of 33 assigned today"
-          onClick={() => navigate("/enumerators")}
         />
         <StatCard
           label="Needs review"
@@ -365,7 +362,6 @@ export function OrganizationDashboardPage() {
           icon={ShieldAlert}
           tone="amber"
           note="149 blocking export"
-          onClick={() => navigate("/quality")}
         />
       </div>
 

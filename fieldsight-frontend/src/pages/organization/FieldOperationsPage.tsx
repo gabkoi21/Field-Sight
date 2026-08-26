@@ -1,16 +1,6 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  MoreHorizontal,
-  Plus,
-  Search,
-  ShieldCheck,
-  Trash2,
-  UserCheck,
-  Users,
-  UserX,
-  X,
-} from "lucide-react";
+import { MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import {
   AdminMetric,
@@ -20,14 +10,12 @@ import {
   adminInputClass,
 } from "../../components/superadmin/AdminUi";
 import { Button, PageHeader } from "../../components/ui";
-import { apiClient, ApiError, type ApiEnumerator } from "../../services/apiClient";
+import { apiClient, ApiError, type ApiEnumerator, type EnumeratorUpdateInput } from "../../services/apiClient";
 
 export function FieldOperationsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const isOrganizationAdmin = Boolean(
-    user?.memberships.some((membership) => membership.role === "organization_admin"),
-  );
+  const isOrganizationAdmin = Boolean(user?.memberships.some((membership) => membership.role === "organization_admin"));
   const [query, setQuery] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -45,7 +33,16 @@ export function FieldOperationsPage() {
   const [formError, setFormError] = useState("");
   const [selectedMembershipId, setSelectedMembershipId] = useState<string | null>(null);
   const [editIsActive, setEditIsActive] = useState(true);
+  const [editPhoneNumber, setEditPhoneNumber] = useState("");
+  const [editEmployeeId, setEditEmployeeId] = useState("");
+  const [editGender, setEditGender] = useState("");
+  const [editDateOfBirth, setEditDateOfBirth] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editEmergencyContactName, setEditEmergencyContactName] = useState("");
+  const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState("");
+  const [editNotes, setEditNotes] = useState("");
   const [actionError, setActionError] = useState("");
+  const manageFieldClass = `${adminInputClass} min-h-[36px] border-[#edf1f5] bg-[#f5f7fa] px-2.5 text-[12px] text-[#526177]`;
   const enumeratorsQuery = useQuery({
     queryKey: ["organization-enumerators"],
     queryFn: apiClient.enumerators,
@@ -80,25 +77,20 @@ export function FieldOperationsPage() {
     },
   });
   const deleteMutation = useMutation({
-    mutationFn: (membershipId: string) =>
-      apiClient.deactivateEnumerator(membershipId),
+    mutationFn: (membershipId: string) => apiClient.deactivateEnumerator(membershipId),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ["organization-enumerators"],
       }),
-  });  const updateMutation = useMutation({
-    mutationFn: ({ membershipId, isActive }: { membershipId: string; isActive: boolean }) =>
-      apiClient.updateEnumerator(membershipId, { is_active: isActive }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["organization-enumerators"],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["organization-enumerator", selectedMembershipId],
-      });
-    },
   });
-  const enumerators = enumeratorsQuery.data ?? [];
+  const updateMutation = useMutation({
+    mutationFn: ({ membershipId, input }: { membershipId: string; input: EnumeratorUpdateInput }) =>
+      apiClient.updateEnumerator(membershipId, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["organization-enumerators"] });
+      await queryClient.invalidateQueries({ queryKey: ["organization-enumerator", selectedMembershipId] });
+    },
+  });  const enumerators = enumeratorsQuery.data ?? [];
   const filteredEnumerators = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return enumerators.filter((enumerator) =>
@@ -107,9 +99,7 @@ export function FieldOperationsPage() {
         .includes(normalized),
     );
   }, [enumerators, query]);
-  const activeCount = enumerators.filter(
-    (enumerator) => enumerator.is_active,
-  ).length;
+  const activeCount = enumerators.filter((enumerator) => enumerator.is_active).length;
   const loadError =
     enumeratorsQuery.error instanceof ApiError
       ? enumeratorsQuery.error.message
@@ -118,9 +108,20 @@ export function FieldOperationsPage() {
         : "";
 
   const selectedEnumerator =
-    enumeratorQuery.data ??
-    enumerators.find((enumerator) => enumerator.membership_id === selectedMembershipId);
-  async function createEnumerator(event: FormEvent<HTMLFormElement>) {
+    enumeratorQuery.data ?? enumerators.find((enumerator) => enumerator.membership_id === selectedMembershipId);
+
+  useEffect(() => {
+    if (!selectedEnumerator) return;
+    setEditIsActive(selectedEnumerator.is_active);
+    setEditPhoneNumber(selectedEnumerator.phone_number ?? "");
+    setEditEmployeeId(selectedEnumerator.employee_id ?? "");
+    setEditGender(selectedEnumerator.gender ?? "");
+    setEditDateOfBirth(selectedEnumerator.date_of_birth ?? "");
+    setEditAddress(selectedEnumerator.address ?? "");
+    setEditEmergencyContactName(selectedEnumerator.emergency_contact_name ?? "");
+    setEditEmergencyContactPhone(selectedEnumerator.emergency_contact_phone ?? "");
+    setEditNotes(selectedEnumerator.notes ?? "");
+  }, [selectedEnumerator]);  async function createEnumerator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isOrganizationAdmin) return;
     setFormError("");
@@ -143,15 +144,17 @@ export function FieldOperationsPage() {
       setEmail("");
       setUsername("");
       setPassword("");
-      setPhoneNumber(""); setEmployeeId(""); setGender(""); setDateOfBirth(""); setAddress("");
-      setEmergencyContactName(""); setEmergencyContactPhone(""); setNotes("");
+      setPhoneNumber("");
+      setEmployeeId("");
+      setGender("");
+      setDateOfBirth("");
+      setAddress("");
+      setEmergencyContactName("");
+      setEmergencyContactPhone("");
+      setNotes("");
       setShowCreate(false);
     } catch (requestError) {
-      setFormError(
-        requestError instanceof ApiError
-          ? requestError.message
-          : "Unable to create the enumerator.",
-      );
+      setFormError(requestError instanceof ApiError ? requestError.message : "Unable to create the enumerator.");
     }
   }
 
@@ -162,11 +165,7 @@ export function FieldOperationsPage() {
       await deleteMutation.mutateAsync(membershipId);
       if (selectedMembershipId === membershipId) setSelectedMembershipId(null);
     } catch (requestError) {
-      setActionError(
-        requestError instanceof ApiError
-          ? requestError.message
-          : "Unable to deactivate the enumerator.",
-      );
+      setActionError(requestError instanceof ApiError ? requestError.message : "Unable to deactivate the enumerator.");
     }
   }
 
@@ -187,22 +186,26 @@ export function FieldOperationsPage() {
     try {
       await updateMutation.mutateAsync({
         membershipId: selectedMembershipId,
-        isActive: editIsActive,
-      });
-      setSelectedMembershipId(null);
+        input: {
+          is_active: editIsActive,
+          phone_number: editPhoneNumber.trim() || null,
+          employee_id: editEmployeeId.trim() || null,
+          gender: editGender.trim() || null,
+          date_of_birth: editDateOfBirth || null,
+          address: editAddress.trim() || null,
+          emergency_contact_name: editEmergencyContactName.trim() || null,
+          emergency_contact_phone: editEmergencyContactPhone.trim() || null,
+          notes: editNotes.trim() || null,
+        },
+      });      setSelectedMembershipId(null);
     } catch (requestError) {
-      setActionError(
-        requestError instanceof ApiError
-          ? requestError.message
-          : "Unable to update the enumerator.",
-      );
+      setActionError(requestError instanceof ApiError ? requestError.message : "Unable to update the enumerator.");
     }
   }
   if (!isOrganizationAdmin) {
     return (
       <div className="rounded-[7px] border border-[#f0d8b8] bg-[#fffbf4] p-5 text-sm text-[#80664d]">
-        Only an Organization Admin can manage enumerators. Your account has no
-        Organization Admin membership.
+        Only an Organization Admin can manage enumerators. Your account has no Organization Admin membership.
       </div>
     );
   }
@@ -218,16 +221,9 @@ export function FieldOperationsPage() {
           <Plus size={15} /> Create enumerator
         </Button>
       </PageHeader>
-      {loadError && (
-        <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
-          {loadError}
-        </p>
-      )}
-      {actionError && (
-        <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
-          {actionError}
-        </p>
-      )}      <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
+      {loadError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{loadError}</p>}
+      {actionError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{actionError}</p>}{" "}
+      <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
         <AdminMetric
           label="All enumerators"
           value={String(enumerators.length)}
@@ -249,11 +245,8 @@ export function FieldOperationsPage() {
           tone="orange"
         />
       </section>
-      <AdminPanel
-        title="Enumerator directory"
-        description="Accounts created by this organization administrator"
-      >
-        <div className="border-b border-line p-4">
+      <AdminPanel title="Enumerator directory" description="Accounts created by this organization administrator">
+        <div className="p-4 border-b border-line">
           <label className="flex min-h-[38px] max-w-[440px] items-center gap-2 rounded-[7px] border border-[#dfe4e8] bg-white px-3 text-[#8793a2]">
             <Search size={15} />
             <input
@@ -272,6 +265,7 @@ export function FieldOperationsPage() {
                 <th>Employee ID</th>
                 <th>Phone</th>
                 <th>Address</th>
+                <th>Gender</th>
                 <th>Role</th>
                 <th>Status</th>
                 <th>Created</th>
@@ -281,7 +275,7 @@ export function FieldOperationsPage() {
             <tbody>
               {enumeratorsQuery.isLoading && (
                 <tr>
-                  <td colSpan={8} className="text-center">
+                  <td colSpan={9} className="text-center">
                     Loading enumerators…
                   </td>
                 </tr>
@@ -290,29 +284,25 @@ export function FieldOperationsPage() {
                 <tr key={enumerator.membership_id}>
                   <td>
                     <div>
-                      <strong>
-                        {enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}
-                      </strong>
-                      <small>{enumerator.email} · @{enumerator.username ?? "not set"}</small>
+                      <strong>{enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}</strong>
+                      <small>
+                        {enumerator.email} · @{enumerator.username ?? "not set"}
+                      </small>
                     </div>
                   </td>
                   <td>{enumerator.employee_id ?? "—"}</td>
                   <td>{enumerator.phone_number ?? "—"}</td>
                   <td className="max-w-[190px] truncate">{enumerator.address ?? "—"}</td>
+                  <td>{enumerator.gender ?? "�"}</td>
                   <td>
                     <span className="inline-flex items-center gap-1.5">
-                      <ShieldCheck size={13} className="text-[#8793a2]" />{" "}
-                      Enumerator
+                      <ShieldCheck size={13} className="text-[#8793a2]" /> Enumerator
                     </span>
                   </td>
                   <td>
-                    <AdminStatus
-                      value={enumerator.is_active ? "Active" : "Suspended"}
-                    />
+                    <AdminStatus value={enumerator.is_active ? "Active" : "Suspended"} />
                   </td>
-                  <td>
-                    {new Date(enumerator.created_at).toLocaleDateString()}
-                  </td>
+                  <td>{new Date(enumerator.created_at).toLocaleDateString()}</td>
                   <td>
                     <div className="flex justify-end">
                       <button
@@ -324,7 +314,6 @@ export function FieldOperationsPage() {
                       >
                         <MoreHorizontal size={15} />
                       </button>
-
                     </div>
                   </td>
                 </tr>
@@ -332,101 +321,125 @@ export function FieldOperationsPage() {
             </tbody>
           </table>
           {!enumeratorsQuery.isLoading && filteredEnumerators.length === 0 && (
-            <p className="m-0 p-10 text-center text-xs text-[#8793a2]">
-              No enumerators match your search.
-            </p>
+            <p className="m-0 p-10 text-center text-xs text-[#8793a2]">No enumerators match your search.</p>
           )}
         </div>
-        <AdminTableFooter
-          shown={filteredEnumerators.length}
-          total={enumerators.length}
-        />
+        <AdminTableFooter shown={filteredEnumerators.length} total={enumerators.length} />
       </AdminPanel>
-
       {selectedMembershipId && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeEnumerator}>
-          <form className="w-full max-w-[480px] overflow-hidden rounded-[6px] border border-[#dfe4e8] bg-white shadow-[0_12px_32px_rgba(16,42,67,.16)]" onClick={(event) => event.stopPropagation()} onSubmit={updateEnumerator}>
-            <header className="flex items-center justify-between border-b border-[#e8edf4] px-5 py-4">
+          <form
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-[720px] flex-col overflow-hidden rounded-[6px] border border-[#dfe4e8] bg-white shadow-[0_12px_32px_rgba(16,42,67,.16)]"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={updateEnumerator}
+          >
+            <header className="flex items-center justify-between border-b border-[#e8edf4] px-4 py-3">
               <h2 className="m-0 text-[16px] font-semibold text-[#253342]">Manage enumerator</h2>
-              <button type="button" className="border-0 bg-transparent p-0 text-[#8290a2]" onClick={closeEnumerator} aria-label="Close enumerator card">
+              <button
+                type="button"
+                className="border-0 bg-transparent p-0 text-[#8290a2]"
+                onClick={closeEnumerator}
+                aria-label="Close enumerator card"
+              >
                 <X size={18} />
               </button>
             </header>
-            <div className="grid gap-3 p-5 sm:grid-cols-2">
+            <div className="grid flex-1 gap-x-[10px] gap-y-[9px] overflow-y-auto px-4 py-4 sm:grid-cols-2">
               {enumeratorQuery.isLoading && (
                 <p className="m-0 text-xs text-[#7b8794] sm:col-span-2">Loading enumerator…</p>
               )}
               {enumeratorQuery.error && (
                 <p className="m-0 text-xs text-[#b42318] sm:col-span-2">
-                  {enumeratorQuery.error instanceof ApiError ? enumeratorQuery.error.message : "Unable to load the enumerator."}
+                  {enumeratorQuery.error instanceof ApiError
+                    ? enumeratorQuery.error.message
+                    : "Unable to load the enumerator."}
                 </p>
               )}
               {selectedEnumerator && (
                 <>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Full name
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.full_name ?? ""} readOnly />
+                    <input
+                      className={manageFieldClass + " cursor-default text-[#7b8794]"}
+                      value={selectedEnumerator.full_name ?? ""}
+                      readOnly
+                    />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Email
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.email} readOnly />
+                    <input
+                      className={manageFieldClass + " cursor-default text-[#7b8794]"}
+                      value={selectedEnumerator.email}
+                      readOnly
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Username
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.username ?? ""} readOnly />
+                    <input
+                      className={manageFieldClass + " cursor-default text-[#7b8794]"}
+                      value={selectedEnumerator.username ?? ""}
+                      readOnly
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Role
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value="Enumerator" readOnly />
+                    <input className={manageFieldClass + " cursor-default text-[#7b8794]"} value="Enumerator" readOnly />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Status
-                    <select className={adminInputClass} value={editIsActive ? "active" : "inactive"} onChange={(event) => setEditIsActive(event.target.value === "active")}>
+                    <select
+                      className={manageFieldClass}
+                      value={editIsActive ? "active" : "inactive"}
+                      onChange={(event) => setEditIsActive(event.target.value === "active")}
+                    >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Created
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={new Date(selectedEnumerator.created_at).toLocaleDateString()} readOnly />
+                    <input
+                      className={manageFieldClass + " cursor-default text-[#7b8794]"}
+                      value={new Date(selectedEnumerator.created_at).toLocaleDateString()}
+                      readOnly
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Phone number
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.phone_number ?? "—"} readOnly />
+                    <input type="tel" className={manageFieldClass} value={editPhoneNumber} onChange={(event) => setEditPhoneNumber(event.target.value)} maxLength={32} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Employee ID
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.employee_id ?? "—"} readOnly />
+                    <input className={manageFieldClass} value={editEmployeeId} onChange={(event) => setEditEmployeeId(event.target.value)} maxLength={64} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Gender
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.gender ?? "—"} readOnly />
+                    <input className={manageFieldClass} value={editGender} onChange={(event) => setEditGender(event.target.value)} maxLength={32} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Date of birth
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.date_of_birth ?? "—"} readOnly />
+                    <input type="date" className={manageFieldClass} value={editDateOfBirth} onChange={(event) => setEditDateOfBirth(event.target.value)} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                     Address
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.address ?? "—"} readOnly />
+                    <input className={manageFieldClass} value={editAddress} onChange={(event) => setEditAddress(event.target.value)} maxLength={300} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Emergency contact name
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.emergency_contact_name ?? "—"} readOnly />
+                    <input className={manageFieldClass} value={editEmergencyContactName} onChange={(event) => setEditEmergencyContactName(event.target.value)} maxLength={200} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Emergency contact phone
-                    <input className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.emergency_contact_phone ?? "—"} readOnly />
+                    <input type="tel" className={manageFieldClass} value={editEmergencyContactPhone} onChange={(event) => setEditEmergencyContactPhone(event.target.value)} maxLength={32} />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                     Notes
-                    <textarea className={adminInputClass + " min-h-20 resize-none bg-[#f5f7fa] text-[#7b8794]"} value={selectedEnumerator.notes ?? "—"} readOnly />
-                  </label>
-                </>
+                    <textarea className={manageFieldClass + " min-h-[70px] resize-y"} value={editNotes} onChange={(event) => setEditNotes(event.target.value)} maxLength={2000} />
+                  </label>                </>
               )}
               {actionError && <p className="m-0 text-xs text-[#b42318] sm:col-span-2">{actionError}</p>}
             </div>
-            <footer className="flex items-center justify-between gap-3 border-t border-[#e8edf4] bg-[#fbfcfd] px-5 py-3">
+            <footer className="flex items-center justify-between gap-3 border-t border-[#e8edf4] bg-[#fbfcfd] px-4 py-2.5">
               <button
                 type="button"
                 className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-[#f0c8cd] bg-white px-3 text-xs font-semibold text-[#b42318] disabled:cursor-not-allowed disabled:opacity-50"
@@ -442,7 +455,9 @@ export function FieldOperationsPage() {
                 <Trash2 size={14} /> {deleteMutation.isPending ? "Deleting…" : "Delete"}
               </button>
               <div className="flex gap-2">
-                <Button type="button" variant="secondary" onClick={closeEnumerator}>Cancel</Button>
+                <Button type="button" variant="secondary" onClick={closeEnumerator}>
+                  Cancel
+                </Button>
                 <Button type="submit" disabled={!selectedEnumerator || updateMutation.isPending}>
                   {updateMutation.isPending ? "Saving…" : "Save"}
                 </Button>
@@ -466,9 +481,7 @@ export function FieldOperationsPage() {
                 <p className="m-0 mb-1 text-[11px] font-bold uppercase tracking-[.08em] text-brand">
                   Organization access
                 </p>
-                <h2 className="m-0 text-xl text-[#303e67]">
-                  Create enumerator
-                </h2>
+                <h2 className="m-0 text-xl text-[#303e67]">Create enumerator</h2>
                 <p className="mb-0 mt-1 text-[11px] text-[#8391a5]">
                   The account receives the Enumerator membership role.
                 </p>
@@ -482,7 +495,7 @@ export function FieldOperationsPage() {
                 <X size={19} />
               </button>
             </header>
-            <div className="grid flex-1 grid-cols-1 gap-4 overflow-auto px-6 py-6 sm:grid-cols-2">
+            <div className="grid flex-1 grid-cols-1 gap-4 px-6 py-6 overflow-auto sm:grid-cols-2">
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                 Full name
                 <input
@@ -517,11 +530,7 @@ export function FieldOperationsPage() {
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                 Role
-                <input
-                  className={`${adminInputClass} cursor-not-allowed`}
-                  value="Enumerator"
-                  readOnly
-                />
+                <input className={`${adminInputClass} cursor-not-allowed`} value="Enumerator" readOnly />
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                 Temporary password
@@ -536,28 +545,78 @@ export function FieldOperationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">Phone number<input type="tel" className={adminInputClass} value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">Employee ID<input className={adminInputClass} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">Gender<input className={adminInputClass} value={gender} onChange={(event) => setGender(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">Date of birth<input type="date" className={adminInputClass} value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">Address<input className={adminInputClass} value={address} onChange={(event) => setAddress(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">Emergency contact name<input className={adminInputClass} value={emergencyContactName} onChange={(event) => setEmergencyContactName(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">Emergency contact phone<input type="tel" className={adminInputClass} value={emergencyContactPhone} onChange={(event) => setEmergencyContactPhone(event.target.value)} /></label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">Notes<textarea className={adminInputClass} value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2000} /></label>              {formError && (
-                <p className="m-0 text-[11px] text-[#b42318]">{formError}</p>
-              )}
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                Phone number
+                <input
+                  type="tel"
+                  className={adminInputClass}
+                  value={phoneNumber}
+                  onChange={(event) => setPhoneNumber(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                Employee ID
+                <input
+                  className={adminInputClass}
+                  value={employeeId}
+                  onChange={(event) => setEmployeeId(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                Gender
+                <input className={adminInputClass} value={gender} onChange={(event) => setGender(event.target.value)} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                Date of birth
+                <input
+                  type="date"
+                  className={adminInputClass}
+                  value={dateOfBirth}
+                  onChange={(event) => setDateOfBirth(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                Address
+                <input
+                  className={adminInputClass}
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                Emergency contact name
+                <input
+                  className={adminInputClass}
+                  value={emergencyContactName}
+                  onChange={(event) => setEmergencyContactName(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                Emergency contact phone
+                <input
+                  type="tel"
+                  className={adminInputClass}
+                  value={emergencyContactPhone}
+                  onChange={(event) => setEmergencyContactPhone(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                Notes
+                <textarea
+                  className={adminInputClass}
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  maxLength={2000}
+                />
+              </label>{" "}
+              {formError && <p className="m-0 text-[11px] text-[#b42318]">{formError}</p>}
             </div>
             <footer className="flex justify-end gap-2 border-t border-[#e8edf4] px-[22px] py-3">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowCreate(false)}
-              >
+              <Button type="button" variant="secondary" onClick={() => setShowCreate(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>
-                <Plus size={15} />{" "}
-                {createMutation.isPending ? "Creating…" : "Create enumerator"}
+                <Plus size={15} /> {createMutation.isPending ? "Creating…" : "Create enumerator"}
               </Button>
             </footer>
           </form>

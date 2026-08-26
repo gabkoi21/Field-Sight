@@ -89,6 +89,14 @@ export interface EnumeratorCreateInput {
 
 export interface EnumeratorUpdateInput {
   is_active: boolean;
+  phone_number: string | null;
+  employee_id: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  notes: string | null;
 }
 
 export interface ApiEnumerator {
@@ -110,6 +118,20 @@ export interface ApiEnumerator {
   created_at: string;
 }
 
+export interface KoboConnection {
+  id: string;
+  name: string;
+  server_url: string;
+  is_verified: boolean;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface KoboConnectionInput {
+  name: string;
+  server_url: string;
+  api_token: string;
+}
 export interface CreateOrganizationInput {
   name: string;
   slug: string;
@@ -206,7 +228,7 @@ async function parseError(response: Response): Promise<ApiError> {
     validationMessage ||
       body?.message ||
       fallbackMessage ||
-      "The request could not be completed.",
+      "The request failed with status " + response.status + ".",
     body?.details ?? body?.detail,
   );
 }
@@ -318,11 +340,17 @@ export const apiClient = {
   live: () => request<{ status: string }>("/health/live"),
   ready: () => request<ReadinessStatus>("/health/ready"),
   status: () => request<ApiStatus>("/status"),
+  koboConnections: () => request<KoboConnection[]>("/kobo/connections"),
+  createKoboConnection: (input: KoboConnectionInput) =>
+    request<KoboConnection>("/kobo/connections", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
   updateEnumerator: (membershipId: string, input: EnumeratorUpdateInput) =>
     request<ApiEnumerator>(`/enumerators/${membershipId}`, {
-      method: "PATCH",
+      method: "PUT",
       body: JSON.stringify(input),
     }),
   createEnumerator: (input: EnumeratorCreateInput) =>

@@ -227,7 +227,6 @@ def _enumerator_read(membership: OrganizationMembership, db: Session) -> Enumera
     )
 
 
-@router.get("/{org_id}/enumerators", response_model=list[EnumeratorRead], tags=["enumerators"])
 def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[EnumeratorRead]:
     _authorize_organization_admin(org_id, user, db)
     memberships = db.exec(
@@ -239,12 +238,6 @@ def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[Enum
     return [_enumerator_read(membership, db) for membership in memberships]
 
 
-@router.post(
-    "/{org_id}/enumerators",
-    response_model=EnumeratorRead,
-    status_code=status.HTTP_201_CREATED,
-    tags=["enumerators"],
-)
 def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser, db: Database) -> EnumeratorRead:
     _authorize_organization_admin(org_id, user, db)
     _organization(org_id, db)
@@ -276,27 +269,34 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
     return _enumerator_read(membership, db)
 
 
-@router.get("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
 def get_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> EnumeratorRead:
     _authorize_organization_admin(org_id, user, db)
     return _enumerator_read(_enumerator(org_id, membership_id, db), db)
 
 
-@router.patch("/{org_id}/enumerators/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
 def update_enumerator(
     org_id: UUID, membership_id: UUID, payload: EnumeratorUpdate, user: CurrentUser, db: Database
 ) -> EnumeratorRead:
     _authorize_organization_admin(org_id, user, db)
     membership = _enumerator(org_id, membership_id, db)
+    account = db.get(User, membership.user_id)
+    if account is None:
+        raise HTTPException(status_code=404, detail="Enumerator account was not found.")
+    for field in (
+        "phone_number", "employee_id", "gender", "date_of_birth", "address",
+        "emergency_contact_name", "emergency_contact_phone", "notes",
+    ):
+        if field in payload.model_fields_set:
+            setattr(account, field, getattr(payload, field))
     if payload.is_active is not None:
         membership.is_active = payload.is_active
+    db.add(account)
     db.add(membership)
     db.commit()
     db.refresh(membership)
     return _enumerator_read(membership, db)
 
 
-@router.delete("/{org_id}/enumerators/{membership_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["enumerators"])
 def deactivate_enumerator(org_id: UUID, membership_id: UUID, user: CurrentUser, db: Database) -> Response:
     _authorize_organization_admin(org_id, user, db)
     membership = _enumerator(org_id, membership_id, db)
@@ -327,7 +327,7 @@ def get_current_organization_enumerator(
     return get_enumerator(_current_organization_admin_org_id(user, db), membership_id, user, db)
 
 
-@enumerator_router.patch("/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
+@enumerator_router.put("/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
 def update_current_organization_enumerator(
     membership_id: UUID, payload: EnumeratorUpdate, user: CurrentUser, db: Database
 ) -> EnumeratorRead:

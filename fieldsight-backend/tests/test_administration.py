@@ -100,9 +100,8 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     )
     assert forbidden_directory.status_code == 403
 
-    organization_id = response.json()["organization_id"]
     enumerator = TestClient(app).post(
-        f"/organizations/{organization_id}/enumerators",
+        "/enumerators",
         headers={"Authorization": f"Bearer {owner_token}"},
         json={
             "full_name": "Mary Kamara",
@@ -127,7 +126,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert enumerator_entry["memberships"][0]["role"] == "enumerator"
 
     enumerator_list = TestClient(app).get(
-        f"/organizations/{organization_id}/enumerators",
+        "/enumerators",
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert enumerator_list.status_code == 200
@@ -136,22 +135,22 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
 
     membership_id = enumerator.json()["membership_id"]
     enumerator_detail = TestClient(app).get(
-        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        f"/enumerators/{membership_id}",
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert enumerator_detail.status_code == 200
     assert enumerator_detail.json()["username"] == "field.enumerator"
 
-    suspended = TestClient(app).patch(
-        f"/organizations/{organization_id}/enumerators/{membership_id}",
+    suspended = TestClient(app).put(
+        f"/enumerators/{membership_id}",
         headers={"Authorization": f"Bearer {owner_token}"},
         json={"is_active": False},
     )
     assert suspended.status_code == 200
     assert suspended.json()["is_active"] is False
 
-    reactivated = TestClient(app).patch(
-        f"/organizations/{organization_id}/enumerators/{membership_id}",
+    reactivated = TestClient(app).put(
+        f"/enumerators/{membership_id}",
         headers={"Authorization": f"Bearer {owner_token}"},
         json={"is_active": True},
     )
@@ -159,13 +158,13 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert reactivated.json()["is_active"] is True
 
     deactivated = TestClient(app).delete(
-        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        f"/enumerators/{membership_id}",
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert deactivated.status_code == 204
 
     deactivated_detail = TestClient(app).get(
-        f"/organizations/{organization_id}/enumerators/{membership_id}",
+        f"/enumerators/{membership_id}",
         headers={"Authorization": f"Bearer {owner_token}"},
     )
     assert deactivated_detail.status_code == 200
@@ -197,7 +196,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert token_scoped_detail.status_code == 200
     assert token_scoped_detail.json()["full_name"] == "Token Scoped Enumerator"
 
-    token_scoped_suspended = TestClient(app).patch(
+    token_scoped_suspended = TestClient(app).put(
         f"/enumerators/{token_scoped_membership_id}",
         headers={"Authorization": f"Bearer {owner_token}"},
         json={"is_active": False},
@@ -217,7 +216,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     assert token_scoped_super_admin.status_code == 403
 
     super_admin_create = TestClient(app).post(
-        f"/organizations/{organization_id}/enumerators",
+        "/enumerators",
         headers={"Authorization": f"Bearer {token}"},
         json={
             "full_name": "Blocked Enumerator",
@@ -226,7 +225,7 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
             "password": "EnumeratorPass123!",
         },
     )
-    assert super_admin_create.status_code == 404
+    assert super_admin_create.status_code == 403
 
     updated = TestClient(app).patch(
         f"/organizations/{response.json()['organization_id']}",

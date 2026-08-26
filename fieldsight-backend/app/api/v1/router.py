@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.routes.administration import router as administration_router
 from app.routes.auth import router as auth_router
 from app.routes.health import router as health_router
+from app.routes.kobo import router as kobo_router
 from app.routes.onboarding import router as onboarding_router
 from app.routes.organizations import enumerator_router
 from app.routes.organizations import router as organizations_router
@@ -18,3 +19,4 @@ api_router.include_router(administration_router, tags=["platform administration"
 api_router.include_router(onboarding_router, tags=["authentication"])
 api_router.include_router(organizations_router)
 api_router.include_router(enumerator_router)
+api_router.include_router(kobo_router)

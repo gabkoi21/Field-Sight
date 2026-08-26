@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     refresh_token_days: int = 14
     invitation_days: int = 7
     upload_base_url: str = "http://localhost:8000/local-uploads"
+    kobo_token_encryption_key: str | None = None
 
     @property
     def is_development(self) -> bool:
