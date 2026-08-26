@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ExternalLink, Plus, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, FileText, Plus, ShieldCheck, X } from "lucide-react";
 import { Button, PageHeader, Ring } from "../../components/ui";
 import { apiClient, ApiError } from "../../services/apiClient";
 
 export function KoboConnectionsPage() {
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [connectionName, setConnectionName] = useState("");
   const [serverUrl, setServerUrl] = useState("https://kf.kobotoolbox.org");
   const [apiToken, setApiToken] = useState("");
@@ -16,23 +17,36 @@ export function KoboConnectionsPage() {
     queryKey: ["kobo-connections"],
     queryFn: apiClient.koboConnections,
   });
+  const formsQuery = useQuery({
+    queryKey: ["kobo-forms", selectedConnectionId],
+    queryFn: () => apiClient.koboForms(selectedConnectionId!),
+    enabled: Boolean(selectedConnectionId),
+  });
   const createMutation = useMutation({
     mutationFn: apiClient.createKoboConnection,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["kobo-connections"] });
     },
   });
+  const selectFormMutation = useMutation({
+    mutationFn: ({ connectionId, form }: { connectionId: string; form: { id: string; name: string; version: string | null } }) =>
+      apiClient.selectKoboForm(connectionId, form),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["kobo-connections"] });
+      setSelectedConnectionId(null);
+    },
+  });
 
-  function openForm() {
+  function openConnectionForm() {
     setFormError("");
-    setShowForm(true);
+    setShowConnectionForm(true);
   }
 
-  function closeForm() {
+  function closeConnectionForm() {
     if (!createMutation.isPending) {
       setApiToken("");
       setFormError("");
-      setShowForm(false);
+      setShowConnectionForm(false);
     }
   }
 
@@ -47,13 +61,14 @@ export function KoboConnectionsPage() {
       });
       setConnectionName("");
       setApiToken("");
-      closeForm();
+      closeConnectionForm();
     } catch (error) {
       setFormError(error instanceof ApiError ? error.message : "Unable to verify the Kobo connection.");
     }
   }
 
   const connections = connectionsQuery.data ?? [];
+  const forms = formsQuery.data ?? [];
   const loadError =
     connectionsQuery.error instanceof ApiError
       ? connectionsQuery.error.message
@@ -66,9 +81,9 @@ export function KoboConnectionsPage() {
       <PageHeader
         eyebrow="Forms & sources"
         title="Kobo connections"
-        description="Connect a Kobo account, then attach its forms to your FieldSight projects."
+        description="Connect a Kobo account, then select one form for this FieldSight organization."
       >
-        <Button onClick={openForm}>
+        <Button onClick={openConnectionForm}>
           <Plus size={16} /> Connect Kobo
         </Button>
       </PageHeader>
@@ -82,7 +97,7 @@ export function KoboConnectionsPage() {
             <div>
               <h2 className="m-0 text-sm font-semibold text-[#29384b]">How it works</h2>
               <p className="mb-0 mt-1 text-xs leading-5 text-[#62748a]">
-                FieldSight verifies your Kobo API token before saving an encrypted connection.
+                Connect Kobo, choose one form, then use that form for your FieldSight work.
               </p>
             </div>
           </div>
@@ -95,14 +110,12 @@ export function KoboConnectionsPage() {
         </article>
       </section>
 
-      {loadError && (
-        <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{loadError}</p>
-      )}
+      {loadError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{loadError}</p>}
 
       <section className="rounded-lg border border-[#e7e9ed] bg-white">
         <div className="border-b border-[#edf0f2] px-5 py-4">
           <h2 className="m-0 text-sm font-semibold text-[#29384b]">Connected accounts</h2>
-          <p className="mb-0 mt-1 text-xs text-[#758092]">Kobo accounts available to this organization.</p>
+          <p className="mb-0 mt-1 text-xs text-[#758092]">Choose one Kobo form from a verified account.</p>
         </div>
         {connectionsQuery.isLoading ? (
           <div className="flex items-center justify-center gap-2 p-10 text-xs text-[#758092]">
@@ -110,7 +123,7 @@ export function KoboConnectionsPage() {
           </div>
         ) : connections.length ? (
           connections.map((connection) => (
-            <div className="flex items-center gap-3 border-b border-[#edf0f2] p-5 last:border-b-0" key={connection.id}>
+            <div className="flex flex-wrap items-center gap-3 border-b border-[#edf0f2] p-5 last:border-b-0" key={connection.id}>
               <span className="grid size-9 place-items-center rounded-lg bg-[#e9f8ef] text-[#21834c]">
                 <CheckCircle2 size={19} />
               </span>
@@ -120,30 +133,40 @@ export function KoboConnectionsPage() {
                   {connection.server_url}
                   {connection.verified_at ? " · verified " + new Date(connection.verified_at).toLocaleDateString() : ""}
                 </small>
+                {connection.selected_form_name && (
+                  <small className="mt-1 flex items-center gap-1 text-xs font-semibold text-brand">
+                    <FileText size={12} /> Active form: {connection.selected_form_name}
+                  </small>
+                )}
               </div>
-              <span className="ml-auto rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[10px] font-semibold text-[#21834c]">
-                {connection.is_verified ? "Verified" : "Not verified"}
-              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[10px] font-semibold text-[#21834c]">
+                  {connection.is_verified ? "Verified" : "Not verified"}
+                </span>
+                <Button variant="secondary" onClick={() => setSelectedConnectionId(connection.id)}>
+                  {connection.selected_form_id ? "Change form" : "Select form"}
+                </Button>
+              </div>
             </div>
           ))
         ) : (
           <div className="p-10 text-center">
             <p className="m-0 text-sm font-semibold text-[#445367]">No Kobo account connected</p>
-            <p className="mb-4 mt-1 text-xs text-[#758092]">Connect an account before linking Kobo forms to a project.</p>
-            <Button onClick={openForm}><Plus size={15} /> Connect Kobo</Button>
+            <p className="mb-4 mt-1 text-xs text-[#758092]">Connect an account before selecting a Kobo form.</p>
+            <Button onClick={openConnectionForm}><Plus size={15} /> Connect Kobo</Button>
           </div>
         )}
       </section>
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeForm}>
+      {showConnectionForm && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeConnectionForm}>
           <form className="w-full max-w-[520px] overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]" onClick={(event) => event.stopPropagation()} onSubmit={saveConnection}>
             <header className="flex items-start justify-between border-b border-[#e8edf4] px-6 py-5">
               <div>
                 <p className="m-0 text-[10px] font-semibold uppercase tracking-[.08em] text-brand">KoboToolbox</p>
                 <h2 className="mb-0 mt-1 text-lg text-[#303e67]">Connect Kobo account</h2>
               </div>
-              <button className="border-0 bg-transparent text-[#8290a2]" type="button" onClick={closeForm} aria-label="Close">
+              <button className="border-0 bg-transparent text-[#8290a2]" type="button" onClick={closeConnectionForm} aria-label="Close">
                 <X size={19} />
               </button>
             </header>
@@ -166,13 +189,57 @@ export function KoboConnectionsPage() {
               {formError && <p className="m-0 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{formError}</p>}
             </div>
             <footer className="flex justify-end gap-2 border-t border-[#e8edf4] bg-[#fbfcfd] px-6 py-3">
-              <Button type="button" variant="secondary" onClick={closeForm}>Cancel</Button>
+              <Button type="button" variant="secondary" onClick={closeConnectionForm}>Cancel</Button>
               <Button type="submit" disabled={createMutation.isPending}>
                 {createMutation.isPending && <Ring className="size-4" aria-hidden="true" />}
                 {createMutation.isPending ? "Verifying…" : "Verify and connect"}
               </Button>
             </footer>
           </form>
+        </div>
+      )}
+
+      {selectedConnectionId && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={() => !selectFormMutation.isPending && setSelectedConnectionId(null)}>
+          <section className="w-full max-w-[560px] overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]" onClick={(event) => event.stopPropagation()}>
+            <header className="flex items-start justify-between border-b border-[#e8edf4] px-6 py-5">
+              <div>
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-[.08em] text-brand">One form workspace</p>
+                <h2 className="mb-0 mt-1 text-lg text-[#303e67]">Select your Kobo form</h2>
+              </div>
+              <button className="border-0 bg-transparent text-[#8290a2]" type="button" onClick={() => setSelectedConnectionId(null)} aria-label="Close">
+                <X size={19} />
+              </button>
+            </header>
+            <div className="max-h-[420px] overflow-y-auto p-4">
+              {formsQuery.isLoading ? (
+                <div className="flex items-center justify-center gap-2 p-10 text-xs text-[#758092]">
+                  <Ring className="size-4 text-brand" aria-hidden="true" /> Loading Kobo forms…
+                </div>
+              ) : formsQuery.error ? (
+                <p className="rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
+                  {formsQuery.error instanceof ApiError ? formsQuery.error.message : "Unable to load Kobo forms."}
+                </p>
+              ) : forms.length ? (
+                <div className="grid gap-2">
+                  {forms.map((form) => (
+                    <div className="flex items-center gap-3 rounded-md border border-[#e5e8ec] p-4" key={form.id}>
+                      <FileText className="text-brand" size={18} />
+                      <div>
+                        <strong className="block text-sm text-[#334254]">{form.name}</strong>
+                        {form.version && <small className="text-xs text-[#758092]">Version {form.version}</small>}
+                      </div>
+                      <Button className="ml-auto" disabled={selectFormMutation.isPending} onClick={() => selectFormMutation.mutate({ connectionId: selectedConnectionId, form })}>
+                        {selectFormMutation.isPending ? <Ring className="size-4" aria-hidden="true" /> : "Select"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="p-6 text-center text-sm text-[#758092]">No Kobo survey forms were found in this account.</p>
+              )}
+            </div>
+          </section>
         </div>
       )}
     </>

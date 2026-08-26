@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import hashlib
 from urllib.parse import urlparse
 
 import httpx
@@ -42,13 +40,12 @@ def decrypt_kobo_token(value: str, settings: Settings) -> str:
         raise ValueError("Stored Kobo credentials cannot be read.") from exc
 
 
-def verify_kobo_token(server_url: str, api_token: str) -> None:
-    """Make a minimal read-only Kobo API v2 request to validate the token."""
+def _kobo_assets(server_url: str, api_token: str) -> list[dict[str, object]]:
     try:
         response = httpx.get(
-            f"{server_url}/api/v2/assets/?limit=1",
+            f"{server_url}/api/v2/assets/?asset_type=survey",
             headers={"Authorization": f"Token {api_token}"},
-            timeout=10.0,
+            timeout=15.0,
             follow_redirects=False,
         )
     except httpx.HTTPError as exc:
@@ -56,4 +53,24 @@ def verify_kobo_token(server_url: str, api_token: str) -> None:
     if response.status_code in {401, 403}:
         raise ValueError("Kobo rejected the API token.")
     if response.status_code >= 400:
-        raise ValueError("KoboToolbox could not verify this connection right now.")
+        raise ValueError("KoboToolbox could not complete this request right now.")
+    payload = response.json()
+    results = payload.get("results", []) if isinstance(payload, dict) else []
+    return [item for item in results if isinstance(item, dict)]
+
+
+def verify_kobo_token(server_url: str, api_token: str) -> None:
+    """Make a minimal read-only Kobo API v2 request to validate the token."""
+    _kobo_assets(server_url, api_token)
+
+
+def list_kobo_forms(server_url: str, api_token: str) -> list[dict[str, str | None]]:
+    """Return Kobo survey forms without exposing the API token."""
+    forms: list[dict[str, str | None]] = []
+    for asset in _kobo_assets(server_url, api_token):
+        form_id = asset.get("uid")
+        name = asset.get("name")
+        if isinstance(form_id, str) and isinstance(name, str):
+            version = asset.get("version")
+            forms.append({"id": form_id, "name": name, "version": str(version) if version else None})
+    return forms

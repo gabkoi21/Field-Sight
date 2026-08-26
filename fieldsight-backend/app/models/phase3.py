@@ -65,6 +65,9 @@ class Project(SQLModel, table=True):
     created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    kobo_connection_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("kobo_connections.id"), nullable=True))
+    kobo_form_id: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+    kobo_form_name: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
 
 
 class Location(SQLModel, table=True):
@@ -88,6 +91,8 @@ class KoboConnection(SQLModel, table=True):
     name: str = Field(sa_column=Column(String(120), nullable=False))
     server_url: str = Field(sa_column=Column(String(255), nullable=False))
     token_encrypted: str = Field(sa_column=Column(String, nullable=False))
+    selected_form_id: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+    selected_form_name: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     is_verified: bool = Field(default=False, nullable=False)
     verified_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))

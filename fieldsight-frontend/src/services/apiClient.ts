@@ -118,12 +118,39 @@ export interface ApiEnumerator {
   created_at: string;
 }
 
+export interface OrganizationSector {
+  id: string;
+  sector_id: string;
+  is_active: boolean;
+}
+
+export interface CreateProjectInput {
+  name: string;
+  organization_sector_id: string;
+  description?: string;
+  target_sample_size?: number;
+}
+export interface ApiProject {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+  target_sample_size: number | null;
+  kobo_connection_id: string | null;
+  kobo_form_id: string | null;
+  kobo_form_name: string | null;
+}
 export interface KoboConnection {
   id: string;
   name: string;
   server_url: string;
   is_verified: boolean;
   verified_at: string | null;
+  selected_form_id: string | null;
+  selected_form_name: string | null;
   created_at: string;
 }
 
@@ -131,6 +158,12 @@ export interface KoboConnectionInput {
   name: string;
   server_url: string;
   api_token: string;
+}
+
+export interface KoboForm {
+  id: string;
+  name: string;
+  version: string | null;
 }
 export interface CreateOrganizationInput {
   name: string;
@@ -306,6 +339,20 @@ export const apiClient = {
   users: () => request<ApiUserDirectoryItem[]>("/users"),
   organizations: () => request<ApiOrganization[]>("/organizations"),
   sectors: () => request<Sector[]>("/sectors"),
+  organizationSectors: (organizationId: string) =>
+    request<OrganizationSector[]>(`/organizations/${organizationId}/sectors`),
+  createProject: (organizationId: string, input: CreateProjectInput) =>
+    request<ApiProject>(`/organizations/${organizationId}/projects`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  organizationProjects: (organizationId: string) =>
+    request<ApiProject[]>(`/organizations/${organizationId}/projects`),
+  assignProjectKoboForm: (projectId: string, connectionId: string, formId: string) =>
+    request<KoboConnection>(`/kobo/connections/projects/${projectId}/form`, {
+      method: "PUT",
+      body: JSON.stringify({ connection_id: connectionId, form_id: formId }),
+    }),
   createOrganization: (input: CreateOrganizationInput) =>
     request<{ organization_id: string }>("/organizations", {
       method: "POST",
@@ -345,6 +392,13 @@ export const apiClient = {
     request<KoboConnection>("/kobo/connections", {
       method: "POST",
       body: JSON.stringify(input),
+    }),
+  koboForms: (connectionId: string) =>
+    request<KoboForm[]>(`/kobo/connections/${connectionId}/forms`),
+  selectKoboForm: (connectionId: string, form: KoboForm) =>
+    request<KoboConnection>(`/kobo/connections/${connectionId}/selected-form`, {
+      method: "PUT",
+      body: JSON.stringify({ form_id: form.id, form_name: form.name }),
     }),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
