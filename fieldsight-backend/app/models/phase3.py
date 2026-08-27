@@ -65,7 +65,9 @@ class Project(SQLModel, table=True):
     created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
-    kobo_connection_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("kobo_connections.id"), nullable=True))
+    kobo_connection_id: UUID | None = Field(
+        default=None, sa_column=Column(ForeignKey("kobo_connections.id"), nullable=True)
+    )
     kobo_form_id: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     kobo_form_name: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
 
@@ -133,6 +135,40 @@ class Submission(SQLModel, table=True):
     raw_answers: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class FieldMapping(SQLModel, table=True):
+    __tablename__ = "field_mappings"
+    __table_args__ = (UniqueConstraint("project_id", "source_field", name="uq_field_mapping_project_source"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
+    source_field: str = Field(sa_column=Column(String(255), nullable=False))
+    display_name: str = Field(sa_column=Column(String(200), nullable=False))
+    meaning: str | None = Field(default=None, sa_column=Column(String(200), nullable=True))
+    data_type: str = Field(default="text", sa_column=Column(String(32), nullable=False))
+    is_required: bool = False
+    is_location: bool = False
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class ProjectTarget(SQLModel, table=True):
+    __tablename__ = "project_targets"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
+    field_mapping_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("field_mappings.id")))
+    name: str = Field(sa_column=Column(String(200), nullable=False))
+    target_value: float
+    unit: str = Field(default="records", sa_column=Column(String(80), nullable=False))
+    direction: str = Field(default="at_least", sa_column=Column(String(20), nullable=False))
+    due_date: date | None = None
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
 
 class FieldAssignment(SQLModel, table=True):
     __tablename__ = "field_assignments"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { apiClient } from "../../services/apiClient";
 
 interface NavigationItem {
   name: string;
@@ -66,7 +68,12 @@ const navigation: NavSection[] = [
 
 export function AppShell() {
   const [open, setOpen] = useState(false);
-  const { logout } = useAuth();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { logout, user } = useAuth();
+  const isOrganizationAdmin = user?.memberships.some((membership) => membership.role === "organization_admin") ?? false;
+  const pendingSyncQuery = useQuery({ queryKey: ["kobo-pending-sync"], queryFn: apiClient.pendingKoboSync, enabled: isOrganizationAdmin, refetchInterval: 60_000, refetchOnWindowFocus: true });
+  const pendingSync = pendingSyncQuery.data;
+  const pendingCount = pendingSync?.pending_count ?? 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const page =
@@ -159,10 +166,10 @@ export function AppShell() {
           </div>
           <div className="flex items-center gap-[17px] max-[560px]:gap-3">
             <Search size={19} />
-            <span className="relative after:absolute after:-right-[3px] after:-top-[3px] after:size-1.5 after:rounded-full after:border after:border-white after:bg-[#d85962] after:content-['']">
+            <span className="relative grid size-7 place-items-center" title={`${pendingCount} Kobo submission${pendingCount === 1 ? "" : "s"} waiting to sync`}>
               <Bell size={19} />
-            </span>
-            <span className="flex items-center gap-[5px] border-l border-[#e7e9ed] pl-[17px] text-[13px] max-[560px]:hidden">
+              <span className="absolute -right-2 -top-1 grid min-w-4 place-items-center rounded-full border-2 border-white bg-[#d85962] px-1 text-[9px] font-bold leading-4 text-white">{pendingCount > 99 ? "99+" : pendingCount}</span>
+            </span>            <span className="flex items-center gap-[5px] border-l border-[#e7e9ed] pl-[17px] text-[13px] max-[560px]:hidden">
               <HelpCircle size={17} /> Help
             </span>
           </div>

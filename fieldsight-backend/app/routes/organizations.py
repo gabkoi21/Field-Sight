@@ -17,7 +17,17 @@ from app.core.kobo import decrypt_kobo_token, delete_kobo_form
 from app.core.security import password_hasher
 from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, Role, Sector, User
-from app.models.phase3 import FieldAssignment, KoboConnection, Location, OrganizationSettings, Project, ProjectStatus, Submission, SyncRun
+from app.models.phase3 import (
+    FieldAssignment,
+    FieldMapping,
+    KoboConnection,
+    Location,
+    OrganizationSettings,
+    Project,
+    ProjectTarget,
+    Submission,
+    SyncRun,
+)
 from app.routes.auth import get_current_user
 from app.schemas.crud import AssignmentUpdate, EnumeratorUpdate, LocationUpdate, ProjectUpdate
 from app.schemas.enumerators import EnumeratorCreate, EnumeratorRead
@@ -285,8 +295,14 @@ def update_enumerator(
     if account is None:
         raise HTTPException(status_code=404, detail="Enumerator account was not found.")
     for field in (
-        "phone_number", "employee_id", "gender", "date_of_birth", "address",
-        "emergency_contact_name", "emergency_contact_phone", "notes",
+        "phone_number",
+        "employee_id",
+        "gender",
+        "date_of_birth",
+        "address",
+        "emergency_contact_name",
+        "emergency_contact_phone",
+        "notes",
     ):
         if field in payload.model_fields_set:
             setattr(account, field, getattr(payload, field))
@@ -323,9 +339,7 @@ def create_current_organization_enumerator(
 
 
 @enumerator_router.get("/{membership_id}", response_model=EnumeratorRead, tags=["enumerators"])
-def get_current_organization_enumerator(
-    membership_id: UUID, user: CurrentUser, db: Database
-) -> EnumeratorRead:
+def get_current_organization_enumerator(membership_id: UUID, user: CurrentUser, db: Database) -> EnumeratorRead:
     return get_enumerator(_current_organization_admin_org_id(user, db), membership_id, user, db)
 
 
@@ -337,9 +351,7 @@ def update_current_organization_enumerator(
 
 
 @enumerator_router.delete("/{membership_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["enumerators"])
-def deactivate_current_organization_enumerator(
-    membership_id: UUID, user: CurrentUser, db: Database
-) -> Response:
+def deactivate_current_organization_enumerator(membership_id: UUID, user: CurrentUser, db: Database) -> Response:
     return deactivate_enumerator(_current_organization_admin_org_id(user, db), membership_id, user, db)
 
 
@@ -437,10 +449,14 @@ def delete_project(
 
     if project.kobo_form_id:
         if not project.kobo_connection_id:
-            raise HTTPException(status_code=409, detail="The project has a Kobo form but no connection. It was not deleted.")
+            raise HTTPException(
+                status_code=409, detail="The project has a Kobo form but no connection. It was not deleted."
+            )
         connection = db.get(KoboConnection, project.kobo_connection_id)
         if connection is None or connection.organization_id != org_id:
-            raise HTTPException(status_code=409, detail="The Kobo connection is unavailable. The project was not deleted.")
+            raise HTTPException(
+                status_code=409, detail="The Kobo connection is unavailable. The project was not deleted."
+            )
         try:
             token = decrypt_kobo_token(connection.token_encrypted, settings)
             delete_kobo_form(connection.server_url, token, project.kobo_form_id)
@@ -449,6 +465,8 @@ def delete_project(
 
     try:
         db.exec(delete(FieldAssignment).where(FieldAssignment.project_id == project.id))
+        db.exec(delete(ProjectTarget).where(ProjectTarget.project_id == project.id))
+        db.exec(delete(FieldMapping).where(FieldMapping.project_id == project.id))
         db.exec(delete(Submission).where(Submission.project_id == project.id))
         db.exec(delete(SyncRun).where(SyncRun.project_id == project.id))
         db.exec(delete(Project).where(Project.id == project.id))
@@ -596,6 +614,3 @@ def create_logo_upload_intent(
         "max_size_bytes": 5_000_000,
         "provider": "local-development-placeholder",
     }
-
-
-

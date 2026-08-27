@@ -275,6 +275,52 @@ export interface ApiSyncRun {
   started_at: string;
   completed_at: string | null;
 }
+
+export interface ApiPendingKoboSync {
+  pending_count: number;
+  sources: Array<{
+    project_id: string;
+    project_name: string;
+    form_name: string;
+    pending_count: number;
+    status: "available" | "unavailable";
+  }>;
+  checked_at: string;
+}
+export interface FieldMapping {
+  id: string;
+  project_id: string;
+  source_field: string;
+  display_name: string;
+  meaning: string | null;
+  data_type: "text" | "number" | "date" | "boolean" | "single_select" | "multiple_select" | "gps" | "location";
+  is_required: boolean;
+  is_location: boolean;
+}
+
+export interface FieldMappingOverview {
+  mappings: FieldMapping[];
+  source_fields: string[];
+}
+
+export interface ProjectTarget {
+  id: string;
+  project_id: string;
+  name: string;
+  target_value: number;
+  unit: string;
+  direction: "at_least" | "at_most";
+  field_mapping_id: string | null;
+  due_date: string | null;
+}
+
+export interface ProjectIntelligence {
+  overall_progress: number;
+  project_status: "On Track" | "Needs Attention";
+  pulse: { name: string; status: "On track" | "Needs attention"; detail: string }[];
+  indicators: { mapping_id: string; name: string; value: number; summary: string }[];
+  targets: { id: string; name: string; target: number; actual: number; unit: string; progress: number; remaining: number; status: string }[];
+}
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -515,7 +561,16 @@ export const apiClient = {
       body: JSON.stringify({ status }),
     }),  syncProjectKoboForm: (projectId: string) => request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
   syncRuns: () => request<ApiSyncRun[]>("/sync-runs"),
-  enumerators: () => request<ApiEnumerator[]>("/enumerators"),
+  pendingKoboSync: () => request<ApiPendingKoboSync>("/sync/pending"),
+  fieldMappings: (projectId: string) => request<FieldMappingOverview>(`/projects/${projectId}/field-mappings`),
+  replaceFieldMappings: (projectId: string, mappings: Omit<FieldMapping, "id" | "project_id">[]) =>
+    request<FieldMapping[]>(`/projects/${projectId}/field-mappings`, { method: "PUT", body: JSON.stringify(mappings) }),
+  projectTargets: (projectId: string) => request<ProjectTarget[]>(`/projects/${projectId}/targets`),
+  createProjectTarget: (projectId: string, target: Omit<ProjectTarget, "id" | "project_id">) =>
+    request<ProjectTarget>(`/projects/${projectId}/targets`, { method: "POST", body: JSON.stringify(target) }),
+  deleteProjectTarget: (projectId: string, targetId: string) =>
+    request<void>(`/projects/${projectId}/targets/${targetId}`, { method: "DELETE" }),
+  projectIntelligence: (projectId: string) => request<ProjectIntelligence>(`/projects/${projectId}/intelligence`),  enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
   updateEnumerator: (membershipId: string, input: EnumeratorUpdateInput) =>
     request<ApiEnumerator>(`/enumerators/${membershipId}`, {

@@ -20,7 +20,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`inline-flex min-h-[34px] cursor-pointer items-center gap-[6px] rounded-[3px] px-[12px] py-[7px] text-[12px] font-semibold shadow-none transition-colors ${tone} ${className}`}
+      className={`inline-flex min-h-[36px] cursor-pointer items-center gap-[6px] rounded-lg px-[13px] py-[8px] text-[12px] font-semibold shadow-sm transition-colors ${tone} ${className}`}
       {...props}
     >
       {children}

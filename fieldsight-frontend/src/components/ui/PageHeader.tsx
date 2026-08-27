@@ -19,10 +19,10 @@ export function PageHeader({
         <p className="mb-1 text-[10px] font-semibold uppercase leading-[1.4] tracking-[.08em] text-brand">
           {eyebrow}
         </p>
-        <h1 className="m-0 text-[25px] font-semibold leading-[1.2] tracking-[-.3px] text-[#303e67]">
+        <h1 className="m-0 text-[28px] font-bold leading-[1.2] tracking-[-.55px] text-[#24334a]">
           {title}
         </h1>
-        <p className="mt-1.5 max-w-[680px] text-[13px] leading-[1.55] text-[#7081b9]">
+        <p className="mt-1.5 max-w-[680px] text-[13px] leading-[1.55] text-[#718096]">
           {description}
         </p>
       </div>

@@ -2,15 +2,15 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
 from cryptography.fernet import Fernet
+from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.core.config import Settings, get_settings
 from app.core.security import create_access_token, password_hasher
 from app.db.session import get_session
 from app.main import create_app
-from app.models.identity import Organization, OrganizationMembership, Role, RefreshSession, User
+from app.models.identity import Organization, OrganizationMembership, RefreshSession, Role, User
 from app.models.phase3 import KoboConnection
 
 

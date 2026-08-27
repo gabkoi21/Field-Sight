@@ -1,505 +1,89 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Activity,
-  ArrowUpRight,
-  Building2,
-  CalendarDays,
-  CheckCircle2,
-  ChevronDown,
-  CircleDollarSign,
-  Database,
-  ExternalLink,
-  MoreHorizontal,
-  Plus,
-  RefreshCw,
-  Server,
-  ShieldAlert,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+import { Activity, ArrowRight, Building2, CheckCircle2, CircleAlert, Plus, Server, ShieldCheck, UserCheck, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AdminStatus } from "../../components/superadmin/AdminUi";
+import { LoadingState } from "../../components/ui";
 import { apiClient } from "../../services/apiClient";
-import { adoptionGrowth, adoptionMonths, auditEvents } from "../superadmin/data";
 
-const iconTones = {
-  blue: "bg-[#edf3fc] text-[#4d7fc6]",
-  teal: "bg-[#e8f6f4] text-[#0b51b7]",
-  violet: "bg-[#f0edfa] text-[#7868b8]",
-  amber: "bg-[#fff3e5] text-[#d88935]",
-} as const;
-const controlStyles =
-  "inline-flex h-[36px] items-center gap-[6px] rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[#546271]";
-const buttonStyles =
-  "inline-flex h-[36px] items-center gap-[6px] rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] font-sans text-[12px] font-semibold leading-[normal] text-white";
-const textButtonStyles =
-  "inline-flex items-center gap-[6px] rounded-[5px] border-0 bg-transparent p-[2px] font-sans text-[11px] font-semibold leading-[normal] text-[#0b51b7]";
-const calendarDays = Array.from({ length: 31 }, (_, index) => index + 1);
-const platformReviewData = [
-  { name: "Approved", value: 82, color: "#0b51b7" },
-  { name: "On hold", value: 11, color: "#f0a34a" },
-  { name: "Rejected", value: 4, color: "#d85d67" },
-  { name: "Unreviewed", value: 3, color: "#dce3e8" },
-];
+const palette = ["#0b51b7", "#6d81f5", "#a7b4c8"];
 
-const adoptionData = adoptionMonths.map((month, index) => ({
-  month,
-  users: adoptionGrowth[index],
-  engaged: Math.round(adoptionGrowth[index] * 0.86),
-}));
-
-function MetricCard({
-  label,
-  value,
-  change,
-  detail,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: string;
-  change: string;
-  detail: string;
-  icon: typeof Database;
-  tone: keyof typeof iconTones;
-}) {
-  return (
-    <article className="relative grid w-full grid-cols-[auto_1fr_auto] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left">
-      <span className={"row-[1/3] grid size-[40px] place-items-center rounded-full " + iconTones[tone]}>
-        <Icon size={19} />
-      </span>
-      <span>
-        <span className="block text-[11px] font-medium text-[#6f7d8a]">{label}</span>
-        <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{value}</strong>
-      </span>
-      <span className="flex items-center gap-[2px] self-start text-[11px] font-semibold text-[#0b51b7]">
-        <ArrowUpRight size={14} /> {change}
-      </span>
-      <small className="col-[2/4] mt-[6px] text-[10px] text-[#88939d]">{detail}</small>
-    </article>
-  );
-}
-function Panel({
-  title,
-  subtitle,
-  action,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="min-w-0 rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">{title}</h2>
-          {subtitle && <p className="mb-0 mt-1 text-[11px] text-[#84909b]">{subtitle}</p>}
-        </div>
-        {action ?? <MoreHorizontal className="text-[#87929d]" size={18} />}
-      </header>
-      {children}
-    </section>
-  );
-}
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
-  const { data: apiOrganizations = [], isLoading: organizationsLoading } = useQuery({
-    queryKey: ["platform-organizations"],
-    queryFn: apiClient.organizations,
-  });
-  const {
-    data: apiUsers = [],
-    isLoading: usersLoading,
-    error: usersError,
-  } = useQuery({
-    queryKey: ["platform-users"],
-    queryFn: apiClient.users,
-  });
-  const statusQuery = useQuery({
-    queryKey: ["health", "status"],
-    queryFn: apiClient.status,
-    refetchInterval: 30_000,
-  });
-  const organizations = apiOrganizations.map((organization) => ({
-    id: organization.id,
-    name: organization.name,
-    initials: organization.name
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase(),
-    ownerEmail: organization.owner_email ?? "—",
-    country: organization.country ?? "—",
-    status: organization.is_active ? "Active" : "Suspended",
-    activity: new Date(organization.created_at).toLocaleDateString(),
-  }));
-  const activeOrganizationCount = apiOrganizations.filter((organization) => organization.is_active).length;
+  const organizationsQuery = useQuery({ queryKey: ["platform-organizations"], queryFn: apiClient.organizations });
+  const usersQuery = useQuery({ queryKey: ["platform-users"], queryFn: apiClient.users });
+  const statusQuery = useQuery({ queryKey: ["health", "status"], queryFn: apiClient.status, refetchInterval: 30_000 });
+  if (organizationsQuery.isLoading || usersQuery.isLoading) return <LoadingState label="Loading platform operations…" />;
+
+  const organizations = organizationsQuery.data ?? [];
+  const users = usersQuery.data ?? [];
+  const tenantUsers = users.filter((user) => user.platform_role !== "super_admin");
+  const activeOrganizations = organizations.filter((item) => item.is_active).length;
+  const suspendedOrganizations = organizations.length - activeOrganizations;
+  const activeUsers = tenantUsers.filter((item) => item.is_active).length;
+  const inactiveUsers = tenantUsers.length - activeUsers;
+  const organizationAdmins = tenantUsers.filter((item) => item.memberships.some((membership) => membership.role === "organization_admin")).length;
+  const enumerators = tenantUsers.filter((item) => item.memberships.some((membership) => membership.role === "enumerator")).length;
+  const organizationStatus = [
+    { name: "Active", value: activeOrganizations, color: "#0b51b7" },
+    { name: "Suspended", value: suspendedOrganizations, color: "#d85d67" },
+  ];
+  const accountRoles = [
+    { name: "Organization admins", value: organizationAdmins },
+    { name: "Enumerators", value: enumerators },
+    { name: "Unassigned", value: Math.max(0, tenantUsers.length - organizationAdmins - enumerators) },
+  ];
   const platformHealthy = statusQuery.data?.status === "ok";
-  const platformUsers = apiUsers.filter((user) => user.platform_role !== "super_admin");
-  const activeUserCount = platformUsers.filter((user) => user.is_active).length;
-  const [period, setPeriod] = useState("This month");
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(19);
-  return (
-    <div className="flex flex-col gap-[18px]">
-      <div className="mb-[2px] flex items-end justify-between max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-[14px]">
-        <div>
-          <p className="!mb-[5px] !mt-0 !text-[10px] !font-bold !tracking-[.09em] !text-[#0b51b7]">
-            FIELDSIGHT PLATFORM
-          </p>
-          <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px] !text-[#1d2a38]">
-            Platform dashboard
-          </h1>
-          <p className="mb-0 mt-[6px] text-[13px] text-[#73808d]">
-            Global usage, platform health, security, and subscription performance
-          </p>
-        </div>
-        <div className="flex gap-[7px] max-[700px]:w-full max-[600px]:grid max-[600px]:grid-cols-2">
-          <div className="relative">
-            <div className={controlStyles}>
-              <button
-                type="button"
-                onClick={() => setCalendarOpen((open) => !open)}
-                className="grid place-items-center border-0 bg-transparent p-0 text-[#546271]"
-                aria-label="Open calendar"
-                aria-expanded={calendarOpen}
-              >
-                <CalendarDays size={15} />
-              </button>
-              <select
-                className="appearance-none border-0 bg-transparent font-sans text-[12px] font-medium text-[#425162] outline-none"
-                value={period}
-                onChange={(event) => setPeriod(event.target.value)}
-                aria-label="Filter dashboard by period"
-              >
-                <option>This month</option>
-                <option>Last 30 days</option>
-                <option>This quarter</option>
-              </select>
-              <ChevronDown className="pointer-events-none" size={14} />
-            </div>
-            {calendarOpen && (
-              <div className="absolute right-0 top-[43px] z-20 w-[254px] rounded-[8px] border border-[#e1e7ed] bg-white p-[13px] shadow-[0_12px_28px_rgba(16,42,67,.16)]">
-                <div className="mb-[10px] flex items-center justify-between">
-                  <strong className="text-[13px] text-[#253342]">August 2026</strong>
-                  <span className="text-[11px] text-[#84909b]">Choose a date</span>
-                </div>
-                <div className="mb-[5px] grid grid-cols-7 text-center text-[10px] font-semibold text-[#96a1ad]">
-                  {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
-                    <span key={`${day}-${index}`}>{day}</span>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-[3px]">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <i key={`blank-${index}`} />
-                  ))}
-                  {calendarDays.map((day) => (
-                    <button
-                      type="button"
-                      key={day}
-                      onClick={() => {
-                        setSelectedDay(day);
-                        setCalendarOpen(false);
-                        setPeriod(`Aug ${day}, 2026`);
-                      }}
-                      className={`grid h-[28px] place-items-center rounded-[5px] border-0 p-0 text-[11px] font-medium transition ${selectedDay === day ? "bg-[#0b51b7] text-white" : "bg-transparent text-[#526177] hover:bg-[#edf3fc]"}`}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <button
-            className={buttonStyles + " max-[600px]:justify-center"}
-            onClick={() => navigate("/superadmin/organizations?create=1")}
-          >
-            <Plus size={15} /> Add organization
-          </button>
-        </div>
-      </div>
-      <section className="flex items-center gap-[12px] rounded-[6px] border border-[#f0d8b8] bg-[#fffbf4] px-[15px] py-[13px] max-[900px]:flex-wrap max-[900px]:items-start">
-        <span className="grid size-[34px] place-items-center rounded-full bg-[#fff0dc] text-[#ca792b]">
-          <ShieldAlert size={19} />
-        </span>
-        <div className="flex-1">
-          <strong className="block text-[13px] text-[#4b3825]">
-            {platformHealthy ? "Platform operations are healthy" : "Platform status is unavailable"}
-          </strong>
-          <p className="mb-0 mt-[3px] text-[12px] text-[#80664d]">
-            {statusQuery.data
-              ? `${statusQuery.data.service} ${statusQuery.data.api_version} · ${statusQuery.data.environment}`
-              : "Waiting for the backend status API."}
-          </p>
-        </div>
-        <div className="flex gap-[7px] max-[900px]:w-full max-[900px]:pl-[46px] max-[600px]:flex-wrap max-[600px]:pl-0">
-          <button
-            className="rounded-[5px] border border-[#ecd7ba] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold text-[#965c26]"
-            onClick={() => navigate("/superadmin/system")}
-          >
-            View system health
-          </button>
-          <button
-            className="rounded-[5px] border border-[#ecd7ba] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold text-[#965c26]"
-            onClick={() => navigate("/superadmin/audit")}
-          >
-            Review audit log
-          </button>
-        </div>
-      </section>
-      <section className="flex items-center gap-[11px] px-[2px] text-[11px] text-[#71808e] max-[900px]:flex-wrap [&_strong]:text-[#465667] [&_svg]:text-[#0b51b7]">
-        <span className="flex items-center gap-[5px]">
-          <RefreshCw size={14} /> Data refreshed <strong>2 min ago</strong>
-        </span>
-        <i className="size-[3px] rounded-full bg-[#c4cbd2] max-[900px]:hidden" />
-        <span className="flex items-center gap-[5px]">
-          <CheckCircle2 size={14} />
-          <strong>{organizationsLoading ? "…" : activeOrganizationCount} organizations</strong> are actively using
-          FieldSight
-        </span>
-        <i className="size-[3px] rounded-full bg-[#c4cbd2] max-[900px]:hidden" />
-        <span className="flex items-center gap-[5px]">
-          <ShieldCheck size={14} />
-          <strong>0 critical incidents</strong> in the last 24 hours
-        </span>
-      </section>
-      <section className="grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
-        <MetricCard
-          label="Organizations"
-          value={String(apiOrganizations.length)}
-          change="—"
-          detail="loaded from the API"
-          icon={Building2}
-          tone="blue"
-        />
-        <MetricCard
-          label="Platform users"
-          value={usersLoading ? "�" : usersError ? "�" : platformUsers.length.toLocaleString()}
-          change={usersLoading || usersError ? "�" : `${activeUserCount} active`}
-          detail={
-            usersLoading
-              ? "Loading platform users�"
-              : usersError
-                ? "Unable to load platform users"
-                : `${activeUserCount} active account${activeUserCount === 1 ? "" : "s"}`
-          }
-          icon={Users}
-          tone="teal"
-        />
-        <MetricCard
-          label="Monthly submissions"
-          value="—"
-          change="—"
-          detail="Submission metrics API not available"
-          icon={Database}
-          tone="violet"
-        />
-        <MetricCard
-          label="Monthly revenue"
-          value="—"
-          change="—"
-          detail="Billing API not available"
-          icon={CircleDollarSign}
-          tone="amber"
-        />
-      </section>
+  const attentionItems = [
+    ...(suspendedOrganizations ? [{ title: `${suspendedOrganizations} organization${suspendedOrganizations === 1 ? "" : "s"} suspended`, detail: "Review tenant status and restore access when appropriate.", path: "/superadmin/organizations" }] : []),
+    ...(inactiveUsers ? [{ title: `${inactiveUsers} inactive user account${inactiveUsers === 1 ? "" : "s"}`, detail: "Confirm whether these accounts should remain disabled.", path: "/superadmin/users" }] : []),
+    ...(!platformHealthy ? [{ title: "Platform health requires attention", detail: "The status API is not reporting a healthy service.", path: "/superadmin/system" }] : []),
+  ];
 
-      <section className="grid grid-cols-[minmax(0,1.55fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-1">
-        <Panel
-          title="Platform adoption"
-          subtitle={"Active users across organizations · " + period}
-          action={
-            <button className={textButtonStyles}>
-              View organizations <ExternalLink size={13} />
-            </button>
-          }
-        >
-          <div className="flex h-[24px] justify-end gap-[14px] pt-[5px] text-[10px] text-[#788591]">
-            <span className="flex items-center gap-[5px]">
-              <i className="size-[7px] rounded-full bg-[#0b51b7]" /> Active users
-            </span>
-            <span className="flex items-center gap-[5px]">
-              <i className="size-[7px] rounded-full bg-[#6d81f5]" /> Engaged users
-            </span>
-          </div>
-          <div className="h-[235px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={adoptionData} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="platformUsersFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#0b51b7" stopOpacity=".22" />
-                    <stop offset="1" stopColor="#0b51b7" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#7d8996", fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 10 }} />
-                <Tooltip
-                  contentStyle={{
-                    border: "1px solid #e5e8ec",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="users"
-                  name="Active users"
-                  stroke="#0b51b7"
-                  strokeWidth={2.4}
-                  fill="url(#platformUsersFill)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="engaged"
-                  name="Engaged users"
-                  stroke="#6d81f5"
-                  strokeWidth={2}
-                  fill="transparent"
-                  strokeDasharray="4 3"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-        <Panel
-          title="Platform review status"
-          subtitle="Submission decisions across all organizations"
-          action={
-            <button className="inline-flex items-center gap-[6px] rounded-[5px] border-0 bg-transparent p-[2px] font-sans text-[11px] font-medium text-[#546271]">
-              This week <ChevronDown size={13} />
-            </button>
-          }
-        >
-          <div className="mt-3 grid grid-cols-[145px_1fr] items-center max-[700px]:grid-cols-[135px_1fr]">
-            <div className="relative size-[140px] max-[700px]:size-[130px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={platformReviewData}
-                    dataKey="value"
-                    innerRadius={51}
-                    outerRadius={66}
-                    paddingAngle={2}
-                    stroke="none"
-                  >
-                    {platformReviewData.map((item) => (
-                      <Cell key={item.name} fill={item.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 grid text-center pointer-events-none place-content-center">
-                <strong className="block text-[20px] text-[#1d2a38]">87.2%</strong>
-                <span className="text-[10px] text-[#84909b]">approved</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-[9px]">
-              {platformReviewData.map((item) => (
-                <div className="flex justify-between text-[11px] text-[#667481]" key={item.name}>
-                  <span className="flex items-center gap-[6px]">
-                    <i className="size-[7px] rounded-full" style={{ background: item.color }} />
-                    {item.name}
-                  </span>
-                  <strong className="text-[#253342]">{item.value}%</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-          <button
-            className="mt-[8px] flex w-full items-center gap-[7px] rounded-[5px] border border-[#f0dcc3] bg-[#fff8ed] px-[10px] py-[9px] font-sans text-[11px] font-semibold text-[#9b642f]"
-            onClick={() => navigate("/superadmin/organizations")}
-          >
-            <ShieldAlert size={15} /> Open platform review queue{" "}
-            <span className="ml-auto rounded-[10px] bg-[#f6e5cf] px-[7px] py-[2px]">421</span>
-          </button>
-        </Panel>
-      </section>
+  return <div className="flex flex-col gap-5 text-[#24334a]">
+    <header className="flex items-end justify-between gap-4 max-[700px]:flex-col max-[700px]:items-start">
+      <div><p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.12em] text-brand">Platform operations</p><h1 className="m-0 text-[30px] font-bold tracking-[-.65px]">Platform overview</h1><p className="mb-0 mt-1.5 text-[13px] text-[#718096]">Tenant access, account coverage, and service health from live FieldSight records.</p></div>
+      <button className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-xs font-semibold text-white shadow-sm" onClick={() => navigate("/superadmin/organizations?create=1")}><Plus size={15}/> Create organization</button>
+    </header>
 
-      <section className="grid grid-cols-[minmax(0,1.2fr)_minmax(320px,.8fr)] gap-[14px] max-[1100px]:grid-cols-1">
-        <Panel
-          title="Recently active organizations"
-          subtitle="Tenant usage across the platform"
-          action={
-            <button className={textButtonStyles}>
-              View all <ExternalLink size={13} />
-            </button>
-          }
-        >
-          <div className="mt-[12px] overflow-x-auto">
-            <table className="min-w-[620px]">
-              <thead>
-                <tr>
-                  <th>Organization</th>
-                  <th>Owner</th>
-                  <th>Country</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {organizations.slice(0, 4).map((organization) => (
-                  <tr key={organization.id}>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <span className="grid size-8 place-items-center rounded-[7px] bg-[#e9f0fa] text-[10px] font-bold text-[#4d7fc6]">
-                          {organization.initials}
-                        </span>
-                        <strong>{organization.name}</strong>
-                      </div>
-                    </td>
-                    <td>{organization.ownerEmail}</td>
-                    <td>{organization.country}</td>
-                    <td>
-                      <AdminStatus value={organization.status} />
-                    </td>
-                    <td>{organization.activity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-        <Panel
-          title="Security activity"
-          subtitle="Latest privileged platform events"
-          action={<ShieldCheck className="text-[#0b51b7]" size={18} />}
-        >
-          <div className="mt-[8px]">
-            {auditEvents.slice(0, 4).map((event) => (
-              <div className="flex gap-[10px] border-b border-[#edf0f2] py-[12px] last:border-b-0" key={event.id}>
-                <span className="grid size-8 flex-none place-items-center rounded-[7px] bg-[#f0edfa] text-[9px] font-bold text-[#7564b2]">
-                  {event.initials}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <strong className="block truncate text-[11px] text-[#253342]">{event.action}</strong>
-                  <small className="mt-0.5 block truncate text-[10px] text-[#84909b]">
-                    {event.actor} · {event.time}
-                  </small>
-                </div>
-                <AdminStatus value={event.status} />
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </section>
-    </div>
-  );
+    <section className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${platformHealthy ? "border-[#cfe0f6] bg-[#f5f9ff]" : "border-[#f0c9ce] bg-[#fff6f7]"}`}>
+      <span className={`grid size-9 place-items-center rounded-lg ${platformHealthy ? "bg-[#e4efff] text-brand" : "bg-[#ffe9ec] text-[#c94f5d]"}`}>{platformHealthy ? <ShieldCheck size={18}/> : <CircleAlert size={18}/>}</span>
+      <div className="flex-1"><strong className="block text-xs">{platformHealthy ? "All monitored services are operational" : "Service status is unavailable"}</strong><p className="mb-0 mt-1 text-[11px] text-[#718096]">{statusQuery.data ? `${statusQuery.data.service} ${statusQuery.data.api_version} · ${statusQuery.data.environment}` : "Waiting for the platform status endpoint."}</p></div>
+      <button className="border-0 bg-transparent text-xs font-semibold text-brand" onClick={() => navigate("/superadmin/system")}>System health <ArrowRight className="inline" size={13}/></button>
+    </section>
+
+    <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
+      <Metric label="Organizations" value={organizations.length} context={`${activeOrganizations} active`} icon={Building2}/>
+      <Metric label="Tenant accounts" value={tenantUsers.length} context={`${activeUsers} active`} icon={Users}/>
+      <Metric label="Organization admins" value={organizationAdmins} context="Administrative accounts" icon={UserCheck}/>
+      <Metric label="Enumerators" value={enumerators} context="Field collection accounts" icon={Activity}/>
+    </section>
+
+    <section className="grid grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)] gap-4 max-[1000px]:grid-cols-1">
+      <Panel title="Account structure" subtitle="How tenant access is distributed across platform roles">
+        <div className="h-[260px] pt-4"><ResponsiveContainer><BarChart data={accountRoles} layout="vertical" margin={{left:30,right:20}}><CartesianGrid horizontal={false} stroke="#edf1f5"/><XAxis type="number" allowDecimals={false} tick={{fontSize:10}}/><YAxis type="category" dataKey="name" width={125} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="value" fill="#0b51b7" radius={[0,5,5,0]} barSize={18}/></BarChart></ResponsiveContainer></div>
+      </Panel>
+      <Panel title="Organization availability" subtitle="Tenant access currently available on the platform">
+        <div className="grid grid-cols-[160px_1fr] items-center py-3 max-[500px]:grid-cols-1"><div className="relative h-[160px]"><ResponsiveContainer><PieChart><Pie data={organizationStatus} dataKey="value" innerRadius={52} outerRadius={72} paddingAngle={3} stroke="none">{organizationStatus.map((item)=><Cell key={item.name} fill={item.color}/>)}</Pie></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 grid place-content-center text-center"><strong className="text-2xl">{organizations.length ? Math.round(activeOrganizations / organizations.length * 100) : 0}%</strong><small className="text-[#7b899c]">available</small></div></div><div className="space-y-3">{organizationStatus.map((item)=><div key={item.name} className="flex justify-between text-xs"><span className="flex items-center gap-2"><i className="size-2 rounded-full" style={{background:item.color}}/>{item.name}</span><strong>{item.value}</strong></div>)}</div></div>
+      </Panel>
+    </section>
+
+    <section className="grid grid-cols-[minmax(0,1.35fr)_minmax(310px,.65fr)] gap-4 max-[1000px]:grid-cols-1">
+      <Panel title="Organizations" subtitle="Recently created tenants and their current availability" action={<button className="text-xs font-semibold text-brand" onClick={() => navigate("/superadmin/organizations")}>View all <ArrowRight className="inline" size={13}/></button>}>
+        <div className="mt-3 overflow-x-auto"><table className="min-w-[650px]"><thead><tr><th>Organization</th><th>Owner</th><th>Country</th><th>Status</th><th>Created</th></tr></thead><tbody>{organizations.slice(0,6).map((item)=><tr key={item.id}><td><strong>{item.name}</strong><small>{item.slug}</small></td><td>{item.owner_email ?? "Not provided"}</td><td>{item.country ?? "Not set"}</td><td><AdminStatus value={item.is_active ? "Active" : "Suspended"}/></td><td>{new Date(item.created_at).toLocaleDateString()}</td></tr>)}</tbody></table>{!organizations.length && <EmptyState text="No organizations have been created."/>}</div>
+      </Panel>
+      <Panel title="Needs attention" subtitle="Operational exceptions based on current platform data">
+        <div className="mt-3 space-y-2">{attentionItems.map((item)=><button key={item.title} onClick={() => navigate(item.path)} className="flex w-full items-start gap-3 rounded-lg border border-[#e5eaf1] bg-white p-3 text-left hover:border-[#b9cdea]"><span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-[#fff1e8] text-[#ca712e]"><CircleAlert size={14}/></span><span className="flex-1"><strong className="block text-xs">{item.title}</strong><small className="mt-1 block text-[10px] leading-4 text-[#7b899c]">{item.detail}</small></span><ArrowRight className="mt-1 text-[#9aa7b8]" size={14}/></button>)}{!attentionItems.length && <div className="rounded-lg bg-[#f4f8fd] p-4 text-center"><CheckCircle2 className="mx-auto text-brand" size={20}/><strong className="mt-2 block text-xs">No platform exceptions</strong><p className="mb-0 mt-1 text-[10px] text-[#7b899c]">Organizations, users, and monitored services are available.</p></div>}</div>
+      </Panel>
+    </section>
+  </div>;
 }
+
+function Metric({label,value,context,icon:Icon}:{label:string;value:number;context:string;icon:typeof Server}) {
+  return <article className="rounded-xl border border-[#e1e7ef] bg-white p-4 shadow-[0_4px_14px_rgba(23,40,70,.04)]"><div className="flex items-start justify-between"><div><small className="text-[10px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small><strong className="mt-2 block text-[25px] tracking-[-.5px]">{value.toLocaleString()}</strong></div><span className="grid size-10 place-items-center rounded-xl bg-[#eaf2ff] text-brand"><Icon size={18}/></span></div><p className="mb-0 mt-2 text-[10px] text-[#8491a3]">{context}</p></article>;
+}
+function Panel({title,subtitle,action,children}:{title:string;subtitle:string;action?:ReactNode;children:ReactNode}) {
+  return <section className="min-w-0 overflow-hidden rounded-xl border border-[#e1e7ef] bg-white shadow-[0_5px_18px_rgba(25,43,75,.04)]"><header className="flex items-start justify-between gap-3 border-b border-[#edf0f4] px-5 py-4"><div><h2 className="m-0 text-sm font-semibold">{title}</h2><p className="mb-0 mt-1 text-[10px] text-[#8491a3]">{subtitle}</p></div>{action}</header><div className="px-5 pb-5">{children}</div></section>;
+}
+function EmptyState({text}:{text:string}) { return <p className="m-0 py-10 text-center text-xs text-[#8491a3]">{text}</p>; }

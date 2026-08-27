@@ -29,6 +29,7 @@ export function SyncHistoryPage() {
       await queryClient.invalidateQueries({ queryKey: ["sync-runs"] });
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["organization-overview"] });
+      await queryClient.invalidateQueries({ queryKey: ["kobo-pending-sync"] });
     },
   });
 

@@ -118,9 +118,7 @@ def sync_project_kobo_form(
                     continue
                 existing.raw_answers = payload
                 existing.submitted_at = _submission_time(payload.get("_submission_time")) or existing.submitted_at
-                existing.enumerator = (
-                    str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None
-                )
+                existing.enumerator = str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None
                 existing.location = str(payload.get("location")) if payload.get("location") else None
                 existing.updated_at = datetime.now(UTC)
                 db.add(existing)
@@ -150,7 +148,13 @@ def sync_project_kobo_form(
         db.add(run)
         db.commit()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"sync_run_id": str(run.id), "status": run.status, "received": run.received_count, "created": run.created_count, "updated": run.updated_count}
+    return {
+        "sync_run_id": str(run.id),
+        "status": run.status,
+        "received": run.received_count,
+        "created": run.created_count,
+        "updated": run.updated_count,
+    }
 
 
 @router.get("/submissions", tags=["Submissions"])
@@ -165,14 +169,96 @@ def list_submissions(
         statement = statement.where(Submission.project_id == project_id)
     submissions = db.exec(statement.order_by(Submission.submitted_at.desc())).all()
     projects = {submission.project_id: db.get(Project, submission.project_id) for submission in submissions}
-    return [_read_submission(submission, projects[submission.project_id]) for submission in submissions if projects[submission.project_id]]
+    return [
+        _read_submission(submission, projects[submission.project_id])
+        for submission in submissions
+        if projects[submission.project_id]
+    ]
 
 
 @router.get("/sync-runs", tags=["Kobo synchronization"])
 def list_sync_runs(user: CurrentUser, db: Database) -> list[dict[str, object]]:
     organization_id = _organization_admin_id(user, db)
-    runs = db.exec(select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(SyncRun.started_at.desc())).all()
-    return [{"id": str(run.id), "project_id": str(run.project_id), "status": run.status, "received": run.received_count, "created": run.created_count, "updated": run.updated_count, "error_message": run.error_message, "started_at": run.started_at, "completed_at": run.completed_at} for run in runs]
+    runs = db.exec(
+        select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(SyncRun.started_at.desc())
+    ).all()
+    return [
+        {
+            "id": str(run.id),
+            "project_id": str(run.project_id),
+            "status": run.status,
+            "received": run.received_count,
+            "created": run.created_count,
+            "updated": run.updated_count,
+            "error_message": run.error_message,
+            "started_at": run.started_at,
+            "completed_at": run.completed_at,
+        }
+        for run in runs
+    ]
+
+
+@router.get("/sync/pending", tags=["Kobo synchronization"])
+def pending_kobo_submissions(
+    user: CurrentUser,
+    db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, object]:
+    """Count provider submissions that have not been imported into FieldSight."""
+    organization_id = _organization_admin_id(user, db)
+    projects = db.exec(
+        select(Project).where(
+            Project.organization_id == organization_id,
+            Project.kobo_connection_id.is_not(None),
+            Project.kobo_form_id.is_not(None),
+        )
+    ).all()
+    sources: list[dict[str, object]] = []
+    pending_count = 0
+    connections: dict[UUID, KoboConnection] = {}
+    for project in projects:
+        if project.kobo_connection_id is None or project.kobo_form_id is None:
+            continue
+        connection = connections.get(project.kobo_connection_id)
+        if connection is None:
+            connection = db.get(KoboConnection, project.kobo_connection_id)
+            if connection is not None:
+                connections[project.kobo_connection_id] = connection
+        if connection is None or connection.organization_id != organization_id or not connection.is_verified:
+            continue
+        try:
+            token = decrypt_kobo_token(connection.token_encrypted, settings)
+            remote_ids = {
+                external_id
+                for payload in list_kobo_submissions(connection.server_url, token, project.kobo_form_id)
+                if (external_id := _external_id(payload)) is not None
+            }
+        except ValueError:
+            sources.append(
+                {
+                    "project_id": str(project.id),
+                    "project_name": project.name,
+                    "form_name": project.kobo_form_name or "Kobo form",
+                    "pending_count": 0,
+                    "status": "unavailable",
+                }
+            )
+            continue
+        imported_ids = set(db.exec(select(Submission.external_id).where(Submission.project_id == project.id)).all())
+        outstanding = len(remote_ids - imported_ids)
+        pending_count += outstanding
+        sources.append(
+            {
+                "project_id": str(project.id),
+                "project_name": project.name,
+                "form_name": project.kobo_form_name or "Kobo form",
+                "pending_count": outstanding,
+                "status": "available",
+            }
+        )
+    return {"pending_count": pending_count, "sources": sources, "checked_at": datetime.now(UTC)}
+
+
 @router.get("/analytics/overview", tags=["Analytics"])
 def analytics_overview(
     user: CurrentUser,
@@ -192,9 +278,7 @@ def analytics_overview(
         return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
     all_submissions = db.exec(
-        select(Submission)
-        .where(Submission.organization_id == organization_id)
-        .order_by(Submission.submitted_at.asc())
+        select(Submission).where(Submission.organization_id == organization_id).order_by(Submission.submitted_at.asc())
     ).all()
     available_locations = sorted({item.location for item in all_submissions if item.location})
 
@@ -202,10 +286,7 @@ def analytics_overview(
     if location:
         scoped = [item for item in scoped if item.location == location]
     current = [item for item in scoped if item.submitted_at and as_utc(item.submitted_at) >= cutoff]
-    previous = [
-        item for item in scoped
-        if item.submitted_at and previous_cutoff <= as_utc(item.submitted_at) < cutoff
-    ]
+    previous = [item for item in scoped if item.submitted_at and previous_cutoff <= as_utc(item.submitted_at) < cutoff]
 
     projects = db.exec(select(Project).where(Project.organization_id == organization_id)).all()
     project_scope = [project for project in projects if not project_id or project.id == project_id]
@@ -226,9 +307,7 @@ def analytics_overview(
     change_percent = round(((total - previous_total) / previous_total) * 100, 1) if previous_total else None
 
     runs = db.exec(
-        select(SyncRun)
-        .where(SyncRun.organization_id == organization_id)
-        .order_by(SyncRun.started_at.desc())
+        select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(SyncRun.started_at.desc())
     ).all()
     scoped_runs = [run for run in runs if not project_id or run.project_id == project_id]
     latest_run = scoped_runs[0] if scoped_runs else None
@@ -237,10 +316,14 @@ def analytics_overview(
         latest_by_project.setdefault(run.project_id, run)
     connected_projects = [project for project in project_scope if project.kobo_form_id]
     delayed_projects = [
-        project for project in connected_projects
+        project
+        for project in connected_projects
         if project.id not in latest_by_project
         or latest_by_project[project.id].status != "completed"
-        or (latest_by_project[project.id].completed_at and as_utc(latest_by_project[project.id].completed_at) < now - timedelta(hours=12))
+        or (
+            latest_by_project[project.id].completed_at
+            and as_utc(latest_by_project[project.id].completed_at) < now - timedelta(hours=12)
+        )
     ]
     healthy_sources = max(0, len(connected_projects) - len(delayed_projects))
 
@@ -263,16 +346,40 @@ def analytics_overview(
 
     alerts: list[dict[str, object]] = []
     if needs_review:
-        alerts.append({"kind": "review", "title": f"{needs_review} record{'s' if needs_review != 1 else ''} need review", "text": "Quality review is required before reporting", "path": "/quality"})
+        alerts.append(
+            {
+                "kind": "review",
+                "title": f"{needs_review} record{'s' if needs_review != 1 else ''} need review",
+                "text": "Quality review is required before reporting",
+                "path": "/quality",
+            }
+        )
     if invalid:
-        alerts.append({"kind": "invalid", "title": f"{invalid} invalid record{'s' if invalid != 1 else ''}", "text": "These records are blocked from export", "path": "/quality"})
+        alerts.append(
+            {
+                "kind": "invalid",
+                "title": f"{invalid} invalid record{'s' if invalid != 1 else ''}",
+                "text": "These records are blocked from export",
+                "path": "/quality",
+            }
+        )
     if delayed_projects:
-        alerts.append({"kind": "sync", "title": f"{len(delayed_projects)} source{'s' if len(delayed_projects) != 1 else ''} need attention", "text": "A connected Kobo form has not synced recently", "path": "/sync"})
+        alerts.append(
+            {
+                "kind": "sync",
+                "title": f"{len(delayed_projects)} source{'s' if len(delayed_projects) != 1 else ''} need attention",
+                "text": "A connected Kobo form has not synced recently",
+                "path": "/sync",
+            }
+        )
 
     return {
         "total_submissions": total,
         "ready_records": ready,
-        "ready_this_week": sum(item.review_status == "ready" and item.submitted_at and as_utc(item.submitted_at) >= now - timedelta(days=7) for item in scoped),
+        "ready_this_week": sum(
+            item.review_status == "ready" and item.submitted_at and as_utc(item.submitted_at) >= now - timedelta(days=7)
+            for item in scoped
+        ),
         "needs_review": needs_review,
         "invalid_records": invalid,
         "blocked_records": needs_review + invalid,
@@ -282,7 +389,12 @@ def analytics_overview(
         "available_locations": available_locations,
         "trend": [{"day": day, **counts} for day, counts in by_day.items()],
         "projects": [
-            {"id": str(project.id), "name": project.name, "actual": by_project[project.id], "target": project.target_sample_size or 0}
+            {
+                "id": str(project.id),
+                "name": project.name,
+                "actual": by_project[project.id],
+                "target": project.target_sample_size or 0,
+            }
             for project in project_scope
         ],
         "collection_health": {
@@ -294,6 +406,8 @@ def analytics_overview(
         "activity": activity,
         "alerts": alerts,
     }
+
+
 class ReviewStatusUpdate(BaseModel):
     status: str
 
@@ -303,37 +417,66 @@ def _quality_findings(submissions: list[Submission], projects: dict[UUID, Projec
     findings: list[dict[str, object]] = []
     fingerprints: dict[tuple[UUID, str], list[Submission]] = defaultdict(list)
     ignored_keys = {
-        "_id", "_uuid", "_submission_time", "_submitted_by", "_attachments",
-        "_geolocation", "_status", "_tags", "_notes", "_validation_status", "meta",
+        "_id",
+        "_uuid",
+        "_submission_time",
+        "_submitted_by",
+        "_attachments",
+        "_geolocation",
+        "_status",
+        "_tags",
+        "_notes",
+        "_validation_status",
+        "meta",
     }
 
     def add(submission: Submission, code: str, severity: str, rule: str, detail: str, field: str | None = None) -> None:
         project = projects.get(submission.project_id)
-        findings.append({
-            "id": f"{submission.id}:{code}",
-            "submission_id": str(submission.id),
-            "external_id": submission.external_id,
-            "project_id": str(submission.project_id),
-            "project_name": project.name if project else "Unknown project",
-            "enumerator": submission.enumerator,
-            "location": submission.location,
-            "submitted_at": submission.submitted_at,
-            "severity": severity,
-            "rule": rule,
-            "detail": detail,
-            "field": field,
-            "state": "Open",
-        })
+        findings.append(
+            {
+                "id": f"{submission.id}:{code}",
+                "submission_id": str(submission.id),
+                "external_id": submission.external_id,
+                "project_id": str(submission.project_id),
+                "project_name": project.name if project else "Unknown project",
+                "enumerator": submission.enumerator,
+                "location": submission.location,
+                "submitted_at": submission.submitted_at,
+                "severity": severity,
+                "rule": rule,
+                "detail": detail,
+                "field": field,
+                "state": "Open",
+            }
+        )
 
     now = datetime.now(UTC)
     for submission in submissions:
         payload = submission.raw_answers or {}
         if submission.submitted_at is None:
-            add(submission, "missing-time", "Blocking", "Missing submission time", "Kobo did not provide a valid submission timestamp.", "_submission_time")
+            add(
+                submission,
+                "missing-time",
+                "Blocking",
+                "Missing submission time",
+                "Kobo did not provide a valid submission timestamp.",
+                "_submission_time",
+            )
         else:
-            submitted_at = submission.submitted_at.replace(tzinfo=UTC) if submission.submitted_at.tzinfo is None else submission.submitted_at.astimezone(UTC)
+            submitted_at = (
+                submission.submitted_at.replace(tzinfo=UTC)
+                if submission.submitted_at.tzinfo is None
+                else submission.submitted_at.astimezone(UTC)
+            )
             if submitted_at > now + timedelta(minutes=5):
-                add(submission, "future-time", "Blocking", "Submission time is in the future", "The recorded submission time is later than the server time.", "_submission_time")
+                add(
+                    submission,
+                    "future-time",
+                    "Blocking",
+                    "Submission time is in the future",
+                    "The recorded submission time is later than the server time.",
+                    "_submission_time",
+                )
 
         duration = payload.get("_duration", payload.get("duration"))
         try:
@@ -341,7 +484,14 @@ def _quality_findings(submissions: list[Submission], projects: dict[UUID, Projec
         except (TypeError, ValueError):
             duration_seconds = None
         if duration_seconds is not None and duration_seconds < 60:
-            add(submission, "short-duration", "High", "Interview duration is unusually short", f"The interview duration is {round(duration_seconds)} seconds; review records below 60 seconds.", "_duration")
+            add(
+                submission,
+                "short-duration",
+                "High",
+                "Interview duration is unusually short",
+                f"The interview duration is {round(duration_seconds)} seconds; review records below 60 seconds.",
+                "_duration",
+            )
 
         for key, value in payload.items():
             normalized = key.lower()
@@ -353,7 +503,14 @@ def _quality_findings(submissions: list[Submission], projects: dict[UUID, Projec
             except (TypeError, ValueError):
                 valid = False
             if not valid:
-                add(submission, f"gps-{key}", "High", "GPS value is invalid", f"The value in {key} is not a valid latitude/longitude pair.", key)
+                add(
+                    submission,
+                    f"gps-{key}",
+                    "High",
+                    "GPS value is invalid",
+                    f"The value in {key} is not a valid latitude/longitude pair.",
+                    key,
+                )
 
         answers = {key: value for key, value in payload.items() if key not in ignored_keys and not key.startswith("_")}
         fingerprint = repr(sorted((key, repr(value)) for key, value in answers.items()))
@@ -367,7 +524,13 @@ def _quality_findings(submissions: list[Submission], projects: dict[UUID, Projec
         for duplicate in duplicates:
             if duplicate.id == original.id:
                 continue
-            add(duplicate, "duplicate", "High", "Possible duplicate submission", f"The answer set exactly matches submission {original.external_id} in the same project.")
+            add(
+                duplicate,
+                "duplicate",
+                "High",
+                "Possible duplicate submission",
+                f"The answer set exactly matches submission {original.external_id} in the same project.",
+            )
     return findings
 
 
@@ -409,8 +572,15 @@ def run_quality_validation(user: CurrentUser, db: Database, project_id: UUID | N
     return {
         "checked": len(submissions),
         "ready": sum(not by_submission.get(str(item.id)) for item in submissions),
-        "needs_review": sum(bool(by_submission.get(str(item.id))) and not any(issue["severity"] == "Blocking" for issue in by_submission[str(item.id)]) for item in submissions),
-        "invalid": sum(any(issue["severity"] == "Blocking" for issue in by_submission.get(str(item.id), [])) for item in submissions),
+        "needs_review": sum(
+            bool(by_submission.get(str(item.id)))
+            and not any(issue["severity"] == "Blocking" for issue in by_submission[str(item.id)])
+            for item in submissions
+        ),
+        "invalid": sum(
+            any(issue["severity"] == "Blocking" for issue in by_submission.get(str(item.id), []))
+            for item in submissions
+        ),
         "issues": findings,
     }
 
@@ -433,6 +603,3 @@ def update_submission_review_status(
     db.add(submission)
     db.commit()
     return {"id": str(submission.id), "review_status": submission.review_status}
-
-
-

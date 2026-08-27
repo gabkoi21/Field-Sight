@@ -2,10 +2,9 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router-dom";
 import {
-  ArrowUpRight,
   Building2,
-  ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Clock3,
   BarChart3,
   ListChecks,
@@ -13,14 +12,13 @@ import {
   Database,
   ExternalLink,
   FileCheck2,
+  MapPin,
   RefreshCw,
   Users,
 } from "lucide-react";
 import { Badge, Button, LoadingState } from "../../components/ui";
-import { apiClient, ApiError, type ApiAnalyticsOverview } from "../../services/apiClient";
+import { apiClient, ApiError, type ApiAnalyticsOverview, type ApiSubmission } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
-
-const tabs = ["Overview", "Submissions", "Data quality", "Analytics", "Enumerators", "Reports", "Settings"];
 const tone = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
   green: "bg-[#e8f6f4] text-[#0b51b7]",
@@ -60,13 +58,21 @@ export function ProjectWorkspacePage() {
     queryFn: () => apiClient.analyticsOverview({ projectId: projectId!, period: "30d" }),
     enabled: Boolean(projectId),
   });
+  const submissionsQuery = useQuery({
+    queryKey: ["submissions", projectId],
+    queryFn: apiClient.submissions,
+    enabled: Boolean(projectId),
+  });
   const syncMutation = useMutation({
     mutationFn: () => apiClient.syncProjectKoboForm(projectId!),
     onSuccess: async (result) => {
-      setSyncMessage(`Sync complete: ${result.created} new and ${result.updated} updated submission${result.created + result.updated === 1 ? "" : "s"}.`);
+      setSyncMessage(
+        `Sync complete: ${result.created} new and ${result.updated} updated submission${result.created + result.updated === 1 ? "" : "s"}.`,
+      );
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["sync-runs"] });
       await queryClient.invalidateQueries({ queryKey: ["project-overview", projectId] });
+      await queryClient.invalidateQueries({ queryKey: ["kobo-pending-sync"] });
     },
   });
   if (userQuery.isLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
@@ -81,15 +87,8 @@ export function ProjectWorkspacePage() {
   const overview = overviewQuery.data;
   const totalSubmissions = overview?.total_submissions ?? 0;
   const readyRecords = overview?.ready_records ?? 0;
-  const qualityRate = totalSubmissions ? Math.round((readyRecords / totalSubmissions) * 100) : 0;
   const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
   const target = project.target_sample_size ? project.target_sample_size.toLocaleString() : null;
-  const workflow = [
-    ["Plan", "Project configured", true],
-    ["Connect", project.kobo_form_name ? "Form connected" : "Connect a form", Boolean(project.kobo_form_name)],
-    ["Collect", target ? `${totalSubmissions.toLocaleString()} of ${target} records` : `${totalSubmissions.toLocaleString()} records collected`, totalSubmissions > 0],
-    ["Review", overview?.blocked_records ? `${overview.blocked_records} records need attention` : "No records need attention", totalSubmissions > 0 && !overview?.blocked_records],
-  ] as const;
   return (
     <div className="flex flex-col gap-[18px] pb-5">
       <div className="mb-2 flex items-end justify-between gap-[14px] max-[720px]:flex-col max-[720px]:items-start">
@@ -135,21 +134,21 @@ export function ProjectWorkspacePage() {
           </Button>
         </div>
       </div>
-      {syncMessage && <p className="m-0 rounded-[5px] border border-[#bfe4cf] bg-[#f0fbf5] px-3 py-2 text-xs text-[#18794e]">{syncMessage}</p>}
-      {syncMutation.error && <p className="m-0 rounded-[5px] bg-[#fff0f2] px-3 py-2 text-xs text-[#b42318]">{syncMutation.error instanceof ApiError ? syncMutation.error.message : "Unable to sync Kobo data. Please try again."}</p>}      <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
-        {tabs.map((tab, i) => (
-          <button
-            key={tab}
-            className={
-              "shrink-0 border-x-0 border-t-0 bg-transparent px-3.5 py-3 text-[13px] font-semibold " +
-              (i === 0
-                ? "border-b-2 border-brand text-brand"
-                : "border-b-2 border-transparent text-[#75849a] hover:text-[#344562]")
-            }
-          >
-            {tab}
-          </button>
-        ))}
+      {syncMessage && (
+        <p className="m-0 rounded-[5px] border border-[#bfe4cf] bg-[#f0fbf5] px-3 py-2 text-xs text-[#18794e]">
+          {syncMessage}
+        </p>
+      )}
+      {syncMutation.error && (
+        <p className="m-0 rounded-[5px] bg-[#fff0f2] px-3 py-2 text-xs text-[#b42318]">
+          {syncMutation.error instanceof ApiError
+            ? syncMutation.error.message
+            : "Unable to sync Kobo data. Please try again."}
+        </p>
+      )}
+      <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
+        <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[13px] font-semibold text-brand">Overview</span>
+        <NavLink to={`/analytics?project_id=${project.id}`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Analytics</NavLink>
       </nav>
       <section className="grid grid-cols-4 gap-[14px] max-[1120px]:grid-cols-2 max-[560px]:grid-cols-1">
         <Metric
@@ -173,15 +172,18 @@ export function ProjectWorkspacePage() {
           value={String(activeEnumerators)}
           note="Available in this organization"
         />
-        <Metric icon={Clock3} tone="orange" label="Last sync" value={relativeTime(overview?.last_synced_at)} note={project.kobo_form_name ?? "No Kobo form assigned"} />
+        <Metric
+          icon={Clock3}
+          tone="orange"
+          label="Last sync"
+          value={relativeTime(overview?.last_synced_at)}
+          note={project.kobo_form_name ?? "No Kobo form assigned"}
+        />
       </section>
-
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <SubmissionActivityPanel data={overview?.trend} subtitle="Imported and ready records for this project" />
-        <CalendarPanel />
+        <SubmissionActivityPanel data={overview?.trend} totalSubmissions={totalSubmissions} />
+        <TopLocationsPanel submissions={(submissionsQuery.data ?? []).filter((s) => s.project_id === projectId)} />
       </div>
-
-      <WorkspaceInsights overview={overview} target={project.target_sample_size} />
 
       <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
         <EnumeratorsTable enumerators={enumeratorsQuery.data ?? []} />
@@ -218,138 +220,106 @@ function Metric({
     </article>
   );
 }
-function CalendarPanel() {
-  const [month, setMonth] = useState(() => new Date());
-  const [selectedDay, setSelectedDay] = useState(() => new Date().getDate());
-  const firstWeekday = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
-  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const monthLabel = month.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  const today = new Date();
-  const isCurrentMonth = month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
-
-  function moveMonth(direction: number) {
-    setMonth((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
-    setSelectedDay(1);
+function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
+  const [view, setView] = useState<"counties" | "communities">("counties");
+  const locationCounts = new Map<string, number>();
+  for (const s of submissions) {
+    const raw = s.raw_answers as Record<string, unknown>;
+    const key =
+      view === "counties"
+        ? (raw["household/county"] as string | undefined)
+        : ((raw["household/community"] as string | undefined) ?? (raw["household/community_or_settlement"] as string | undefined));
+    if (key && typeof key === "string" && key.trim()) {
+      locationCounts.set(key.trim(), (locationCounts.get(key.trim()) ?? 0) + 1);
+    }
   }
+  const top3 = [...locationCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const COLORS = ["#0b51b7", "#5c9af5", "#93bbfb"];
 
   return (
-    <section className="h-full rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
-      <header className="flex items-center justify-between border-b border-[#edf0f2] pb-3">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Calendar</h2>
-          <p className="mb-0 mt-1 text-[11px] text-[#84909b]">Project schedule</p>
-        </div>
-        <span className="rounded-[5px] bg-[#edf3fc] px-2 py-1 text-[10px] font-semibold text-[#0b51b7]">
-          {isCurrentMonth ? "This month" : "Schedule"}
-        </span>
-      </header>
-      <div className="mt-3 border border-[#edf0f2] px-3 py-[13px]">
-        <div className="flex items-center justify-between mb-3">
-          <button
-            type="button"
-            aria-label="Previous month"
-            onClick={() => moveMonth(-1)}
-            className="grid size-7 place-items-center border-0 bg-transparent text-[#93a1b2] hover:text-[#0b51b7]"
-          >
-            <ChevronLeft size={17} />
-          </button>
-          <strong className="text-[12px] text-[#253342]">{monthLabel}</strong>
-          <button
-            type="button"
-            aria-label="Next month"
-            onClick={() => moveMonth(1)}
-            className="grid size-7 place-items-center border-0 bg-transparent text-[#93a1b2] hover:text-[#0b51b7]"
-          >
-            <ChevronRight size={17} />
-          </button>
-        </div>
-        <div className="grid grid-cols-7 gap-y-1 text-center text-[10px]">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-            <span key={day} className="py-1 font-medium text-[#0b51b7]">
-              {day}
-            </span>
-          ))}
-          {Array.from({ length: firstWeekday }, (_, index) => (
-            <span key={`blank-${index}`} className="size-7" />
-          ))}
-          {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => (
-            <button
-              key={day}
-              type="button"
-              onClick={() => setSelectedDay(day)}
-              className={`mx-auto grid size-7 place-items-center rounded-[4px] text-[11px] transition-colors ${selectedDay === day ? "bg-[#edf3fc] font-semibold text-[#0b51b7]" : isCurrentMonth && day === today.getDate() ? "font-semibold text-[#0b51b7] ring-1 ring-[#b9d0ef]" : "text-[#384a65] hover:bg-[#f1f5fa]"}`}
+    <section className="overflow-hidden rounded-xl border border-[#e1e7ef] bg-white shadow-[0_5px_18px_rgba(25,43,75,.04)]">
+      <header className="border-b border-[#edf0f4] px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <MapPin size={15} className="text-brand" />
+              <h2 className="m-0 text-sm font-semibold">Top locations</h2>
+            </div>
+            <p className="mb-0 mt-1 text-[10px] text-[#8491a3]">Leading {view} by submission count</p>
+          </div>
+          <div className="relative">
+            <select
+              value={view}
+              onChange={(e) => setView(e.target.value as "counties" | "communities")}
+              className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[12px] font-medium text-[#344562] focus:outline-none focus:ring-2 focus:ring-brand/30"
             >
-              {day}
-            </button>
-          ))}
+              <option value="counties">Counties</option>
+              <option value="communities">Communities</option>
+            </select>
+            <ChevronDown size={13} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]" />
+          </div>
         </div>
+      </header>
+
+      {top3.length === 0 ? (
+        <p className="py-10 text-center text-xs text-[#8491a3]">No location data yet. Sync Kobo data to populate.</p>
+      ) : (
+        <div className="p-5">
+          {/* Donut chart */}
+          <LocationDonutChart segments={top3} total={submissions.length} colors={COLORS} />
+          {/* Table */}
+          <table className="mt-5 w-full text-left">
+            <thead>
+              <tr className="border-b border-[#edf0f4] text-[10px] font-semibold uppercase tracking-[.06em] text-[#8491a3]">
+                <th className="pb-2">Location</th>
+                <th className="pb-2 text-right">%</th>
+                <th className="pb-2 text-right">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {top3.map(([name, count], i) => (
+                <tr key={name} className="border-b border-[#f4f6f9] last:border-0">
+                  <td className="py-2.5 text-[12px] text-[#2e4364]">
+                    <span className="flex items-center gap-2">
+                      <i className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[i] }} />
+                      {name}
+                    </span>
+                  </td>
+                  <td className="py-2.5 text-right text-[12px] font-semibold text-[#2e4364]">
+                    {submissions.length ? Math.round((count / submissions.length) * 100) : 0}%
+                  </td>
+                  <td className="py-2.5 text-right text-[12px] text-[#8491a3]">{count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LocationDonutChart({ segments, total, colors }: { segments: [string, number][]; total: number; colors: string[] }) {
+  let cum = 0;
+  const stops = segments.map(([, count], i) => {
+    const pct = total ? (count / total) * 100 : 0;
+    const stop = `${colors[i]} ${cum}% ${cum + pct}%`;
+    cum += pct;
+    return stop;
+  });
+  if (cum < 100) stops.push(`#e8edf3 ${cum}% 100%`);
+  return (
+    <div className="flex justify-center">
+      <div className="relative size-[120px] rounded-full" style={{ background: `conic-gradient(${stops.join(", ")})` }}>
+        <span className="absolute inset-[20px] grid place-items-center rounded-full bg-white text-center">
+          <strong className="block text-[18px] leading-none text-[#1d2a38]">{total}</strong>
+          <span className="mt-0.5 block text-[9px] text-[#8491a3]">total</span>
+        </span>
       </div>
-    </section>
-  );
-}
-function WorkspaceInsights({ overview, target }: { overview?: ApiAnalyticsOverview; target: number | null }) {
-  const total = overview?.total_submissions ?? 0;
-  const ready = overview?.ready_records ?? 0;
-  const review = overview?.needs_review ?? 0;
-  const invalid = overview?.invalid_records ?? 0;
-  const collectionProgress = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
-  const qualityRate = total ? Math.round((ready / total) * 100) : 0;
-  const segments = [
-    { label: "Ready", value: ready, color: "#0abf82" },
-    { label: "Needs review", value: review, color: "#f0a34a" },
-    { label: "Invalid", value: invalid, color: "#d85d67" },
-  ];
-  const readyDegrees = total ? (ready / total) * 360 : 0;
-  const reviewDegrees = total ? (review / total) * 360 : 0;
-  return (
-    <section className="grid grid-cols-3 gap-[14px] max-[1100px]:grid-cols-1">
-      <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
-        <InsightHeader icon={ListChecks} title="Review status" />
-        <div className="grid grid-cols-[140px_1fr] items-center gap-4 px-5 py-7 max-[480px]:grid-cols-1">
-          <div className="relative mx-auto size-[130px] rounded-full" style={{ background: total ? `conic-gradient(#0abf82 0 ${readyDegrees}deg, #f0a34a ${readyDegrees}deg ${readyDegrees + reviewDegrees}deg, #d85d67 ${readyDegrees + reviewDegrees}deg 360deg)` : "#e8edf2" }}>
-            <span className="absolute inset-[19px] grid place-items-center rounded-full bg-white text-center"><strong className="text-[23px]">{total}</strong></span>
-          </div>
-          <div className="space-y-3">
-            {segments.map((item) => <div key={item.label} className="flex justify-between gap-3 text-[12px] text-[#637187]"><span className="flex items-center gap-2"><i className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span><strong className="text-[#172033]">{item.value}</strong></div>)}
-          </div>
-        </div>
-      </article>
-      <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
-        <InsightHeader icon={Timer} title="Collection status" />
-        <div className="space-y-5 px-5 py-6">
-          <div><span className="text-[12px] text-[#6b778c]">Last synchronized</span><strong className="mt-1 block text-[22px] text-[#111827]">{relativeTime(overview?.last_synced_at)}</strong></div>
-          <div><span className="text-[12px] text-[#6b778c]">Kobo source health</span><strong className="mt-1 block text-[18px] text-[#111827]">{overview?.collection_health.healthy_sources ?? 0} healthy · {overview?.collection_health.delayed_sources ?? 0} delayed</strong></div>
-          <p className="m-0 text-[12px] text-[#77869a]">{total.toLocaleString()} records imported in the last 30 days</p>
-        </div>
-      </article>
-      <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
-        <InsightHeader icon={BarChart3} title="Project progress" />
-        <div className="space-y-7 px-5 py-6">
-          <ProgressMetric label="Collection target" value={target ? `${collectionProgress}%` : "Not set"} color="bg-[#2e6be6]" filled={Math.round(collectionProgress / 2.5)} />
-          <ProgressMetric label="Data quality" value={`${qualityRate}%`} color="bg-[#08bf7a]" filled={Math.round(qualityRate / 2.5)} />
-        </div>
-      </article>
-    </section>
-  );
-}
-
-function InsightHeader({ icon: Icon, title }: { icon: typeof ListChecks; title: string }) {
-  return (
-    <header className="flex items-center justify-between border-b border-[#e5e8ec] px-4 py-2">
-      <div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-lg border border-[#cfd6de] text-[#1f2937] shadow-[inset_0_0_0_2px_#f7f8fa]"><Icon size={20} /></span><h2 className="text-[16px] font-bold text-[#121b2a]">{title}</h2></div>
-      <button type="button" className="rounded-lg border border-[#d3d8de] px-4 py-2 text-[13px] font-medium text-[#111827]">View details</button>
-    </header>
-  );
-}
-
-function ProgressMetric({ label, value, color, filled }: { label: string; value: string; color: string; filled: number }) {
-  return (
-    <div>
-      <div className="mb-3 flex items-center justify-between text-[14px]"><span className="text-[#59677d]">{label}</span><strong className="text-[16px] text-[#111827]">{value}</strong></div>
-      <div className="flex gap-[3px]">{Array.from({ length: 40 }, (_, index) => <i key={index} className={`h-7 flex-1 rounded-[2px] ${index < filled ? color : "bg-[#e2e4e7]"}`} />)}</div>
     </div>
   );
 }
+
 function EnumeratorsTable({
   enumerators,
 }: {
@@ -408,8 +378,8 @@ function EnumeratorsTable({
                       </div>
                     </td>
                     <td className="max-w-[180px] truncate px-4 py-3">{item.email}</td>
-                    <td className="px-4 py-3">{item.employee_id ?? "�"}</td>
-                    <td className="px-4 py-3">{item.phone_number ?? "�"}</td>
+                    <td className="px-4 py-3">{item.employee_id ?? "—"}</td>
+                    <td className="px-4 py-3">{item.phone_number ?? "—"}</td>
                     <td className="px-4 py-3">
                       <span
                         className={
@@ -437,24 +407,51 @@ function EnumeratorsTable({
     </section>
   );
 }
-function ProjectActivity({ overview, projectName, hasForm }: { overview?: ApiAnalyticsOverview; projectName: string; hasForm: boolean }) {
+function ProjectActivity({
+  overview,
+  projectName,
+  hasForm,
+}: {
+  overview?: ApiAnalyticsOverview;
+  projectName: string;
+  hasForm: boolean;
+}) {
   const entries = overview?.activity ?? [];
   return (
     <section className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
       <header className="flex items-center justify-between border-b border-[#edf0f2] pb-3">
-        <div><h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Activity</h2><p className="mb-0 mt-1 text-[11px] text-[#84909b]">Latest project submissions</p></div>
-        <span className="rounded-[5px] border border-[#dce2e7] bg-white px-2 py-1 text-[10px] font-medium text-[#657382]">{entries.length} recent</span>
+        <div>
+          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Activity</h2>
+          <p className="mb-0 mt-1 text-[11px] text-[#84909b]">Latest project submissions</p>
+        </div>
+        <span className="rounded-[5px] border border-[#dce2e7] bg-white px-2 py-1 text-[10px] font-medium text-[#657382]">
+          {entries.length} recent
+        </span>
       </header>
       <div className="mt-1">
         {entries.map((entry, index) => (
           <div className="relative flex gap-3 py-3 last:pb-0" key={entry.id}>
-            <span className="relative z-[1] grid size-8 shrink-0 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><Clock3 size={15} /></span>
-            {index < entries.length - 1 && <i className="absolute left-4 top-11 h-[22px] border-l border-dashed border-[#d6dee8]" />}
-            <div className="min-w-0 flex-1"><strong className="block text-[12px] text-[#354966]">{entry.name}</strong><span className="block text-[11px] text-[#71809a]">{entry.detail}{entry.location ? ` in ${entry.location}` : ""}</span></div>
+            <span className="relative z-[1] grid size-8 shrink-0 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
+              <Clock3 size={15} />
+            </span>
+            {index < entries.length - 1 && (
+              <i className="absolute left-4 top-11 h-[22px] border-l border-dashed border-[#d6dee8]" />
+            )}
+            <div className="flex-1 min-w-0">
+              <strong className="block text-[12px] text-[#354966]">{entry.name}</strong>
+              <span className="block text-[11px] text-[#71809a]">
+                {entry.detail}
+                {entry.location ? ` in ${entry.location}` : ""}
+              </span>
+            </div>
             <time className="shrink-0 text-[10px] text-[#8a96a7]">{relativeTime(entry.occurred_at)}</time>
           </div>
         ))}
-        {!entries.length && <p className="m-0 py-8 text-center text-[11px] text-[#84909b]">{hasForm ? `No submissions imported for ${projectName} yet.` : "Connect a Kobo form to begin collection."}</p>}
+        {!entries.length && (
+          <p className="m-0 py-8 text-center text-[11px] text-[#84909b]">
+            {hasForm ? `No submissions imported for ${projectName} yet.` : "Connect a Kobo form to begin collection."}
+          </p>
+        )}
       </div>
     </section>
   );
