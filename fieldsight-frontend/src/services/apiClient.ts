@@ -203,14 +203,38 @@ export interface ApiSubmission {
 export interface ApiAnalyticsOverview {
   total_submissions: number;
   ready_records: number;
+  ready_this_week: number;
   needs_review: number;
   invalid_records: number;
+  blocked_records: number;
+  submission_change_percent: number | null;
   active_projects: number;
+  last_synced_at: string | null;
+  available_locations: string[];
   trend: { day: string; submissions: number; approved: number }[];
   projects: { id: string; name: string; actual: number; target: number }[];
+  collection_health: {
+    healthy_sources: number;
+    delayed_sources: number;
+    connected_sources: number;
+    ready_records: number;
+  };
+  activity: {
+    id: string;
+    name: string;
+    detail: string;
+    location: string | null;
+    occurred_at: string;
+  }[];
+  alerts: {
+    kind: "review" | "invalid" | "sync";
+    title: string;
+    text: string;
+    path: string;
+  }[];
 }
 export interface ApiSyncResult {
-  sync_run_id: string;
+  sync_run_id: string | null;
   status: string;
   received: number;
   created: number;
@@ -446,7 +470,14 @@ export const apiClient = {
       body: JSON.stringify({ form_id: form.id, form_name: form.name }),
     }),
   submissions: () => request<ApiSubmission[]>("/submissions"),
-  analyticsOverview: () => request<ApiAnalyticsOverview>("/analytics/overview"),
+  analyticsOverview: (filters: { projectId?: string; location?: string; period?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.projectId) params.set("project_id", filters.projectId);
+    if (filters.location) params.set("location", filters.location);
+    if (filters.period) params.set("period", filters.period);
+    const query = params.toString();
+    return request<ApiAnalyticsOverview>(`/analytics/overview${query ? `?${query}` : ""}`);
+  },
   syncProjectKoboForm: (projectId: string) => request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
   syncRuns: () => request<ApiSyncRun[]>("/sync-runs"),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),

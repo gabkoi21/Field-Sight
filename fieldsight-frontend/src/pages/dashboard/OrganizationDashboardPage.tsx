@@ -73,75 +73,23 @@ const periodButtonStyles =
 const textButtonStyles =
   "inline-flex items-center gap-[6px] rounded-[5px] border-0 bg-transparent font-sans text-[11px] font-semibold leading-[normal] text-[#0b51b7]";
 
-const projectPerformance = [
-  { name: "Community Health", actual: 1842, target: 2560 },
-  { name: "Maternal Health", actual: 3104, target: 3700 },
-  { name: "Youth Employment", actual: 2716, target: 4400 },
-  { name: "Water Access", actual: 986, target: 2050 },
-];
+const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
 
-const qualityData = [
-  { name: "Approved", value: 82, color: "#0b51b7" },
-  { name: "On hold", value: 11, color: "#f0a34a" },
-  { name: "Rejected", value: 4, color: "#d85d67" },
-  { name: "Unreviewed", value: 3, color: "#dce3e8" },
-];
+function relativeTime(value: string | null | undefined) {
+  if (!value) return "never";
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
 
-const activity = [
-  {
-    initials: "MK",
-    name: "Mary Kamara",
-    detail: "submitted 18 records in Paynesville",
-    time: "6 min ago",
-    tone: "teal",
-  },
-  {
-    initials: "JT",
-    name: "James Thompson",
-    detail: "had 4 interviews placed on hold",
-    time: "24 min ago",
-    tone: "amber",
-  },
-  {
-    initials: "SD",
-    name: "Sarah Dolo",
-    detail: "completed the Congo Town assignment",
-    time: "51 min ago",
-    tone: "blue",
-  },
-  {
-    initials: "DN",
-    name: "David Nyan",
-    detail: "synced 12 offline submissions",
-    time: "1 hr ago",
-    tone: "violet",
-  },
-] as const;
-
-const alerts = [
-  {
-    icon: ShieldAlert,
-    title: "24 high-severity issues",
-    text: "Duration and GPS checks need review",
-    action: "Review queue",
-    tone: "red",
-  },
-  {
-    icon: Wifi,
-    title: "1 source needs attention",
-    text: "Water Point Census sync is delayed",
-    action: "View sync",
-    tone: "amber",
-  },
-  {
-    icon: MapPinned,
-    title: "3 locations below target",
-    text: "Less than 60% of planned interviews",
-    action: "View coverage",
-    tone: "blue",
-  },
-] as const;
-
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "KS";
+}
 function StatCard({
   label,
   value,
@@ -154,7 +102,7 @@ function StatCard({
 }: {
   label: string;
   value: string;
-  change: string;
+  change?: string;
   direction: "up" | "down";
   icon: typeof Database;
   tone: keyof typeof statIconToneStyles;
@@ -173,11 +121,13 @@ function StatCard({
         <span className="block text-[11px] font-medium text-[#6f7d8a]">{label}</span>
         <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{value}</strong>
       </div>
-      <div
-        className={`flex items-center self-start gap-[2px] text-[11px] font-semibold ${changeToneStyles[direction]}`}
-      >
-        {direction === "up" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />} {change}
-      </div>
+      {change && (
+        <div
+          className={`flex items-center self-start gap-[2px] text-[11px] font-semibold ${changeToneStyles[direction]}`}
+        >
+          {direction === "up" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />} {change}
+        </div>
+      )}
       <small className="col-[2/4] mt-[6px] text-[10px] text-[#88939d]">{note}</small>
     </button>
   );
@@ -282,11 +232,28 @@ function CalendarPanel() {
 }
 export function OrganizationDashboardPage() {
   const navigate = useNavigate();
-  const [project, setProject] = useState("All projects");
-  const [period, setPeriod] = useState("Last 7 days");
-  const [location, setLocation] = useState("All locations");
-  const overviewQuery = useQuery({ queryKey: ["organization-overview"], queryFn: apiClient.analyticsOverview });
+  const [projectId, setProjectId] = useState("");
+  const [period, setPeriod] = useState("7d");
+  const [location, setLocation] = useState("");
+  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
+  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+  const projectsQuery = useQuery({
+    queryKey: ["organization-projects", organizationId],
+    queryFn: () => apiClient.organizationProjects(organizationId!),
+    enabled: Boolean(organizationId),
+  });
+  const overviewQuery = useQuery({
+    queryKey: ["organization-overview", projectId, location, period],
+    queryFn: () => apiClient.analyticsOverview({
+      projectId: projectId || undefined,
+      location: location || undefined,
+      period,
+    }),
+  });
   const overview = overviewQuery.data;
+  const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
+  const activeEnumeratorCount = (enumeratorsQuery.data ?? []).filter((enumerator) => enumerator.is_active).length;
+  const enumeratorTotal = (enumeratorsQuery.data ?? []).length;
   if (overviewQuery.isLoading)
     return (
       <div className="rounded-[10px] bg-white p-[60px] text-center text-[#758092]">Loading organization dashboard…</div>
@@ -297,13 +264,13 @@ export function OrganizationDashboardPage() {
       <div className="mb-[2px] flex items-end justify-between max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-[14px]">
         <div>
           <p className="!mb-[5px] !mt-0 !text-[10px] !font-bold !tracking-[.09em] !text-[#0b51b7]">
-            COMMUNITY HEALTH INITIATIVE
+            ORGANIZATION OVERVIEW
           </p>
           <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px] !text-[#1d2a38]">
             Collection dashboard
           </h1>
           <p className="mb-0 mt-[6px] text-[13px] text-[#73808d]">
-            {project} · {location} · {period}
+            {projectId ? projectsQuery.data?.find((item) => item.id === projectId)?.name ?? "Selected project" : "All projects"} · {location || "All locations"} · {periodLabels[period]}
           </p>
         </div>
         <div className="flex gap-[7px] max-[900px]:items-center max-[700px]:w-full max-[700px]:flex-wrap max-[600px]:grid max-[600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] max-[600px]:gap-[6px] ">
@@ -311,14 +278,14 @@ export function OrganizationDashboardPage() {
             <FolderCheck size={15} />
             <select
               className={selectInputStyles}
-              value={project}
-              onChange={(event) => setProject(event.target.value)}
+              value={projectId}
+              onChange={(event) => setProjectId(event.target.value)}
               aria-label="Filter dashboard by project"
             >
-              <option>All projects</option>
-              <option>Community Health Assessment</option>
-              <option>Maternal Health Survey</option>
-              <option>Youth Employment Study</option>
+              <option value="">All projects</option>
+              {(projectsQuery.data ?? []).map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
             </select>
             <ChevronDown className="pointer-events-none" size={14} />
           </label>
@@ -330,10 +297,8 @@ export function OrganizationDashboardPage() {
               onChange={(event) => setLocation(event.target.value)}
               aria-label="Filter dashboard by location"
             >
-              <option>All locations</option>
-              <option>Montserrado</option>
-              <option>Bong County</option>
-              <option>Paynesville</option>
+              <option value="">All locations</option>
+              {(overview?.available_locations ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
             <ChevronDown className="pointer-events-none" size={14} />
           </label>
@@ -345,9 +310,9 @@ export function OrganizationDashboardPage() {
               onChange={(event) => setPeriod(event.target.value)}
               aria-label="Filter dashboard by period"
             >
-              <option>Last 7 days</option>
-              <option>Today</option>
-              <option>Last 30 days</option>
+              <option value="7d">Last 7 days</option>
+              <option value="today">Today</option>
+              <option value="30d">Last 30 days</option>
             </select>
             <ChevronDown className="pointer-events-none" size={14} />
           </label>
@@ -366,18 +331,15 @@ export function OrganizationDashboardPage() {
         aria-label="Data trust summary"
       >
         <span className="flex items-center gap-[5px] max-[600px]:w-full">
-          <CheckCircle2 size={14} />
-          Data refreshed <strong>8 min ago</strong>
+          <CheckCircle2 size={14} /> Data refreshed <strong>{relativeTime(overview?.last_synced_at)}</strong>
         </span>
         <i className="size-[3px] rounded-full bg-[#c4cbd2] max-[900px]:hidden" />
         <span className="flex items-center gap-[5px] max-[600px]:w-full">
-          <FileCheck2 size={14} />
-          <strong>1,192 records</strong> became export-ready this week
+          <FileCheck2 size={14} /> <strong>{(overview?.ready_this_week ?? 0).toLocaleString()} records</strong> became export-ready this week
         </span>
         <i className="size-[3px] rounded-full bg-[#c4cbd2] max-[900px]:hidden" />
         <span className="flex items-center gap-[5px] max-[600px]:w-full">
-          <ShieldAlert size={14} />
-          <strong>149 records</strong> blocked from export
+          <ShieldAlert size={14} /> <strong>{(overview?.blocked_records ?? 0).toLocaleString()} records</strong> blocked from export
         </span>
       </section>
 
@@ -385,8 +347,8 @@ export function OrganizationDashboardPage() {
         <StatCard
           label="Total submissions"
           value={(overview?.total_submissions ?? 0).toLocaleString()}
-          change="12.4%"
-          direction="up"
+          change={overview?.submission_change_percent == null ? undefined : `${Math.abs(overview.submission_change_percent)}%`}
+          direction={(overview?.submission_change_percent ?? 0) >= 0 ? "up" : "down"}
           icon={Database}
           tone="blue"
           note="Imported Kobo records"
@@ -394,7 +356,6 @@ export function OrganizationDashboardPage() {
         <StatCard
           label="Active projects"
           value={String(overview?.active_projects ?? 0)}
-          change="1"
           direction="up"
           icon={FolderCheck}
           tone="teal"
@@ -402,17 +363,15 @@ export function OrganizationDashboardPage() {
         />
         <StatCard
           label="Active enumerators"
-          value="28"
-          change="3"
+          value={String(activeEnumeratorCount)}
           direction="up"
           icon={UsersRound}
           tone="violet"
-          note="of 33 assigned today"
+          note={`of ${enumeratorTotal} organization enumerators`}
         />
         <StatCard
           label="Needs review"
           value={(overview?.needs_review ?? 0).toLocaleString()}
-          change="31"
           direction="down"
           icon={ShieldAlert}
           tone="amber"
@@ -437,7 +396,7 @@ export function OrganizationDashboardPage() {
         >
           <div className="mt-[16px] h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={overview?.projects ?? projectPerformance} layout="vertical" margin={{ top: 0, right: 18, left: 28, bottom: 0 }}>
+              <BarChart data={overview?.projects ?? []} layout="vertical" margin={{ top: 0, right: 18, left: 28, bottom: 0 }}>
                 <CartesianGrid horizontal={false} stroke="#edf0f2" />
                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#87929d" }} />
                 <YAxis
@@ -467,37 +426,30 @@ export function OrganizationDashboardPage() {
           subtitle="Live operational signals"
           action={
             <span className="flex items-center gap-[5px] text-[10px] font-semibold text-[#0b51b7]">
-              <i className="size-[6px] rounded-full bg-[#0b51b7] shadow-[0_0_0_3px_#0b51b722]" />
-              Live
+              <i className="size-[6px] rounded-full bg-[#0b51b7] shadow-[0_0_0_3px_#0b51b722]" /> Live
             </span>
           }
         >
           <div className="mt-[10px] flex flex-col">
             <div className="flex items-center gap-[10px] border-b border-[#edf0f2] py-[11px]">
-              <span className="grid size-[34px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
-                <CheckCircle2 size={17} />
-              </span>
+              <span className="grid size-[34px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><CheckCircle2 size={17} /></span>
               <p className="m-0">
-                <strong className="block text-[12px]">3 sources healthy</strong>
-                <small className="mt-[2px] block text-[10px] text-[#84909b]">Last checked 8 minutes ago</small>
+                <strong className="block text-[12px]">{overview?.collection_health.healthy_sources ?? 0} healthy source{overview?.collection_health.healthy_sources === 1 ? "" : "s"}</strong>
+                <small className="mt-[2px] block text-[10px] text-[#84909b]">{overview?.collection_health.connected_sources ?? 0} Kobo project source{overview?.collection_health.connected_sources === 1 ? "" : "s"} connected</small>
               </p>
             </div>
             <div className="flex items-center gap-[10px] border-b border-[#edf0f2] py-[11px]">
-              <span className="grid size-[34px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
-                <Clock3 size={17} />
-              </span>
+              <span className="grid size-[34px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]"><Clock3 size={17} /></span>
               <p className="m-0">
-                <strong className="block text-[12px]">1 delayed source</strong>
-                <small className="mt-[2px] block text-[10px] text-[#84909b]">Water Point Census · 18 hours</small>
+                <strong className="block text-[12px]">{overview?.collection_health.delayed_sources ?? 0} delayed source{overview?.collection_health.delayed_sources === 1 ? "" : "s"}</strong>
+                <small className="mt-[2px] block text-[10px] text-[#84909b]">Last successful sync {relativeTime(overview?.last_synced_at)}</small>
               </p>
             </div>
             <div className="flex items-center gap-[10px] border-0 py-[11px]">
-              <span className="grid size-[34px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
-                <FileCheck2 size={17} />
-              </span>
+              <span className="grid size-[34px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]"><FileCheck2 size={17} /></span>
               <p className="m-0">
-                <strong className="block text-[12px]">1,192 export-ready</strong>
-                <small className="mt-[2px] block text-[10px] text-[#84909b]">Approved since Monday</small>
+                <strong className="block text-[12px]">{(overview?.ready_records ?? 0).toLocaleString()} export-ready</strong>
+                <small className="mt-[2px] block text-[10px] text-[#84909b]">Ready in the current dashboard view</small>
               </p>
             </div>
           </div>
@@ -505,65 +457,45 @@ export function OrganizationDashboardPage() {
       </div>
 
       <div className="grid grid-cols-[1fr_1fr] gap-[14px] max-[700px]:grid-cols-[1fr]">
-        <Panel
-          title="Recent field activity"
-          subtitle="Latest enumerator and synchronization events"
-          action={
-            <button className={periodButtonStyles}>
-              All activity
-              <ChevronDown size={13} />
-            </button>
-          }
-        >
+        <Panel title="Recent field activity" subtitle="Latest imported Kobo submissions">
           <div className="mt-[9px]">
-            {activity.map((item) => (
-              <div className="flex gap-[10px] border-b border-[#edf0f2] py-[10px] last:border-0" key={item.name}>
-                <span
-                  className={`grid size-[30px] flex-[0_0_30px] place-items-center rounded-full text-[9px] font-bold ${avatarToneStyles[item.tone]}`}
-                >
-                  {item.initials}
+            {(overview?.activity ?? []).map((item) => (
+              <div className="flex gap-[10px] border-b border-[#edf0f2] py-[10px] last:border-0" key={item.id}>
+                <span className={`grid size-[30px] flex-[0_0_30px] place-items-center rounded-full text-[9px] font-bold ${avatarToneStyles.teal}`}>
+                  {initials(item.name)}
                 </span>
                 <p className="m-0 text-[11px] leading-[1.45] text-[#667481]">
                   <strong className="text-[#253342]">{item.name}</strong> {item.detail}
-                  <small className="mt-[2px] block text-[9px] text-[#9aa3ac]">{item.time}</small>
+                  {item.location && <span> in {item.location}</span>}
+                  <small className="mt-[2px] block text-[9px] text-[#9aa3ac]">{relativeTime(item.occurred_at)}</small>
                 </p>
               </div>
             ))}
+            {!overview?.activity.length && <p className="m-0 py-8 text-center text-[11px] text-[#84909b]">No submission activity for this view.</p>}
           </div>
         </Panel>
 
         <Panel
           title="Requires attention"
-          subtitle="Exceptions ordered by operational impact"
-          action={
-            <button className={textButtonStyles} onClick={() => navigate("/quality")}>
-              View all <ExternalLink size={13} />
-            </button>
-          }
+          subtitle="Exceptions derived from the current dashboard view"
+          action={<button className={textButtonStyles} onClick={() => navigate("/quality")}>View all <ExternalLink size={13} /></button>}
         >
           <div className="mt-[9px]">
-            {alerts.map(({ icon: Icon, ...item }, index) => (
-              <div
-                className="flex items-center gap-[10px] border-b border-[#edf0f2] py-[11px] last:border-0"
-                key={item.title}
-              >
-                <span
-                  className={`grid size-[32px] flex-[0_0_32px] place-items-center rounded-[5px] ${alertToneStyles[item.tone]}`}
-                >
-                  <Icon size={17} />
-                </span>
-                <p className="flex-1 m-0">
-                  <strong className="block text-[11px] text-[#253342]">{item.title}</strong>
-                  <small className="mt-[2px] block text-[10px] text-[#84909b]">{item.text}</small>
-                </p>
-                <button
-                  className="border-0 bg-transparent font-sans text-[10px] font-semibold leading-[normal] text-[#0b51b7]"
-                  onClick={() => navigate(index === 0 ? "/quality" : index === 1 ? "/sync" : "/analytics")}
-                >
-                  {item.action}
-                </button>
-              </div>
-            ))}
+            {(overview?.alerts ?? []).map((item) => {
+              const Icon = item.kind === "sync" ? Wifi : ShieldAlert;
+              const toneClass = item.kind === "invalid" ? alertToneStyles.red : item.kind === "sync" ? alertToneStyles.amber : alertToneStyles.blue;
+              return (
+                <div className="flex items-center gap-[10px] border-b border-[#edf0f2] py-[11px] last:border-0" key={`${item.kind}-${item.title}`}>
+                  <span className={`grid size-[32px] flex-[0_0_32px] place-items-center rounded-[5px] ${toneClass}`}><Icon size={17} /></span>
+                  <p className="m-0 flex-1">
+                    <strong className="block text-[11px] text-[#253342]">{item.title}</strong>
+                    <small className="mt-[2px] block text-[10px] text-[#84909b]">{item.text}</small>
+                  </p>
+                  <button className="border-0 bg-transparent font-sans text-[10px] font-semibold text-[#0b51b7]" onClick={() => navigate(item.path)}>View</button>
+                </div>
+              );
+            })}
+            {!overview?.alerts.length && <p className="m-0 py-8 text-center text-[11px] text-[#84909b]">No records or sources currently require attention.</p>}
           </div>
         </Panel>
       </div>

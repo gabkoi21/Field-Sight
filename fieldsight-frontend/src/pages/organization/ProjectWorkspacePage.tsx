@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { Badge, Button, LoadingState } from "../../components/ui";
-import { apiClient, ApiError } from "../../services/apiClient";
+import { apiClient, ApiError, type ApiAnalyticsOverview } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
 
 const tabs = ["Overview", "Submissions", "Data quality", "Analytics", "Enumerators", "Reports", "Settings"];
@@ -27,6 +27,18 @@ const tone = {
   purple: "bg-[#f0edfa] text-[#7868b8]",
   orange: "bg-[#fff3e5] text-[#d88935]",
 };
+
+function relativeTime(value: string | null | undefined) {
+  if (!value) return "Never";
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
@@ -43,15 +55,21 @@ export function ProjectWorkspacePage() {
     queryFn: () => apiClient.getProject(organizationId!, projectId!),
     enabled: Boolean(organizationId && projectId),
   });
+  const overviewQuery = useQuery({
+    queryKey: ["project-overview", projectId],
+    queryFn: () => apiClient.analyticsOverview({ projectId: projectId!, period: "30d" }),
+    enabled: Boolean(projectId),
+  });
   const syncMutation = useMutation({
     mutationFn: () => apiClient.syncProjectKoboForm(projectId!),
     onSuccess: async (result) => {
       setSyncMessage(`Sync complete: ${result.created} new and ${result.updated} updated submission${result.created + result.updated === 1 ? "" : "s"}.`);
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["sync-runs"] });
+      await queryClient.invalidateQueries({ queryKey: ["project-overview", projectId] });
     },
   });
-  if (userQuery.isLoading || projectQuery.isLoading) return <LoadingState />;
+  if (userQuery.isLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
   if (projectQuery.error)
     return (
       <div className="rounded-xl border border-[#f7cfd4] bg-[#fff3f4] p-6 text-sm text-[#b42318]">
@@ -60,12 +78,17 @@ export function ProjectWorkspacePage() {
     );
   const project = projectQuery.data;
   if (!project) return <LoadingState />;
+  const overview = overviewQuery.data;
+  const totalSubmissions = overview?.total_submissions ?? 0;
+  const readyRecords = overview?.ready_records ?? 0;
+  const qualityRate = totalSubmissions ? Math.round((readyRecords / totalSubmissions) * 100) : 0;
+  const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
   const target = project.target_sample_size ? project.target_sample_size.toLocaleString() : null;
   const workflow = [
     ["Plan", "Project configured", true],
     ["Connect", project.kobo_form_name ? "Form connected" : "Connect a form", Boolean(project.kobo_form_name)],
-    ["Collect", target ? "0 of " + target + " records" : "Set a collection target", false],
-    ["Review", "Awaiting submissions", false],
+    ["Collect", target ? `${totalSubmissions.toLocaleString()} of ${target} records` : `${totalSubmissions.toLocaleString()} records collected`, totalSubmissions > 0],
+    ["Review", overview?.blocked_records ? `${overview.blocked_records} records need attention` : "No records need attention", totalSubmissions > 0 && !overview?.blocked_records],
   ] as const;
   return (
     <div className="flex flex-col gap-[18px] pb-5">
@@ -133,24 +156,24 @@ export function ProjectWorkspacePage() {
           icon={Database}
           tone="blue"
           label="Submissions"
-          value="0"
+          value={totalSubmissions.toLocaleString()}
           note={target ? "of " + target + " target" : "No target configured"}
         />
-        <Metric icon={FileCheck2} tone="green" label="Data quality" value="--" note="No records to review" />
-        <Metric icon={Users} tone="purple" label="Field team" value="0" note="Enumerators assigned" />
-        <Metric icon={Clock3} tone="orange" label="Last sync" value="--" note="Waiting for first sync" />
+        <Metric icon={FileCheck2} tone="green" label="Data quality" value={`${qualityRate}%`} note={`${overview?.blocked_records ?? 0} records need attention`} />
+        <Metric icon={Users} tone="purple" label="Field team" value={String(activeEnumerators)} note={`${(enumeratorsQuery.data ?? []).length} organization enumerators`} />
+        <Metric icon={Clock3} tone="orange" label="Last sync" value={relativeTime(overview?.last_synced_at)} note={project.kobo_form_name ?? "No Kobo form assigned"} />
       </section>
 
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <SubmissionActivityPanel />
+        <SubmissionActivityPanel data={overview?.trend} subtitle="Imported and ready records for this project" />
         <CalendarPanel />
       </div>
 
-      <WorkspaceInsights />
+      <WorkspaceInsights overview={overview} target={project.target_sample_size} />
 
       <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
         <EnumeratorsTable enumerators={enumeratorsQuery.data ?? []} />
-        <ProjectActivity projectName={project.name} hasForm={Boolean(project.kobo_form_name)} />
+        <ProjectActivity overview={overview} projectName={project.name} hasForm={Boolean(project.kobo_form_name)} />
       </section>
     </div>
   );
@@ -252,52 +275,46 @@ function CalendarPanel() {
     </section>
   );
 }
-function WorkspaceInsights() {
-  const tasks = [
-    { label: "On Going", value: 24, color: "#2e6be6" },
-    { label: "Under Review", value: 15, color: "#0aaec9" },
-    { label: "Finish", value: 8, color: "#0abf82" },
+function WorkspaceInsights({ overview, target }: { overview?: ApiAnalyticsOverview; target: number | null }) {
+  const total = overview?.total_submissions ?? 0;
+  const ready = overview?.ready_records ?? 0;
+  const review = overview?.needs_review ?? 0;
+  const invalid = overview?.invalid_records ?? 0;
+  const collectionProgress = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
+  const qualityRate = total ? Math.round((ready / total) * 100) : 0;
+  const segments = [
+    { label: "Ready", value: ready, color: "#0abf82" },
+    { label: "Needs review", value: review, color: "#f0a34a" },
+    { label: "Invalid", value: invalid, color: "#d85d67" },
   ];
+  const readyDegrees = total ? (ready / total) * 360 : 0;
+  const reviewDegrees = total ? (review / total) * 360 : 0;
   return (
     <section className="grid grid-cols-3 gap-[14px] max-[1100px]:grid-cols-1">
       <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
-        <InsightHeader icon={ListChecks} title="Overall Tasks" />
-        <div className="grid grid-cols-[150px_1fr] items-center gap-4 px-5 py-7 max-[480px]:grid-cols-1">
-          <div className="relative mx-auto size-[140px] rounded-full" style={{ background: "conic-gradient(#2e6be6 0 51%, #fff 51% 53%, #0aaec9 53% 84%, #fff 84% 86%, #0abf82 86% 100%)" }}>
-            <span className="absolute inset-[19px] rounded-full bg-white" />
+        <InsightHeader icon={ListChecks} title="Review status" />
+        <div className="grid grid-cols-[140px_1fr] items-center gap-4 px-5 py-7 max-[480px]:grid-cols-1">
+          <div className="relative mx-auto size-[130px] rounded-full" style={{ background: total ? `conic-gradient(#0abf82 0 ${readyDegrees}deg, #f0a34a ${readyDegrees}deg ${readyDegrees + reviewDegrees}deg, #d85d67 ${readyDegrees + reviewDegrees}deg 360deg)` : "#e8edf2" }}>
+            <span className="absolute inset-[19px] grid place-items-center rounded-full bg-white text-center"><strong className="text-[23px]">{total}</strong></span>
           </div>
-          <div>
-            <span className="text-sm text-[#1e2a39]">Total</span>
-            <strong className="mt-1 block text-[25px] leading-none text-[#111827]">47</strong>
-            <div className="mt-7 space-y-3">
-              {tasks.map((task) => (
-                <div key={task.label} className="flex items-center justify-between gap-2 text-[13px] text-[#637187]">
-                  <span className="flex items-center gap-2"><i className="size-2.5 rounded-full" style={{ backgroundColor: task.color }} />{task.label}</span>
-                  <strong className="font-medium text-[#172033]">{task.value} Task</strong>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-3">
+            {segments.map((item) => <div key={item.label} className="flex justify-between gap-3 text-[12px] text-[#637187]"><span className="flex items-center gap-2"><i className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.label}</span><strong className="text-[#172033]">{item.value}</strong></div>)}
           </div>
         </div>
       </article>
       <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
-        <InsightHeader icon={Timer} title="Effort Tracking" />
-        <div className="px-5 py-5">
-          <div className="flex items-baseline gap-2"><strong className="text-[25px] leading-none text-[#111827]">1,247</strong><span className="text-[13px] text-[#6b778c]">Hours Logged</span></div>
-          <p className="mt-2 text-[13px] text-[#1b2637]"><span className="mr-2 rounded bg-[#d9f9e8] px-2 py-1 text-[11px] font-semibold text-[#05a968]">? 8.5%</span>vs last month's hours</p>
-          <div className="mt-7 flex h-[71px] items-end justify-between border-y border-[#edf0f3] px-9 pt-2">
-            {[{ a: 3, b: 16 }, { a: 21, b: 8 }, { a: 49, b: 31 }, { a: 67, b: 53 }].map((bar, index) => (
-              <div key={index} className="flex h-full items-end gap-1"><i className="w-4 rounded-t bg-[#0aaec9]" style={{ height: bar.a }} /><i className="w-4 rounded-t bg-[#2e6be6]" style={{ height: bar.b }} /></div>
-            ))}
-          </div>
-          <div className="mt-2 flex justify-between px-11 text-[12px] text-[#66758a]"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span></div>
+        <InsightHeader icon={Timer} title="Collection status" />
+        <div className="space-y-5 px-5 py-6">
+          <div><span className="text-[12px] text-[#6b778c]">Last synchronized</span><strong className="mt-1 block text-[22px] text-[#111827]">{relativeTime(overview?.last_synced_at)}</strong></div>
+          <div><span className="text-[12px] text-[#6b778c]">Kobo source health</span><strong className="mt-1 block text-[18px] text-[#111827]">{overview?.collection_health.healthy_sources ?? 0} healthy · {overview?.collection_health.delayed_sources ?? 0} delayed</strong></div>
+          <p className="m-0 text-[12px] text-[#77869a]">{total.toLocaleString()} records imported in the last 30 days</p>
         </div>
       </article>
       <article className="overflow-hidden rounded-[9px] border border-[#dfe4e9] bg-white">
-        <InsightHeader icon={BarChart3} title="Project Progress" />
-        <div className="space-y-8 px-5 py-5">
-          <ProgressMetric label="Performing Progress" value="89%" change="10.2%" color="bg-[#08bf7a]" filled={36} />
-          <ProgressMetric label="Task Completion" value="67%" change="2.2%" color="bg-[#2e6be6]" filled={27} />
+        <InsightHeader icon={BarChart3} title="Project progress" />
+        <div className="space-y-7 px-5 py-6">
+          <ProgressMetric label="Collection target" value={target ? `${collectionProgress}%` : "Not set"} color="bg-[#2e6be6]" filled={Math.round(collectionProgress / 2.5)} />
+          <ProgressMetric label="Data quality" value={`${qualityRate}%`} color="bg-[#08bf7a]" filled={Math.round(qualityRate / 2.5)} />
         </div>
       </article>
     </section>
@@ -313,10 +330,10 @@ function InsightHeader({ icon: Icon, title }: { icon: typeof ListChecks; title: 
   );
 }
 
-function ProgressMetric({ label, value, change, color, filled }: { label: string; value: string; change: string; color: string; filled: number }) {
+function ProgressMetric({ label, value, color, filled }: { label: string; value: string; color: string; filled: number }) {
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between text-[14px]"><span className="text-[#59677d]">{label}</span><span><i className="mr-2 rounded bg-[#d9f9e8] px-2 py-1 text-[11px] font-semibold not-italic text-[#05a968]">? {change}</i><strong className="text-[16px] text-[#111827]">{value}</strong></span></div>
+      <div className="mb-3 flex items-center justify-between text-[14px]"><span className="text-[#59677d]">{label}</span><strong className="text-[16px] text-[#111827]">{value}</strong></div>
       <div className="flex gap-[3px]">{Array.from({ length: 40 }, (_, index) => <i key={index} className={`h-7 flex-1 rounded-[2px] ${index < filled ? color : "bg-[#e2e4e7]"}`} />)}</div>
     </div>
   );
@@ -408,57 +425,24 @@ function EnumeratorsTable({
     </section>
   );
 }
-function ProjectActivity({ projectName, hasForm }: { projectName: string; hasForm: boolean }) {
-  const entries = [
-    {
-      label: hasForm ? "Kobo form connected" : "Project created",
-      detail: projectName,
-      time: "Project setup",
-      color: "bg-[#e8f6f4] text-[#0b51b7]",
-    },
-    {
-      label: "Collection plan updated",
-      detail: "Targets and field readiness",
-      time: "Planning",
-      color: "bg-[#edf3fc] text-[#4d7fc6]",
-    },
-    {
-      label: "Quality checks ready",
-      detail: "Review queue will activate with submissions",
-      time: "Data quality",
-      color: "bg-[#f0edfa] text-[#7868b8]",
-    },
-  ];
+function ProjectActivity({ overview, projectName, hasForm }: { overview?: ApiAnalyticsOverview; projectName: string; hasForm: boolean }) {
+  const entries = overview?.activity ?? [];
   return (
     <section className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
       <header className="flex items-center justify-between border-b border-[#edf0f2] pb-3">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Activity</h2>
-          <p className="mb-0 mt-1 text-[11px] text-[#84909b]">Latest project updates</p>
-        </div>
-        <button
-          type="button"
-          className="rounded-[5px] border border-[#dce2e7] bg-white px-2 py-1 text-[10px] font-medium text-[#657382]"
-        >
-          All
-        </button>
+        <div><h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Activity</h2><p className="mb-0 mt-1 text-[11px] text-[#84909b]">Latest project submissions</p></div>
+        <span className="rounded-[5px] border border-[#dce2e7] bg-white px-2 py-1 text-[10px] font-medium text-[#657382]">{entries.length} recent</span>
       </header>
       <div className="mt-1">
         {entries.map((entry, index) => (
-          <div className="relative flex gap-3 py-3 last:pb-0" key={entry.label}>
-            <span className={"relative z-[1] grid size-8 shrink-0 place-items-center rounded-full " + entry.color}>
-              <Clock3 size={15} />
-            </span>
-            {index < entries.length - 1 && (
-              <i className="absolute left-4 top-11 h-[22px] border-l border-dashed border-[#d6dee8]" />
-            )}
-            <div className="flex-1 min-w-0">
-              <strong className="block text-[12px] text-[#354966]">{entry.label}</strong>
-              <span className="block truncate text-[11px] text-[#71809a]">{entry.detail}</span>
-            </div>
-            <time className="shrink-0 text-[10px] text-[#8a96a7]">{entry.time}</time>
+          <div className="relative flex gap-3 py-3 last:pb-0" key={entry.id}>
+            <span className="relative z-[1] grid size-8 shrink-0 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><Clock3 size={15} /></span>
+            {index < entries.length - 1 && <i className="absolute left-4 top-11 h-[22px] border-l border-dashed border-[#d6dee8]" />}
+            <div className="min-w-0 flex-1"><strong className="block text-[12px] text-[#354966]">{entry.name}</strong><span className="block text-[11px] text-[#71809a]">{entry.detail}{entry.location ? ` in ${entry.location}` : ""}</span></div>
+            <time className="shrink-0 text-[10px] text-[#8a96a7]">{relativeTime(entry.occurred_at)}</time>
           </div>
         ))}
+        {!entries.length && <p className="m-0 py-8 text-center text-[11px] text-[#84909b]">{hasForm ? `No submissions imported for ${projectName} yet.` : "Connect a Kobo form to begin collection."}</p>}
       </div>
     </section>
   );

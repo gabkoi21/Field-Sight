@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -113,11 +113,27 @@ def sync_project_kobo_form(
                 )
                 created += 1
             else:
+                if existing.raw_answers == payload:
+                    continue
                 existing.raw_answers = payload
                 existing.submitted_at = _submission_time(payload.get("_submission_time")) or existing.submitted_at
+                existing.enumerator = (
+                    str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None
+                )
+                existing.location = str(payload.get("location")) if payload.get("location") else None
                 existing.updated_at = datetime.now(UTC)
                 db.add(existing)
                 updated += 1
+        if created == 0 and updated == 0:
+            db.delete(run)
+            db.commit()
+            return {
+                "sync_run_id": None,
+                "status": "unchanged",
+                "received": len(payloads),
+                "created": 0,
+                "updated": 0,
+            }
         run.status = "completed"
         run.received_count = len(payloads)
         run.created_count = created
@@ -157,40 +173,123 @@ def list_sync_runs(user: CurrentUser, db: Database) -> list[dict[str, object]]:
     runs = db.exec(select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(SyncRun.started_at.desc())).all()
     return [{"id": str(run.id), "project_id": str(run.project_id), "status": run.status, "received": run.received_count, "created": run.created_count, "updated": run.updated_count, "error_message": run.error_message, "started_at": run.started_at, "completed_at": run.completed_at} for run in runs]
 @router.get("/analytics/overview", tags=["Analytics"])
-def analytics_overview(user: CurrentUser, db: Database) -> dict[str, object]:
-    """Return tenant-scoped metrics derived from imported Kobo submissions."""
+def analytics_overview(
+    user: CurrentUser,
+    db: Database,
+    project_id: UUID | None = None,
+    location: str | None = None,
+    period: str = "7d",
+) -> dict[str, object]:
+    """Return tenant-scoped dashboard data derived from imported Kobo records."""
     organization_id = _organization_admin_id(user, db)
-    submissions = db.exec(
-        select(Submission).where(Submission.organization_id == organization_id).order_by(Submission.submitted_at.asc())
+    now = datetime.now(UTC)
+    period_days = {"today": 1, "7d": 7, "30d": 30}.get(period, 7)
+    cutoff = now - timedelta(days=period_days)
+    previous_cutoff = cutoff - timedelta(days=period_days)
+
+    def as_utc(value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+    all_submissions = db.exec(
+        select(Submission)
+        .where(Submission.organization_id == organization_id)
+        .order_by(Submission.submitted_at.asc())
     ).all()
+    available_locations = sorted({item.location for item in all_submissions if item.location})
+
+    scoped = [item for item in all_submissions if not project_id or item.project_id == project_id]
+    if location:
+        scoped = [item for item in scoped if item.location == location]
+    current = [item for item in scoped if item.submitted_at and as_utc(item.submitted_at) >= cutoff]
+    previous = [
+        item for item in scoped
+        if item.submitted_at and previous_cutoff <= as_utc(item.submitted_at) < cutoff
+    ]
+
     projects = db.exec(select(Project).where(Project.organization_id == organization_id)).all()
+    project_scope = [project for project in projects if not project_id or project.id == project_id]
     by_day: dict[str, dict[str, int]] = defaultdict(lambda: {"submissions": 0, "approved": 0})
     by_project: dict[UUID, int] = defaultdict(int)
-    for submission in submissions:
+    for submission in current:
         by_project[submission.project_id] += 1
-        if submission.submitted_at:
-            day = submission.submitted_at.astimezone(UTC).strftime("%b %d")
-            by_day[day]["submissions"] += 1
-            if submission.review_status == "ready":
-                by_day[day]["approved"] += 1
-    total = len(submissions)
-    ready = sum(submission.review_status == "ready" for submission in submissions)
-    needs_review = sum(submission.review_status == "needs_review" for submission in submissions)
-    invalid = sum(submission.review_status == "invalid" for submission in submissions)
+        day = as_utc(submission.submitted_at).strftime("%b %d") if submission.submitted_at else "Unknown"
+        by_day[day]["submissions"] += 1
+        if submission.review_status == "ready":
+            by_day[day]["approved"] += 1
+
+    total = len(current)
+    ready = sum(item.review_status == "ready" for item in current)
+    needs_review = sum(item.review_status == "needs_review" for item in current)
+    invalid = sum(item.review_status == "invalid" for item in current)
+    previous_total = len(previous)
+    change_percent = round(((total - previous_total) / previous_total) * 100, 1) if previous_total else None
+
+    runs = db.exec(
+        select(SyncRun)
+        .where(SyncRun.organization_id == organization_id)
+        .order_by(SyncRun.started_at.desc())
+    ).all()
+    scoped_runs = [run for run in runs if not project_id or run.project_id == project_id]
+    latest_run = scoped_runs[0] if scoped_runs else None
+    latest_by_project: dict[UUID, SyncRun] = {}
+    for run in scoped_runs:
+        latest_by_project.setdefault(run.project_id, run)
+    connected_projects = [project for project in project_scope if project.kobo_form_id]
+    delayed_projects = [
+        project for project in connected_projects
+        if project.id not in latest_by_project
+        or latest_by_project[project.id].status != "completed"
+        or (latest_by_project[project.id].completed_at and as_utc(latest_by_project[project.id].completed_at) < now - timedelta(hours=12))
+    ]
+    healthy_sources = max(0, len(connected_projects) - len(delayed_projects))
+
+    recent = sorted(
+        [item for item in scoped if item.submitted_at],
+        key=lambda item: as_utc(item.submitted_at) if item.submitted_at else datetime.min.replace(tzinfo=UTC),
+        reverse=True,
+    )[:5]
+    project_names = {project.id: project.name for project in projects}
+    activity = [
+        {
+            "id": str(item.id),
+            "name": item.enumerator or "Kobo submission",
+            "detail": f"submitted {item.external_id} to {project_names.get(item.project_id, 'a project')}",
+            "location": item.location,
+            "occurred_at": item.submitted_at,
+        }
+        for item in recent
+    ]
+
+    alerts: list[dict[str, object]] = []
+    if needs_review:
+        alerts.append({"kind": "review", "title": f"{needs_review} record{'s' if needs_review != 1 else ''} need review", "text": "Quality review is required before reporting", "path": "/quality"})
+    if invalid:
+        alerts.append({"kind": "invalid", "title": f"{invalid} invalid record{'s' if invalid != 1 else ''}", "text": "These records are blocked from export", "path": "/quality"})
+    if delayed_projects:
+        alerts.append({"kind": "sync", "title": f"{len(delayed_projects)} source{'s' if len(delayed_projects) != 1 else ''} need attention", "text": "A connected Kobo form has not synced recently", "path": "/sync"})
+
     return {
         "total_submissions": total,
         "ready_records": ready,
+        "ready_this_week": sum(item.review_status == "ready" and item.submitted_at and as_utc(item.submitted_at) >= now - timedelta(days=7) for item in scoped),
         "needs_review": needs_review,
         "invalid_records": invalid,
-        "active_projects": sum(project.status.value == "active" for project in projects),
-        "trend": [{"day": day, **counts} for day, counts in by_day.items()][-30:],
+        "blocked_records": needs_review + invalid,
+        "submission_change_percent": change_percent,
+        "active_projects": sum(project.status.value == "active" for project in project_scope),
+        "last_synced_at": latest_run.completed_at if latest_run else None,
+        "available_locations": available_locations,
+        "trend": [{"day": day, **counts} for day, counts in by_day.items()],
         "projects": [
-            {
-                "id": str(project.id),
-                "name": project.name,
-                "actual": by_project[project.id],
-                "target": project.target_sample_size or 0,
-            }
-            for project in projects
+            {"id": str(project.id), "name": project.name, "actual": by_project[project.id], "target": project.target_sample_size or 0}
+            for project in project_scope
         ],
+        "collection_health": {
+            "healthy_sources": healthy_sources,
+            "delayed_sources": len(delayed_projects),
+            "connected_sources": len(connected_projects),
+            "ready_records": ready,
+        },
+        "activity": activity,
+        "alerts": alerts,
     }
