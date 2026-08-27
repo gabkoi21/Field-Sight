@@ -233,6 +233,29 @@ export interface ApiAnalyticsOverview {
     path: string;
   }[];
 }
+export interface ApiQualityIssue {
+  id: string;
+  submission_id: string;
+  external_id: string;
+  project_id: string;
+  project_name: string;
+  enumerator: string | null;
+  location: string | null;
+  submitted_at: string | null;
+  severity: "Blocking" | "High" | "Medium" | "Low";
+  rule: string;
+  detail: string;
+  field: string | null;
+  state: string;
+}
+
+export interface ApiQualityResult {
+  checked: number;
+  ready: number;
+  needs_review: number;
+  invalid: number;
+  issues: ApiQualityIssue[];
+}
 export interface ApiSyncResult {
   sync_run_id: string | null;
   status: string;
@@ -417,6 +440,10 @@ export const apiClient = {
     request<ApiProject[]>(`/organizations/${organizationId}/projects`),
   getProject: (organizationId: string, projectId: string) =>
     request<ApiProject>(`/organizations/${organizationId}/projects/${projectId}`),
+  deleteProject: (organizationId: string, projectId: string) =>
+    request<void>(`/organizations/${organizationId}/projects/${projectId}`, {
+      method: "DELETE",
+    }),
   assignProjectKoboForm: (projectId: string, connectionId: string, formId: string) =>
     request<KoboConnection>(`/kobo/connections/projects/${projectId}/form`, {
       method: "PUT",
@@ -478,7 +505,15 @@ export const apiClient = {
     const query = params.toString();
     return request<ApiAnalyticsOverview>(`/analytics/overview${query ? `?${query}` : ""}`);
   },
-  syncProjectKoboForm: (projectId: string) => request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
+  qualityIssues: (projectId?: string) =>
+    request<ApiQualityIssue[]>(`/quality/issues${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`),
+  runQualityValidation: (projectId?: string) =>
+    request<ApiQualityResult>(`/quality/run${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`, { method: "POST" }),
+  updateSubmissionReviewStatus: (submissionId: string, status: "ready" | "needs_review" | "invalid") =>
+    request<{ id: string; review_status: string }>(`/submissions/${submissionId}/review-status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),  syncProjectKoboForm: (projectId: string) => request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
   syncRuns: () => request<ApiSyncRun[]>("/sync-runs"),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
@@ -497,3 +532,5 @@ export const apiClient = {
       method: "DELETE",
     }),
 };
+
+

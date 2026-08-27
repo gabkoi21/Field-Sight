@@ -9,13 +9,15 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
+from app.core.kobo import decrypt_kobo_token, delete_kobo_form
 from app.core.security import password_hasher
 from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, Role, Sector, User
-from app.models.phase3 import FieldAssignment, Location, OrganizationSettings, Project, ProjectStatus
+from app.models.phase3 import FieldAssignment, KoboConnection, Location, OrganizationSettings, Project, ProjectStatus, Submission, SyncRun
 from app.routes.auth import get_current_user
 from app.schemas.crud import AssignmentUpdate, EnumeratorUpdate, LocationUpdate, ProjectUpdate
 from app.schemas.enumerators import EnumeratorCreate, EnumeratorRead
@@ -376,7 +378,7 @@ def replace_organization_sectors(
     )
 
 
-# Projects: List → Create → Read → Update → Delete (archive)
+# Projects: List → Create → Read → Update → Delete permanently
 @router.get("/{org_id}/projects", tags=["projects"])
 def list_projects(org_id: UUID, user: CurrentUser, db: Database) -> list[Project]:
     _authorize(org_id, user, db)
@@ -423,13 +425,40 @@ def update_project(org_id: UUID, project_id: UUID, payload: ProjectUpdate, user:
 
 
 @router.delete("/{org_id}/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["projects"])
-def archive_project(org_id: UUID, project_id: UUID, user: CurrentUser, db: Database) -> Response:
+def delete_project(
+    org_id: UUID,
+    project_id: UUID,
+    user: CurrentUser,
+    db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
-    project.status = ProjectStatus.ARCHIVED
-    project.updated_at = datetime.now(UTC)
-    db.add(project)
-    db.commit()
+
+    if project.kobo_form_id:
+        if not project.kobo_connection_id:
+            raise HTTPException(status_code=409, detail="The project has a Kobo form but no connection. It was not deleted.")
+        connection = db.get(KoboConnection, project.kobo_connection_id)
+        if connection is None or connection.organization_id != org_id:
+            raise HTTPException(status_code=409, detail="The Kobo connection is unavailable. The project was not deleted.")
+        try:
+            token = decrypt_kobo_token(connection.token_encrypted, settings)
+            delete_kobo_form(connection.server_url, token, project.kobo_form_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
+        db.exec(delete(FieldAssignment).where(FieldAssignment.project_id == project.id))
+        db.exec(delete(Submission).where(Submission.project_id == project.id))
+        db.exec(delete(SyncRun).where(SyncRun.project_id == project.id))
+        db.exec(delete(Project).where(Project.id == project.id))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="The Kobo form was deleted, but local project cleanup failed. Retry deletion to finish cleanup.",
+        ) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -567,3 +596,6 @@ def create_logo_upload_intent(
         "max_size_bytes": 5_000_000,
         "provider": "local-development-placeholder",
     }
+
+
+

@@ -76,6 +76,24 @@ def list_kobo_forms(server_url: str, api_token: str) -> list[dict[str, str | Non
     return forms
 
 
+def delete_kobo_form(server_url: str, api_token: str, form_id: str) -> None:
+    """Delete a Kobo survey asset and its provider-hosted submissions."""
+    try:
+        response = httpx.delete(
+            f"{server_url}/api/v2/assets/{form_id}/",
+            headers={"Authorization": f"Token {api_token}"},
+            timeout=30.0,
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as exc:
+        raise ValueError("KoboToolbox could not be reached. The local project was not deleted.") from exc
+    if response.status_code == 404:
+        return
+    if response.status_code in {401, 403}:
+        raise ValueError("Kobo rejected permission to delete this form. The local project was not deleted.")
+    if response.status_code >= 400:
+        raise ValueError("KoboToolbox could not delete this form. The local project was not deleted.")
+
 def list_kobo_submissions(server_url: str, api_token: str, form_id: str) -> list[dict[str, object]]:
     """Fetch one Kobo form's submissions while keeping provider credentials server-side."""
     try:

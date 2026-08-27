@@ -159,8 +159,20 @@ export function ProjectWorkspacePage() {
           value={totalSubmissions.toLocaleString()}
           note={target ? "of " + target + " target" : "No target configured"}
         />
-        <Metric icon={FileCheck2} tone="green" label="Data quality" value={`${qualityRate}%`} note={`${overview?.blocked_records ?? 0} records need attention`} />
-        <Metric icon={Users} tone="purple" label="Field team" value={String(activeEnumerators)} note={`${(enumeratorsQuery.data ?? []).length} organization enumerators`} />
+        <Metric
+          icon={FileCheck2}
+          tone="green"
+          label="Records ready"
+          value={readyRecords.toLocaleString()}
+          note={`${overview?.blocked_records ?? 0} records need attention`}
+        />
+        <Metric
+          icon={Users}
+          tone="purple"
+          label="Active enumerators"
+          value={String(activeEnumerators)}
+          note="Available in this organization"
+        />
         <Metric icon={Clock3} tone="orange" label="Last sync" value={relativeTime(overview?.last_synced_at)} note={project.kobo_form_name ?? "No Kobo form assigned"} />
       </section>
 

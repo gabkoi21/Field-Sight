@@ -8,6 +8,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
@@ -293,3 +294,145 @@ def analytics_overview(
         "activity": activity,
         "alerts": alerts,
     }
+class ReviewStatusUpdate(BaseModel):
+    status: str
+
+
+def _quality_findings(submissions: list[Submission], projects: dict[UUID, Project]) -> list[dict[str, object]]:
+    """Apply form-agnostic checks to dynamic Kobo answer payloads."""
+    findings: list[dict[str, object]] = []
+    fingerprints: dict[tuple[UUID, str], list[Submission]] = defaultdict(list)
+    ignored_keys = {
+        "_id", "_uuid", "_submission_time", "_submitted_by", "_attachments",
+        "_geolocation", "_status", "_tags", "_notes", "_validation_status", "meta",
+    }
+
+    def add(submission: Submission, code: str, severity: str, rule: str, detail: str, field: str | None = None) -> None:
+        project = projects.get(submission.project_id)
+        findings.append({
+            "id": f"{submission.id}:{code}",
+            "submission_id": str(submission.id),
+            "external_id": submission.external_id,
+            "project_id": str(submission.project_id),
+            "project_name": project.name if project else "Unknown project",
+            "enumerator": submission.enumerator,
+            "location": submission.location,
+            "submitted_at": submission.submitted_at,
+            "severity": severity,
+            "rule": rule,
+            "detail": detail,
+            "field": field,
+            "state": "Open",
+        })
+
+    now = datetime.now(UTC)
+    for submission in submissions:
+        payload = submission.raw_answers or {}
+        if submission.submitted_at is None:
+            add(submission, "missing-time", "Blocking", "Missing submission time", "Kobo did not provide a valid submission timestamp.", "_submission_time")
+        else:
+            submitted_at = submission.submitted_at.replace(tzinfo=UTC) if submission.submitted_at.tzinfo is None else submission.submitted_at.astimezone(UTC)
+            if submitted_at > now + timedelta(minutes=5):
+                add(submission, "future-time", "Blocking", "Submission time is in the future", "The recorded submission time is later than the server time.", "_submission_time")
+
+        duration = payload.get("_duration", payload.get("duration"))
+        try:
+            duration_seconds = float(duration) if duration is not None and duration != "" else None
+        except (TypeError, ValueError):
+            duration_seconds = None
+        if duration_seconds is not None and duration_seconds < 60:
+            add(submission, "short-duration", "High", "Interview duration is unusually short", f"The interview duration is {round(duration_seconds)} seconds; review records below 60 seconds.", "_duration")
+
+        for key, value in payload.items():
+            normalized = key.lower()
+            if value is None or value == "" or not ("gps" in normalized or "geopoint" in normalized):
+                continue
+            parts = str(value).replace(",", " ").split()
+            try:
+                valid = len(parts) >= 2 and -90 <= float(parts[0]) <= 90 and -180 <= float(parts[1]) <= 180
+            except (TypeError, ValueError):
+                valid = False
+            if not valid:
+                add(submission, f"gps-{key}", "High", "GPS value is invalid", f"The value in {key} is not a valid latitude/longitude pair.", key)
+
+        answers = {key: value for key, value in payload.items() if key not in ignored_keys and not key.startswith("_")}
+        fingerprint = repr(sorted((key, repr(value)) for key, value in answers.items()))
+        if answers:
+            fingerprints[(submission.project_id, fingerprint)].append(submission)
+
+    for duplicates in fingerprints.values():
+        if len(duplicates) < 2:
+            continue
+        original = min(duplicates, key=lambda item: item.created_at)
+        for duplicate in duplicates:
+            if duplicate.id == original.id:
+                continue
+            add(duplicate, "duplicate", "High", "Possible duplicate submission", f"The answer set exactly matches submission {original.external_id} in the same project.")
+    return findings
+
+
+@router.get("/quality/issues", tags=["Data quality"])
+def list_quality_issues(user: CurrentUser, db: Database, project_id: UUID | None = None) -> list[dict[str, object]]:
+    organization_id = _organization_admin_id(user, db)
+    statement = select(Submission).where(Submission.organization_id == organization_id)
+    if project_id:
+        statement = statement.where(Submission.project_id == project_id)
+    submissions = list(db.exec(statement).all())
+    projects = {item.project_id: db.get(Project, item.project_id) for item in submissions}
+    findings = _quality_findings(submissions, {key: value for key, value in projects.items() if value})
+    queued_ids = {str(item.id) for item in submissions if item.review_status != "ready"}
+    return [finding for finding in findings if str(finding["submission_id"]) in queued_ids]
+
+
+@router.post("/quality/run", tags=["Data quality"])
+def run_quality_validation(user: CurrentUser, db: Database, project_id: UUID | None = None) -> dict[str, object]:
+    organization_id = _organization_admin_id(user, db)
+    statement = select(Submission).where(Submission.organization_id == organization_id)
+    if project_id:
+        statement = statement.where(Submission.project_id == project_id)
+    submissions = list(db.exec(statement).all())
+    projects = {item.project_id: db.get(Project, item.project_id) for item in submissions}
+    findings = _quality_findings(submissions, {key: value for key, value in projects.items() if value})
+    by_submission: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for finding in findings:
+        by_submission[str(finding["submission_id"])].append(finding)
+    for submission in submissions:
+        issues = by_submission.get(str(submission.id), [])
+        if any(issue["severity"] == "Blocking" for issue in issues):
+            submission.review_status = "invalid"
+        elif issues:
+            submission.review_status = "needs_review"
+        else:
+            submission.review_status = "ready"
+        db.add(submission)
+    db.commit()
+    return {
+        "checked": len(submissions),
+        "ready": sum(not by_submission.get(str(item.id)) for item in submissions),
+        "needs_review": sum(bool(by_submission.get(str(item.id))) and not any(issue["severity"] == "Blocking" for issue in by_submission[str(item.id)]) for item in submissions),
+        "invalid": sum(any(issue["severity"] == "Blocking" for issue in by_submission.get(str(item.id), [])) for item in submissions),
+        "issues": findings,
+    }
+
+
+@router.patch("/submissions/{submission_id}/review-status", tags=["Data quality"])
+def update_submission_review_status(
+    submission_id: UUID,
+    payload: ReviewStatusUpdate,
+    user: CurrentUser,
+    db: Database,
+) -> dict[str, object]:
+    organization_id = _organization_admin_id(user, db)
+    if payload.status not in {"ready", "needs_review", "invalid"}:
+        raise HTTPException(status_code=422, detail="Review status must be ready, needs_review, or invalid.")
+    submission = db.get(Submission, submission_id)
+    if submission is None or submission.organization_id != organization_id:
+        raise HTTPException(status_code=404, detail="Submission was not found.")
+    submission.review_status = payload.status
+    submission.updated_at = datetime.now(UTC)
+    db.add(submission)
+    db.commit()
+    return {"id": str(submission.id), "review_status": submission.review_status}
+
+
+

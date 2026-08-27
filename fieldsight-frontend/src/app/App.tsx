@@ -11,6 +11,7 @@ import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
 import { KoboConnectionsPage } from "../pages/organization/KoboConnectionsPage";
 import { ProjectsPage } from "../pages/organization/ProjectsPage";
 import { ProjectWorkspacePage } from "../pages/organization/ProjectWorkspacePage";
+import { QualityCenterPage } from "../pages/organization/QualityCenterPage";
 import { ReportsPage } from "../pages/organization/ReportsPage";
 import { SettingsPage } from "../pages/organization/SettingsPage";
 import { SubmissionsPage } from "../pages/organization/SubmissionsPage";
@@ -63,6 +64,7 @@ export function App() {
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />
         <Route path="sync" element={<SyncHistoryPage />} />
+        <Route path="quality" element={<QualityCenterPage />} />
         <Route path="analytics" element={<ExploreAnalyzePage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="team" element={<TeamPage />} />
@@ -72,3 +74,4 @@ export function App() {
     </Routes>
   );
 }
+
