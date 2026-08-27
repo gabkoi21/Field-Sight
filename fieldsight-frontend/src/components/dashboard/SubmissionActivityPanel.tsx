@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Card, CardHeader } from "../ui/Card";
 
 export interface SubmissionActivityPoint {
   day: string;
@@ -59,11 +60,8 @@ export function SubmissionActivityPanel({
   const barData = useMemo(() => buildBarData(data, period.days), [data, period.days]);
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-[6px] border border-[#e5e9ed] bg-white">
-      {/* Header */}
-      <div className="border-b border-[#edf0f2] px-5 py-4">
-        <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Submissions</h2>
-      </div>
+    <Card>
+      <CardHeader title="Submissions" subtitle="Recent field data collection" />
 
       {/* Period tabs */}
       <div className="flex gap-1 border-b border-[#edf0f2] px-5 py-3">
@@ -109,6 +107,6 @@ export function SubmissionActivityPanel({
         </ResponsiveContainer>
       </div>
 
-    </section>
+    </Card>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import { Card } from "../ui/Card";
 
 export type MetricTone = "blue" | "green" | "orange" | "violet" | "red";
 
@@ -11,11 +12,11 @@ export function AdminMetric({ label, value, detail, icon: Icon, tone = "blue" }:
     violet: "bg-[#f0edff] text-[#6d5bd0]",
     red: "bg-[#fde9eb] text-[#c64e57]",
   };
-  return <article className="grid grid-cols-[auto_1fr] gap-x-[12px] rounded-[3px] border border-[#e8ebf3] bg-white p-4"><span className={`row-span-2 grid size-[40px] place-items-center rounded-full ${tones[tone]}`}><Icon size={19} /></span><div><p className="m-0 text-[11px] font-medium text-[#7081b9]">{label}</p><strong className="mt-[2px] block text-[22px] leading-[1.15] text-[#303e67]">{value}</strong></div><small className="col-start-2 mt-[6px] text-[10px] text-[#8997bd]">{detail}</small></article>;
+  return <Card className="grid grid-cols-[auto_1fr] gap-x-[12px] p-4"><span className={`row-span-2 grid size-[40px] place-items-center rounded-full ${tones[tone]}`}><Icon size={19} /></span><div><p className="m-0 text-[11px] font-medium text-[#7081b9]">{label}</p><strong className="mt-[2px] block text-[22px] leading-[1.15] text-[#303e67]">{value}</strong></div><small className="col-start-2 mt-[6px] text-[10px] text-[#8997bd]">{detail}</small></Card>;
 }
 
 export function AdminPanel({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
-  return <article className={`min-w-0 rounded-[3px] border border-[#e8ebf3] bg-white p-4 ${className}`}><header className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-[14px] font-semibold text-[#303e67]">{title}</h2>{description && <p className="mb-0 mt-1 text-[11px] text-[#7081b9]">{description}</p>}</div>{action}</header>{children}</article>;
+  return <Card className={`p-4 ${className}`}><header className="flex items-start justify-between gap-3"><div><h2 className="m-0 text-[14px] font-semibold text-[#303e67]">{title}</h2>{description && <p className="mb-0 mt-1 text-[11px] text-[#7081b9]">{description}</p>}</div>{action}</header>{children}</Card>;
 }
 
 export function AdminStatus({ value }: { value: string }) {

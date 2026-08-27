@@ -97,16 +97,12 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[7px] border border-[#e4eaf2] bg-white">
-      <header className="flex min-h-[55px] items-center justify-between border-b border-[#e9eef4] px-4 max-[560px]:items-start max-[560px]:gap-2 max-[560px]:px-[14px] max-[560px]:py-3">
-        <div>
-          <h2 className="m-0 text-[13px] text-ink">{title}</h2>
-          <p className="mt-[3px] text-[9px] text-[#8996a8]">{description}</p>
-        </div>
+    <Card>
+      <CardHeader title={title} subtitle={description}>
         {action}
-      </header>
+      </CardHeader>
       {children}
-    </section>
+    </Card>
   );
 }
 

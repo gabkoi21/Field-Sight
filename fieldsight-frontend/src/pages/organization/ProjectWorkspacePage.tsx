@@ -4,20 +4,18 @@ import { NavLink, useParams } from "react-router-dom";
 import {
   Building2,
   ChevronRight,
-  ChevronDown,
   Clock3,
-  BarChart3,
-  ListChecks,
-  Timer,
   Database,
-  ExternalLink,
   FileCheck2,
-  MapPin,
   RefreshCw,
   Users,
+  MapPin,
+  ChevronDown,
+  type LucideIcon
 } from "lucide-react";
+import { Card, CardHeader } from "../../components/ui/Card";
 import { Badge, Button, LoadingState } from "../../components/ui";
-import { apiClient, ApiError, type ApiAnalyticsOverview, type ApiSubmission } from "../../services/apiClient";
+import { apiClient, ApiError } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
 const tone = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
@@ -118,11 +116,7 @@ export function ProjectWorkspacePage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {project.kobo_form_name && (
-            <Button variant="secondary">
-              <ExternalLink size={15} /> Open in Kobo
-            </Button>
-          )}
+
           <Button
             disabled={!project.kobo_form_id || syncMutation.isPending}
             onClick={() => {
@@ -199,14 +193,14 @@ function Metric({
   value,
   note,
 }: {
-  icon: typeof Database;
+  icon: LucideIcon;
   tone: keyof typeof tone;
   label: string;
   value: string;
   note: string;
 }) {
   return (
-    <article className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
+    <Card className="p-[17px]">
       <div className="flex justify-between">
         <div>
           <p className="m-0 text-[11px] font-bold uppercase tracking-[.07em] text-[#8491a5]">{label}</p>
@@ -217,7 +211,7 @@ function Metric({
         </span>
       </div>
       <p className="mb-0 mt-2.5 text-xs text-[#78869a]">{note}</p>
-    </article>
+    </Card>
   );
 }
 function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
@@ -237,29 +231,23 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   const COLORS = ["#0b51b7", "#5c9af5", "#93bbfb"];
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[#e1e7ef] bg-white shadow-[0_5px_18px_rgba(25,43,75,.04)]">
-      <header className="border-b border-[#edf0f4] px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <MapPin size={15} className="text-brand" />
-              <h2 className="m-0 text-sm font-semibold">Top locations</h2>
-            </div>
-            <p className="mb-0 mt-1 text-[10px] text-[#8491a3]">Leading {view} by submission count</p>
-          </div>
-          <div className="relative">
-            <select
-              value={view}
-              onChange={(e) => setView(e.target.value as "counties" | "communities")}
-              className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[12px] font-medium text-[#344562] focus:outline-none focus:ring-2 focus:ring-brand/30"
-            >
-              <option value="counties">Counties</option>
-              <option value="communities">Communities</option>
-            </select>
-            <ChevronDown size={13} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]" />
-          </div>
+    <Card>
+      <CardHeader
+        title={<><MapPin size={15} className="text-brand" /> Top locations</>}
+        subtitle={`Leading ${view} by submission count`}
+      >
+        <div className="relative">
+          <select
+            value={view}
+            onChange={(e) => setView(e.target.value as "counties" | "communities")}
+            className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[12px] font-medium text-[#344562] focus:outline-none focus:ring-2 focus:ring-brand/30"
+          >
+            <option value="counties">Counties</option>
+            <option value="communities">Communities</option>
+          </select>
+          <ChevronDown size={13} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]" />
         </div>
-      </header>
+      </CardHeader>
 
       {top3.length === 0 ? (
         <p className="py-10 text-center text-xs text-[#8491a3]">No location data yet. Sync Kobo data to populate.</p>
@@ -295,7 +283,7 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
           </table>
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -335,16 +323,15 @@ function EnumeratorsTable({
   }>;
 }) {
   return (
-    <section className="overflow-hidden rounded-[6px] border border-[#e5e9ed] bg-white">
-      <header className="flex items-center justify-between border-b border-[#edf0f2] px-[17px] py-[13px]">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Enumerators</h2>
-          <p className="mb-0 mt-1 text-[11px] text-[#84909b]">Field team assigned to your organization</p>
-        </div>
+    <Card>
+      <CardHeader
+        title="Enumerators"
+        subtitle="Field team assigned to your organization"
+      >
         <NavLink to="/field-operations" className="text-[11px] font-semibold text-[#0b51b7] no-underline">
           View all
         </NavLink>
-      </header>
+      </CardHeader>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px] text-left">
           <thead className="bg-[#f7f9fc] text-[10px] font-semibold uppercase tracking-[.04em] text-[#748299]">
@@ -404,7 +391,7 @@ function EnumeratorsTable({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 function ProjectActivity({
@@ -418,16 +405,15 @@ function ProjectActivity({
 }) {
   const entries = overview?.activity ?? [];
   return (
-    <section className="rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
-      <header className="flex items-center justify-between border-b border-[#edf0f2] pb-3">
-        <div>
-          <h2 className="m-0 text-[14px] font-semibold text-[#1d2a38]">Activity</h2>
-          <p className="mb-0 mt-1 text-[11px] text-[#84909b]">Latest project submissions</p>
-        </div>
+    <Card className="p-[17px]">
+      <CardHeader
+        title="Activity"
+        subtitle="Latest project submissions"
+      >
         <span className="rounded-[5px] border border-[#dce2e7] bg-white px-2 py-1 text-[10px] font-medium text-[#657382]">
           {entries.length} recent
         </span>
-      </header>
+      </CardHeader>
       <div className="mt-1">
         {entries.map((entry, index) => (
           <div className="relative flex gap-3 py-3 last:pb-0" key={entry.id}>
@@ -453,6 +439,6 @@ function ProjectActivity({
           </p>
         )}
       </div>
-    </section>
+    </Card>
   );
 }

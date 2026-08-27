@@ -1,27 +1,21 @@
 import type { ReactNode } from "react";
-import { MoreHorizontal } from "lucide-react";
 
-interface CardProps {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}
-
-export function Card({ title, subtitle, children }: CardProps) {
+export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <article className="rounded-xl border border-[#e1e7ef] bg-white p-5 shadow-[0_5px_18px_rgba(25,43,75,.04)]">
-      <div className="mb-5 flex items-start justify-between text-[#8290a0]">
-        <div>
-          <h2 className="m-0 text-base font-semibold leading-[1.35] text-[#24334a]">
-            {title}
-          </h2>
-          <p className="mt-1 text-[13px] leading-[1.5] text-[#758092]">
-            {subtitle}
-          </p>
-        </div>
-        <MoreHorizontal size={19} />
-      </div>
+    <article className={`overflow-hidden bg-white shadow-[0_4px_14px_rgba(23,40,70,.04)] ${className}`}>
       {children}
     </article>
+  );
+}
+
+export function CardHeader({ title, subtitle, children }: { title: ReactNode; subtitle: ReactNode; children?: ReactNode }) {
+  return (
+    <header className="flex items-center justify-between gap-3 border-b border-[#e9eef4] px-5 py-4">
+      <div>
+        <h2 className="m-0 text-sm font-semibold text-[#24334a] flex items-center gap-2">{title}</h2>
+        <p className="mb-0 mt-1 text-[10px] text-[#8b98aa]">{subtitle}</p>
+      </div>
+      {children}
+    </header>
   );
 }

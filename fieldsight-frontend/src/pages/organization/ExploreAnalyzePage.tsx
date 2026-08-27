@@ -223,5 +223,5 @@ function EmptyChart() {
 }
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <article className={`overflow-hidden border border-[#e1e7ef] bg-white shadow-[0_4px_14px_rgba(23,40,70,.04)] ${className}`}>{children}</article>;
+  return <article className={`overflow-hidden bg-white shadow-[0_4px_14px_rgba(23,40,70,.04)] ${className}`}>{children}</article>;
 }

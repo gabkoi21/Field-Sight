@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Database, Download, ExternalLink, FileCheck2, Filter, MapPin, MoreHorizontal, Search, ShieldAlert, SlidersHorizontal, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Card } from "../../components/ui/Card";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
 
 type Review = "Ready" | "Needs review" | "Invalid";
@@ -104,7 +105,7 @@ export function SubmissionsPage() {
         </button>
       </section>
 
-      <section className="overflow-hidden rounded-[8px] border border-[#e3eaf2] bg-white">
+      <Card>
         <div className="flex items-center gap-[8px] border-b border-[#e9eef4] p-[14px] max-[750px]:flex-wrap">
           <label className="flex max-w-[360px] flex-1 items-center gap-[7px] rounded-[5px] border border-[#dce5ef] px-[9px] text-[#8492a4] max-[750px]:min-w-full max-[750px]:max-w-none">
             <Search size={16} />
@@ -311,7 +312,7 @@ export function SubmissionsPage() {
             </button>
           </div>
         </footer>
-      </section>
+      </Card>
 
       {record && (
         <div className="fixed inset-0 z-20 bg-[#102a4330]" onClick={() => setSelected(null)}>

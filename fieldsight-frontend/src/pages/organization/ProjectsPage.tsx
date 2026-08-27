@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, CheckCircle2, FileText, FolderKanban, Link2, Plus, Trash2, X } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { Card } from "../../components/ui/Card";
 import { Button, Ring } from "../../components/ui";
 import { apiClient, ApiError, type ApiProject } from "../../services/apiClient";
 
@@ -363,14 +364,14 @@ export function ProjectsPage() {
 
       {!projectsQuery.isLoading && !projectsQuery.error && projects.length > 0 && (
         <section className="grid grid-cols-2 gap-[14px] max-[600px]:grid-cols-1">
-          <article className="grid grid-cols-[40px_1fr] gap-x-3 rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
+          <Card className="grid grid-cols-[40px_1fr] gap-x-3 p-[17px]">
             <span className="row-span-2 grid size-10 place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
               <FolderKanban size={19} />
             </span>
             <span className="text-[11px] font-medium text-[#6f7d8a]">Active projects</span>
             <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{projects.length}</strong>
-          </article>
-          <article className="grid grid-cols-[40px_1fr] gap-x-3 rounded-[6px] border border-[#e5e9ed] bg-white p-[17px]">
+          </Card>
+          <Card className="grid grid-cols-[40px_1fr] gap-x-3 p-[17px]">
             <span className="row-span-2 grid size-10 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
               <CheckCircle2 size={19} />
             </span>
@@ -379,20 +380,20 @@ export function ProjectsPage() {
               {projectsWithForms}
               <small className="ml-1 text-[11px] font-medium text-[#88939d]">of {projects.length}</small>
             </strong>
-          </article>
+          </Card>
         </section>
       )}
 
       {projectsQuery.isLoading ? (
-        <div className="flex justify-center gap-2 rounded-[6px] border border-[#e5e9ed] bg-white p-10 text-sm text-[#758092]">
-          <Ring className="size-4 text-brand" /> Loading projects�
-        </div>
+        <Card className="flex justify-center gap-2 p-10 text-sm text-[#758092]">
+          <Ring className="size-4 text-brand" /> Loading projects
+        </Card>
       ) : projectsQuery.error ? (
         <p className="rounded-md bg-[#fff0f2] p-3 text-sm text-[#b42318]">
           {projectsQuery.error instanceof ApiError ? projectsQuery.error.message : "Unable to load projects."}
         </p>
       ) : projects.length === 0 ? (
-        <div className="rounded-[6px] border border-[#e5e9ed] bg-white p-10 text-center">
+        <Card className="p-10 text-center">
           <span className="mx-auto grid size-11 place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <FolderKanban size={21} />
           </span>
@@ -405,13 +406,13 @@ export function ProjectsPage() {
           >
             <Plus size={15} /> Add project
           </button>
-        </div>
+        </Card>
       ) : (
         <section className="grid gap-[14px] md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
-            <article
+            <Card
               key={project.id}
-              className="flex flex-col overflow-hidden rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] transition-shadow hover:shadow-[0_8px_20px_rgba(16,42,67,.08)]"
+              className="flex flex-col p-[17px] transition-shadow hover:shadow-[0_8px_20px_rgba(16,42,67,.08)]"
             >
               <div className="flex items-start gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-[7px] bg-[#e9f0fa] text-[#4d7fc6]">
@@ -457,7 +458,7 @@ export function ProjectsPage() {
                   </button>
                 </NavLink>
               </footer>
-            </article>
+            </Card>
           ))}
         </section>
       )}

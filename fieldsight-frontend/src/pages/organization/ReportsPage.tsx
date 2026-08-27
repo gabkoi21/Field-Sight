@@ -14,6 +14,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { Card } from "../../components/ui/Card";
 
 type ReportStatus = "Published" | "Draft" | "Scheduled";
 const reports = [
@@ -87,8 +88,6 @@ const sectionTitleStyles = "m-0 text-[13px] text-[#303e67]";
 const sectionDescriptionStyles = "mb-0 mt-[3px] text-[10px] text-[#8996a8]";
 const headerActionStyles =
   "flex items-center gap-[3px] border-0 bg-transparent p-0 font-['Roboto'] text-[10px] font-semibold leading-[normal] text-[#0b51b7]";
-const panelStyles =
-  "overflow-hidden rounded-[7px] border border-[#e4eaf2] bg-white";
 const panelHeaderStyles =
   "flex h-[74px] min-h-[52px] items-center justify-between border-b border-[#e9eef4] bg-white px-[15px] text-[#657182]";
 const fieldLabelStyles =
@@ -158,7 +157,7 @@ export function ReportsPage() {
         </button>
       </div>
       <section className="mb-[17px] grid grid-cols-4 gap-[13px] max-[1100px]:grid-cols-2 max-[480px]:grid-cols-1">
-        <article className="flex items-center justify-between rounded-[7px] border border-[#e5ebf2] bg-white px-[15px] py-[14px]">
+        <Card className="flex items-center justify-between px-[15px] py-[14px]">
           <div>
             <small className="block text-[9px] font-bold text-[#667791]">
               PUBLISHED REPORTS
@@ -175,8 +174,8 @@ export function ReportsPage() {
           >
             <FileBarChart size={19} />
           </span>
-        </article>
-        <article className="flex items-center justify-between rounded-[7px] border border-[#e5ebf2] bg-white px-[15px] py-[14px]">
+        </Card>
+        <Card className="flex items-center justify-between px-[15px] py-[14px]">
           <div>
             <small className="block text-[9px] font-bold text-[#667791]">
               SCHEDULED DELIVERY
@@ -193,8 +192,8 @@ export function ReportsPage() {
           >
             <CalendarDays size={19} />
           </span>
-        </article>
-        <article className="flex items-center justify-between rounded-[7px] border border-[#e5ebf2] bg-white px-[15px] py-[14px]">
+        </Card>
+        <Card className="flex items-center justify-between px-[15px] py-[14px]">
           <div>
             <small className="block text-[9px] font-bold text-[#667791]">
               REPORT RECIPIENTS
@@ -211,8 +210,8 @@ export function ReportsPage() {
           >
             <Mail size={19} />
           </span>
-        </article>
-        <article className="flex items-center justify-between rounded-[7px] border border-[#e5ebf2] bg-white px-[15px] py-[14px]">
+        </Card>
+        <Card className="flex items-center justify-between px-[15px] py-[14px]">
           <div>
             <small className="block text-[9px] font-bold text-[#667791]">
               DELIVERED THIS MONTH
@@ -229,7 +228,7 @@ export function ReportsPage() {
           >
             <Send size={19} />
           </span>
-        </article>
+        </Card>
       </section>
       <section className="mb-[17px]">
         <header className="mb-[10px] flex h-[74px] items-end justify-between border-b border-[#e7e9ed] bg-white px-[38px] text-[#657182] max-[900px]:px-[18px]">
@@ -246,8 +245,8 @@ export function ReportsPage() {
         </header>
         <div className="grid grid-cols-3 gap-[13px] max-[700px]:grid-cols-1">
           {templates.map(({ icon: Icon, ...item }) => (
-            <article
-              className="rounded-[7px] border border-[#e5ebf2] bg-white p-[15px] [&>small]:mt-[13px] [&>small]:block [&>small]:text-[8px] [&>small]:font-bold [&>small]:text-[#9aa5b3]"
+            <Card
+              className="p-[15px] [&>small]:mt-[13px] [&>small]:block [&>small]:text-[8px] [&>small]:font-bold [&>small]:text-[#9aa5b3]"
               key={item.name}
             >
               <span
@@ -268,12 +267,12 @@ export function ReportsPage() {
               >
                 Use template <ChevronRight size={14} />
               </button>
-            </article>
+            </Card>
           ))}
         </div>
       </section>
       <section className="grid grid-cols-[minmax(0,2.15fr)_minmax(270px,.85fr)] gap-[15px] max-[1100px]:grid-cols-1">
-        <article className={panelStyles}>
+        <Card>
           <header
             className={`${panelHeaderStyles} max-[700px]:h-auto max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-[10px] max-[700px]:px-[15px] max-[700px]:py-[12px]`}
           >
@@ -322,7 +321,7 @@ export function ReportsPage() {
                 {visible.map((report) => (
                   <tr key={report.name}>
                     <td>
-                      <div className="flex items-center gap-[7px]">
+                      <div className="flex items-center gap-[7px] bg-transparent">
                         <span className="grid size-[26px] place-items-center rounded-[5px] bg-[#edf4fd] text-[#0b51b7]">
                           <FileText size={14} />
                         </span>
@@ -381,8 +380,8 @@ export function ReportsPage() {
               </button>
             </div>
           </footer>
-        </article>
-        <article className={`${panelStyles} max-[1100px]:hidden`}>
+        </Card>
+        <Card>
           <header className={panelHeaderStyles}>
             <div>
               <h2 className={sectionTitleStyles}>Upcoming deliveries</h2>
@@ -444,7 +443,7 @@ export function ReportsPage() {
             <Plus size={14} />
             Schedule a report
           </button>
-        </article>
+        </Card>
       </section>
       {drawerOpen && (
         <div
