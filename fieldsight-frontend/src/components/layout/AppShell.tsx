@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -11,11 +11,8 @@ import {
   HelpCircle,
   LayoutDashboard,
   Menu,
-  MoreHorizontal,
-  RefreshCw,
   Search,
   Settings,
-  UserCog,
   Users,
   LogOut,
 } from "lucide-react";
@@ -47,7 +44,6 @@ const navigation: NavSection[] = [
       { name: "Kobo connections", path: "/forms/connections", icon: FileText },
       { name: "Submissions", path: "/submissions", icon: FileText },
       { name: "Field Enumerator", path: "/enumerators", icon: Users },
-      { name: "Sync history", path: "/sync", icon: RefreshCw },
     ],
   },
   {
@@ -60,11 +56,65 @@ const navigation: NavSection[] = [
   {
     label: "Administration",
     items: [
-      { name: "Team", path: "/team", icon: UserCog },
       { name: "Settings", path: "/settings", icon: Settings },
     ],
   },
 ];
+
+function UserMenu({ logout, navigate }: { logout: () => Promise<void>; navigate: (path: string, opts?: object) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative flex items-center border-l border-[#e7e9ed] pl-[17px]">
+      <button
+        id="user-menu-button"
+        onClick={() => setOpen((v) => !v)}
+        className="grid size-[30px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15] border-0 cursor-pointer hover:opacity-90 transition-opacity"
+        aria-haspopup="true"
+        aria-expanded={open}
+        title="User menu"
+      >
+        AJ
+      </button>
+      {open && (
+        <div
+          id="user-menu-dropdown"
+          className="absolute right-0 top-[calc(100%+10px)] z-50 min-w-[200px] rounded-[10px] border border-[#e7e9ed] bg-white shadow-[0_8px_24px_rgba(23,33,47,.12)] overflow-hidden"
+        >
+          <div className="flex items-center gap-2.5 border-b border-[#f0f2f5] px-4 py-3">
+            <span className="grid size-[32px] flex-none place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15]">
+              AJ
+            </span>
+            <div>
+              <strong className="block text-[13px] font-semibold text-[#1b2836]">Amara Johnson</strong>
+              <small className="block text-[11px] text-[#657182]">Data Manager</small>
+            </div>
+          </div>
+          <button
+            id="sign-out-button"
+            className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-3 text-[13px] text-[#657182] hover:bg-[#f5f7fa] hover:text-[#d85962] cursor-pointer transition-colors"
+            onClick={async () => {
+              setOpen(false);
+              await logout();
+              navigate("/login", { replace: true });
+            }}
+          >
+            <LogOut size={15} /> Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AppShell() {
   const [open, setOpen] = useState(false);
@@ -128,27 +178,7 @@ export function AppShell() {
             </div>
           ))}
         </nav>
-        <div className="flex w-full flex-none items-center gap-2.5 border-t border-[#294966] px-[19px] py-[15px] max-[1440px]:px-5 max-[1440px]:py-[11px] [@media(max-height:760px)_and_(min-width:1051px)]:py-[9px]">
-          <span className="grid size-[29px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15] max-[1440px]:size-[27px]">
-            AJ
-          </span>
-          <div>
-            <strong className="block text-[13px] text-white max-[1440px]:text-xs">Amara Johnson</strong>
-            <small className="block text-[10px] tracking-[.8px] text-[#91a9bb] max-[1440px]:text-[9px]">
-              Data Manager
-            </small>
-          </div>
-          <MoreHorizontal className="ml-auto" size={17} />
-        </div>
-        <button
-          className="mx-3 mb-3 flex items-center gap-2 rounded-[7px] border-0 bg-transparent px-3 py-2 text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"
-          onClick={async () => {
-            await logout();
-            navigate("/login", { replace: true });
-          }}
-        >
-          <LogOut size={16} /> Sign out
-        </button>
+
       </aside>
       <main className="ml-[258px] min-h-screen max-[1440px]:ml-[232px] max-[1050px]:ml-0">
         <header className="sticky top-0 z-[4] flex h-[60px] w-full items-center justify-between border-b border-[#eceff5] bg-white px-6 text-[#657182] shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[1050px]:px-5 max-[560px]:h-[58px] max-[560px]:px-[14px] [@media(max-height:760px)_and_(min-width:1051px)]:h-[58px]">
@@ -169,9 +199,11 @@ export function AppShell() {
             <span className="relative grid size-7 place-items-center" title={`${pendingCount} Kobo submission${pendingCount === 1 ? "" : "s"} waiting to sync`}>
               <Bell size={19} />
               <span className="absolute -right-2 -top-1 grid min-w-4 place-items-center rounded-full border-2 border-white bg-[#d85962] px-1 text-[9px] font-bold leading-4 text-white">{pendingCount > 99 ? "99+" : pendingCount}</span>
-            </span>            <span className="flex items-center gap-[5px] border-l border-[#e7e9ed] pl-[17px] text-[13px] max-[560px]:hidden">
+            </span>
+            <span className="flex items-center gap-[5px] border-l border-[#e7e9ed] pl-[17px] text-[13px] max-[560px]:hidden">
               <HelpCircle size={17} /> Help
             </span>
+            <UserMenu logout={logout} navigate={navigate} />
           </div>
         </header>
         <div className="mx-auto max-w-[1500px] px-6 pb-10 pt-6 max-[1440px]:px-7 max-[1440px]:pb-[42px] max-[1440px]:pt-[27px] max-[560px]:px-[14px] max-[560px]:pb-[35px] max-[560px]:pt-[21px]">

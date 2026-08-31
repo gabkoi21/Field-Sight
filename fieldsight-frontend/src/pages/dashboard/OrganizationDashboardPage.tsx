@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Database, FileCheck2, FolderKanban, MapPinned, RefreshCw, ShieldAlert, UsersRound, Wifi } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Database, FileCheck2, FolderKanban, MapPinned, ShieldAlert, UsersRound, Wifi } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LoadingState } from "../../components/ui";
 import { apiClient } from "../../services/apiClient";
@@ -10,7 +9,6 @@ const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 day
 function relativeTime(value: string | null | undefined) { if (!value) return "Never"; const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000)); if (seconds < 60) return "Just now"; const minutes = Math.floor(seconds / 60); if (minutes < 60) return `${minutes} min ago`; const hours = Math.floor(minutes / 60); if (hours < 24) return `${hours} hr ago`; const days = Math.floor(hours / 24); return `${days} day${days === 1 ? "" : "s"} ago`; }
 
 export function OrganizationDashboardPage() {
-  const navigate = useNavigate();
   const [projectId, setProjectId] = useState("");
   const [period, setPeriod] = useState("7d");
   const [location, setLocation] = useState("");
@@ -57,7 +55,7 @@ export function OrganizationDashboardPage() {
   return <div className="flex flex-col gap-5 text-[#24334a]">
     <header className="flex items-end justify-between gap-4 max-[850px]:flex-col max-[850px]:items-start">
       <div><p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.12em] text-brand">Organization intelligence</p><h1 className="m-0 text-[30px] font-bold tracking-[-.65px]">Dashboard</h1><p className="mb-0 mt-1.5 text-[13px] text-[#718096]">Collection performance and field operations at a glance.</p></div>
-      <div className="flex flex-wrap gap-2"><select className="rounded-lg border border-[#dce4ed] bg-white px-3 py-2 text-xs" value={projectId} onChange={event => setProjectId(event.target.value)}><option value="">All projects</option>{(projectsQuery.data ?? []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select className="rounded-lg border border-[#dce4ed] bg-white px-3 py-2 text-xs" value={location} onChange={event => setLocation(event.target.value)}><option value="">All locations</option>{(overview?.available_locations ?? []).map(item => <option key={item}>{item}</option>)}</select><select className="rounded-lg border border-[#dce4ed] bg-white px-3 py-2 text-xs" value={period} onChange={event => setPeriod(event.target.value)}><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select><button className="inline-flex items-center gap-2 rounded-lg bg-brand px-3.5 py-2 text-xs font-semibold text-white" onClick={() => navigate("/sync")}><RefreshCw size={14} /> Sync data</button></div>
+      <div className="flex flex-wrap gap-2"><select className="rounded-lg border border-[#dce4ed] bg-white px-3 py-2 text-xs" value={projectId} onChange={event => setProjectId(event.target.value)}><option value="">All projects</option>{(projectsQuery.data ?? []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><select className="rounded-lg border border-[#dce4ed] bg-white px-3 py-2 text-xs" value={location} onChange={event => setLocation(event.target.value)}><option value="">All locations</option>{(overview?.available_locations ?? []).map(item => <option key={item}>{item}</option>)}</select><select className="rounded-lg border border-[#dce4ed] bg-white px-3 py-2 text-xs" value={period} onChange={event => setPeriod(event.target.value)}><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
     </header>
 
     <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">

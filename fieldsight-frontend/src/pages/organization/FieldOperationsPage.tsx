@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
+import { Download, MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import {
-  AdminMetric,
-  AdminPanel,
   AdminStatus,
   AdminTableFooter,
   adminInputClass,
 } from "../../components/superadmin/AdminUi";
-import { Button, PageHeader } from "../../components/ui";
+import { Button } from "../../components/ui";
+import { Card } from "../../components/ui/Card";
 import { apiClient, ApiError, type ApiEnumerator, type EnumeratorUpdateInput } from "../../services/apiClient";
 
 export function FieldOperationsPage() {
@@ -17,6 +16,8 @@ export function FieldOperationsPage() {
   const queryClient = useQueryClient();
   const isOrganizationAdmin = Boolean(user?.memberships.some((membership) => membership.role === "organization_admin"));
   const [query, setQuery] = useState("");
+  const [project, setProject] = useState("All projects");
+  const [exportPeriod, setExportPeriod] = useState<"daily" | "weekly" | "biweekly" | "monthly">("daily");
   const [showCreate, setShowCreate] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,6 +47,17 @@ export function FieldOperationsPage() {
   const enumeratorsQuery = useQuery({
     queryKey: ["organization-enumerators"],
     queryFn: apiClient.enumerators,
+    enabled: isOrganizationAdmin,
+  });
+  const organizationId = user?.memberships.find((membership) => membership.role === "organization_admin")?.organization_id;
+  const projectsQuery = useQuery({
+    queryKey: ["organization-projects", organizationId],
+    queryFn: () => apiClient.organizationProjects(organizationId!),
+    enabled: Boolean(organizationId),
+  });
+  const submissionsQuery = useQuery({
+    queryKey: ["submissions"],
+    queryFn: apiClient.submissions,
     enabled: isOrganizationAdmin,
   });
   const enumeratorQuery = useQuery({
@@ -91,14 +103,63 @@ export function FieldOperationsPage() {
       await queryClient.invalidateQueries({ queryKey: ["organization-enumerator", selectedMembershipId] });
     },
   });  const enumerators = enumeratorsQuery.data ?? [];
+  const projectNames = useMemo(
+    () => (projectsQuery.data ?? []).map((item) => item.name).sort((a, b) => a.localeCompare(b)),
+    [projectsQuery.data],
+  );
+  const projectCollectors = useMemo(() => {
+    if (project === "All projects") return null;
+    return new Set(
+      (submissionsQuery.data ?? [])
+        .filter((submission) => submission.project_name === project && submission.enumerator)
+        .map((submission) => submission.enumerator!.trim().toLowerCase()),
+    );
+  }, [project, submissionsQuery.data]);
   const filteredEnumerators = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return enumerators.filter((enumerator) =>
-      `${enumerator.full_name ?? ""} ${enumerator.username ?? ""} ${enumerator.email}`
-        .toLowerCase()
-        .includes(normalized),
-    );
-  }, [enumerators, query]);
+    return enumerators.filter((enumerator) => {
+      const identities = [enumerator.full_name, enumerator.username, enumerator.email]
+        .filter(Boolean)
+        .map((value) => value!.trim().toLowerCase());
+      const matchesSearch = identities.join(" ").includes(normalized);
+      const matchesProject = !projectCollectors || identities.some((identity) => projectCollectors.has(identity));
+      return matchesSearch && matchesProject;
+    });
+  }, [enumerators, query, projectCollectors]);
+  const exportEnumerators = useMemo(() => {
+    const days = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 }[exportPeriod];
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - (days - 1));
+    return filteredEnumerators.filter((enumerator) => new Date(enumerator.created_at).getTime() >= cutoff.getTime());
+  }, [filteredEnumerators, exportPeriod]);
+  const exportCsv = () => {
+    const escapeCsv = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = exportEnumerators.map((enumerator) => [
+      enumerator.full_name ?? "",
+      enumerator.email,
+      enumerator.username ?? "",
+      enumerator.employee_id ?? "",
+      enumerator.phone_number ?? "",
+      enumerator.address ?? "",
+      enumerator.gender ?? "",
+      enumerator.is_active ? "Active" : "Suspended",
+      new Date(enumerator.created_at).toLocaleDateString(),
+    ]);
+    const csv = [
+      ["Full name", "Email", "Username", "Employee ID", "Phone", "Address", "Gender", "Status", "Created"],
+      ...rows,
+    ].map((row) => row.map((cell) => escapeCsv(cell)).join(",")).join("\r\n");
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `field-enumerators-${exportPeriod}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
   const activeCount = enumerators.filter((enumerator) => enumerator.is_active).length;
   const loadError =
     enumeratorsQuery.error instanceof ApiError
@@ -212,53 +273,79 @@ export function FieldOperationsPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Organization access"
-        title="Enumerators"
-        description="Create and manage enumerator accounts for your organization."
-      >
+      <div className="mb-[19px] flex items-start justify-between gap-3 max-[700px]:flex-col">
+        <div>
+          <p className="!m-0 !mb-[6px] text-[11px] font-bold uppercase leading-[1.4] tracking-[.08em] text-[#0b51b7]">ORGANIZATION ACCESS</p>
+          <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px]">Enumerators</h1>
+          <p className="!m-0 text-[13px] text-[#75849a]">Create and manage enumerator accounts for your organization.</p>
+        </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus size={15} /> Create enumerator
         </Button>
-      </PageHeader>
+      </div>
       {loadError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{loadError}</p>}
       {actionError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{actionError}</p>}{" "}
       <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
-        <AdminMetric
-          label="All enumerators"
-          value={String(enumerators.length)}
-          detail="Organization membership accounts"
-          icon={Users}
-        />
-        <AdminMetric
-          label="Active"
-          value={String(activeCount)}
-          detail="Can access assigned field work"
-          icon={UserCheck}
-          tone="green"
-        />
-        <AdminMetric
-          label="Inactive"
-          value={String(enumerators.length - activeCount)}
-          detail="Access has been disabled"
-          icon={UserX}
-          tone="orange"
-        />
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] p-[17px]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]"><Users size={19} /></span>
+          <span className="text-[11px] font-medium text-[#6f7d8a]">All enumerators</span>
+          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{enumerators.length.toLocaleString()}</strong>
+          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Organization membership accounts</small>
+        </Card>
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] p-[17px]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><UserCheck size={19} /></span>
+          <span className="text-[11px] font-medium text-[#6f7d8a]">Active</span>
+          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{activeCount.toLocaleString()}</strong>
+          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Can access assigned field work</small>
+        </Card>
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] p-[17px]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]"><UserX size={19} /></span>
+          <span className="text-[11px] font-medium text-[#6f7d8a]">Inactive</span>
+          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{(enumerators.length - activeCount).toLocaleString()}</strong>
+          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Access has been disabled</small>
+        </Card>
       </section>
-      <AdminPanel title="Enumerator directory" description="Accounts created by this organization administrator">
-        <div className="p-4 border-b border-line">
-          <label className="flex min-h-[38px] max-w-[440px] items-center gap-2 rounded-[7px] border border-[#dfe4e8] bg-white px-3 text-[#8793a2]">
+      <Card>
+        <div className="grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] border-b border-[#e9eef4] p-[14px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
+          <label className="flex min-h-[38px] w-full items-center gap-2 rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
             <Search size={15} />
             <input
-              className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none"
+              className="w-full border-0 bg-transparent py-2 font-sans text-[12px] text-[#4e5e74] outline-none"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, username, or email…"
             />
           </label>
+          <select
+            className="min-h-[38px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
+            value={project}
+            onChange={(event) => setProject(event.target.value)}
+          >
+            <option>All projects</option>
+            {projectNames.map((projectName) => <option key={projectName}>{projectName}</option>)}
+          </select>
+          <select
+            className="min-h-[38px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
+            value={exportPeriod}
+            onChange={(event) => setExportPeriod(event.target.value as typeof exportPeriod)}
+            aria-label="Enumerator CSV export period"
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Biweekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={!exportEnumerators.length}
+            className="flex min-h-[38px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] font-sans text-[12px] font-semibold text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download size={16} /> Export data
+          </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[1050px]">
+          <table className="!w-full !min-w-[1050px] !border-collapse !text-left [&_thead_th]:!border-b [&_thead_th]:!border-[#d1d5db] [&_thead_th]:!bg-[#e9ecf0] [&_thead_th]:!px-[16px] [&_thead_th]:!py-[14px] [&_thead_th]:!text-[13px] [&_thead_th]:!font-semibold [&_thead_th]:!text-[#1f2937] [&_tbody_td]:!px-[16px] [&_tbody_td]:!py-[10px] [&_tbody_td]:!text-[13px] [&_tbody_td]:!text-[#536177]">
             <thead>
               <tr>
                 <th>Full name</th>
@@ -281,11 +368,11 @@ export function FieldOperationsPage() {
                 </tr>
               )}
               {filteredEnumerators.map((enumerator) => (
-                <tr key={enumerator.membership_id}>
+                <tr key={enumerator.membership_id} className="border-b border-[#f0f2f5] bg-white hover:bg-[#f5f9fe]">
                   <td>
                     <div>
-                      <strong>{enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}</strong>
-                      <small>
+                      <strong className="block text-[13px] font-semibold text-[#1f2937]">{enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}</strong>
+                      <small className="mt-[2px] block text-[11px] font-normal text-[#9ca8b6]">
                         {enumerator.email} · @{enumerator.username ?? "not set"}
                       </small>
                     </div>
@@ -324,8 +411,8 @@ export function FieldOperationsPage() {
             <p className="m-0 p-10 text-center text-xs text-[#8793a2]">No enumerators match your search.</p>
           )}
         </div>
-        <AdminTableFooter shown={filteredEnumerators.length} total={enumerators.length} />
-      </AdminPanel>
+        <div className="px-[14px] pb-[11px]"><AdminTableFooter shown={filteredEnumerators.length} total={enumerators.length} /></div>
+      </Card>
       {selectedMembershipId && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeEnumerator}>
           <form

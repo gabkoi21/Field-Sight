@@ -16,6 +16,7 @@ import {
   Webhook,
   type LucideIcon,
 } from "lucide-react";
+import { Card, CardHeader } from "../../components/ui/Card";
 
 const tabs = [
   {
