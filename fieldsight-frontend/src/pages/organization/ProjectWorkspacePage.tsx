@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router-dom";
 import {
@@ -6,6 +6,9 @@ import {
   ChevronRight,
   Clock3,
   Database,
+  Download,
+  FileSpreadsheet,
+  Search,
   FileCheck2,
   RefreshCw,
   Users,
@@ -15,7 +18,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { Badge, Button, LoadingState } from "../../components/ui";
-import { apiClient, ApiError } from "../../services/apiClient";
+import { apiClient, ApiError, type ApiAnalyticsOverview, type ApiSubmission } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
 const tone = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
@@ -41,11 +44,6 @@ export function ProjectWorkspacePage() {
   const [syncMessage, setSyncMessage] = useState("");
   const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
   const organizationId = userQuery.data?.memberships[0]?.organization_id;
-  const enumeratorsQuery = useQuery({
-    queryKey: ["organization-enumerators"],
-    queryFn: apiClient.enumerators,
-    enabled: Boolean(organizationId),
-  });
   const projectQuery = useQuery({
     queryKey: ["project", organizationId, projectId],
     queryFn: () => apiClient.getProject(organizationId!, projectId!),
@@ -73,6 +71,10 @@ export function ProjectWorkspacePage() {
       await queryClient.invalidateQueries({ queryKey: ["kobo-pending-sync"] });
     },
   });
+  const projectSubmissions = useMemo(
+    () => (submissionsQuery.data ?? []).filter((item) => item.project_id === projectId),
+    [submissionsQuery.data, projectId],
+  );
   if (userQuery.isLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
   if (projectQuery.error)
     return (
@@ -83,9 +85,9 @@ export function ProjectWorkspacePage() {
   const project = projectQuery.data;
   if (!project) return <LoadingState />;
   const overview = overviewQuery.data;
-  const totalSubmissions = overview?.total_submissions ?? 0;
-  const readyRecords = overview?.ready_records ?? 0;
-  const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
+  const totalSubmissions = projectSubmissions.length;
+  const readyRecords = projectSubmissions.filter((item) => item.review_status === "ready").length;
+  const activeEnumerators = new Set(projectSubmissions.map((item) => item.enumerator).filter(Boolean)).size;
   const target = project.target_sample_size ? project.target_sample_size.toLocaleString() : null;
   return (
     <div className="flex flex-col gap-[18px] pb-5">
@@ -164,7 +166,7 @@ export function ProjectWorkspacePage() {
           tone="purple"
           label="Active enumerators"
           value={String(activeEnumerators)}
-          note="Available in this organization"
+          note="Contributing to this project"
         />
         <Metric
           icon={Clock3}
@@ -174,13 +176,17 @@ export function ProjectWorkspacePage() {
           note={project.kobo_form_name ?? "No Kobo form assigned"}
         />
       </section>
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-4"><div><p className="m-0 text-[11px] font-bold uppercase tracking-[.07em] text-[#8491a5]">Collection target</p><strong className="mt-2 block text-[27px] text-[#2e4364]">{totalSubmissions.toLocaleString()} {target && <span className="text-base font-medium text-[#8491a5]">/ {target}</span>}</strong><p className="mb-0 mt-1 text-xs text-[#78869a]">{project.target_sample_size ? `${Math.round((totalSubmissions / project.target_sample_size) * 100)}% complete` : "No target configured"}{project.end_date ? ` � Deadline ${new Date(project.end_date).toLocaleDateString()}` : ""}</p></div><Download className="text-brand" size={21} /></div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e8edf3]"><div className="h-full rounded-full bg-brand" style={{ width: `${project.target_sample_size ? Math.min(100, totalSubmissions / project.target_sample_size * 100) : 0}%` }} /></div>
+      </Card>
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <SubmissionActivityPanel data={overview?.trend} totalSubmissions={totalSubmissions} />
+        <SubmissionActivityPanel submissions={projectSubmissions} target={project.target_sample_size} startDate={project.start_date} endDate={project.end_date} />
         <TopLocationsPanel submissions={(submissionsQuery.data ?? []).filter((s) => s.project_id === projectId)} />
       </div>
 
       <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
-        <EnumeratorsTable enumerators={enumeratorsQuery.data ?? []} />
+        <ProjectLeaderboard submissions={projectSubmissions} />
         <ProjectActivity overview={overview} projectName={project.name} hasForm={Boolean(project.kobo_form_name)} />
       </section>
     </div>
@@ -216,6 +222,19 @@ function Metric({
 }
 function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   const [view, setView] = useState<"counties" | "communities">("counties");
+  const hasCountyData = submissions.some((item) => {
+    const value = item.raw_answers["household/county"];
+    return typeof value === "string" && Boolean(value.trim());
+  });
+  const hasCommunityData = submissions.some((item) => {
+    const raw = item.raw_answers;
+    const value = raw["household/community"] ?? raw["household/community_or_settlement"];
+    return typeof value === "string" && Boolean(value.trim());
+  });
+  useEffect(() => {
+    if (view === "counties" && !hasCountyData && hasCommunityData) setView("communities");
+    if (view === "communities" && !hasCommunityData && hasCountyData) setView("counties");
+  }, [view, hasCountyData, hasCommunityData]);
   const locationCounts = new Map<string, number>();
   for (const s of submissions) {
     const raw = s.raw_answers as Record<string, unknown>;
@@ -308,91 +327,11 @@ function LocationDonutChart({ segments, total, colors }: { segments: [string, nu
   );
 }
 
-function EnumeratorsTable({
-  enumerators,
-}: {
-  enumerators: Array<{
-    membership_id: string;
-    full_name: string | null;
-    username: string | null;
-    email: string;
-    employee_id: string | null;
-    phone_number: string | null;
-    is_active: boolean;
-    created_at: string;
-  }>;
-}) {
-  return (
-    <Card>
-      <CardHeader
-        title="Enumerators"
-        subtitle="Field team assigned to your organization"
-      >
-        <NavLink to="/field-operations" className="text-[11px] font-semibold text-[#0b51b7] no-underline">
-          View all
-        </NavLink>
-      </CardHeader>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[700px] text-left">
-          <thead className="bg-[#f7f9fc] text-[10px] font-semibold uppercase tracking-[.04em] text-[#748299]">
-            <tr>
-              <th className="px-4 py-3">Enumerator</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Employee ID</th>
-              <th className="px-4 py-3">Phone</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enumerators.length ? (
-              enumerators.slice(0, 6).map((item) => {
-                const name = item.full_name ?? item.username ?? "Unnamed enumerator";
-                const initials = name
-                  .split(/\s+/)
-                  .map((part) => part[0])
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase();
-                return (
-                  <tr key={item.membership_id} className="border-t border-[#edf0f2] text-[12px] text-[#405572]">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <span className="grid size-8 place-items-center rounded-full bg-[#edf3fc] text-[10px] font-bold text-[#4d7fc6]">
-                          {initials}
-                        </span>
-                        <strong className="text-[#253342]">{name}</strong>
-                      </div>
-                    </td>
-                    <td className="max-w-[180px] truncate px-4 py-3">{item.email}</td>
-                    <td className="px-4 py-3">{item.employee_id ?? "—"}</td>
-                    <td className="px-4 py-3">{item.phone_number ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          "rounded-[4px] px-2 py-1 text-[10px] font-semibold " +
-                          (item.is_active ? "bg-[#e2f6ed] text-[#1e9b72]" : "bg-[#fff0f2] text-[#b42318]")
-                        }
-                      >
-                        {item.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{new Date(item.created_at).toLocaleDateString()}</td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-xs text-[#84909b]">
-                  No enumerators have been added yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  );
+function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
+  const contributors = Object.entries(submissions.reduce<Record<string, number>>((counts, item) => { const name = item.enumerator ?? "Unassigned"; counts[name] = (counts[name] ?? 0) + 1; return counts; }, {})).sort((a, b) => b[1] - a[1]);
+  return <Card className="p-5"><CardHeader title="Enumerator leaderboard" subtitle="Contributions to this project" />
+    <div className="space-y-4">{contributors.slice(0, 6).map(([name, count], index) => <div key={name}><div className="flex justify-between text-xs"><span className="font-medium text-[#354966]">{index + 1}. {name}</span><strong>{count}</strong></div><div className="mt-1.5 h-1.5 rounded-full bg-[#e8edf3]"><div className="h-full rounded-full bg-brand" style={{ width: `${submissions.length ? count / submissions.length * 100 : 0}%` }} /></div></div>)}{!contributors.length && <p className="py-8 text-center text-xs text-[#84909b]">No project contributions yet.</p>}</div>
+  </Card>;
 }
 function ProjectActivity({
   overview,

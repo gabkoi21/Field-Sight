@@ -22,7 +22,7 @@ function toRow(submission: ApiSubmission): Row {
   };
 }
 const eyebrowClass = "!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase";
-const reviewBadgeClass = "inline-block rounded-[3px] px-[6px] py-[4px] text-[9px] font-bold";
+const reviewBadgeClass = "inline-block rounded-[3px] px-[6px] py-[4px] text-[11px] font-bold";
 const reviewStyles: Record<Review, string> = {
   Ready: "bg-[#e9f8f1] text-[#22a779]",
   "Needs review": "bg-[#fff3e5] text-[#d9841c]",
@@ -37,7 +37,6 @@ export function SubmissionsPage() {
   const [project, setProject] = useState("All projects");
   const [review, setReview] = useState("All records");
   const [selected, setSelected] = useState<string | null>(null);
-  const [checked, setChecked] = useState<string[]>([]);
   const rows: Row[] = data.map(toRow);
   const visible = useMemo(
     () =>
@@ -52,9 +51,6 @@ export function SubmissionsPage() {
     [rows, query, project, review],
   );
   const record = rows.find((row) => row.id === selected) ?? null;
-  const toggle = (id: string) =>
-    setChecked((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
-  const toggleAll = () => setChecked(checked.length === visible.length ? [] : visible.map((row) => row.id));
 
   if (isLoading) {
     return (
@@ -64,7 +60,7 @@ export function SubmissionsPage() {
 
   return (
     <div className="text-[#25324a]">
-      <div className="mb-[19px] flex items-start justify-between max-[750px]:flex-col max-[750px]:gap-[12px]">
+      <div className="mb-[19px] flex items-start justify-between gap-[12px] max-[750px]:flex-col">
         <div>
           <p className={eyebrowClass}>DATA COLLECTION</p>
           <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px]">Submissions</h1>
@@ -72,10 +68,37 @@ export function SubmissionsPage() {
             Review every completed form sent from your field teams and connected sources.
           </p>
         </div>
-        <button className="flex cursor-pointer items-center gap-[7px] rounded-[6px] border border-[#dce5ef] bg-white px-[13px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6]">
-          <Download size={16} />
-          Export data
-        </button>
+        <div className="flex flex-wrap items-center gap-[8px] max-[750px]:w-full">
+          <label className="flex max-w-[300px] flex-1 items-center gap-[7px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] text-[#8492a4] max-[750px]:min-w-full max-[750px]:max-w-none">
+            <Search size={16} />
+            <input
+              className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search ID, collector, location, or form"
+            />
+          </label>
+          <select className={selectClass} value={project} onChange={(event) => setProject(event.target.value)}>
+            <option>All projects</option>
+            <option>Community Health Assessment</option>
+            <option>Maternal Health Survey</option>
+            <option>Water Access Mapping</option>
+          </select>
+          <button className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]">
+            <Filter size={15} />
+            More filters
+          </button>
+          <button
+            className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]"
+            aria-label="Choose columns"
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+          <button className="flex cursor-pointer items-center gap-[7px] rounded-[6px] border border-[#dce5ef] bg-white px-[13px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6]">
+            <Download size={16} />
+            Export data
+          </button>
+        </div>
       </div>
 
       <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
@@ -105,165 +128,85 @@ export function SubmissionsPage() {
         </button>
       </section>
 
-      <Card>
-        <div className="flex items-center gap-[8px] border-b border-[#e9eef4] p-[14px] max-[750px]:flex-wrap">
-          <label className="flex max-w-[360px] flex-1 items-center gap-[7px] rounded-[5px] border border-[#dce5ef] px-[9px] text-[#8492a4] max-[750px]:min-w-full max-[750px]:max-w-none">
-            <Search size={16} />
-            <input
-              className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search ID, collector, location, or form"
-            />
-          </label>
-          <select className={selectClass} value={project} onChange={(event) => setProject(event.target.value)}>
-            <option>All projects</option>
-            <option>Community Health Assessment</option>
-            <option>Maternal Health Survey</option>
-            <option>Water Access Mapping</option>
-          </select>
-          <select className={selectClass} value={review} onChange={(event) => setReview(event.target.value)}>
-            <option>All records</option>
-            <option>Ready</option>
-            <option>Needs review</option>
-            <option>Invalid</option>
-          </select>
-          <button className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]">
-            <Filter size={15} />
-            More filters
-          </button>
-          <button
-            className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]"
-            aria-label="Choose columns"
-          >
-            <SlidersHorizontal size={16} />
-          </button>
-        </div>
-
-        {checked.length > 0 && (
-          <div className="flex items-center gap-[8px] bg-[#edf5ff] px-[14px] py-[9px] text-[11px] text-[#426180] max-[750px]:flex-wrap">
-            <strong className="mr-[4px] text-[#0b51b7]">{checked.length} selected</strong>
-            <button className="cursor-pointer rounded-[4px] border-0 bg-white px-[8px] py-[6px] font-sans text-[10px] font-semibold leading-normal text-[#285d9d]">
-              Assign reviewer
-            </button>
-            <button className="cursor-pointer rounded-[4px] border-0 bg-white px-[8px] py-[6px] font-sans text-[10px] font-semibold leading-normal text-[#285d9d]">
-              Mark ready
-            </button>
-            <button className="cursor-pointer rounded-[4px] border-0 bg-white px-[8px] py-[6px] font-sans text-[10px] font-semibold leading-normal text-[#285d9d]">
-              Export selected
-            </button>
-            <button
-              className="ml-auto flex cursor-pointer items-center gap-[3px] rounded-[4px] border-0 bg-transparent px-[8px] py-[6px] font-sans text-[10px] font-semibold leading-normal text-[#285d9d] max-[750px]:ml-0"
-              onClick={() => setChecked([])}
-            >
-              <X size={14} />
-              Clear
-            </button>
-          </div>
-        )}
-
+      <Card className="mt-[48px]">
         <div className="overflow-x-auto">
           <table className="!w-full !min-w-[1040px] !border-collapse !text-left">
             <thead>
               <tr>
-                <th className="!bg-[#f8fafc] !px-[13px] !py-[11px] !text-[9px] !font-semibold !tracking-[.35px] !text-[#8391a5] !uppercase">
-                  <input
-                    className="h-[14px] w-[14px] accent-[#0b51b7]"
-                    aria-label="Select all submissions"
-                    type="checkbox"
-                    checked={visible.length > 0 && checked.length === visible.length}
-                    onChange={toggleAll}
-                  />
-                </th>
                 {["Submission", "Project & form", "Collector", "Location", "Received", "Sync", "Review"].map(
                   (heading) => (
                     <th
                       key={heading}
-                      className="!bg-[#f8fafc] !px-[13px] !py-[11px] !text-[9px] !font-semibold !tracking-[.35px] !text-[#8391a5] !uppercase"
+                      className="!border-b !border-[#d1d5db] !bg-[#e9ecf0] !px-[16px] !py-[14px] !text-[13px] !font-semibold !text-[#1f2937] !whitespace-nowrap"
                     >
                       {heading}
                     </th>
                   ),
                 )}
-                <th className="!bg-[#f8fafc] !px-[13px] !py-[11px] !text-[9px] !font-semibold !tracking-[.35px] !text-[#8391a5] !uppercase" />
+                <th className="!border-b !border-[#d1d5db] !bg-[#e9ecf0] !px-[16px] !py-[14px]" />
               </tr>
             </thead>
             <tbody>
               {visible.map((row) => (
                 <tr
                   key={row.id}
-                  className={`cursor-pointer hover:bg-[#f5f9fe] ${selected === row.id ? "bg-[#f5f9fe]" : ""}`}
+                  className={`cursor-pointer border-b border-[#f0f2f5] hover:bg-[#f5f9fe] ${selected === row.id ? "bg-[#f5f9fe]" : "bg-white"}`}
                   onClick={() => setSelected(row.id)}
                 >
-                  <td
-                    className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <input
-                      className="h-[14px] w-[14px] accent-[#0b51b7]"
-                      aria-label={`Select ${row.id}`}
-                      type="checkbox"
-                      checked={checked.includes(row.id)}
-                      onChange={() => toggle(row.id)}
-                    />
-                  </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#536177]">
                     <button
-                      className="cursor-pointer border-0 bg-transparent p-0 text-left font-sans text-[11px] font-bold leading-normal text-[#0b51b7]"
+                      className="cursor-pointer border-0 bg-transparent p-0 text-left font-sans text-[13px] font-semibold leading-normal text-[#0b51b7]"
                       onClick={() => setSelected(row.id)}
                     >
                       {row.id}
-                      <small className="mt-[3px] block text-[9px] font-normal text-[#97a4b4]">Mobile submission</small>
+                      <small className="mt-[2px] block text-[11px] font-normal text-[#9ca8b6]">Mobile submission</small>
                     </button>
                   </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#374151]">
                     <div>
-                      <strong className="block text-[11px] text-[#405067]">{row.project}</strong>
-                      <small className="mt-[3px] block text-[9px] font-normal text-[#97a4b4]">{row.form}</small>
+                      <strong className="block text-[13px] font-semibold text-[#1f2937]">{row.project}</strong>
+                      <small className="mt-[2px] block text-[11px] font-normal text-[#9ca8b6]">{row.form}</small>
                     </div>
                   </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
-                    <div className="flex items-center gap-[6px]">
-                      <span className="grid h-[24px] w-[24px] place-items-center rounded-full bg-[#eaf1fb] text-[8px] font-bold text-[#2866a8]">
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#374151]">
+                    <div className="flex items-center gap-[9px]">
+                      <span className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-[#dbeafe] text-[10px] font-bold text-[#1d4ed8]">
                         {row.enumerator
                           .split(" ")
                           .map((part) => part[0])
                           .join("")}
                       </span>
-                      <strong className="text-[11px] text-[#526176]">{row.enumerator}</strong>
+                      <span className="text-[13px] font-medium text-[#374151]">{row.enumerator}</span>
                     </div>
                   </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
-                    <span className="flex items-center gap-[4px] text-[#66768c]">
-                      <MapPin size={13} />
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#6b7280]">
+                    <span className="flex items-center gap-[5px]">
+                      <MapPin size={14} className="text-[#9ca3af]" />
                       {row.location}
                     </span>
                   </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
-                    <div>
-                      <strong className="block text-[11px] text-[#405067]">{row.submitted}</strong>
-                      <small className="mt-[3px] block text-[9px] font-normal text-[#97a4b4]">19 Aug 2026</small>
-                    </div>
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#374151]">
+                    {row.submitted}
                   </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45]">
                     <span
-                      className={`flex items-center gap-[5px] text-[10px] font-bold ${row.sync === "Pending" ? "text-[#d68520]" : ""}`}
+                      className={`flex items-center gap-[6px] text-[13px] font-medium ${row.sync === "Pending" ? "text-[#d97706]" : "text-[#059669]"}`}
                     >
                       <i
-                        className={`h-[6px] w-[6px] rounded-full ${row.sync === "Pending" ? "bg-[#ff9f43]" : "bg-[#22b783]"}`}
+                        className={`h-[8px] w-[8px] shrink-0 rounded-full ${row.sync === "Pending" ? "bg-[#fbbf24]" : "bg-[#34d399]"}`}
                       />
                       {row.sync}
                     </span>
                   </td>
-                  <td className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]">
+                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45]">
                     <span className={`${reviewBadgeClass} ${reviewStyles[row.review]}`}>{row.review}</span>
                   </td>
                   <td
-                    className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]"
+                    className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45]"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <button
-                      className="cursor-pointer border-0 bg-transparent p-0 text-[#8897a9]"
+                      className="cursor-pointer border-0 bg-transparent p-0 text-[#9ca3af] hover:text-[#6b7280]"
                       aria-label={`Actions for ${row.id}`}
                     >
                       <MoreHorizontal size={18} />

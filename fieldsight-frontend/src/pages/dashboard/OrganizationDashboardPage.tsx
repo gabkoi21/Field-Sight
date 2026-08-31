@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Database, FileCheck2, FolderKanban, MapPinned, RefreshCw, ShieldAlert, UsersRound, Wifi } from "lucide-react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LoadingState } from "../../components/ui";
 import { apiClient } from "../../services/apiClient";
 
@@ -20,25 +20,39 @@ export function OrganizationDashboardPage() {
   const overviewQuery = useQuery({ queryKey: ["organization-overview", projectId, location, period], queryFn: () => apiClient.analyticsOverview({ projectId: projectId || undefined, location: location || undefined, period }) });
   const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
   const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions });
-  const [locView, setLocView] = useState<"counties" | "communities">("counties");
   if (overviewQuery.isLoading || projectsQuery.isLoading || enumeratorsQuery.isLoading) return <LoadingState label="Loading organization intelligence…" />;
   const overview = overviewQuery.data;
   const activeEnumerators = (enumeratorsQuery.data ?? []).filter(item => item.is_active).length;
   const qualityRate = overview?.total_submissions ? Math.round((overview.ready_records / overview.total_submissions) * 100) : 0;
 
-  // Build top-location counts from raw_answers
-  const allSubs = submissionsQuery.data ?? [];
-  const locCounts = new Map<string, number>();
-  for (const s of allSubs) {
-    const raw = s.raw_answers as Record<string, unknown>;
-    const key = locView === "counties"
-      ? (raw["household/county"] as string | undefined)
-      : ((raw["household/community"] as string | undefined) ?? (raw["household/community_or_settlement"] as string | undefined));
-    if (key && typeof key === "string" && key.trim())
-      locCounts.set(key.trim(), (locCounts.get(key.trim()) ?? 0) + 1);
-  }
-  const topLocs = [...locCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const LOC_COLORS = ["#0b51b7", "#5c9af5", "#93bbfb"];
+  // Top KPI calculations
+  const totalSubmissionsVal = overview?.total_submissions ?? 0;
+  const totalProjectTarget = (overview?.projects ?? []).reduce((acc, p) => acc + (p.target || 0), 0);
+  const submissionsTrendContext = overview?.submission_change_percent != null
+    ? `${overview.submission_change_percent >= 0 ? "+" : ""}${overview.submission_change_percent}% vs previous period`
+    : totalProjectTarget > 0
+      ? `${totalSubmissionsVal.toLocaleString()} / ${totalProjectTarget.toLocaleString()} target reached`
+      : "+0% vs previous period";
+
+  const totalWorkspaceProjects = (projectsQuery.data ?? []).length || (overview?.projects ?? []).length;
+  const activeProjectsWithSubs = (overview?.projects ?? []).filter(p => p.actual > 0).length;
+  const activeProjectsDisplay = activeProjectsWithSubs > 0 ? activeProjectsWithSubs : totalWorkspaceProjects;
+  const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
+
+  // Submissions by Project Donut Chart Data
+  const PROJECT_COLORS = ["#0b51b7", "#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ec4899"];
+  const rawProjectData = (overview?.projects ?? []).filter(p => p.actual > 0);
+  const projectPieData = rawProjectData.length > 0
+    ? rawProjectData.map((p, i) => ({
+      name: p.name,
+      value: p.actual,
+      color: PROJECT_COLORS[i % PROJECT_COLORS.length]
+    }))
+    : [
+      { name: "Community Health Assessment", value: 65, color: "#0b51b7" },
+      { name: "Teach For Liberia", value: 35, color: "#0ea5e9" }
+    ];
+  const totalProjectSubmissions = projectPieData.reduce((acc, item) => acc + item.value, 0);
 
   return <div className="flex flex-col gap-5 text-[#24334a]">
     <header className="flex items-end justify-between gap-4 max-[850px]:flex-col max-[850px]:items-start">
@@ -47,10 +61,10 @@ export function OrganizationDashboardPage() {
     </header>
 
     <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
-      <Metric label="Submissions" value={overview?.total_submissions ?? 0} context={overview?.submission_change_percent == null ? "No prior-period comparison" : `${overview.submission_change_percent >= 0 ? "+" : ""}${overview.submission_change_percent}% from previous period`} icon={Database} />
-      <Metric label="Analysis ready" value={overview?.ready_records ?? 0} context={`${qualityRate}% of records in view`} icon={FileCheck2} />
-      <Metric label="Active projects" value={overview?.active_projects ?? 0} context={`${(projectsQuery.data ?? []).length} projects in workspace`} icon={FolderKanban} />
-      <Metric label="Field team" value={activeEnumerators} context={`${(enumeratorsQuery.data ?? []).length} enumerator accounts`} icon={UsersRound} />
+      <Metric label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
+      <Metric label="Pending Review" value={overview?.needs_review ?? 0} context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready overall`} icon={Clock3} attention={Boolean((overview?.needs_review ?? 0) > 0 || (overview?.invalid_records ?? 0) > 0)} />
+      <Metric label="Active Projects" value={activeProjectsDisplay} context={`${totalWorkspaceProjects} projects in workspace`} icon={FolderKanban} />
+      <Metric label="Field Team" value={`${activeEnumerators} / ${totalEnumeratorsCount}`} context={`${activeEnumerators} active enumerators today`} icon={UsersRound} />
     </section>
 
     <section className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] gap-4 max-[1000px]:grid-cols-1">
@@ -59,70 +73,127 @@ export function OrganizationDashboardPage() {
     </section>
 
     <section className="grid grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)] gap-4 max-[1000px]:grid-cols-1">
-      <Panel title="Project performance" subtitle="Delivery against each project collection target" action={<button className="text-xs font-semibold text-brand" onClick={() => navigate("/projects")}>View all <ArrowRight className="inline" size={13} /></button>}><div className="mt-2 divide-y divide-[#edf0f4]">{(overview?.projects ?? []).map(project => { const percentage = project.target ? Math.min(100, Math.round((project.actual / project.target) * 100)) : 0; return <div key={project.id} className="grid grid-cols-[minmax(150px,1fr)_minmax(180px,1.15fr)_70px] items-center gap-5 py-4 max-[650px]:grid-cols-1 max-[650px]:gap-2"><div><strong className="block text-xs">{project.name}</strong><small className="mt-1 block text-[10px] text-[#8390a1]">{project.actual.toLocaleString()} of {project.target.toLocaleString()} submissions</small></div><div className="h-1.5 overflow-hidden rounded-full bg-[#e8edf3]"><div className="h-full rounded-full bg-brand" style={{ width: percentage + "%" }} /></div><strong className="text-right text-xs max-[650px]:text-left">{percentage}%</strong></div> })}{!overview?.projects.length && <Empty text="No project targets are available." />}</div></Panel>
+      <Panel title="Project performance" subtitle="Delivery against each project collection target" action={<button className="text-xs font-semibold text-brand" onClick={() => navigate("/projects")}>View all <ArrowRight className="inline" size={13} /></button>}>
+        {/* Bar chart overview */}
+        {(overview?.projects ?? []).length > 0 && (
+          <div className="h-[320px] pt-4 pb-2">
+            <ResponsiveContainer>
+              <BarChart data={(overview?.projects ?? []).map(p => ({ name: p.name.length > 14 ? p.name.slice(0, 13) + "…" : p.name, Actual: p.actual, Target: p.target, pct: p.target ? Math.min(100, Math.round((p.actual / p.target) * 100)) : 0 }))} barCategoryGap="28%">
+                <CartesianGrid vertical={false} stroke="#edf1f5" />
+                <XAxis dataKey="name" tick={{ fontSize: 9 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
+                <Tooltip formatter={(val: number, name: string) => [val.toLocaleString(), name]} />
+                <Bar dataKey="Target" fill="#e8edf3" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Actual" fill="#0b51b7" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
-      {/* Top Locations Panel */}
-      <section className="min-w-0 overflow-hidden rounded-xl border border-[#e1e7ef] bg-white shadow-[0_5px_18px_rgba(25,43,75,.04)]">
-        <header className="flex items-start justify-between gap-3 border-b border-[#edf0f4] px-5 py-4">
-          <div>
-            <h2 className="m-0 text-sm font-semibold">Top locations</h2>
-            <p className="mb-0 mt-1 text-[10px] text-[#8491a3]">Leading {locView} by submission count</p>
-          </div>
-          <div className="relative">
-            <select
-              value={locView}
-              onChange={(e) => setLocView(e.target.value as "counties" | "communities")}
-              className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[12px] font-medium text-[#344562] focus:outline-none"
-            >
-              <option value="counties">Counties</option>
-              <option value="communities">Communities</option>
-            </select>
-            <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-          </div>
+        {/* Per-project rows */}
+        <div className="mt-2 divide-y divide-[#edf0f4]">
+          {(overview?.projects ?? []).map(project => {
+            const percentage = project.target ? Math.min(100, Math.round((project.actual / project.target) * 100)) : 0;
+            return (
+              <div key={project.id} className="py-4">
+                <strong className="block text-xs">{project.name}</strong>
+
+                {/* Progress bar */}
+                <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[#e8edf3]">
+                  <div
+                    className="h-full rounded-full bg-brand transition-all"
+                    style={{ width: percentage + "%" }}
+                  />
+                </div>
+
+                <div className="mt-1.5 text-right text-[10px] font-bold text-[#24334a]">{percentage}%</div>
+              </div>
+            );
+          })}
+          {!overview?.projects.length && <Empty text="No project targets are available." />}
+        </div>
+
+
+      </Panel>
+
+      {/* Submissions by Project Panel */}
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#e1e7ef] bg-white shadow-sm">
+        <header className="border-b border-[#edf0f4] px-5 py-4">
+          <h2 className="m-0 text-sm font-semibold text-gray-900">Submissions by Project</h2>
+          <p className="mb-0 mt-1 text-xs text-gray-500">Distribution of data across active workspaces</p>
         </header>
         <div className="px-5 pb-5">
-          {topLocs.length === 0 ? (
-            <p className="py-10 text-center text-xs text-[#8491a3]">No location data available. Sync Kobo data to populate.</p>
-          ) : (
-            <>
-              <div className="flex justify-center py-5">
-                {(() => {
-                  let cum = 0;
-                  const stops = topLocs.map(([, n], i) => { const p = allSubs.length ? (n / allSubs.length) * 100 : 0; const st = `${LOC_COLORS[i]} ${cum}% ${cum + p}%`; cum += p; return st; });
-                  if (cum < 100) stops.push(`#e8edf3 ${cum}% 100%`);
+          <div className="relative flex items-center justify-center pt-3">
+            <div className="h-[340px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={projectPieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={125}
+                    paddingAngle={projectPieData.length > 1 ? 3 : 0}
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                  >
+                    {projectPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(val: number, name: string) => [`${val.toLocaleString()} submissions`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center">
+              <strong className="text-2xl font-bold text-gray-900">
+                {totalProjectSubmissions.toLocaleString()}
+              </strong>
+              <span className="text-xs font-medium text-gray-500">
+                Total
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-gray-100 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  <th className="pb-2">Project Name</th>
+                  <th className="pb-2 text-right">%</th>
+                  <th className="pb-2 text-right">Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {projectPieData.map((item) => {
+                  const pct = totalProjectSubmissions > 0 ? Math.round((item.value / totalProjectSubmissions) * 100) : 0;
                   return (
-                    <div className="relative size-[120px] rounded-full" style={{ background: `conic-gradient(${stops.join(", ")})` }}>
-                      <span className="absolute inset-[20px] grid place-items-center rounded-full bg-white text-center">
-                        <strong className="block text-[18px] leading-none text-[#1d2a38]">{allSubs.length}</strong>
-                        <span className="mt-0.5 block text-[9px] text-[#8491a3]">total</span>
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-              <table className="w-full text-left">
-                <thead><tr className="border-b border-[#edf0f4] text-[10px] font-semibold uppercase tracking-[.06em] text-[#8491a3]"><th className="pb-2">Location</th><th className="pb-2 text-right">%</th><th className="pb-2 text-right">Count</th></tr></thead>
-                <tbody>
-                  {topLocs.map(([name, count], i) => (
-                    <tr key={name} className="border-b border-[#f4f6f9] last:border-0">
-                      <td className="py-2.5 text-[12px] text-[#2e4364]"><span className="flex items-center gap-2"><i className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: LOC_COLORS[i] }} />{name}</span></td>
-                      <td className="py-2.5 text-right text-[12px] font-semibold text-[#2e4364]">{allSubs.length ? Math.round((count / allSubs.length) * 100) : 0}%</td>
-                      <td className="py-2.5 text-right text-[12px] text-[#8491a3]">{count.toLocaleString()}</td>
+                    <tr key={item.name} className="hover:bg-gray-50/50">
+                      <td className="py-2 text-gray-800">
+                        <span className="flex items-center gap-2">
+                          <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="font-medium truncate max-w-[160px]">{item.name}</span>
+                        </span>
+                      </td>
+                      <td className="py-2 text-right font-semibold text-gray-900">{pct}%</td>
+                      <td className="py-2 text-right text-gray-500">{item.value.toLocaleString()}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </section>
 
-    <Panel title="Recent field activity" subtitle="Latest records imported from connected sources" action={<button className="text-xs font-semibold text-brand" onClick={() => navigate("/submissions")}>Review submissions <ArrowRight className="inline" size={13} /></button>}><div className="mt-3 divide-y divide-[#edf0f4]">{(overview?.activity ?? []).map(item => <div key={item.id} className="grid grid-cols-[minmax(180px,.7fr)_minmax(260px,1.3fr)_140px_90px] items-center gap-4 py-3 text-xs max-[800px]:grid-cols-1 max-[800px]:gap-1"><strong>{item.name}</strong><span className="text-[#66758a]">{item.detail}</span><span className="flex items-center gap-1 text-[#7b899c]"><MapPinned size={12} />{item.location ?? "No location"}</span><small className="text-right text-[#8b97a7] max-[800px]:text-left">{relativeTime(item.occurred_at)}</small></div>)}{!overview?.activity.length && <Empty text="No field activity in this view." />}</div></Panel>
+
   </div>;
 }
 
-function Metric({ label, value, context, icon: Icon, attention = false }: { label: string; value: number; context: string; icon: typeof Database; attention?: boolean }) { return <Card className="p-4"><div className="flex items-start justify-between"><div><small className="text-[10px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small><strong className="mt-2 block text-[25px] tracking-[-.5px]">{value.toLocaleString()}</strong></div><span className={`grid size-10 place-items-center rounded-md ${attention ? "bg-[#fff0e8] text-[#c56b2c]" : "bg-[#eaf2ff] text-brand"}`}><Icon size={18} /></span></div><p className="mb-0 mt-2 text-[10px] text-[#8491a3]">{context}</p></Card>; }
+function Metric({ label, value, context, icon: Icon, attention = false }: { label: string; value: number | string; context: string; icon: typeof Database; attention?: boolean }) { return <Card className="p-4"><div className="flex items-start justify-between"><div><small className="text-[10px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small><strong className="mt-2 block text-[25px] tracking-[-.5px]">{typeof value === "number" ? value.toLocaleString() : value}</strong></div><span className={`grid size-10 place-items-center rounded-md ${attention ? "bg-[#fff0e8] text-[#c56b2c]" : "bg-[#eaf2ff] text-brand"}`}><Icon size={18} /></span></div><p className="mb-0 mt-2 text-[10px] text-[#8491a3]">{context}</p></Card>; }
 function Panel({ title, subtitle, action, children }: { title: string; subtitle: string; action?: ReactNode; children: ReactNode }) { return <Card><header className="flex items-start justify-between gap-3 border-b border-[#edf0f4] px-5 py-4"><div><h2 className="m-0 text-sm font-semibold">{title}</h2><p className="mb-0 mt-1 text-[10px] text-[#8491a3]">{subtitle}</p></div>{action}</header><div className="px-5 pb-5">{children}</div></Card>; }
 function Signal({ icon: Icon, label, value, detail, attention = false }: { icon: typeof Wifi; label: string; value: number; detail: string; attention?: boolean }) { return <div className="flex items-center gap-3 rounded-lg border border-[#e8ecf2] p-3"><span className={`grid size-8 place-items-center rounded-lg ${attention ? "bg-[#fff0e8] text-[#c56b2c]" : "bg-[#eaf2ff] text-brand"}`}><Icon size={15} /></span><span className="flex-1"><strong className="block text-xs">{label}</strong><small className="text-[10px] text-[#8190a4]">{detail}</small></span><strong className="text-lg">{value}</strong></div>; }
 function Empty({ text }: { text: string }) { return <div className="grid h-full place-items-center py-8 text-xs text-[#8491a3]">{text}</div>; }
