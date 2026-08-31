@@ -120,41 +120,7 @@ export function SubmissionsPage() {
             Review every completed form sent from your field teams and connected sources.
           </p>
         </div>
-        <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-          <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
-            <Search size={16} />
-            <input
-              className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search ID, collector, location, or form"
-            />
-          </label>
-          <select className={`${selectClass} w-full`} value={project} onChange={(event) => setProject(event.target.value)}>
-            <option>All projects</option>
-            {projects.map((projectName) => <option key={projectName}>{projectName}</option>)}
-          </select>
-          <select
-            className={`${selectClass} w-full`}
-            value={exportPeriod}
-            onChange={(event) => setExportPeriod(event.target.value as ExportPeriod)}
-            aria-label="CSV export period"
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="biweekly">Biweekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={!exportRows.length}
-            className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Download size={16} />
-            Export data
-          </button>
-        </div>
+
       </div>
 
       <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
@@ -184,8 +150,46 @@ export function SubmissionsPage() {
         </button>
       </section>
 
-      <Card className="mt-[48px]">
+      <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
+        <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
+          <Search size={16} />
+          <input
+            className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search ID, collector, location, or form"
+          />
+        </label>
+        <select className={`${selectClass} w-full`} value={project} onChange={(event) => setProject(event.target.value)}>
+          <option>All projects</option>
+          {projects.map((projectName) => <option key={projectName}>{projectName}</option>)}
+        </select>
+        <select
+          className={`${selectClass} w-full`}
+          value={exportPeriod}
+          onChange={(event) => setExportPeriod(event.target.value as ExportPeriod)}
+          aria-label="CSV export period"
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Biweekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <button
+          type="button"
+          onClick={exportCsv}
+          disabled={!exportRows.length}
+          className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download size={16} />
+          Export data
+        </button>
+      </div>
+
+      <Card className="mt-[16px]">
+
         <div className="overflow-x-auto">
+
           <table className="!w-full !min-w-[1040px] !border-collapse !text-left">
             <thead>
               <tr>

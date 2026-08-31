@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Database, FileCheck2, FolderKanban, MapPinned, ShieldAlert, UsersRound, Wifi } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -9,6 +10,7 @@ const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 day
 function relativeTime(value: string | null | undefined) { if (!value) return "Never"; const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000)); if (seconds < 60) return "Just now"; const minutes = Math.floor(seconds / 60); if (minutes < 60) return `${minutes} min ago`; const hours = Math.floor(minutes / 60); if (hours < 24) return `${hours} hr ago`; const days = Math.floor(hours / 24); return `${days} day${days === 1 ? "" : "s"} ago`; }
 
 export function OrganizationDashboardPage() {
+  const navigate = useNavigate();
   const [projectId, setProjectId] = useState("");
   const [period, setPeriod] = useState("7d");
   const [location, setLocation] = useState("");

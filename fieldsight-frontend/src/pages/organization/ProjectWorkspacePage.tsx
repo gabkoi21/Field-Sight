@@ -6,14 +6,14 @@ import {
   ChevronRight,
   Clock3,
   Database,
-  Download,
-  FileSpreadsheet,
-  Search,
   FileCheck2,
   RefreshCw,
   Users,
   MapPin,
   ChevronDown,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
   type LucideIcon
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
@@ -88,7 +88,6 @@ export function ProjectWorkspacePage() {
   const totalSubmissions = projectSubmissions.length;
   const readyRecords = projectSubmissions.filter((item) => item.review_status === "ready").length;
   const activeEnumerators = new Set(projectSubmissions.map((item) => item.enumerator).filter(Boolean)).size;
-  const target = project.target_sample_size ? project.target_sample_size.toLocaleString() : null;
   return (
     <div className="flex flex-col gap-[18px] pb-5">
       <div className="mb-2 flex items-end justify-between gap-[14px] max-[720px]:flex-col max-[720px]:items-start">
@@ -152,7 +151,7 @@ export function ProjectWorkspacePage() {
           tone="blue"
           label="Submissions"
           value={totalSubmissions.toLocaleString()}
-          note={target ? "of " + target + " target" : "No target configured"}
+          note={project.target_sample_size ? "of " + project.target_sample_size.toLocaleString() + " target" : "No target configured"}
         />
         <Metric
           icon={FileCheck2}
@@ -176,10 +175,6 @@ export function ProjectWorkspacePage() {
           note={project.kobo_form_name ?? "No Kobo form assigned"}
         />
       </section>
-      <Card className="p-5">
-        <div className="flex items-center justify-between gap-4"><div><p className="m-0 text-[11px] font-bold uppercase tracking-[.07em] text-[#8491a5]">Collection target</p><strong className="mt-2 block text-[27px] text-[#2e4364]">{totalSubmissions.toLocaleString()} {target && <span className="text-base font-medium text-[#8491a5]">/ {target}</span>}</strong><p className="mb-0 mt-1 text-xs text-[#78869a]">{project.target_sample_size ? `${Math.round((totalSubmissions / project.target_sample_size) * 100)}% complete` : "No target configured"}{project.end_date ? ` � Deadline ${new Date(project.end_date).toLocaleDateString()}` : ""}</p></div><Download className="text-brand" size={21} /></div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e8edf3]"><div className="h-full rounded-full bg-brand" style={{ width: `${project.target_sample_size ? Math.min(100, totalSubmissions / project.target_sample_size * 100) : 0}%` }} /></div>
-      </Card>
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
         <SubmissionActivityPanel submissions={projectSubmissions} target={project.target_sample_size} startDate={project.start_date} endDate={project.end_date} />
         <TopLocationsPanel submissions={(submissionsQuery.data ?? []).filter((s) => s.project_id === projectId)} />
@@ -187,7 +182,7 @@ export function ProjectWorkspacePage() {
 
       <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
         <ProjectLeaderboard submissions={projectSubmissions} />
-        <ProjectActivity overview={overview} projectName={project.name} hasForm={Boolean(project.kobo_form_name)} />
+        <ProjectExceptionAlerts submissions={projectSubmissions} projectName={project.name} />
       </section>
     </div>
   );
@@ -316,11 +311,13 @@ function LocationDonutChart({ segments, total, colors }: { segments: [string, nu
   });
   if (cum < 100) stops.push(`#e8edf3 ${cum}% 100%`);
   return (
-    <div className="flex justify-center">
-      <div className="relative size-[120px] rounded-full" style={{ background: `conic-gradient(${stops.join(", ")})` }}>
-        <span className="absolute inset-[20px] grid place-items-center rounded-full bg-white text-center">
-          <strong className="block text-[18px] leading-none text-[#1d2a38]">{total}</strong>
-          <span className="mt-0.5 block text-[9px] text-[#8491a3]">total</span>
+    <div className="flex justify-center py-2">
+      <div className="relative size-[175px] rounded-full shadow-sm" style={{ background: `conic-gradient(${stops.join(", ")})` }}>
+        <span className="absolute inset-[28px] grid place-items-center rounded-full bg-white text-center shadow-inner">
+          <div>
+            <strong className="block text-[22px] font-bold leading-none text-[#1d2a38]">{total}</strong>
+            <span className="mt-1 block text-[10px] font-medium uppercase tracking-[.06em] text-[#8491a3]">total</span>
+          </div>
         </span>
       </div>
     </div>
@@ -333,50 +330,71 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
     <div className="space-y-4">{contributors.slice(0, 6).map(([name, count], index) => <div key={name}><div className="flex justify-between text-xs"><span className="font-medium text-[#354966]">{index + 1}. {name}</span><strong>{count}</strong></div><div className="mt-1.5 h-1.5 rounded-full bg-[#e8edf3]"><div className="h-full rounded-full bg-brand" style={{ width: `${submissions.length ? count / submissions.length * 100 : 0}%` }} /></div></div>)}{!contributors.length && <p className="py-8 text-center text-xs text-[#84909b]">No project contributions yet.</p>}</div>
   </Card>;
 }
-function ProjectActivity({
-  overview,
+function ProjectExceptionAlerts({
+  submissions,
   projectName,
-  hasForm,
 }: {
-  overview?: ApiAnalyticsOverview;
+  submissions: ApiSubmission[];
   projectName: string;
-  hasForm: boolean;
 }) {
-  const entries = overview?.activity ?? [];
+  const anomalies = useMemo(() => {
+    return submissions
+      .map((sub) => {
+        const issues: string[] = [];
+        if (sub.review_status === "invalid") issues.push("Invalid record");
+        else if (sub.review_status === "needs_review") issues.push("Needs review");
+        if (!sub.location || sub.location === "Not captured") issues.push("Missing location");
+        if (!sub.enumerator) issues.push("Unassigned enumerator");
+        return { sub, issues };
+      })
+      .filter((item) => item.issues.length > 0);
+  }, [submissions]);
+
   return (
     <Card className="p-[17px]">
       <CardHeader
-        title="Activity"
-        subtitle="Latest project submissions"
+        title="Automated Exception Alerts"
+        subtitle="Flagged data & rule anomalies"
       >
-        <span className="rounded-[5px] border border-[#dce2e7] bg-white px-2 py-1 text-[10px] font-medium text-[#657382]">
-          {entries.length} recent
+        <span className={`rounded-[5px] border px-2 py-1 text-[10px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}>
+          {anomalies.length} {anomalies.length === 1 ? "exception" : "exceptions"}
         </span>
       </CardHeader>
-      <div className="mt-1">
-        {entries.map((entry, index) => (
-          <div className="relative flex gap-3 py-3 last:pb-0" key={entry.id}>
-            <span className="relative z-[1] grid size-8 shrink-0 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
-              <Clock3 size={15} />
-            </span>
-            {index < entries.length - 1 && (
-              <i className="absolute left-4 top-11 h-[22px] border-l border-dashed border-[#d6dee8]" />
-            )}
-            <div className="flex-1 min-w-0">
-              <strong className="block text-[12px] text-[#354966]">{entry.name}</strong>
-              <span className="block text-[11px] text-[#71809a]">
-                {entry.detail}
-                {entry.location ? ` in ${entry.location}` : ""}
-              </span>
+      <div className="mt-2 space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+        {anomalies.map(({ sub, issues }) => (
+          <div key={sub.id} className="rounded-md border border-[#fee4e2] bg-[#fff5f5] p-3 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <strong className="font-semibold text-[#991b1b]">{sub.external_id}</strong>
+              <time className="text-[10px] text-[#7f1d1d]">{relativeTime(sub.submitted_at)}</time>
             </div>
-            <time className="shrink-0 text-[10px] text-[#8a96a7]">{relativeTime(entry.occurred_at)}</time>
+            <p className="mb-1 mt-0.5 text-[11px] text-[#7f1d1d]">
+              {sub.enumerator ?? "Unassigned"} {sub.location ? `• ${sub.location}` : ""}
+            </p>
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {issues.map((issue) => (
+                <span key={issue} className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#991b1b]">
+                  {issue}
+                </span>
+              ))}
+            </div>
           </div>
         ))}
-        {!entries.length && (
-          <p className="m-0 py-8 text-center text-[11px] text-[#84909b]">
-            {hasForm ? `No submissions imported for ${projectName} yet.` : "Connect a Kobo form to begin collection."}
-          </p>
+        {!anomalies.length && (
+          <div className="my-4 flex flex-col items-center justify-center py-6 text-center">
+            <span className="grid size-10 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
+              <ShieldCheck size={20} />
+            </span>
+            <strong className="mt-2 block text-xs font-semibold text-[#1f2937]">No active exceptions</strong>
+            <p className="m-0 mt-1 max-w-[240px] text-[11px] text-[#6b7280]">
+              All submissions for {projectName} passed automated validation rules.
+            </p>
+          </div>
         )}
+      </div>
+      <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
+        <NavLink to="/submissions" className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline">
+          Manage all submissions <ArrowRight size={12} />
+        </NavLink>
       </div>
     </Card>
   );

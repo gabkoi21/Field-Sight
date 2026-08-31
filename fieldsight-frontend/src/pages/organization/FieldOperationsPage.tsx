@@ -305,19 +305,18 @@ export function FieldOperationsPage() {
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Access has been disabled</small>
         </Card>
       </section>
-      <Card>
-        <div className="grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] border-b border-[#e9eef4] p-[14px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-          <label className="flex min-h-[38px] w-full items-center gap-2 rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
+      <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
+          <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
             <Search size={15} />
             <input
-              className="w-full border-0 bg-transparent py-2 font-sans text-[12px] text-[#4e5e74] outline-none"
+              className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search name, username, or email…"
             />
           </label>
           <select
-            className="min-h-[38px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
+            className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
             value={project}
             onChange={(event) => setProject(event.target.value)}
           >
@@ -325,7 +324,7 @@ export function FieldOperationsPage() {
             {projectNames.map((projectName) => <option key={projectName}>{projectName}</option>)}
           </select>
           <select
-            className="min-h-[38px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
+            className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
             value={exportPeriod}
             onChange={(event) => setExportPeriod(event.target.value as typeof exportPeriod)}
             aria-label="Enumerator CSV export period"
@@ -339,11 +338,13 @@ export function FieldOperationsPage() {
             type="button"
             onClick={exportCsv}
             disabled={!exportEnumerators.length}
-            className="flex min-h-[38px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] font-sans text-[12px] font-semibold text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Download size={16} /> Export data
+            <Download size={16} />
+            Export data
           </button>
         </div>
+      <Card className="mt-[16px]">
         <div className="overflow-x-auto">
           <table className="!w-full !min-w-[1050px] !border-collapse !text-left [&_thead_th]:!border-b [&_thead_th]:!border-[#d1d5db] [&_thead_th]:!bg-[#e9ecf0] [&_thead_th]:!px-[16px] [&_thead_th]:!py-[14px] [&_thead_th]:!text-[13px] [&_thead_th]:!font-semibold [&_thead_th]:!text-[#1f2937] [&_tbody_td]:!px-[16px] [&_tbody_td]:!py-[10px] [&_tbody_td]:!text-[13px] [&_tbody_td]:!text-[#536177]">
             <thead>
@@ -357,6 +358,7 @@ export function FieldOperationsPage() {
                 <th>Status</th>
                 <th>Created</th>
                 <th />
+
               </tr>
             </thead>
             <tbody>
