@@ -5,7 +5,11 @@ function join(...values: Array<string | undefined>) {
 }
 
 export function Table({ className, ...props }: ComponentProps<"table">) {
-  return <div className="w-full overflow-x-auto"><table className={join("w-full text-left text-[13px]", className)} {...props} /></div>;
+  return (
+    <div className="w-full overflow-x-auto">
+      <table className={join("w-full text-left text-[13px]", className)} {...props} />
+    </div>
+  );
 }
 
 export function TableHeader({ className, ...props }: ComponentProps<"thead">) {
@@ -21,7 +25,12 @@ export function TableRow({ className, ...props }: ComponentProps<"tr">) {
 }
 
 export function TableHead({ className, ...props }: ComponentProps<"th">) {
-  return <th className={join("h-11 px-5 text-[11px] font-semibold uppercase tracking-[.04em] text-[#728093]", className)} {...props} />;
+  return (
+    <th
+      className={join("h-11 px-5 text-[11px] font-semibold uppercase tracking-[.04em] text-[#728093]", className)}
+      {...props}
+    />
+  );
 }
 
 export function TableCell({ className, ...props }: ComponentProps<"td">) {

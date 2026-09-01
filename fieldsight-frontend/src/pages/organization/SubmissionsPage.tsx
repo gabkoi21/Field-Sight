@@ -18,10 +18,27 @@ import { apiClient, type ApiSubmission } from "../../services/apiClient";
 
 type Review = "Ready" | "Needs review" | "Invalid";
 type ExportPeriod = "daily" | "weekly" | "biweekly" | "monthly";
-type Row = { id: string; projectId: string; enumerator: string; location: string; submitted: string; submittedAt: string | null; project: string; form: string; sync: "Synced" | "Pending"; review: Review; device: string };
+type Row = {
+  id: string;
+  projectId: string;
+  enumerator: string;
+  location: string;
+  submitted: string;
+  submittedAt: string | null;
+  project: string;
+  form: string;
+  sync: "Synced" | "Pending";
+  review: Review;
+  device: string;
+};
 
 function toRow(submission: ApiSubmission): Row {
-  const review: Review = submission.review_status === "invalid" ? "Invalid" : submission.review_status === "needs_review" ? "Needs review" : "Ready";
+  const review: Review =
+    submission.review_status === "invalid"
+      ? "Invalid"
+      : submission.review_status === "needs_review"
+        ? "Needs review"
+        : "Ready";
   return {
     id: submission.external_id,
     projectId: submission.project_id,
@@ -68,17 +85,14 @@ export function SubmissionsPage() {
   );
   const selectedProjectName = projects.find((item) => item.id === projectId)?.name ?? "All projects";
   const projectRows = useMemo(
-    () => projectId ? rows.filter((row) => row.projectId === projectId) : rows,
+    () => (projectId ? rows.filter((row) => row.projectId === projectId) : rows),
     [rows, projectId],
   );
   const visible = useMemo(
     () =>
       projectRows.filter((row) => {
         const text = `${row.id} ${row.enumerator} ${row.location} ${row.form}`.toLowerCase();
-        return (
-          text.includes(query.toLowerCase()) &&
-          (review === "All records" || row.review === review)
-        );
+        return text.includes(query.toLowerCase()) && (review === "All records" || row.review === review);
       }),
     [projectRows, query, review],
   );
@@ -116,7 +130,7 @@ export function SubmissionsPage() {
       ["Submission ID", "id"],
       ["Project", "project"],
       ["Form", "form"],
-      ["Collector", "enumerator"],
+      ["Enumerator Collector", "enumerator"],
       ["Location", "location"],
       ["Received", "submitted"],
       ["Device", "device"],
@@ -133,7 +147,10 @@ export function SubmissionsPage() {
     const link = document.createElement("a");
     const projectName = projectId ? selectedProjectName : "all-projects";
     link.href = url;
-    link.download = `${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${exportPeriod}-submissions.csv`;
+    link.download = `${projectName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")}-${exportPeriod}-submissions.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -156,32 +173,49 @@ export function SubmissionsPage() {
             Review every completed form sent from your field teams and connected sources.
           </p>
         </div>
-
       </div>
 
       <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]"><Database size={19} /></span>
+        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
+            <Database size={19} />
+          </span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">All submissions</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{projectRows.length.toLocaleString()}</strong>
-          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">{projectId ? `For ${selectedProjectName}` : "Across active organization projects"}</small>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
+            {projectRows.length.toLocaleString()}
+          </strong>
+          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">
+            {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
+          </small>
         </button>
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><FileCheck2 size={19} /></span>
+        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
+            <FileCheck2 size={19} />
+          </span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">Ready for analysis</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{projectRows.filter((row) => row.review === "Ready").length.toLocaleString()}</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
+            {projectRows.filter((row) => row.review === "Ready").length.toLocaleString()}
+          </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Validated and export-ready records</small>
         </button>
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]"><ShieldAlert size={19} /></span>
+        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
+            <ShieldAlert size={19} />
+          </span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">Needs review</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{projectRows.filter((row) => row.review === "Needs review").length.toLocaleString()}</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
+            {projectRows.filter((row) => row.review === "Needs review").length.toLocaleString()}
+          </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Records waiting for quality review</small>
         </button>
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]"><ShieldAlert size={19} /></span>
+        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]">
+            <ShieldAlert size={19} />
+          </span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">Invalid records</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{projectRows.filter((row) => row.review === "Invalid").length.toLocaleString()}</strong>
+          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
+            {projectRows.filter((row) => row.review === "Invalid").length.toLocaleString()}
+          </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Blocked from export until resolved</small>
         </button>
       </section>
@@ -192,13 +226,27 @@ export function SubmissionsPage() {
           <input
             className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
             value={query}
-            onChange={(event) => { setQuery(event.target.value); setCurrentPage(1); }}
-            placeholder="Search ID, collector, location, or form"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Search ID, enumerator collector, location, or form"
           />
         </label>
-        <select className={`${selectClass} w-full`} value={projectId} onChange={(event) => { setProjectId(event.target.value); setCurrentPage(1); }}>
+        <select
+          className={`${selectClass} w-full`}
+          value={projectId}
+          onChange={(event) => {
+            setProjectId(event.target.value);
+            setCurrentPage(1);
+          }}
+        >
           <option value="">All projects</option>
-          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
         </select>
         <select
           className={`${selectClass} w-full`}
@@ -222,64 +270,61 @@ export function SubmissionsPage() {
         </button>
       </div>
 
-      <Card className="mt-[16px]">
-
+      <Card className="mt-[16px] rounded-none">
         <div className="overflow-x-auto">
-
-          <table className="!w-full !min-w-[1040px] !border-collapse !text-left">
+          <table className="w-full min-w-[1040px] border-separate border-spacing-0 overflow-hidden text-left">
             <thead>
               <tr>
-                {["Submission", "Project & form", "Collector", "Location", "Received", "Sync", "Review"].map(
+                {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Sync", "Review"].map(
                   (heading) => (
                     <th
                       key={heading}
-                      className="!border-b !border-[#d1d5db] !bg-[#e9ecf0] !px-[16px] !py-[14px] !text-[13px] !font-semibold !text-[#1f2937] !whitespace-nowrap"
+                      className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86] whitespace-nowrap"
                     >
                       {heading}
                     </th>
                   ),
                 )}
-                <th className="!border-b !border-[#d1d5db] !bg-[#e9ecf0] !px-[16px] !py-[14px]" />
+                <th className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left" />
               </tr>
             </thead>
             <tbody>
               {paginatedRows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-[#f0f2f5] bg-white hover:bg-[#f5f9fe]"
-                >
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#536177]">
-                    <span className="block text-left font-sans text-[13px] font-semibold leading-normal text-[#0b51b7]">
+                <tr key={row.id} className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                    <span className="block text-left text-[12.5px] font-semibold leading-normal text-[#0b51b7]">
                       {row.id}
-                      <small className="mt-[2px] block text-[11px] font-normal text-[#9ca8b6]">Mobile submission</small>
+                      <small className="mt-[2px] block text-[10.5px] font-normal text-[#8a99ad]">
+                        Mobile submission
+                      </small>
                     </span>
                   </td>
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#374151]">
-                    <strong className="block text-[13px] font-semibold text-[#1f2937]">{row.project}</strong>
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#374151]">
+                    <strong className="block text-[12.5px] font-semibold text-[#1f2937]">{row.project}</strong>
                   </td>
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#374151]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#374151]">
                     <div className="flex items-center gap-[9px]">
-                      <span className="grid h-[36px] w-[36px] shrink-0 place-items-center rounded-full bg-[#dbeafe] text-[10px] font-bold text-[#1d4ed8]">
+                      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-[#dfeeff] text-[10px] font-bold text-[#1d4ed8]">
                         {row.enumerator
                           .split(" ")
                           .map((part) => part[0])
                           .join("")}
                       </span>
-                      <span className="text-[13px] font-medium text-[#374151]">{row.enumerator}</span>
+                      <span className="text-[12.5px] font-medium text-[#374151]">{row.enumerator}</span>
                     </div>
                   </td>
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#6b7280]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#6b7280]">
                     <span className="flex items-center gap-[5px]">
                       <MapPin size={14} className="text-[#9ca3af]" />
                       {row.location}
                     </span>
                   </td>
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45] !text-[#374151]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#374151] tabular-nums">
                     {row.submitted}
                   </td>
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45]">
                     <span
-                      className={`flex items-center gap-[6px] text-[13px] font-medium ${row.sync === "Pending" ? "text-[#d97706]" : "text-[#059669]"}`}
+                      className={`flex items-center gap-[6px] text-[12.5px] font-medium ${row.sync === "Pending" ? "text-[#d97706]" : "text-[#059669]"}`}
                     >
                       <i
                         className={`h-[8px] w-[8px] shrink-0 rounded-full ${row.sync === "Pending" ? "bg-[#fbbf24]" : "bg-[#34d399]"}`}
@@ -287,15 +332,15 @@ export function SubmissionsPage() {
                       {row.sync}
                     </span>
                   </td>
-                  <td className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45]">
                     <span className={`${reviewBadgeClass} ${reviewStyles[row.review]}`}>{row.review}</span>
                   </td>
                   <td
-                    className="!whitespace-nowrap !px-[16px] !py-[10px] !text-[13px] !leading-[1.45]"
+                    className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45]"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <button
-                      className="cursor-pointer border-0 bg-transparent p-0 text-[#9ca3af] hover:text-[#6b7280]"
+                      className="cursor-pointer border-0 bg-transparent p-0 text-[#9ca3af] transition-colors hover:text-[#6b7280]"
                       aria-label={`Actions for ${row.id}`}
                     >
                       <MoreHorizontal size={18} />
@@ -306,7 +351,7 @@ export function SubmissionsPage() {
               {visible.length === 0 && (
                 <tr>
                   <td
-                    className="!whitespace-nowrap !border-t !border-[#edf1f5] !px-[13px] !py-[12px] !text-[11px] !leading-[1.45] !text-[#536177]"
+                    className="whitespace-nowrap border-t border-[#edf1f5] px-4 py-3 text-[11px] leading-[1.45] text-[#536177]"
                     colSpan={9}
                   >
                     <div className="p-[38px] text-center text-[12px] text-[#8190a4]">
@@ -319,15 +364,18 @@ export function SubmissionsPage() {
           </table>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e9eef4] bg-[#fafbfc] px-5 py-3.5 text-xs text-[#64748b]">
-          <span className="text-xs text-[#64748b]">
-            Showing <strong className="font-semibold text-[#1e293b]">{firstVisibleRow}–{lastVisibleRow}</strong> of{" "}
-            <strong className="font-semibold text-[#1e293b]">{visible.length.toLocaleString()}</strong> submissions
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e9eef4] bg-[#fafbfc] px-5 py-3.5 text-[11.5px] text-[#64748b]">
+          <span className="text-[11.5px] text-[#64748b]">
+            Showing{" "}
+            <strong className="font-semibold text-[#1e293b]">
+              {firstVisibleRow}–{lastVisibleRow}
+            </strong>{" "}
+            of <strong className="font-semibold text-[#1e293b]">{visible.length.toLocaleString()}</strong> submissions
           </span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-xs font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-[11.5px] font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={activePage === 1}
               aria-label="Previous page"
@@ -335,12 +383,13 @@ export function SubmissionsPage() {
               <ChevronLeft size={14} />
               <span className="max-[520px]:hidden">Previous</span>
             </button>
-            <div className="flex items-center gap-1">
+
+            <div className="flex items-center gap-1 rounded-md border border-[#e5ebf4] bg-white px-1 py-1 shadow-sm">
               {pageNumbers.map((page, idx) =>
                 page === "..." ? (
                   <span
                     key={`ellipsis-${idx}`}
-                    className="inline-flex h-8 min-w-[28px] items-center justify-center text-xs font-medium text-[#94a3b8]"
+                    className="inline-flex h-7 min-w-[26px] items-center justify-center text-[11.5px] font-medium text-[#94a3b8]"
                   >
                     …
                   </span>
@@ -348,10 +397,10 @@ export function SubmissionsPage() {
                   <button
                     key={page}
                     type="button"
-                    className={`inline-flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors shadow-sm ${
+                    className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-none px-2 text-[11.5px] font-semibold transition-colors ${
                       page === activePage
-                        ? "border border-brand bg-brand text-white shadow-sm"
-                        : "border border-[#dce5ef] bg-white text-[#475569] hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7]"
+                        ? "bg-[#0b51b7] text-white shadow-sm"
+                        : "text-[#475569] hover:bg-[#f1f6fd] hover:text-[#0b51b7]"
                     }`}
                     onClick={() => setCurrentPage(page as number)}
                   >
@@ -360,9 +409,10 @@ export function SubmissionsPage() {
                 ),
               )}
             </div>
+
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-xs font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-[11.5px] font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
               onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
               disabled={activePage === totalPages}
               aria-label="Next page"
@@ -374,96 +424,97 @@ export function SubmissionsPage() {
         </footer>
       </Card>
 
-      {record ? false && (
-        <div className="fixed inset-0 z-20 bg-[#102a4330]" onClick={() => setSelected(null)}>
-          <section
-            className="absolute bottom-0 right-0 top-0 flex w-[min(460px,100%)] flex-col bg-white shadow-[-16px_0_35px_#102a4324]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="!flex !h-auto !items-start !justify-between !border-b !border-[#e8eef4] !bg-white !px-[21px] !py-[20px]">
-              <div>
-                <p className={eyebrowClass}>SUBMISSION RECORD</p>
-                <h2 className="my-[4px] mb-[8px] text-[22px] font-normal text-[#303e67]">{record?.id}</h2>
-                <span className={`${reviewBadgeClass} ${reviewStyles[record?.review ?? "Ready"]}`}>{record?.review}</span>
-              </div>
-              <button
-                className="cursor-pointer border-0 bg-transparent p-0 text-[#8593a6]"
-                onClick={() => setSelected(null)}
-                aria-label="Close submission"
+      {record
+        ? false && (
+            <div className="fixed inset-0 z-20 bg-[#102a4330]" onClick={() => setSelected(null)}>
+              <section
+                className="absolute bottom-0 right-0 top-0 flex w-[min(460px,100%)] flex-col bg-white shadow-[-16px_0_35px_#102a4324]"
+                onClick={(event) => event.stopPropagation()}
               >
-                <X size={19} />
-              </button>
-            </header>
+                <header className="!flex !h-auto !items-start !justify-between !border-b !border-[#e8eef4] !bg-white !px-[21px] !py-[20px]">
+                  <div>
+                    <p className={eyebrowClass}>SUBMISSION RECORD</p>
+                    <h2 className="my-[4px] mb-[8px] text-[22px] font-normal text-[#303e67]">{record?.id}</h2>
+                    <span className={`${reviewBadgeClass} ${reviewStyles[record?.review ?? "Ready"]}`}>
+                      {record?.review}
+                    </span>
+                  </div>
+                  <button
+                    className="cursor-pointer border-0 bg-transparent p-0 text-[#8593a6]"
+                    onClick={() => setSelected(null)}
+                    aria-label="Close submission"
+                  >
+                    <X size={19} />
+                  </button>
+                </header>
 
-            <div className="flex-1 overflow-auto px-[21px] py-[18px]">
-              <div className="mb-[22px] flex gap-[7px]">
-                <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-normal text-[#0b51b7]">
-                  Open full record <ExternalLink size={14} />
-                </button>
-                <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-normal text-[#0b51b7]">
-                  Download
-                </button>
-              </div>
-              <h3 className="!m-0 !mb-[12px] text-[10px] font-bold tracking-[.35px] text-[#65758c] uppercase">
-                Collection details
-              </h3>
-              <dl className="!m-0 grid grid-cols-2 gap-[14px] max-[460px]:grid-cols-1">
-                <div>
-                  <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Project</dt>
-                  <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.project}</dd>
+                <div className="flex-1 overflow-auto px-[21px] py-[18px]">
+                  <div className="mb-[22px] flex gap-[7px]">
+                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-normal text-[#0b51b7]">
+                      Open full record <ExternalLink size={14} />
+                    </button>
+                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-normal text-[#0b51b7]">
+                      Download
+                    </button>
+                  </div>
+                  <h3 className="!m-0 !mb-[12px] text-[10px] font-bold tracking-[.35px] text-[#65758c] uppercase">
+                    Collection details
+                  </h3>
+                  <dl className="!m-0 grid grid-cols-2 gap-[14px] max-[460px]:grid-cols-1">
+                    <div>
+                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Project</dt>
+                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.project}</dd>
+                    </div>
+                    <div>
+                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Form</dt>
+                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.form}</dd>
+                    </div>
+                    <div>
+                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Collector</dt>
+                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.enumerator}</dd>
+                    </div>
+                    <div>
+                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Location</dt>
+                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.location}</dd>
+                    </div>
+                    <div>
+                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Received</dt>
+                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.submitted}</dd>
+                    </div>
+                    <div>
+                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Device</dt>
+                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.device}</dd>
+                    </div>
+                  </dl>
+                  <div className="mt-[24px] border-t border-[#edf1f5] pt-[19px]">
+                    <h3 className="!m-0 !mb-[12px] text-[10px] font-bold tracking-[.35px] text-[#65758c] uppercase">
+                      Review activity
+                    </h3>
+                    <p className="!m-0 flex items-center gap-[5px] text-[11px] text-[#77869a]">
+                      <span className="mr-[3px] grid h-[25px] w-[25px] place-items-center rounded-full bg-[#e8f1fb] text-[8px] font-bold text-[#2866a8]">
+                        AJ
+                      </span>
+                      <b className="text-[#4d5d72]">Amara Johnson</b> has not reviewed this record yet.
+                      <small className="ml-auto text-[#9ca8b6]">Today</small>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Form</dt>
-                  <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.form}</dd>
-                </div>
-                <div>
-                  <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Collector</dt>
-                  <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.enumerator}</dd>
-                </div>
-                <div>
-                  <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Location</dt>
-                  <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.location}</dd>
-                </div>
-                <div>
-                  <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Received</dt>
-                  <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.submitted}</dd>
-                </div>
-                <div>
-                  <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Device</dt>
-                  <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.device}</dd>
-                </div>
-              </dl>
-              <div className="mt-[24px] border-t border-[#edf1f5] pt-[19px]">
-                <h3 className="!m-0 !mb-[12px] text-[10px] font-bold tracking-[.35px] text-[#65758c] uppercase">
-                  Review activity
-                </h3>
-                <p className="!m-0 flex items-center gap-[5px] text-[11px] text-[#77869a]">
-                  <span className="mr-[3px] grid h-[25px] w-[25px] place-items-center rounded-full bg-[#e8f1fb] text-[8px] font-bold text-[#2866a8]">
-                    AJ
-                  </span>
-                  <b className="text-[#4d5d72]">Amara Johnson</b> has not reviewed this record yet.
-                  <small className="ml-auto text-[#9ca8b6]">Today</small>
-                </p>
-              </div>
+
+                <footer className="flex justify-end gap-[7px] border-t border-[#e7edf3] bg-white px-[21px] py-[14px] max-[460px]:flex-wrap">
+                  <button className="cursor-pointer rounded-[5px] border border-[#e2b8be] bg-white px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-[#c55763]">
+                    Reject
+                  </button>
+                  <button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-[#5c6b7f]">
+                    Request correction
+                  </button>
+                  <button className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-white">
+                    Mark ready
+                  </button>
+                </footer>
+              </section>
             </div>
-
-            <footer className="flex justify-end gap-[7px] border-t border-[#e7edf3] bg-white px-[21px] py-[14px] max-[460px]:flex-wrap">
-              <button className="cursor-pointer rounded-[5px] border border-[#e2b8be] bg-white px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-[#c55763]">
-                Reject
-              </button>
-              <button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-[#5c6b7f]">
-                Request correction
-              </button>
-              <button className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-white">
-                Mark ready
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
+          )
+        : null}
     </div>
   );
 }
-
-
-

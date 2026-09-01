@@ -13,6 +13,8 @@ import {
   Menu,
   Search,
   Settings,
+  ShieldCheck,
+  RefreshCw,
   Users,
   LogOut,
 } from "lucide-react";
@@ -43,12 +45,14 @@ const navigation: NavSection[] = [
     items: [
       { name: "Kobo connections", path: "/forms/connections", icon: FileText },
       { name: "Submissions", path: "/submissions", icon: FileText },
-      { name: "Field Enumerator", path: "/enumerators", icon: Users },
+      { name: "Field enumerators", path: "/enumerators", icon: Users },
+      { name: "Sync history", path: "/sync", icon: RefreshCw },
     ],
   },
   {
-    label: "Data quality",
+    label: "Analysis & reporting",
     items: [
+      { name: "Quality center", path: "/quality", icon: ShieldCheck },
       { name: "Explore & analyze", path: "/analytics", icon: BarChart3 },
       { name: "Reports", path: "/reports", icon: FileBarChart },
     ],
@@ -56,14 +60,16 @@ const navigation: NavSection[] = [
   {
     label: "Administration",
     items: [
+      { name: "Team", path: "/team", icon: Users },
       { name: "Settings", path: "/settings", icon: Settings },
     ],
   },
 ];
 
-function UserMenu({ logout, navigate }: { logout: () => Promise<void>; navigate: (path: string, opts?: object) => void }) {
+function UserMenu({ logout, navigate, name, role }: { logout: () => Promise<void>; navigate: (path: string, opts?: object) => void; name: string; role: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -83,7 +89,7 @@ function UserMenu({ logout, navigate }: { logout: () => Promise<void>; navigate:
         aria-expanded={open}
         title="User menu"
       >
-        AJ
+        {initials}
       </button>
       {open && (
         <div
@@ -92,11 +98,11 @@ function UserMenu({ logout, navigate }: { logout: () => Promise<void>; navigate:
         >
           <div className="flex items-center gap-2.5 border-b border-[#f0f2f5] px-4 py-3">
             <span className="grid size-[32px] flex-none place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15]">
-              AJ
+              {initials}
             </span>
             <div>
-              <strong className="block text-[13px] font-semibold text-[#1b2836]">Amara Johnson</strong>
-              <small className="block text-[11px] text-[#657182]">Data Manager</small>
+              <strong className="block text-[13px] font-semibold text-[#1b2836]">{name}</strong>
+              <small className="block text-[11px] text-[#657182]">{role}</small>
             </div>
           </div>
           <button
@@ -126,6 +132,9 @@ export function AppShell() {
   const pendingCount = pendingSync?.pending_count ?? 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const displayName = user?.username || user?.email || "User";
+  const displayRole = isOrganizationAdmin ? "Organization administrator" : "Field team member";
+  const currentDate = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
   const page =
     pathname === "/" ? "Dashboard" : pathname.split("/")[1].replace(/\b\w/g, (letter) => letter.toUpperCase());
   return (
@@ -192,7 +201,7 @@ export function AppShell() {
           <div className="flex items-center gap-3 text-[13px]">
             <span>{page}</span>
             <i className="not-italic text-[#d0d5dc]">/</i>
-            <strong className="font-medium text-[#1b2836] max-[560px]:hidden">Tuesday, August 19</strong>
+            <strong className="font-medium text-[#1b2836] max-[560px]:hidden">{currentDate}</strong>
           </div>
           <div className="flex items-center gap-[17px] max-[560px]:gap-3">
             <Search size={19} />
@@ -203,7 +212,7 @@ export function AppShell() {
             <span className="flex items-center gap-[5px] border-l border-[#e7e9ed] pl-[17px] text-[13px] max-[560px]:hidden">
               <HelpCircle size={17} /> Help
             </span>
-            <UserMenu logout={logout} navigate={navigate} />
+            <UserMenu logout={logout} navigate={navigate} name={displayName} role={displayRole} />
           </div>
         </header>
         <div className="mx-auto max-w-[1500px] px-6 pb-10 pt-6 max-[1440px]:px-7 max-[1440px]:pb-[42px] max-[1440px]:pt-[27px] max-[560px]:px-[14px] max-[560px]:pb-[35px] max-[560px]:pt-[21px]">

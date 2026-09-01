@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, CircleAlert, RefreshCw, ShieldCheck, X } from "lucide-react";
-import { Button, LoadingState, Ring } from "../../components/ui";
+import { Button, LoadingState, PageHeader, Ring } from "../../components/ui";
 import { apiClient, ApiError, type ApiQualityIssue } from "../../services/apiClient";
 
 const severityStyles = {
@@ -69,17 +69,12 @@ export function QualityCenterPage() {
 
   return (
     <div className="text-[#243047]">
-      <header className="mb-5 flex items-start justify-between gap-4 max-[700px]:flex-col">
-        <div>
-          <p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.09em] text-brand">Data quality</p>
-          <h1 className="m-0 text-[28px] font-bold tracking-[-.45px]">Quality center</h1>
-          <p className="mb-0 mt-1 text-[13px] text-[#708099]">Validate real Kobo records before they enter analysis and reporting.</p>
-        </div>
+      <PageHeader eyebrow="Data quality" title="Quality center" description="Validate real Kobo records before they enter analysis and reporting.">
         <Button onClick={() => { setMessage(""); runMutation.mutate(); }} disabled={runMutation.isPending}>
           {runMutation.isPending ? <Ring className="size-4" /> : <ShieldCheck size={16} />}
           {runMutation.isPending ? "Validating…" : "Run validation"}
         </Button>
-      </header>
+      </PageHeader>
 
       {message && <p className="rounded-md border border-[#bfe4cf] bg-[#f0fbf5] p-3 text-xs text-[#18794e]">{message}</p>}
       {error && <p className="rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{error instanceof ApiError ? error.message : "Unable to complete the quality request."}</p>}

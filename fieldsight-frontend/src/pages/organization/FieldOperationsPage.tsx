@@ -2,13 +2,10 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
-import {
-  AdminStatus,
-  AdminTableFooter,
-  adminInputClass,
-} from "../../components/superadmin/AdminUi";
+import { AdminStatus, AdminTableFooter, adminInputClass } from "../../components/superadmin/AdminUi";
 import { Button } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/Table";
 import { apiClient, ApiError, type ApiEnumerator, type EnumeratorUpdateInput } from "../../services/apiClient";
 
 export function FieldOperationsPage() {
@@ -49,7 +46,9 @@ export function FieldOperationsPage() {
     queryFn: apiClient.enumerators,
     enabled: isOrganizationAdmin,
   });
-  const organizationId = user?.memberships.find((membership) => membership.role === "organization_admin")?.organization_id;
+  const organizationId = user?.memberships.find(
+    (membership) => membership.role === "organization_admin",
+  )?.organization_id;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
@@ -102,7 +101,8 @@ export function FieldOperationsPage() {
       await queryClient.invalidateQueries({ queryKey: ["organization-enumerators"] });
       await queryClient.invalidateQueries({ queryKey: ["organization-enumerator", selectedMembershipId] });
     },
-  });  const enumerators = enumeratorsQuery.data ?? [];
+  });
+  const enumerators = enumeratorsQuery.data ?? [];
   const projects = useMemo(
     () => [...(projectsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [projectsQuery.data],
@@ -149,7 +149,9 @@ export function FieldOperationsPage() {
     const csv = [
       ["Full name", "Email", "Username", "Employee ID", "Phone", "Address", "Gender", "Status", "Created"],
       ...rows,
-    ].map((row) => row.map((cell) => escapeCsv(cell)).join(",")).join("\r\n");
+    ]
+      .map((row) => row.map((cell) => escapeCsv(cell)).join(","))
+      .join("\r\n");
     const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -182,7 +184,8 @@ export function FieldOperationsPage() {
     setEditEmergencyContactName(selectedEnumerator.emergency_contact_name ?? "");
     setEditEmergencyContactPhone(selectedEnumerator.emergency_contact_phone ?? "");
     setEditNotes(selectedEnumerator.notes ?? "");
-  }, [selectedEnumerator]);  async function createEnumerator(event: FormEvent<HTMLFormElement>) {
+  }, [selectedEnumerator]);
+  async function createEnumerator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isOrganizationAdmin) return;
     setFormError("");
@@ -258,7 +261,8 @@ export function FieldOperationsPage() {
           emergency_contact_phone: editEmergencyContactPhone.trim() || null,
           notes: editNotes.trim() || null,
         },
-      });      setSelectedMembershipId(null);
+      });
+      setSelectedMembershipId(null);
     } catch (requestError) {
       setActionError(requestError instanceof ApiError ? requestError.message : "Unable to update the enumerator.");
     }
@@ -275,9 +279,13 @@ export function FieldOperationsPage() {
     <>
       <div className="mb-[19px] flex items-start justify-between gap-3 max-[700px]:flex-col">
         <div>
-          <p className="!m-0 !mb-[6px] text-[11px] font-bold uppercase leading-[1.4] tracking-[.08em] text-[#0b51b7]">ORGANIZATION ACCESS</p>
-          <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px]">Enumerators</h1>
-          <p className="!m-0 text-[13px] text-[#75849a]">Create and manage enumerator accounts for your organization.</p>
+          <p className="!m-0 !mb-[6px] text-[10px] font-bold uppercase leading-[1.4] tracking-[.08em] text-[#0b51b7]">
+            ORGANIZATION ACCESS
+          </p>
+          <h1 className="!m-0 !font-sans !text-[2rem] !font-bold !leading-[1.15] !tracking-[-.05em]">Enumerators</h1>
+          <p className="!m-0 text-[0.8125rem] text-[#75849a]">
+            Create and manage enumerator accounts for your organization.
+          </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus size={15} /> Create enumerator
@@ -286,117 +294,161 @@ export function FieldOperationsPage() {
       {loadError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{loadError}</p>}
       {actionError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{actionError}</p>}{" "}
       <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] p-[17px]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]"><Users size={19} /></span>
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
+            <Users size={19} />
+          </span>
           <span className="text-[11px] font-medium text-[#6f7d8a]">All enumerators</span>
-          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{enumerators.length.toLocaleString()}</strong>
+          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
+            {enumerators.length.toLocaleString()}
+          </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Organization membership accounts</small>
         </Card>
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] p-[17px]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><UserCheck size={19} /></span>
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
+            <UserCheck size={19} />
+          </span>
           <span className="text-[11px] font-medium text-[#6f7d8a]">Active</span>
           <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{activeCount.toLocaleString()}</strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Can access assigned field work</small>
         </Card>
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] p-[17px]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]"><UserX size={19} /></span>
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
+          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
+            <UserX size={19} />
+          </span>
           <span className="text-[11px] font-medium text-[#6f7d8a]">Inactive</span>
-          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{(enumerators.length - activeCount).toLocaleString()}</strong>
+          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
+            {(enumerators.length - activeCount).toLocaleString()}
+          </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Access has been disabled</small>
         </Card>
       </section>
       <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-          <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
-            <Search size={15} />
-            <input
-              className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, username, or email…"
-            />
-          </label>
-          <select
-            className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
-            value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
-          >
-            <option value="">All projects</option>
-            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-          </select>
-          <select
-            className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
-            value={exportPeriod}
-            onChange={(event) => setExportPeriod(event.target.value as typeof exportPeriod)}
-            aria-label="Enumerator CSV export period"
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="biweekly">Biweekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={!exportEnumerators.length}
-            className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Download size={16} />
-            Export data
-          </button>
-        </div>
+        <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
+          <Search size={15} />
+          <input
+            className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name, username, or email…"
+          />
+        </label>
+        <select
+          className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
+          value={projectId}
+          onChange={(event) => setProjectId(event.target.value)}
+        >
+          <option value="">All projects</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
+          value={exportPeriod}
+          onChange={(event) => setExportPeriod(event.target.value as typeof exportPeriod)}
+          aria-label="Enumerator CSV export period"
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Biweekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+        <button
+          type="button"
+          onClick={exportCsv}
+          disabled={!exportEnumerators.length}
+          className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Download size={16} />
+          Export data
+        </button>
+      </div>
       <Card className="mt-[16px]">
         <div className="overflow-x-auto">
-          <table className="!w-full !min-w-[1050px] !border-collapse !text-left [&_thead_th]:!border-b [&_thead_th]:!border-[#d1d5db] [&_thead_th]:!bg-[#e9ecf0] [&_thead_th]:!px-[16px] [&_thead_th]:!py-[14px] [&_thead_th]:!text-[13px] [&_thead_th]:!font-semibold [&_thead_th]:!text-[#1f2937] [&_tbody_td]:!px-[16px] [&_tbody_td]:!py-[10px] [&_tbody_td]:!text-[13px] [&_tbody_td]:!text-[#536177]">
-            <thead>
-              <tr>
-                <th>Full name</th>
-                <th>Employee ID</th>
-                <th>Phone</th>
-                <th>Address</th>
-                <th>Gender</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th />
-
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="min-w-[1050px] border-separate border-spacing-0 text-left">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Full name
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Employee ID
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Phone
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Address
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Gender
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Role
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Status
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Created
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {enumeratorsQuery.isLoading && (
-                <tr>
-                  <td colSpan={9} className="text-center">
+                <TableRow>
+                  <TableCell colSpan={9} className="px-4 py-6 text-center text-[12px] text-[#8190a4]">
                     Loading enumerators…
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
               {filteredEnumerators.map((enumerator) => (
-                <tr key={enumerator.membership_id} className="border-b border-[#f0f2f5] bg-white hover:bg-[#f5f9fe]">
-                  <td>
+                <TableRow
+                  key={enumerator.membership_id}
+                  className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]"
+                >
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
                     <div>
-                      <strong className="block text-[13px] font-semibold text-[#1f2937]">{enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}</strong>
-                      <small className="mt-[2px] block text-[11px] font-normal text-[#9ca8b6]">
+                      <strong className="block text-[12.5px] font-semibold text-[#1f2937]">
+                        {enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}
+                      </strong>
+                      <small className="mt-[2px] block text-[10.5px] font-normal text-[#8a99ad]">
                         {enumerator.email} · @{enumerator.username ?? "not set"}
                       </small>
                     </div>
-                  </td>
-                  <td>{enumerator.employee_id ?? "—"}</td>
-                  <td>{enumerator.phone_number ?? "—"}</td>
-                  <td className="max-w-[190px] truncate">{enumerator.address ?? "—"}</td>
-                  <td>{enumerator.gender ?? "�"}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                    {enumerator.employee_id ?? "—"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                    {enumerator.phone_number ?? "—"}
+                  </TableCell>
+                  <TableCell className="max-w-[190px] truncate px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                    {enumerator.address ?? "—"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                    {enumerator.gender ?? "—"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
                     <span className="inline-flex items-center gap-1.5">
                       <ShieldCheck size={13} className="text-[#8793a2]" /> Enumerator
                     </span>
-                  </td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
                     <AdminStatus value={enumerator.is_active ? "Active" : "Suspended"} />
-                  </td>
-                  <td>{new Date(enumerator.created_at).toLocaleDateString()}</td>
-                  <td>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177] tabular-nums">
+                    {new Date(enumerator.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        className="grid size-7 place-items-center rounded border border-[#dfe4e8] bg-white text-[#66788a]"
+                        className="grid size-7 place-items-center rounded border border-[#dfe4e8] bg-white text-[#66788a] transition-colors hover:border-[#c7d5e8] hover:text-[#475569]"
                         onClick={() => openEnumerator(enumerator)}
                         aria-label={"Manage " + (enumerator.full_name ?? enumerator.username ?? enumerator.email)}
                         title="Manage enumerator"
@@ -404,16 +456,18 @@ export function FieldOperationsPage() {
                         <MoreHorizontal size={15} />
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {!enumeratorsQuery.isLoading && filteredEnumerators.length === 0 && (
             <p className="m-0 p-10 text-center text-xs text-[#8793a2]">No enumerators match your search.</p>
           )}
         </div>
-        <div className="px-[14px] pb-[11px]"><AdminTableFooter shown={filteredEnumerators.length} total={enumerators.length} /></div>
+        <div className="px-[14px] pb-[11px]">
+          <AdminTableFooter shown={filteredEnumerators.length} total={enumerators.length} />
+        </div>
       </Card>
       {selectedMembershipId && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeEnumerator}>
@@ -472,7 +526,11 @@ export function FieldOperationsPage() {
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Role
-                    <input className={manageFieldClass + " cursor-default text-[#7b8794]"} value="Enumerator" readOnly />
+                    <input
+                      className={manageFieldClass + " cursor-default text-[#7b8794]"}
+                      value="Enumerator"
+                      readOnly
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Status
@@ -495,36 +553,79 @@ export function FieldOperationsPage() {
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Phone number
-                    <input type="tel" className={manageFieldClass} value={editPhoneNumber} onChange={(event) => setEditPhoneNumber(event.target.value)} maxLength={32} />
+                    <input
+                      type="tel"
+                      className={manageFieldClass}
+                      value={editPhoneNumber}
+                      onChange={(event) => setEditPhoneNumber(event.target.value)}
+                      maxLength={32}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Employee ID
-                    <input className={manageFieldClass} value={editEmployeeId} onChange={(event) => setEditEmployeeId(event.target.value)} maxLength={64} />
+                    <input
+                      className={manageFieldClass}
+                      value={editEmployeeId}
+                      onChange={(event) => setEditEmployeeId(event.target.value)}
+                      maxLength={64}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Gender
-                    <input className={manageFieldClass} value={editGender} onChange={(event) => setEditGender(event.target.value)} maxLength={32} />
+                    <input
+                      className={manageFieldClass}
+                      value={editGender}
+                      onChange={(event) => setEditGender(event.target.value)}
+                      maxLength={32}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Date of birth
-                    <input type="date" className={manageFieldClass} value={editDateOfBirth} onChange={(event) => setEditDateOfBirth(event.target.value)} />
+                    <input
+                      type="date"
+                      className={manageFieldClass}
+                      value={editDateOfBirth}
+                      onChange={(event) => setEditDateOfBirth(event.target.value)}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                     Address
-                    <input className={manageFieldClass} value={editAddress} onChange={(event) => setEditAddress(event.target.value)} maxLength={300} />
+                    <input
+                      className={manageFieldClass}
+                      value={editAddress}
+                      onChange={(event) => setEditAddress(event.target.value)}
+                      maxLength={300}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Emergency contact name
-                    <input className={manageFieldClass} value={editEmergencyContactName} onChange={(event) => setEditEmergencyContactName(event.target.value)} maxLength={200} />
+                    <input
+                      className={manageFieldClass}
+                      value={editEmergencyContactName}
+                      onChange={(event) => setEditEmergencyContactName(event.target.value)}
+                      maxLength={200}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                     Emergency contact phone
-                    <input type="tel" className={manageFieldClass} value={editEmergencyContactPhone} onChange={(event) => setEditEmergencyContactPhone(event.target.value)} maxLength={32} />
+                    <input
+                      type="tel"
+                      className={manageFieldClass}
+                      value={editEmergencyContactPhone}
+                      onChange={(event) => setEditEmergencyContactPhone(event.target.value)}
+                      maxLength={32}
+                    />
                   </label>
                   <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
                     Notes
-                    <textarea className={manageFieldClass + " min-h-[70px] resize-y"} value={editNotes} onChange={(event) => setEditNotes(event.target.value)} maxLength={2000} />
-                  </label>                </>
+                    <textarea
+                      className={manageFieldClass + " min-h-[70px] resize-y"}
+                      value={editNotes}
+                      onChange={(event) => setEditNotes(event.target.value)}
+                      maxLength={2000}
+                    />
+                  </label>{" "}
+                </>
               )}
               {actionError && <p className="m-0 text-xs text-[#b42318] sm:col-span-2">{actionError}</p>}
             </div>
@@ -714,6 +815,3 @@ export function FieldOperationsPage() {
     </>
   );
 }
-
-
-

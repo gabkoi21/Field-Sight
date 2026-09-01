@@ -107,12 +107,12 @@ export function ProjectWorkspacePage() {
             </span>
             <div>
               <div className="mb-1 flex flex-wrap items-center gap-2">
-                <h1 className="m-0 text-[27px] font-bold leading-tight tracking-[-.45px] text-[#1d2a38]">
+                <h1 className="m-0 text-[2rem] font-bold leading-tight tracking-[-.05em] text-[#1d2a38]">
                   {project.name}
                 </h1>
                 <Badge value={project.status} />
               </div>
-              <p className="m-0 text-xs text-[#77869b]">
+              <p className="m-0 text-[0.8125rem] text-[#77869b]">
                 Project workspace <span className="mx-1 text-[#c6ced8]"> / </span>
                 {project.kobo_form_name ? "Kobo form connected" : "No form connected"}
               </p>
@@ -144,7 +144,9 @@ export function ProjectWorkspacePage() {
         </p>
       )}
       <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
-        <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[13px] font-semibold text-brand">Overview</span>
+        <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[13px] font-semibold text-brand">
+          Overview
+        </span>
         <NavLink
           to={`/analytics?project_id=${project.id}`}
           className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]"
@@ -158,7 +160,11 @@ export function ProjectWorkspacePage() {
           tone="blue"
           label="Submissions"
           value={totalSubmissions.toLocaleString()}
-          note={project.target_sample_size ? "of " + project.target_sample_size.toLocaleString() + " target" : "No target configured"}
+          note={
+            project.target_sample_size
+              ? "of " + project.target_sample_size.toLocaleString() + " target"
+              : "No target configured"
+          }
         />
         <Metric
           icon={FileCheck2}
@@ -251,7 +257,8 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
     const key =
       view === "counties"
         ? (raw["household/county"] as string | undefined)
-        : ((raw["household/community"] as string | undefined) ?? (raw["household/community_or_settlement"] as string | undefined));
+        : ((raw["household/community"] as string | undefined) ??
+          (raw["household/community_or_settlement"] as string | undefined));
     if (key && typeof key === "string" && key.trim()) {
       locationCounts.set(key.trim(), (locationCounts.get(key.trim()) ?? 0) + 1);
     }
@@ -262,7 +269,11 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   return (
     <Card>
       <CardHeader
-        title={<><MapPin size={15} className="text-brand" /> Top 3 locations</>}
+        title={
+          <>
+            <MapPin size={15} className="text-brand" /> Top 3 locations
+          </>
+        }
         subtitle={`Leading 3 ${view} by submission count`}
       >
         <div className="relative">
@@ -274,7 +285,10 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
             <option value="counties">Counties</option>
             <option value="communities">Communities</option>
           </select>
-          <ChevronDown size={13} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]" />
+          <ChevronDown
+            size={13}
+            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]"
+          />
         </div>
       </CardHeader>
 
@@ -314,7 +328,15 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   );
 }
 
-function LocationDonutChart({ segments, total, colors }: { segments: [string, number][]; total: number; colors: string[] }) {
+function LocationDonutChart({
+  segments,
+  total,
+  colors,
+}: {
+  segments: [string, number][];
+  total: number;
+  colors: string[];
+}) {
   let cum = 0;
   const stops = segments.map(([, count], i) => {
     const pct = total ? (count / total) * 100 : 0;
@@ -326,7 +348,10 @@ function LocationDonutChart({ segments, total, colors }: { segments: [string, nu
 
   return (
     <div className="flex justify-center py-2">
-      <div className="relative size-[175px] rounded-full shadow-sm" style={{ background: `conic-gradient(${stops.join(", ")})` }}>
+      <div
+        className="relative size-[175px] rounded-full shadow-sm"
+        style={{ background: `conic-gradient(${stops.join(", ")})` }}
+      >
         <span className="absolute inset-[28px] grid place-items-center rounded-full bg-white text-center shadow-inner">
           <div>
             <strong className="block text-[22px] font-bold leading-none text-[#1d2a38]">{total}</strong>
@@ -345,14 +370,13 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
       const name = item.enumerator?.trim() || "Unassigned";
       const existing = map.get(name) ?? { count: 0 };
       const lastSub =
-        !existing.lastSubmission || (item.submitted_at && new Date(item.submitted_at).getTime() > new Date(existing.lastSubmission).getTime())
-          ? item.submitted_at ?? existing.lastSubmission
+        !existing.lastSubmission ||
+        (item.submitted_at && new Date(item.submitted_at).getTime() > new Date(existing.lastSubmission).getTime())
+          ? (item.submitted_at ?? existing.lastSubmission)
           : existing.lastSubmission;
       map.set(name, { count: existing.count + 1, lastSubmission: lastSub });
     }
-    return [...map.entries()]
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.count - a.count);
+    return [...map.entries()].map(([name, data]) => ({ name, ...data })).sort((a, b) => b.count - a.count);
   }, [submissions]);
 
   const total = submissions.length;
@@ -360,10 +384,7 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
   return (
     <Card className="flex h-full flex-col justify-between p-[17px]">
       <div>
-        <CardHeader
-          title="Enumerator leaderboard"
-          subtitle="Contributions to this project"
-        >
+        <CardHeader title="Enumerator leaderboard" subtitle="Contributions to this project">
           <span className="rounded-[5px] border border-[#dce4ed] bg-[#f8fafc] px-2 py-1 text-[10px] font-semibold text-[#536177]">
             Top 5
           </span>
@@ -380,10 +401,15 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
             const badgeClass = badgeStyles[index] ?? "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0]";
 
             return (
-              <div key={item.name} className="flex flex-col gap-1 rounded-md border border-[#f0f3f7] bg-[#fbfcfd] p-2.5 transition-colors hover:bg-white hover:shadow-sm">
+              <div
+                key={item.name}
+                className="flex flex-col gap-1 rounded-md border border-[#f0f3f7] bg-[#fbfcfd] p-2.5 transition-colors hover:bg-white hover:shadow-sm"
+              >
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className={`grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold ${badgeClass}`}>
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold ${badgeClass}`}
+                    >
                       {index + 1}
                     </span>
                     <span className="truncate text-xs font-semibold text-[#1e293b]" title={item.name}>
@@ -420,7 +446,10 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
         </div>
       </div>
       <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
-        <NavLink to="/field-enumerators" className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline">
+        <NavLink
+          to="/field-enumerators"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+        >
           View field team <ArrowRight size={12} />
         </NavLink>
       </div>
@@ -428,13 +457,7 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
   );
 }
 
-function ProjectExceptionAlerts({
-  submissions,
-  projectName,
-}: {
-  submissions: ApiSubmission[];
-  projectName: string;
-}) {
+function ProjectExceptionAlerts({ submissions, projectName }: { submissions: ApiSubmission[]; projectName: string }) {
   const anomalies = useMemo(() => {
     return submissions
       .map((sub) => {
@@ -451,11 +474,10 @@ function ProjectExceptionAlerts({
   return (
     <Card className="flex h-full flex-col justify-between p-[17px]">
       <div>
-        <CardHeader
-          title="Automated Exception Alerts"
-          subtitle="Flagged data & rule anomalies"
-        >
-          <span className={`rounded-[5px] border px-2 py-1 text-[10px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}>
+        <CardHeader title="Automated Exception Alerts" subtitle="Flagged data & rule anomalies">
+          <span
+            className={`rounded-[5px] border px-2 py-1 text-[10px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}
+          >
             {anomalies.length} {anomalies.length === 1 ? "exception" : "exceptions"}
           </span>
         </CardHeader>
@@ -471,7 +493,10 @@ function ProjectExceptionAlerts({
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {issues.map((issue) => (
-                  <span key={issue} className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#991b1b]">
+                  <span
+                    key={issue}
+                    className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#991b1b]"
+                  >
                     {issue}
                   </span>
                 ))}
@@ -492,7 +517,10 @@ function ProjectExceptionAlerts({
         </div>
       </div>
       <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
-        <NavLink to="/submissions" className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline">
+        <NavLink
+          to="/submissions"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+        >
           Manage all submissions <ArrowRight size={12} />
         </NavLink>
       </div>
