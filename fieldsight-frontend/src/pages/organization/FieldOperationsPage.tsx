@@ -16,7 +16,7 @@ export function FieldOperationsPage() {
   const queryClient = useQueryClient();
   const isOrganizationAdmin = Boolean(user?.memberships.some((membership) => membership.role === "organization_admin"));
   const [query, setQuery] = useState("");
-  const [project, setProject] = useState("All projects");
+  const [projectId, setProjectId] = useState("");
   const [exportPeriod, setExportPeriod] = useState<"daily" | "weekly" | "biweekly" | "monthly">("daily");
   const [showCreate, setShowCreate] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -103,18 +103,18 @@ export function FieldOperationsPage() {
       await queryClient.invalidateQueries({ queryKey: ["organization-enumerator", selectedMembershipId] });
     },
   });  const enumerators = enumeratorsQuery.data ?? [];
-  const projectNames = useMemo(
-    () => (projectsQuery.data ?? []).map((item) => item.name).sort((a, b) => a.localeCompare(b)),
+  const projects = useMemo(
+    () => [...(projectsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [projectsQuery.data],
   );
   const projectCollectors = useMemo(() => {
-    if (project === "All projects") return null;
+    if (!projectId) return null;
     return new Set(
       (submissionsQuery.data ?? [])
-        .filter((submission) => submission.project_name === project && submission.enumerator)
+        .filter((submission) => submission.project_id === projectId && submission.enumerator)
         .map((submission) => submission.enumerator!.trim().toLowerCase()),
     );
-  }, [project, submissionsQuery.data]);
+  }, [projectId, submissionsQuery.data]);
   const filteredEnumerators = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return enumerators.filter((enumerator) => {
@@ -317,11 +317,11 @@ export function FieldOperationsPage() {
           </label>
           <select
             className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
-            value={project}
-            onChange={(event) => setProject(event.target.value)}
+            value={projectId}
+            onChange={(event) => setProjectId(event.target.value)}
           >
-            <option>All projects</option>
-            {projectNames.map((projectName) => <option key={projectName}>{projectName}</option>)}
+            <option value="">All projects</option>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
           <select
             className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[11px] text-[#69798e]"
@@ -714,3 +714,6 @@ export function FieldOperationsPage() {
     </>
   );
 }
+
+
+

@@ -11,15 +11,15 @@ import {
   Users,
   MapPin,
   ChevronDown,
-  AlertTriangle,
   ArrowRight,
   ShieldCheck,
-  type LucideIcon
+  type LucideIcon,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { Badge, Button, LoadingState } from "../../components/ui";
-import { apiClient, ApiError, type ApiAnalyticsOverview, type ApiSubmission } from "../../services/apiClient";
+import { apiClient, ApiError, type ApiSubmission } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
+
 const tone = {
   blue: "bg-[#edf3fc] text-[#4d7fc6]",
   green: "bg-[#e8f6f4] text-[#0b51b7]",
@@ -38,6 +38,7 @@ function relativeTime(value: string | null | undefined) {
   const days = Math.floor(hours / 24);
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
+
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
@@ -75,6 +76,7 @@ export function ProjectWorkspacePage() {
     () => (submissionsQuery.data ?? []).filter((item) => item.project_id === projectId),
     [submissionsQuery.data, projectId],
   );
+
   if (userQuery.isLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
   if (projectQuery.error)
     return (
@@ -88,6 +90,7 @@ export function ProjectWorkspacePage() {
   const totalSubmissions = projectSubmissions.length;
   const readyRecords = projectSubmissions.filter((item) => item.review_status === "ready").length;
   const activeEnumerators = new Set(projectSubmissions.map((item) => item.enumerator).filter(Boolean)).size;
+
   return (
     <div className="flex flex-col gap-[18px] pb-5">
       <div className="mb-2 flex items-end justify-between gap-[14px] max-[720px]:flex-col max-[720px]:items-start">
@@ -103,7 +106,7 @@ export function ProjectWorkspacePage() {
               <Building2 size={21} />
             </span>
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
                 <h1 className="m-0 text-[27px] font-bold leading-tight tracking-[-.45px] text-[#1d2a38]">
                   {project.name}
                 </h1>
@@ -117,7 +120,6 @@ export function ProjectWorkspacePage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-
           <Button
             disabled={!project.kobo_form_id || syncMutation.isPending}
             onClick={() => {
@@ -143,7 +145,12 @@ export function ProjectWorkspacePage() {
       )}
       <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
         <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[13px] font-semibold text-brand">Overview</span>
-        <NavLink to={`/analytics?project_id=${project.id}`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Analytics</NavLink>
+        <NavLink
+          to={`/analytics?project_id=${project.id}`}
+          className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]"
+        >
+          Analytics
+        </NavLink>
       </nav>
       <section className="grid grid-cols-4 gap-[14px] max-[1120px]:grid-cols-2 max-[560px]:grid-cols-1">
         <Metric
@@ -176,10 +183,14 @@ export function ProjectWorkspacePage() {
         />
       </section>
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <SubmissionActivityPanel submissions={projectSubmissions} target={project.target_sample_size} startDate={project.start_date} endDate={project.end_date} />
+        <SubmissionActivityPanel
+          submissions={projectSubmissions}
+          target={project.target_sample_size}
+          startDate={project.start_date}
+          endDate={project.end_date}
+        />
         <TopLocationsPanel submissions={(submissionsQuery.data ?? []).filter((s) => s.project_id === projectId)} />
       </div>
-
       <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
         <ProjectLeaderboard submissions={projectSubmissions} />
         <ProjectExceptionAlerts submissions={projectSubmissions} projectName={project.name} />
@@ -187,6 +198,7 @@ export function ProjectWorkspacePage() {
     </div>
   );
 }
+
 function Metric({
   icon: Icon,
   tone: color,
@@ -215,6 +227,7 @@ function Metric({
     </Card>
   );
 }
+
 function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   const [view, setView] = useState<"counties" | "communities">("counties");
   const hasCountyData = submissions.some((item) => {
@@ -226,10 +239,12 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
     const value = raw["household/community"] ?? raw["household/community_or_settlement"];
     return typeof value === "string" && Boolean(value.trim());
   });
+
   useEffect(() => {
     if (view === "counties" && !hasCountyData && hasCommunityData) setView("communities");
     if (view === "communities" && !hasCommunityData && hasCountyData) setView("counties");
   }, [view, hasCountyData, hasCommunityData]);
+
   const locationCounts = new Map<string, number>();
   for (const s of submissions) {
     const raw = s.raw_answers as Record<string, unknown>;
@@ -247,8 +262,8 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   return (
     <Card>
       <CardHeader
-        title={<><MapPin size={15} className="text-brand" /> Top locations</>}
-        subtitle={`Leading ${view} by submission count`}
+        title={<><MapPin size={15} className="text-brand" /> Top 3 locations</>}
+        subtitle={`Leading 3 ${view} by submission count`}
       >
         <div className="relative">
           <select
@@ -267,9 +282,7 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
         <p className="py-10 text-center text-xs text-[#8491a3]">No location data yet. Sync Kobo data to populate.</p>
       ) : (
         <div className="p-5">
-          {/* Donut chart */}
           <LocationDonutChart segments={top3} total={submissions.length} colors={COLORS} />
-          {/* Table */}
           <table className="mt-5 w-full text-left">
             <thead>
               <tr className="border-b border-[#edf0f4] text-[10px] font-semibold uppercase tracking-[.06em] text-[#8491a3]">
@@ -310,6 +323,7 @@ function LocationDonutChart({ segments, total, colors }: { segments: [string, nu
     return stop;
   });
   if (cum < 100) stops.push(`#e8edf3 ${cum}% 100%`);
+
   return (
     <div className="flex justify-center py-2">
       <div className="relative size-[175px] rounded-full shadow-sm" style={{ background: `conic-gradient(${stops.join(", ")})` }}>
@@ -325,11 +339,95 @@ function LocationDonutChart({ segments, total, colors }: { segments: [string, nu
 }
 
 function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
-  const contributors = Object.entries(submissions.reduce<Record<string, number>>((counts, item) => { const name = item.enumerator ?? "Unassigned"; counts[name] = (counts[name] ?? 0) + 1; return counts; }, {})).sort((a, b) => b[1] - a[1]);
-  return <Card className="p-5"><CardHeader title="Enumerator leaderboard" subtitle="Contributions to this project" />
-    <div className="space-y-4">{contributors.slice(0, 6).map(([name, count], index) => <div key={name}><div className="flex justify-between text-xs"><span className="font-medium text-[#354966]">{index + 1}. {name}</span><strong>{count}</strong></div><div className="mt-1.5 h-1.5 rounded-full bg-[#e8edf3]"><div className="h-full rounded-full bg-brand" style={{ width: `${submissions.length ? count / submissions.length * 100 : 0}%` }} /></div></div>)}{!contributors.length && <p className="py-8 text-center text-xs text-[#84909b]">No project contributions yet.</p>}</div>
-  </Card>;
+  const contributorsData = useMemo(() => {
+    const map = new Map<string, { count: number; lastSubmission?: string }>();
+    for (const item of submissions) {
+      const name = item.enumerator?.trim() || "Unassigned";
+      const existing = map.get(name) ?? { count: 0 };
+      const lastSub =
+        !existing.lastSubmission || (item.submitted_at && new Date(item.submitted_at).getTime() > new Date(existing.lastSubmission).getTime())
+          ? item.submitted_at ?? existing.lastSubmission
+          : existing.lastSubmission;
+      map.set(name, { count: existing.count + 1, lastSubmission: lastSub });
+    }
+    return [...map.entries()]
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.count - a.count);
+  }, [submissions]);
+
+  const total = submissions.length;
+
+  return (
+    <Card className="flex h-full flex-col justify-between p-[17px]">
+      <div>
+        <CardHeader
+          title="Enumerator leaderboard"
+          subtitle="Contributions to this project"
+        >
+          <span className="rounded-[5px] border border-[#dce4ed] bg-[#f8fafc] px-2 py-1 text-[10px] font-semibold text-[#536177]">
+            Top 5
+          </span>
+        </CardHeader>
+
+        <div className="mt-2.5 space-y-2">
+          {contributorsData.slice(0, 5).map((item, index) => {
+            const pct = total ? Math.round((item.count / total) * 100) : 0;
+            const badgeStyles = [
+              "bg-[#fef3c7] text-[#92400e] border-[#fde68a]",
+              "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]",
+              "bg-[#ffedd5] text-[#9a3412] border-[#fed7aa]",
+            ];
+            const badgeClass = badgeStyles[index] ?? "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0]";
+
+            return (
+              <div key={item.name} className="flex flex-col gap-1 rounded-md border border-[#f0f3f7] bg-[#fbfcfd] p-2.5 transition-colors hover:bg-white hover:shadow-sm">
+                <div className="flex items-center justify-between gap-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold ${badgeClass}`}>
+                      {index + 1}
+                    </span>
+                    <span className="truncate text-xs font-semibold text-[#1e293b]" title={item.name}>
+                      {item.name}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2.5 text-xs">
+                    <span className="text-[10px] font-medium text-[#64748b]">{pct}% share</span>
+                    <strong className="text-[12px] font-bold text-[#0b51b7]">{item.count.toLocaleString()}</strong>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e2e8f0]">
+                    <div
+                      className="h-full rounded-full bg-brand transition-all duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {item.lastSubmission && (
+                    <span className="shrink-0 text-[10px] text-[#94a3b8]">
+                      Active {relativeTime(item.lastSubmission)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {!contributorsData.length && (
+            <div className="py-6 text-center text-xs text-[#84909b]">
+              No project contributions yet. Sync Kobo submissions to track team rankings.
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
+        <NavLink to="/field-enumerators" className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline">
+          View field team <ArrowRight size={12} />
+        </NavLink>
+      </div>
+    </Card>
+  );
 }
+
 function ProjectExceptionAlerts({
   submissions,
   projectName,
@@ -351,45 +449,47 @@ function ProjectExceptionAlerts({
   }, [submissions]);
 
   return (
-    <Card className="p-[17px]">
-      <CardHeader
-        title="Automated Exception Alerts"
-        subtitle="Flagged data & rule anomalies"
-      >
-        <span className={`rounded-[5px] border px-2 py-1 text-[10px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}>
-          {anomalies.length} {anomalies.length === 1 ? "exception" : "exceptions"}
-        </span>
-      </CardHeader>
-      <div className="mt-2 space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
-        {anomalies.map(({ sub, issues }) => (
-          <div key={sub.id} className="rounded-md border border-[#fee4e2] bg-[#fff5f5] p-3 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <strong className="font-semibold text-[#991b1b]">{sub.external_id}</strong>
-              <time className="text-[10px] text-[#7f1d1d]">{relativeTime(sub.submitted_at)}</time>
+    <Card className="flex h-full flex-col justify-between p-[17px]">
+      <div>
+        <CardHeader
+          title="Automated Exception Alerts"
+          subtitle="Flagged data & rule anomalies"
+        >
+          <span className={`rounded-[5px] border px-2 py-1 text-[10px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}>
+            {anomalies.length} {anomalies.length === 1 ? "exception" : "exceptions"}
+          </span>
+        </CardHeader>
+        <div className="mt-2 max-h-[320px] space-y-2.5 overflow-y-auto pr-1">
+          {anomalies.map(({ sub, issues }) => (
+            <div key={sub.id} className="rounded-md border border-[#fee4e2] bg-[#fff5f5] p-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <strong className="font-semibold text-[#991b1b]">{sub.external_id}</strong>
+                <time className="text-[10px] text-[#7f1d1d]">{relativeTime(sub.submitted_at)}</time>
+              </div>
+              <p className="mb-1 mt-0.5 text-[11px] text-[#7f1d1d]">
+                {sub.enumerator ?? "Unassigned"} {sub.location ? `• ${sub.location}` : ""}
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {issues.map((issue) => (
+                  <span key={issue} className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#991b1b]">
+                    {issue}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p className="mb-1 mt-0.5 text-[11px] text-[#7f1d1d]">
-              {sub.enumerator ?? "Unassigned"} {sub.location ? `• ${sub.location}` : ""}
-            </p>
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {issues.map((issue) => (
-                <span key={issue} className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#991b1b]">
-                  {issue}
-                </span>
-              ))}
+          ))}
+          {!anomalies.length && (
+            <div className="my-4 flex flex-col items-center justify-center py-6 text-center">
+              <span className="grid size-10 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
+                <ShieldCheck size={20} />
+              </span>
+              <strong className="mt-2 block text-xs font-semibold text-[#1f2937]">No active exceptions</strong>
+              <p className="m-0 mt-1 max-w-[240px] text-[11px] text-[#6b7280]">
+                All submissions for {projectName} passed automated validation rules.
+              </p>
             </div>
-          </div>
-        ))}
-        {!anomalies.length && (
-          <div className="my-4 flex flex-col items-center justify-center py-6 text-center">
-            <span className="grid size-10 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
-              <ShieldCheck size={20} />
-            </span>
-            <strong className="mt-2 block text-xs font-semibold text-[#1f2937]">No active exceptions</strong>
-            <p className="m-0 mt-1 max-w-[240px] text-[11px] text-[#6b7280]">
-              All submissions for {projectName} passed automated validation rules.
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
         <NavLink to="/submissions" className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline">

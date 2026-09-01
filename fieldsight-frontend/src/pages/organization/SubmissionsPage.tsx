@@ -1,17 +1,30 @@
 import { useMemo, useState } from "react";
-import { Database, Download, ExternalLink, FileCheck2, MapPin, MoreHorizontal, Search, ShieldAlert, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  Download,
+  ExternalLink,
+  FileCheck2,
+  MapPin,
+  MoreHorizontal,
+  Search,
+  ShieldAlert,
+  X,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "../../components/ui/Card";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
 
 type Review = "Ready" | "Needs review" | "Invalid";
 type ExportPeriod = "daily" | "weekly" | "biweekly" | "monthly";
-type Row = { id: string; enumerator: string; location: string; submitted: string; submittedAt: string | null; project: string; form: string; sync: "Synced" | "Pending"; review: Review; device: string };
+type Row = { id: string; projectId: string; enumerator: string; location: string; submitted: string; submittedAt: string | null; project: string; form: string; sync: "Synced" | "Pending"; review: Review; device: string };
 
 function toRow(submission: ApiSubmission): Row {
   const review: Review = submission.review_status === "invalid" ? "Invalid" : submission.review_status === "needs_review" ? "Needs review" : "Ready";
   return {
     id: submission.external_id,
+    projectId: submission.project_id,
     enumerator: submission.enumerator ?? "Unassigned",
     location: submission.location ?? "Not captured",
     submitted: submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : "Not recorded",
@@ -43,18 +56,20 @@ export function SubmissionsPage() {
     enabled: Boolean(organizationId),
   });
   const [query, setQuery] = useState("");
-  const [project, setProject] = useState("All projects");
+  const [projectId, setProjectId] = useState("");
   const [review, setReview] = useState("All records");
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("daily");
   const [selected, setSelected] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const rows: Row[] = data.map(toRow);
   const projects = useMemo(
-    () => (projectsQuery.data ?? []).map((item) => item.name).sort((a, b) => a.localeCompare(b)),
+    () => [...(projectsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [projectsQuery.data],
   );
+  const selectedProjectName = projects.find((item) => item.id === projectId)?.name ?? "All projects";
   const projectRows = useMemo(
-    () => project === "All projects" ? rows : rows.filter((row) => row.project === project),
-    [rows, project],
+    () => projectId ? rows.filter((row) => row.projectId === projectId) : rows,
+    [rows, projectId],
   );
   const visible = useMemo(
     () =>
@@ -67,6 +82,27 @@ export function SubmissionsPage() {
       }),
     [projectRows, query, review],
   );
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+  const activePage = Math.min(currentPage, totalPages);
+  const paginatedRows = useMemo(
+    () => visible.slice((activePage - 1) * pageSize, activePage * pageSize),
+    [activePage, visible],
+  );
+  const pageNumbers: Array<number | string> = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+    if (activePage <= 4) {
+      return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (activePage >= totalPages - 3) {
+      return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", activePage - 1, activePage, activePage + 1, "...", totalPages];
+  }, [totalPages, activePage]);
+  const firstVisibleRow = visible.length ? (activePage - 1) * pageSize + 1 : 0;
+  const lastVisibleRow = Math.min(activePage * pageSize, visible.length);
   const record = rows.find((row) => row.id === selected) ?? null;
   const exportRows = useMemo(() => {
     const periodDays: Record<ExportPeriod, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
@@ -95,7 +131,7 @@ export function SubmissionsPage() {
     const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const projectName = project === "All projects" ? "all-projects" : project;
+    const projectName = projectId ? selectedProjectName : "all-projects";
     link.href = url;
     link.download = `${projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${exportPeriod}-submissions.csv`;
     document.body.appendChild(link);
@@ -128,7 +164,7 @@ export function SubmissionsPage() {
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]"><Database size={19} /></span>
           <span className="block text-[11px] font-medium text-[#6f7d8a]">All submissions</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">{projectRows.length.toLocaleString()}</strong>
-          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">{project === "All projects" ? "Across active organization projects" : `For ${project}`}</small>
+          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">{projectId ? `For ${selectedProjectName}` : "Across active organization projects"}</small>
         </button>
         <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-[6px] border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]"><FileCheck2 size={19} /></span>
@@ -156,13 +192,13 @@ export function SubmissionsPage() {
           <input
             className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value); setCurrentPage(1); }}
             placeholder="Search ID, collector, location, or form"
           />
         </label>
-        <select className={`${selectClass} w-full`} value={project} onChange={(event) => setProject(event.target.value)}>
-          <option>All projects</option>
-          {projects.map((projectName) => <option key={projectName}>{projectName}</option>)}
+        <select className={`${selectClass} w-full`} value={projectId} onChange={(event) => { setProjectId(event.target.value); setCurrentPage(1); }}>
+          <option value="">All projects</option>
+          {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>
         <select
           className={`${selectClass} w-full`}
@@ -207,7 +243,7 @@ export function SubmissionsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((row) => (
+              {paginatedRows.map((row) => (
                 <tr
                   key={row.id}
                   className="border-b border-[#f0f2f5] bg-white hover:bg-[#f5f9fe]"
@@ -283,28 +319,56 @@ export function SubmissionsPage() {
           </table>
         </div>
 
-        <footer className="flex items-center justify-between border-t border-[#e9eef4] px-[14px] py-[11px] text-[10px] text-[#7e8da0]">
-          <span>
-            Showing <strong className="text-[#4e5e74]">{visible.length}</strong> of {projectRows.length.toLocaleString()} submissions
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e9eef4] bg-[#fafbfc] px-5 py-3.5 text-xs text-[#64748b]">
+          <span className="text-xs text-[#64748b]">
+            Showing <strong className="font-semibold text-[#1e293b]">{firstVisibleRow}–{lastVisibleRow}</strong> of{" "}
+            <strong className="font-semibold text-[#1e293b]">{visible.length.toLocaleString()}</strong> submissions
           </span>
-          <div className="flex gap-[4px]">
+          <div className="flex items-center gap-1.5">
             <button
-              className="min-w-[24px] rounded-[3px] border-0 bg-white p-[4px] font-sans text-[10px] font-normal leading-normal text-[#75849a]"
-              disabled
+              type="button"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-xs font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={activePage === 1}
+              aria-label="Previous page"
             >
-              ‹
+              <ChevronLeft size={14} />
+              <span className="max-[520px]:hidden">Previous</span>
             </button>
-            <button className="min-w-[24px] rounded-[3px] border-0 bg-[#0b51b7] p-[4px] font-sans text-[10px] font-normal leading-normal text-white">
-              1
-            </button>
-            <button className="min-w-[24px] rounded-[3px] border-0 bg-white p-[4px] font-sans text-[10px] font-normal leading-normal text-[#75849a]">
-              2
-            </button>
-            <button className="min-w-[24px] rounded-[3px] border-0 bg-white p-[4px] font-sans text-[10px] font-normal leading-normal text-[#75849a]">
-              3
-            </button>
-            <button className="min-w-[24px] rounded-[3px] border-0 bg-white p-[4px] font-sans text-[10px] font-normal leading-normal text-[#75849a]">
-              ›
+            <div className="flex items-center gap-1">
+              {pageNumbers.map((page, idx) =>
+                page === "..." ? (
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="inline-flex h-8 min-w-[28px] items-center justify-center text-xs font-medium text-[#94a3b8]"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={page}
+                    type="button"
+                    className={`inline-flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors shadow-sm ${
+                      page === activePage
+                        ? "border border-brand bg-brand text-white shadow-sm"
+                        : "border border-[#dce5ef] bg-white text-[#475569] hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7]"
+                    }`}
+                    onClick={() => setCurrentPage(page as number)}
+                  >
+                    {page}
+                  </button>
+                ),
+              )}
+            </div>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-xs font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={activePage === totalPages}
+              aria-label="Next page"
+            >
+              <span className="max-[520px]:hidden">Next</span>
+              <ChevronRight size={14} />
             </button>
           </div>
         </footer>
@@ -400,3 +464,6 @@ export function SubmissionsPage() {
     </div>
   );
 }
+
+
+
