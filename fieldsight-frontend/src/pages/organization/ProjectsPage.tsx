@@ -4,6 +4,7 @@ import { ArrowUpRight, CheckCircle2, FileText, FolderKanban, Link2, Plus, Trash2
 import { NavLink } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
 import { Button, Ring } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient, ApiError, type ApiProject } from "../../services/apiClient";
 
 // ─── Assign-form modal ───────────────────────────────────────────────────────
@@ -286,21 +287,21 @@ function CreateProjectModal({
 
 export function ProjectsPage() {
   const queryClient = useQueryClient();
+  const { user, loading: authLoading } = useAuth();
   const [showCreate, setShowCreate] = useState(false);
   const [assigningProject, setAssigningProject] = useState<ApiProject | null>(null);
   const [deletingProject, setDeletingProject] = useState<ApiProject | null>(null);
   const [deleteError, setDeleteError] = useState("");
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+  const organizationId = user?.memberships[0]?.organization_id;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(!authLoading && organizationId),
   });
   const sectorsQuery = useQuery({
     queryKey: ["organization-sectors", organizationId],
     queryFn: () => apiClient.organizationSectors(organizationId!),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(!authLoading && organizationId),
   });
   const sectorNamesQuery = useQuery({ queryKey: ["sectors"], queryFn: apiClient.sectors });
   const projects = projectsQuery.data ?? [];

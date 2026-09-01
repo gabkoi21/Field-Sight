@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { useMinimumRouteLoader } from "../../hooks/useMinimumRouteLoader";
+import { LoadingState } from "../ui";
 
 interface NavigationItem {
   label: string;
@@ -94,6 +96,7 @@ export function SuperAdminShell() {
   );
   const [profileEmail, setProfileEmail] = useState(user?.email ?? "");
   const { pathname } = useLocation();
+  const routeLoaderVisible = useMinimumRouteLoader(pathname);
   const navigate = useNavigate();
   const pageTitle = pageTitles[pathname] ?? "Super administration";
 
@@ -236,7 +239,16 @@ export function SuperAdminShell() {
           </div>
         </header>
         <div className="mx-auto max-w-[1560px] px-6 pb-10 pt-6 max-[1440px]:p-7 max-[700px]:p-4">
-          <Outlet />
+          <div className="relative">
+            <div className={routeLoaderVisible ? "invisible" : undefined}>
+              <Outlet />
+            </div>
+            {routeLoaderVisible && (
+              <div className="absolute inset-x-0 top-0">
+                <LoadingState />
+              </div>
+            )}
+          </div>
         </div>
       </main>
       {profileOpen && (

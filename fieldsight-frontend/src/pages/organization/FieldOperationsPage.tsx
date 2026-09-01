@@ -411,7 +411,7 @@ export function FieldOperationsPage() {
                   key={enumerator.membership_id}
                   className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]"
                 >
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     <div>
                       <strong className="block text-[12.5px] font-semibold text-[#1f2937]">
                         {enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}
@@ -421,30 +421,30 @@ export function FieldOperationsPage() {
                       </small>
                     </div>
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     {enumerator.employee_id ?? "—"}
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     {enumerator.phone_number ?? "—"}
                   </TableCell>
-                  <TableCell className="max-w-[190px] truncate px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="max-w-[190px] truncate px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     {enumerator.address ?? "—"}
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     {enumerator.gender ?? "—"}
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     <span className="inline-flex items-center gap-1.5">
                       <ShieldCheck size={13} className="text-[#8793a2]" /> Enumerator
                     </span>
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     <AdminStatus value={enumerator.is_active ? "Active" : "Suspended"} />
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177] tabular-nums">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177] tabular-nums">
                     {new Date(enumerator.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
+                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     <div className="flex justify-end">
                       <button
                         type="button"

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Link2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge, Button, DataTable, PageHeader, Ring } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient, ApiError } from "../../services/apiClient";
 
 function formatTime(value: string | null) {
@@ -12,14 +13,14 @@ function formatTime(value: string | null) {
 export function SyncHistoryPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+  const { user, loading: authLoading } = useAuth();
+  const organizationId = user?.memberships[0]?.organization_id;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
     enabled: Boolean(organizationId),
   });
-  const runsQuery = useQuery({ queryKey: ["sync-runs"], queryFn: apiClient.syncRuns });
+  const runsQuery = useQuery({ queryKey: ["sync-runs"], queryFn: apiClient.syncRuns, enabled: !authLoading });
   const syncAllMutation = useMutation({
     mutationFn: async () => {
       const projects = (projectsQuery.data ?? []).filter((project) => project.kobo_form_id);

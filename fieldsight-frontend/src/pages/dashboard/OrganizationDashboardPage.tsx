@@ -16,58 +16,115 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
 import { LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
 
 const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
-function relativeTime(value: string | null | undefined) {
-  if (!value) return "Never";
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (seconds < 60) return "Just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+const projectColors = ["#0b51b7", "#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ec4899"];
+
+function FilterSelect({
+  value,
+  options,
+  placeholder,
+  onChange,
+}: {
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <select
+        className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[12px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={14}
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492a4]"
+      />
+    </div>
+  );
 }
 
 export function OrganizationDashboardPage() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [projectId, setProjectId] = useState("");
   const [period, setPeriod] = useState("7d");
   const [location, setLocation] = useState("");
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+
+  const organizationId = user?.memberships[0]?.organization_id;
+
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
     enabled: Boolean(organizationId),
   });
+
   const overviewQuery = useQuery({
-    queryKey: ["organization-overview", projectId, location, period],
+    queryKey: ["organization-dashboard-overview", projectId, location, period],
     queryFn: () =>
-      apiClient.analyticsOverview({ projectId: projectId || undefined, location: location || undefined, period }),
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+      apiClient.dashboardOverview({ projectId: projectId || undefined, location: location || undefined, period }),
+    staleTime: 30_000,
   });
+
+  const pendingSyncQuery = useQuery({
+    queryKey: ["organization-pending-kobo-sync", organizationId],
+    queryFn: apiClient.pendingKoboSync,
+    enabled: overviewQuery.isSuccess,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
-  const submissionsQuery = useQuery({
-    queryKey: ["submissions"],
-    queryFn: apiClient.submissions,
-    refetchOnMount: "always",
-  });
-  if (overviewQuery.isLoading || projectsQuery.isLoading || enumeratorsQuery.isLoading)
-    return <LoadingState label="Loading organization intelligence…" />;
-  const overview = overviewQuery.data;
+
+  const isLoading = authLoading || overviewQuery.isLoading;
+
+  if (isLoading) {
+    return <LoadingState label="Loading…" />;
+  }
+
+  const storedOverview = overviewQuery.data;
+  const pendingSync = pendingSyncQuery.data;
+  const overview =
+    storedOverview && pendingSync
+      ? {
+          ...storedOverview,
+          pending_sync_count: pendingSync.pending_count,
+          sync_status: {
+            ...storedOverview.sync_status,
+            pending_count: pendingSync.pending_count,
+            sources: pendingSync.sources,
+          },
+        }
+      : storedOverview;
+  const projectListLoading = projectsQuery.isLoading;
+  const enumeratorsLoading = enumeratorsQuery.isLoading;
+  const showSecondaryLoading = projectListLoading || enumeratorsLoading || pendingSyncQuery.isFetching;
+  const projectSummary = overview?.projects ?? [];
+  const projectOptions = (projectsQuery.data ?? []).map((item) => ({ label: item.name, value: item.id }));
+  const locationOptions = (overview?.available_locations ?? []).map((item) => ({ label: item, value: item }));
+
   const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
+  const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
+  const totalSubmissionsVal = overview?.total_submissions ?? 0;
   const qualityRate = overview?.total_submissions
     ? Math.round((overview.ready_records / overview.total_submissions) * 100)
     : 0;
 
-  // Top KPI calculations
-  const totalSubmissionsVal = overview?.total_submissions ?? 0;
-  const totalProjectTarget = (overview?.projects ?? []).reduce((acc, p) => acc + (p.target || 0), 0);
+  const totalProjectTarget = projectSummary.reduce((acc, p) => acc + (p.target || 0), 0);
   const submissionsTrendContext =
     overview?.submission_change_percent != null
       ? `${overview.submission_change_percent >= 0 ? "+" : ""}${overview.submission_change_percent}% vs previous period`
@@ -75,25 +132,30 @@ export function OrganizationDashboardPage() {
         ? `${totalSubmissionsVal.toLocaleString()} / ${totalProjectTarget.toLocaleString()} target reached`
         : "+0% vs previous period";
 
-  const totalWorkspaceProjects = (projectsQuery.data ?? []).length || (overview?.projects ?? []).length;
-  const activeProjectsWithSubs = (overview?.projects ?? []).filter((p) => p.actual > 0).length;
+  const totalWorkspaceProjects = (projectsQuery.data ?? []).length || projectSummary.length;
+  const activeProjectsWithSubs = projectSummary.filter((p) => p.actual > 0).length;
   const activeProjectsDisplay = activeProjectsWithSubs > 0 ? activeProjectsWithSubs : totalWorkspaceProjects;
-  const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
 
-  // Submissions by Project Donut Chart Data
-  const PROJECT_COLORS = ["#0b51b7", "#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ec4899"];
-  const rawProjectData = (overview?.projects ?? []).filter((p) => p.actual > 0);
+  const rawProjectData = projectSummary.filter((project) => project.actual > 0);
   const projectPieData =
     rawProjectData.length > 0
-      ? rawProjectData.map((p, i) => ({
-          name: p.name,
-          value: p.actual,
-          color: PROJECT_COLORS[i % PROJECT_COLORS.length],
+      ? rawProjectData.map((project, index) => ({
+          name: project.name,
+          value: project.actual,
+          color: projectColors[index % projectColors.length],
         }))
       : [
-          { name: "Community Health Assessment", value: 65, color: "#0b51b7" },
-          { name: "Teach For Liberia", value: 35, color: "#0ea5e9" },
+          { name: "Community Health Assessment", value: 65, color: projectColors[0] },
+          { name: "Teach For Liberia", value: 35, color: projectColors[1] },
         ];
+
+  const projectChartData = projectSummary.map((project) => ({
+    name: project.name,
+    fullName: project.name,
+    Actual: project.actual,
+    Target: project.target || project.actual,
+  }));
+
   const totalProjectSubmissions = projectPieData.reduce((acc, item) => acc + item.value, 0);
 
   return (
@@ -103,42 +165,15 @@ export function OrganizationDashboardPage() {
         title="Dashboard"
         description="Collection performance and field operations at a glance."
       >
+        {showSecondaryLoading && (
+          <span className="rounded-full border border-[#dfe8f5] bg-[#f3f8ff] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3667c8]">
+            Updating data…
+          </span>
+        )}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <select
-              className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[12px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
-              value={projectId}
-              onChange={(event) => setProjectId(event.target.value)}
-            >
-              <option value="">All projects</option>
-              {(projectsQuery.data ?? []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492a4]"
-            />
-          </div>
+          <FilterSelect value={projectId} placeholder="All projects" options={projectOptions} onChange={setProjectId} />
 
-          <div className="relative">
-            <select
-              className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[12px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-            >
-              <option value="">All locations</option>
-              {(overview?.available_locations ?? []).map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492a4]"
-            />
-          </div>
+          <FilterSelect value={location} placeholder="All locations" options={locationOptions} onChange={setLocation} />
 
           <div className="relative">
             <select
@@ -220,6 +255,7 @@ export function OrganizationDashboardPage() {
             </ResponsiveContainer>
           </div>
         </Panel>
+
         <Panel title="Data readiness" subtitle="Quality status of records in this view">
           <div className="flex h-[220px] flex-col justify-between pt-1">
             <div>
@@ -233,7 +269,7 @@ export function OrganizationDashboardPage() {
               <div className="mt-3.5 h-2 overflow-hidden rounded-full bg-[#e8edf3]">
                 <div
                   className="h-full rounded-full bg-brand transition-all duration-500"
-                  style={{ width: qualityRate + "%" }}
+                  style={{ width: `${qualityRate}%` }}
                 />
               </div>
               <div className="mt-5 space-y-3 border-t border-[#edf0f4] pt-4">
@@ -274,17 +310,11 @@ export function OrganizationDashboardPage() {
             </button>
           }
         >
-          {/* Bar chart overview */}
-          {(overview?.projects ?? []).length > 0 ? (
+          {projectSummary.length > 0 ? (
             <div className="h-[380px] pt-4 pb-2">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={(overview?.projects ?? []).map((p) => ({
-                    name: p.name,
-                    fullName: p.name,
-                    Actual: p.actual,
-                    Target: p.target || p.actual,
-                  }))}
+                  data={projectChartData}
                   barCategoryGap="24%"
                   margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
                 >
@@ -318,7 +348,6 @@ export function OrganizationDashboardPage() {
           )}
         </Panel>
 
-        {/* Submissions by Project Panel */}
         <Panel title="Submissions by Project" subtitle="Distribution of data across active workspaces">
           <div className="space-y-4 pt-2">
             <div className="relative flex items-center justify-center">

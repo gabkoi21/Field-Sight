@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select
+from sqlalchemy import case, func
+from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token, list_kobo_submissions
@@ -259,6 +260,30 @@ def pending_kobo_submissions(
     return {"pending_count": pending_count, "sources": sources, "checked_at": datetime.now(UTC)}
 
 
+@router.get("/dashboard/overview", tags=["Dashboard"])
+def dashboard_overview(
+    user: CurrentUser,
+    db: Database,
+    project_id: UUID | None = None,
+    location: str | None = None,
+    period: str = "7d",
+) -> dict[str, object]:
+    """Return locally stored dashboard metrics without waiting for KoboToolbox."""
+    overview = analytics_overview(user, db, project_id=project_id, location=location, period=period)
+    collection_health = cast(dict[str, int], overview["collection_health"])
+    return {
+        **overview,
+        "pending_sync_count": None,
+        "sync_status": {
+            "pending_count": None,
+            "sources": [],
+            "healthy_sources": collection_health["healthy_sources"],
+            "delayed_sources": collection_health["delayed_sources"],
+            "connected_sources": collection_health["connected_sources"],
+        },
+    }
+
+
 @router.get("/analytics/overview", tags=["Analytics"])
 def analytics_overview(
     user: CurrentUser,
@@ -277,39 +302,82 @@ def analytics_overview(
     def as_utc(value: datetime) -> datetime:
         return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
-    all_submissions = db.exec(
-        select(Submission).where(Submission.organization_id == organization_id).order_by(Submission.submitted_at.asc())
-    ).all()
-    available_locations = sorted({item.location for item in all_submissions if item.location})
-
-    scoped = [item for item in all_submissions if not project_id or item.project_id == project_id]
+    organization_column = col(Submission.organization_id)
+    project_column = col(Submission.project_id)
+    submitted_at_column = col(Submission.submitted_at)
+    location_column = col(Submission.location)
+    review_status_column = col(Submission.review_status)
+    scope_conditions = [organization_column == organization_id]
+    if project_id:
+        scope_conditions.append(project_column == project_id)
     if location:
-        scoped = [item for item in scoped if item.location == location]
-    current = [item for item in scoped if item.submitted_at and as_utc(item.submitted_at) >= cutoff]
-    previous = [item for item in scoped if item.submitted_at and previous_cutoff <= as_utc(item.submitted_at) < cutoff]
+        scope_conditions.append(location_column == location)
+
+    available_locations = list(
+        db.exec(
+            select(location_column)
+            .where(organization_column == organization_id, location_column.is_not(None))
+            .distinct()
+            .order_by(location_column)
+        ).all()
+    )
+
+    current_conditions = [*scope_conditions, submitted_at_column >= cutoff]
+    total, ready, needs_review, invalid = db.exec(
+        select(
+            func.count(),
+            func.coalesce(func.sum(case((review_status_column == "ready", 1), else_=0)), 0),
+            func.coalesce(func.sum(case((review_status_column == "needs_review", 1), else_=0)), 0),
+            func.coalesce(func.sum(case((review_status_column == "invalid", 1), else_=0)), 0),
+        ).where(*current_conditions)
+    ).one()
+    previous_total = db.exec(
+        select(func.count()).select_from(Submission).where(
+            *scope_conditions,
+            submitted_at_column >= previous_cutoff,
+            submitted_at_column < cutoff,
+        )
+    ).one()
+    ready_this_week = db.exec(
+        select(func.count()).select_from(Submission).where(
+            *scope_conditions,
+            review_status_column == "ready",
+            submitted_at_column >= now - timedelta(days=7),
+        )
+    ).one()
 
     projects = db.exec(select(Project).where(Project.organization_id == organization_id)).all()
     project_scope = [project for project in projects if not project_id or project.id == project_id]
-    by_day: dict[str, dict[str, int]] = defaultdict(lambda: {"submissions": 0, "approved": 0})
-    by_project: dict[UUID, int] = defaultdict(int)
-    for submission in current:
-        by_project[submission.project_id] += 1
-        day = as_utc(submission.submitted_at).strftime("%b %d") if submission.submitted_at else "Unknown"
-        by_day[day]["submissions"] += 1
-        if submission.review_status == "ready":
-            by_day[day]["approved"] += 1
+    submission_day = func.date(submitted_at_column)
+    daily_rows = db.exec(
+        select(
+            submission_day.label("submission_day"),
+            func.count(),
+            func.coalesce(func.sum(case((review_status_column == "ready", 1), else_=0)), 0),
+        )
+        .where(*current_conditions)
+        .group_by(submission_day)
+        .order_by(submission_day)
+    ).all()
+    project_counts = dict(
+        db.exec(
+            select(project_column, func.count())
+            .where(*current_conditions)
+            .group_by(project_column)
+        ).all()
+    )
 
-    total = len(current)
-    ready = sum(item.review_status == "ready" for item in current)
-    needs_review = sum(item.review_status == "needs_review" for item in current)
-    invalid = sum(item.review_status == "invalid" for item in current)
-    previous_total = len(previous)
+    total = int(total)
+    ready = int(ready)
+    needs_review = int(needs_review)
+    invalid = int(invalid)
+    previous_total = int(previous_total)
     change_percent = round(((total - previous_total) / previous_total) * 100, 1) if previous_total else None
 
-    runs = db.exec(
-        select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(SyncRun.started_at.desc())
-    ).all()
-    scoped_runs = [run for run in runs if not project_id or run.project_id == project_id]
+    run_conditions = [SyncRun.organization_id == organization_id]
+    if project_id:
+        run_conditions.append(SyncRun.project_id == project_id)
+    scoped_runs = db.exec(select(SyncRun).where(*run_conditions).order_by(SyncRun.started_at.desc())).all()
     latest_run = scoped_runs[0] if scoped_runs else None
     latest_by_project: dict[UUID, SyncRun] = {}
     for run in scoped_runs:
@@ -327,11 +395,12 @@ def analytics_overview(
     ]
     healthy_sources = max(0, len(connected_projects) - len(delayed_projects))
 
-    recent = sorted(
-        [item for item in scoped if item.submitted_at],
-        key=lambda item: as_utc(item.submitted_at) if item.submitted_at else datetime.min.replace(tzinfo=UTC),
-        reverse=True,
-    )[:5]
+    recent = db.exec(
+        select(Submission)
+        .where(*scope_conditions, submitted_at_column.is_not(None))
+        .order_by(submitted_at_column.desc())
+        .limit(5)
+    ).all()
     project_names = {project.id: project.name for project in projects}
     activity = [
         {
@@ -376,10 +445,7 @@ def analytics_overview(
     return {
         "total_submissions": total,
         "ready_records": ready,
-        "ready_this_week": sum(
-            item.review_status == "ready" and item.submitted_at and as_utc(item.submitted_at) >= now - timedelta(days=7)
-            for item in scoped
-        ),
+        "ready_this_week": int(ready_this_week),
         "needs_review": needs_review,
         "invalid_records": invalid,
         "blocked_records": needs_review + invalid,
@@ -387,12 +453,19 @@ def analytics_overview(
         "active_projects": sum(project.status.value == "active" for project in project_scope),
         "last_synced_at": latest_run.completed_at if latest_run else None,
         "available_locations": available_locations,
-        "trend": [{"day": day, **counts} for day, counts in by_day.items()],
+        "trend": [
+            {
+                "day": datetime.fromisoformat(str(day)).strftime("%b %d") if day is not None else "Unknown",
+                "submissions": int(submissions),
+                "approved": int(approved),
+            }
+            for day, submissions, approved in daily_rows
+        ],
         "projects": [
             {
                 "id": str(project.id),
                 "name": project.name,
-                "actual": by_project[project.id],
+                "actual": int(project_counts.get(project.id, 0)),
                 "target": project.target_sample_size or 0,
             }
             for project in project_scope

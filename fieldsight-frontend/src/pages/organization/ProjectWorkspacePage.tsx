@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { Badge, Button, LoadingState } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient, ApiError, type ApiSubmission } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
 
@@ -42,23 +43,23 @@ function relativeTime(value: string | null | undefined) {
 export function ProjectWorkspacePage() {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
+  const { user, loading: authLoading } = useAuth();
   const [syncMessage, setSyncMessage] = useState("");
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+  const organizationId = user?.memberships[0]?.organization_id;
   const projectQuery = useQuery({
     queryKey: ["project", organizationId, projectId],
     queryFn: () => apiClient.getProject(organizationId!, projectId!),
-    enabled: Boolean(organizationId && projectId),
+    enabled: Boolean(!authLoading && organizationId && projectId),
   });
   const overviewQuery = useQuery({
     queryKey: ["project-overview", projectId],
     queryFn: () => apiClient.analyticsOverview({ projectId: projectId!, period: "30d" }),
-    enabled: Boolean(projectId),
+    enabled: Boolean(!authLoading && projectId),
   });
   const submissionsQuery = useQuery({
     queryKey: ["submissions", projectId],
     queryFn: apiClient.submissions,
-    enabled: Boolean(projectId),
+    enabled: Boolean(!authLoading && projectId),
   });
   const syncMutation = useMutation({
     mutationFn: () => apiClient.syncProjectKoboForm(projectId!),
@@ -77,7 +78,7 @@ export function ProjectWorkspacePage() {
     [submissionsQuery.data, projectId],
   );
 
-  if (userQuery.isLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
+  if (authLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
   if (projectQuery.error)
     return (
       <div className="rounded-xl border border-[#f7cfd4] bg-[#fff3f4] p-6 text-sm text-[#b42318]">

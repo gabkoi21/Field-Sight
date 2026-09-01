@@ -20,7 +20,9 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
+import { useMinimumRouteLoader } from "../../hooks/useMinimumRouteLoader";
 import { apiClient } from "../../services/apiClient";
+import { LoadingState } from "../ui";
 
 interface NavigationItem {
   name: string;
@@ -122,16 +124,25 @@ function UserMenu({ logout, navigate, name, role }: { logout: () => Promise<void
   );
 }
 
-export function AppShell() {
+export function AppShell({ loading = false }: { loading?: boolean }) {
   const [open, setOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { logout, user } = useAuth();
   const isOrganizationAdmin = user?.memberships.some((membership) => membership.role === "organization_admin") ?? false;
-  const pendingSyncQuery = useQuery({ queryKey: ["kobo-pending-sync"], queryFn: apiClient.pendingKoboSync, enabled: isOrganizationAdmin, refetchInterval: 60_000, refetchOnWindowFocus: true });
+  const pendingSyncQuery = useQuery({
+    queryKey: ["kobo-pending-sync"],
+    queryFn: apiClient.pendingKoboSync,
+    enabled: isOrganizationAdmin,
+    staleTime: 5 * 60_000,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const pendingSync = pendingSyncQuery.data;
   const pendingCount = pendingSync?.pending_count ?? 0;
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const routeLoaderVisible = useMinimumRouteLoader(`${pathname}:${loading ? "auth" : "ready"}`);
   const displayName = user?.username || user?.email || "User";
   const displayRole = isOrganizationAdmin ? "Organization administrator" : "Field team member";
   const currentDate = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
@@ -216,7 +227,20 @@ export function AppShell() {
           </div>
         </header>
         <div className="mx-auto max-w-[1500px] px-6 pb-10 pt-6 max-[1440px]:px-7 max-[1440px]:pb-[42px] max-[1440px]:pt-[27px] max-[560px]:px-[14px] max-[560px]:pb-[35px] max-[560px]:pt-[21px]">
-          <Outlet />
+          {loading ? (
+            <LoadingState label="Loading workspace data…" />
+          ) : (
+            <div className="relative">
+              <div className={routeLoaderVisible ? "invisible" : undefined}>
+                <Outlet />
+              </div>
+              {routeLoaderVisible && (
+                <div className="absolute inset-x-0 top-0">
+                  <LoadingState />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
     </div>

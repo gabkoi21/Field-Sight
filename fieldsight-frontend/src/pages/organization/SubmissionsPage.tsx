@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "../../components/ui/Card";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
 
 type Review = "Ready" | "Needs review" | "Invalid";
@@ -64,13 +65,17 @@ const selectClass =
   "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]";
 
 export function SubmissionsPage() {
-  const { data = [], isLoading } = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions });
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+  const { user, loading: authLoading } = useAuth();
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["submissions"],
+    queryFn: apiClient.submissions,
+    enabled: !authLoading,
+  });
+  const organizationId = user?.memberships[0]?.organization_id;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(!authLoading && organizationId),
   });
   const [query, setQuery] = useState("");
   const [projectId, setProjectId] = useState("");

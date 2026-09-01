@@ -233,6 +233,17 @@ export interface ApiAnalyticsOverview {
     path: string;
   }[];
 }
+
+export interface ApiDashboardOverview extends ApiAnalyticsOverview {
+  pending_sync_count: number | null;
+  sync_status: {
+    pending_count: number | null;
+    healthy_sources: number;
+    delayed_sources: number;
+    connected_sources: number;
+    sources: ApiPendingKoboSync["sources"];
+  };
+}
 export interface ApiQualityIssue {
   id: string;
   submission_id: string;
@@ -550,6 +561,14 @@ export const apiClient = {
     if (filters.period) params.set("period", filters.period);
     const query = params.toString();
     return request<ApiAnalyticsOverview>(`/analytics/overview${query ? `?${query}` : ""}`);
+  },
+  dashboardOverview: (filters: { projectId?: string; location?: string; period?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.projectId) params.set("project_id", filters.projectId);
+    if (filters.location) params.set("location", filters.location);
+    if (filters.period) params.set("period", filters.period);
+    const query = params.toString();
+    return request<ApiDashboardOverview>(`/dashboard/overview${query ? `?${query}` : ""}`);
   },
   qualityIssues: (projectId?: string) =>
     request<ApiQualityIssue[]>(`/quality/issues${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`),

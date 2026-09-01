@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { AppShell } from "../components/layout/AppShell";
 import { LoadingState } from "../components/ui";
 import { useAuth } from "./AuthContext";
 
@@ -15,7 +16,7 @@ export function RequireSuperAdmin({ children }: { children: ReactNode }) {
 export function RequireOrganizationMember({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <LoadingState />;
+  if (loading) return <AppShell loading />;
   if (!user) return <Navigate replace to="/login" state={{ from: location.pathname }} />;
   if (user.platform_role === "super_admin" && user.memberships.length === 0) {
     return <Navigate replace to="/superadmin" />;

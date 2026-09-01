@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, CircleAlert, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { Button, LoadingState, PageHeader, Ring } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient, ApiError, type ApiQualityIssue } from "../../services/apiClient";
 
 const severityStyles = {
@@ -17,21 +18,22 @@ function formatDate(value: string | null) {
 
 export function QualityCenterPage() {
   const queryClient = useQueryClient();
+  const { user, loading: authLoading } = useAuth();
   const [projectId, setProjectId] = useState("");
   const [severity, setSeverity] = useState("");
   const [selected, setSelected] = useState<ApiQualityIssue | null>(null);
   const [message, setMessage] = useState("");
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
+  const organizationId = user?.memberships[0]?.organization_id;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
     enabled: Boolean(organizationId),
   });
-  const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions });
+  const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions, enabled: !authLoading });
   const issuesQuery = useQuery({
     queryKey: ["quality-issues", projectId],
     queryFn: () => apiClient.qualityIssues(projectId || undefined),
+    enabled: !authLoading,
   });
   const runMutation = useMutation({
     mutationFn: () => apiClient.runQualityValidation(projectId || undefined),
@@ -65,7 +67,7 @@ export function QualityCenterPage() {
   const issueSubmissions = useMemo(() => new Set(issues.map((issue) => issue.submission_id)).size, [issues]);
   const error = issuesQuery.error ?? runMutation.error ?? reviewMutation.error;
 
-  if (userQuery.isLoading || projectsQuery.isLoading || submissionsQuery.isLoading) return <LoadingState />;
+  if (authLoading || projectsQuery.isLoading || submissionsQuery.isLoading) return <LoadingState />;
 
   return (
     <div className="text-[#243047]">

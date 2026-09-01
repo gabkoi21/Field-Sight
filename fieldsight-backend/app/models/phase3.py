@@ -6,7 +6,7 @@ from datetime import date, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.models.identity import Role, utc_now
@@ -103,6 +103,7 @@ class KoboConnection(SQLModel, table=True):
 
 class SyncRun(SQLModel, table=True):
     __tablename__ = "sync_runs"
+    __table_args__ = (Index("ix_sync_runs_org_project_started_at", "organization_id", "project_id", "started_at"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
@@ -120,7 +121,12 @@ class SyncRun(SQLModel, table=True):
 
 class Submission(SQLModel, table=True):
     __tablename__ = "submissions"
-    __table_args__ = (UniqueConstraint("project_id", "external_id", name="uq_submission_project_external_id"),)
+    __table_args__ = (
+        UniqueConstraint("project_id", "external_id", name="uq_submission_project_external_id"),
+        Index("ix_submissions_org_submitted_at", "organization_id", "submitted_at"),
+        Index("ix_submissions_org_project_submitted_at", "organization_id", "project_id", "submitted_at"),
+        Index("ix_submissions_org_review_submitted_at", "organization_id", "review_status", "submitted_at"),
+    )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))

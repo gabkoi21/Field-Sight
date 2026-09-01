@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { LoadingState } from "../../components/ui";
+import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
 
 const metadataFields = new Set([
@@ -75,10 +76,9 @@ export function ExploreAnalyzePage() {
   const [compareField, setCompareField] = useState("");
   const [chartOverride, setChartOverride] = useState("");
 
-  const userQuery = useQuery({ queryKey: ["current-user"], queryFn: apiClient.me });
-  const organizationId = userQuery.data?.memberships[0]?.organization_id;
-  const isOrganizationAdmin =
-    userQuery.data?.memberships.some((membership) => membership.role === "organization_admin") ?? false;
+  const { user, loading: authLoading } = useAuth();
+  const organizationId = user?.memberships[0]?.organization_id;
+  const isOrganizationAdmin = user?.memberships.some((membership) => membership.role === "organization_admin") ?? false;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
@@ -87,7 +87,7 @@ export function ExploreAnalyzePage() {
 
   const projectId = projectIdState || (projectsQuery.data?.[0]?.id ?? "");
 
-  const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions });
+  const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions, enabled: !authLoading });
   const mappingsQuery = useQuery({
     queryKey: ["field-mappings", projectId],
     queryFn: () => apiClient.fieldMappings(projectId),
@@ -306,7 +306,7 @@ export function ExploreAnalyzePage() {
     URL.revokeObjectURL(url);
   }
 
-  if (userQuery.isLoading || projectsQuery.isLoading || submissionsQuery.isLoading) return <LoadingState />;
+  if (authLoading || projectsQuery.isLoading || submissionsQuery.isLoading) return <LoadingState />;
   return (
     <div className="text-[#25324a]">
       <header className="mb-5 flex items-start justify-between gap-4 max-[700px]:flex-col">
