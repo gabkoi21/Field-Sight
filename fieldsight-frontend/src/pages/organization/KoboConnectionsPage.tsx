@@ -7,7 +7,6 @@ import { apiClient, ApiError } from "../../services/apiClient";
 export function KoboConnectionsPage() {
   const queryClient = useQueryClient();
   const [showConnectionForm, setShowConnectionForm] = useState(false);
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [connectionName, setConnectionName] = useState("");
   const [serverUrl, setServerUrl] = useState("https://kf.kobotoolbox.org");
   const [apiToken, setApiToken] = useState("");
@@ -17,26 +16,12 @@ export function KoboConnectionsPage() {
     queryKey: ["kobo-connections"],
     queryFn: apiClient.koboConnections,
   });
-  const formsQuery = useQuery({
-    queryKey: ["kobo-forms", selectedConnectionId],
-    queryFn: () => apiClient.koboForms(selectedConnectionId!),
-    enabled: Boolean(selectedConnectionId),
-  });
   const createMutation = useMutation({
     mutationFn: apiClient.createKoboConnection,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["kobo-connections"] });
     },
   });
-  const selectFormMutation = useMutation({
-    mutationFn: ({ connectionId, form }: { connectionId: string; form: { id: string; name: string; version: string | null } }) =>
-      apiClient.selectKoboForm(connectionId, form),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["kobo-connections"] });
-      setSelectedConnectionId(null);
-    },
-  });
-
   function openConnectionForm() {
     setFormError("");
     setShowConnectionForm(true);
@@ -68,7 +53,6 @@ export function KoboConnectionsPage() {
   }
 
   const connections = connectionsQuery.data ?? [];
-  const forms = formsQuery.data ?? [];
   const loadError =
     connectionsQuery.error instanceof ApiError
       ? connectionsQuery.error.message
@@ -143,9 +127,6 @@ export function KoboConnectionsPage() {
                 <span className="rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[10px] font-semibold text-[#21834c]">
                   {connection.is_verified ? "Verified" : "Not verified"}
                 </span>
-                <Button variant="secondary" onClick={() => setSelectedConnectionId(connection.id)}>
-                  {connection.selected_form_id ? "Change form" : "Select form"}
-                </Button>
               </div>
             </div>
           ))
@@ -199,49 +180,6 @@ export function KoboConnectionsPage() {
         </div>
       )}
 
-      {selectedConnectionId && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={() => !selectFormMutation.isPending && setSelectedConnectionId(null)}>
-          <section className="w-full max-w-[560px] overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]" onClick={(event) => event.stopPropagation()}>
-            <header className="flex items-start justify-between border-b border-[#e8edf4] px-6 py-5">
-              <div>
-                <p className="m-0 text-[10px] font-semibold uppercase tracking-[.08em] text-brand">One form workspace</p>
-                <h2 className="mb-0 mt-1 text-lg text-[#303e67]">Select your Kobo form</h2>
-              </div>
-              <button className="border-0 bg-transparent text-[#8290a2]" type="button" onClick={() => setSelectedConnectionId(null)} aria-label="Close">
-                <X size={19} />
-              </button>
-            </header>
-            <div className="max-h-[420px] overflow-y-auto p-4">
-              {formsQuery.isLoading ? (
-                <div className="flex items-center justify-center gap-2 p-10 text-xs text-[#758092]">
-                  <Ring className="size-4 text-brand" aria-hidden="true" /> Loading Kobo forms…
-                </div>
-              ) : formsQuery.error ? (
-                <p className="rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
-                  {formsQuery.error instanceof ApiError ? formsQuery.error.message : "Unable to load Kobo forms."}
-                </p>
-              ) : forms.length ? (
-                <div className="grid gap-2">
-                  {forms.map((form) => (
-                    <div className="flex items-center gap-3 rounded-md border border-[#e5e8ec] p-4" key={form.id}>
-                      <FileText className="text-brand" size={18} />
-                      <div>
-                        <strong className="block text-sm text-[#334254]">{form.name}</strong>
-                        {form.version && <small className="text-xs text-[#758092]">Version {form.version}</small>}
-                      </div>
-                      <Button className="ml-auto" disabled={selectFormMutation.isPending} onClick={() => selectFormMutation.mutate({ connectionId: selectedConnectionId, form })}>
-                        {selectFormMutation.isPending ? <Ring className="size-4" aria-hidden="true" /> : "Select"}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="p-6 text-center text-sm text-[#758092]">No Kobo survey forms were found in this account.</p>
-              )}
-            </div>
-          </section>
-        </div>
-      )}
     </>
   );
 }
