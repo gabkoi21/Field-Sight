@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.phase3 import ProjectStatus
+from app.models.operations import ProjectStatus
 
 
 class ProjectUpdate(BaseModel):

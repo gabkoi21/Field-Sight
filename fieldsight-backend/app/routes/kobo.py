@@ -20,7 +20,7 @@ from app.core.kobo import (
 )
 from app.db.session import get_session
 from app.models.identity import OrganizationMembership, Role, User
-from app.models.phase3 import KoboConnection, Project
+from app.models.operations import KoboConnection, Project
 from app.routes.auth import get_current_user
 from app.schemas.kobo import (
     KoboConnectionCreate,

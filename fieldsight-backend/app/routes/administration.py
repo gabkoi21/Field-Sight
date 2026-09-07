@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 from app.core.security import password_hasher
 from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, Role, Sector, User
-from app.models.phase3 import OrganizationSettings
+from app.models.operations import OrganizationSettings
 from app.routes.auth import get_current_user
 from app.schemas.administration import (
     OrganizationCreate,

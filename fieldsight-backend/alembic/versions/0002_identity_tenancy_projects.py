@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlmodel import SQLModel
 
 from alembic import op
-from app.models import identity, phase3  # noqa: F401
+from app.models import identity, operations  # noqa: F401
 
 revision: str = "0002_identity_tenancy_projects"
 down_revision: str | None = "0001_phase_1_baseline"

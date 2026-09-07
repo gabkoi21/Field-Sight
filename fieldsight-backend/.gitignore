@@ -5,6 +5,8 @@ __pycache__/
 .ruff_cache/
 .venv/
 .env
+.env.*
+*.env
 *.db
 *.sqlite
 *.sqlite3

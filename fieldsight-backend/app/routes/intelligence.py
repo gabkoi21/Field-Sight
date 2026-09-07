@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from app.db.session import get_session
 from app.models.identity import User
-from app.models.phase3 import FieldMapping, Project, ProjectTarget, Submission
+from app.models.operations import FieldMapping, Project, ProjectTarget, Submission
 from app.routes.auth import get_current_user
 from app.routes.kobo import _organization_admin_id
 from app.schemas.intelligence import (

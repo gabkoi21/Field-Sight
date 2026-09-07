@@ -16,7 +16,7 @@ from app.models.identity import (
     Sector,
     User,
 )
-from app.models.phase3 import Project
+from app.models.operations import Project
 
 
 def test_admin_can_configure_project_intelligence(tmp_path: object) -> None:

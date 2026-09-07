@@ -11,7 +11,7 @@ from app.core.security import create_access_token, password_hasher
 from app.db.session import get_session
 from app.main import create_app
 from app.models.identity import Organization, OrganizationMembership, RefreshSession, Role, User
-from app.models.phase3 import KoboConnection
+from app.models.operations import KoboConnection
 
 
 def test_organization_admin_can_create_verified_encrypted_kobo_connection(tmp_path: Path) -> None:

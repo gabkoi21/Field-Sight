@@ -17,7 +17,7 @@ from app.models.identity import (
     Sector,
     User,
 )
-from app.models.phase3 import KoboConnection, Project, Submission
+from app.models.operations import KoboConnection, Project, Submission
 
 
 def test_dashboard_uses_local_aggregate_queries_without_contacting_kobo(

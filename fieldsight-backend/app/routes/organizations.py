@@ -17,7 +17,7 @@ from app.core.kobo import decrypt_kobo_token, delete_kobo_form
 from app.core.security import password_hasher
 from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, Role, Sector, User
-from app.models.phase3 import (
+from app.models.operations import (
     FieldAssignment,
     FieldMapping,
     KoboConnection,

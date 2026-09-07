@@ -16,7 +16,7 @@ from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token, list_kobo_submissions
 from app.db.session import get_session
 from app.models.identity import User
-from app.models.phase3 import KoboConnection, Project, Submission, SyncRun
+from app.models.operations import KoboConnection, Project, Submission, SyncRun
 from app.routes.auth import get_current_user
 from app.routes.kobo import _organization_admin_id
 

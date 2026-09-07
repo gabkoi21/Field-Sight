@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from urllib.parse import urlparse
 
-from pydantic import Field
+from cryptography.fernet import Fernet
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Configuration loaded from environment variables and an optional `.env` file."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="FIELDSIGHT_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="FIELDSIGHT_", extra="ignore", hide_input_in_errors=True
+    )
 
     app_name: str = "FieldSight API"
     environment: str = "development"
@@ -20,12 +24,36 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     jwt_issuer: str = "fieldsight-api"
     jwt_audience: str = "fieldsight-web"
-    jwt_secret: str = Field(min_length=32, default="development-only-change-this-secret-before-phase-2")
+    jwt_secret: str = Field(min_length=32, default="development-only-change-this-secret-before-phase-2", repr=False)
     access_token_minutes: int = 15
     refresh_token_days: int = 14
     invitation_days: int = 7
     upload_base_url: str = "http://localhost:8000/local-uploads"
-    kobo_token_encryption_key: str | None = None
+    kobo_token_encryption_key: str | None = Field(default=None, repr=False)
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> Settings:
+        if self.is_development:
+            return self
+        if len(self.jwt_secret) < 64 or any(
+            marker in self.jwt_secret.lower() for marker in ("development-only", "replace-with", "change-me")
+        ):
+            raise ValueError("Production requires a generated JWT secret of at least 64 characters.")
+        try:
+            if not self.kobo_token_encryption_key:
+                raise ValueError
+            Fernet(self.kobo_token_encryption_key.encode())
+        except (ValueError, TypeError):
+            raise ValueError("Production requires a valid Kobo Fernet encryption key.") from None
+        for origin in self.cors_origin_list:
+            parsed = urlparse(origin)
+            if (
+                parsed.scheme != "https" or not parsed.hostname or "*" in origin
+                or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment
+                or parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+            ):
+                raise ValueError("Production CORS origins must be explicit public HTTPS origins without paths.")
+        return self
 
     @property
     def is_development(self) -> bool:

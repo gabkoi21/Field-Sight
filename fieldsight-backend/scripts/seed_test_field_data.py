@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from app.core.security import password_hasher
 from app.db.session import get_engine
 from app.models.identity import Organization, OrganizationMembership, Role, User
-from app.models.phase3 import FieldAssignment, KoboConnection, Project, Submission
+from app.models.operations import FieldAssignment, KoboConnection, Project, Submission
 
 
 ORGANIZATION_NAME = "Community Health Initiative"

@@ -53,6 +53,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if active_settings.is_development else None,
     )
     app.state.settings = active_settings
+    app.dependency_overrides[get_settings] = lambda: active_settings
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,

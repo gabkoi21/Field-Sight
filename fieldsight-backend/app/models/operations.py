@@ -1,4 +1,4 @@
-"""Projects, teams, settings, locations, and assignments."""
+"""Field operations: projects, settings, locations, Kobo connections, submissions, and assignments."""
 
 from __future__ import annotations
 
@@ -19,19 +19,6 @@ class ProjectStatus(StrEnum):
     PAUSED = "paused"
     COMPLETED = "completed"
     ARCHIVED = "archived"
-
-
-class Invitation(SQLModel, table=True):
-    __tablename__ = "invitations"
-    id: UUID = Field(default_factory=uuid4, primary_key=True)
-    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
-    email: str = Field(sa_column=Column(String(320), index=True, nullable=False))
-    role: Role
-    token_hash: str = Field(sa_column=Column(String(64), unique=True, nullable=False))
-    expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
-    accepted_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
-    created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))
-    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
 class OrganizationSettings(SQLModel, table=True):

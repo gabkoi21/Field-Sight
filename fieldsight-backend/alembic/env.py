@@ -9,7 +9,7 @@ from sqlmodel import SQLModel
 
 from alembic import context
 from app.core.config import get_settings
-from app.models import identity, phase3  # noqa: F401
+from app.models import identity, operations  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
