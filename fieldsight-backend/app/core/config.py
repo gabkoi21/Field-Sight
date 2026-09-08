@@ -6,7 +6,7 @@ from functools import lru_cache
 from urllib.parse import urlparse
 
 from cryptography.fernet import Fernet
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +19,10 @@ class Settings(BaseSettings):
 
     app_name: str = "FieldSight API"
     environment: str = "development"
-    database_url: str = "sqlite:///./fieldsight.db"
+    database_url: str = Field(
+        default="sqlite:///./fieldsight.db",
+        validation_alias=AliasChoices("FIELDSIGHT_DATABASE_URL", "DATABASE_URL"),
+    )
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     log_level: str = "INFO"
     jwt_issuer: str = "fieldsight-api"
@@ -30,6 +33,14 @@ class Settings(BaseSettings):
     invitation_days: int = 7
     upload_base_url: str = "http://localhost:8000/local-uploads"
     kobo_token_encryption_key: str | None = Field(default=None, repr=False)
+
+    @field_validator("database_url")
+    @classmethod
+    def use_psycopg_driver_for_postgresql(cls, value: str) -> str:
+        """Use the installed PostgreSQL driver for standard provider URLs."""
+        if value.startswith("postgresql://"):
+            return "postgresql+psycopg://" + value.removeprefix("postgresql://")
+        return value
 
     @model_validator(mode="after")
     def validate_production_security(self) -> Settings:

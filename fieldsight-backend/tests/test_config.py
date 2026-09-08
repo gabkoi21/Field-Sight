@@ -46,3 +46,10 @@ def test_production_encrypts_and_recovers_token_without_exposing_settings_secret
 
 def test_empty_production_cors_disables_cross_origin_access() -> None:
     assert production_settings(cors_origins="").cors_origin_list == []
+
+
+def test_standard_database_url_environment_variable_is_supported(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FIELDSIGHT_DATABASE_URL", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:password@example.org/database")
+
+    assert Settings(_env_file=None).database_url == "postgresql+psycopg://user:password@example.org/database"
