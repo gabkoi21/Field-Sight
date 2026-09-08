@@ -15,7 +15,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table(
+    tables = set(sa.inspect(op.get_bind()).get_table_names())
+    if "field_mappings" not in tables:
+        op.create_table(
         "field_mappings",
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("organization_id", sa.Uuid(), sa.ForeignKey("organizations.id"), nullable=False),
@@ -30,9 +32,10 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint("project_id", "source_field", name="uq_field_mapping_project_source"),
     )
-    op.create_index("ix_field_mappings_organization_id", "field_mappings", ["organization_id"])
-    op.create_index("ix_field_mappings_project_id", "field_mappings", ["project_id"])
-    op.create_table(
+        op.create_index("ix_field_mappings_organization_id", "field_mappings", ["organization_id"])
+        op.create_index("ix_field_mappings_project_id", "field_mappings", ["project_id"])
+    if "project_targets" not in tables:
+        op.create_table(
         "project_targets",
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("organization_id", sa.Uuid(), sa.ForeignKey("organizations.id"), nullable=False),
@@ -46,8 +49,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
-    op.create_index("ix_project_targets_organization_id", "project_targets", ["organization_id"])
-    op.create_index("ix_project_targets_project_id", "project_targets", ["project_id"])
+        op.create_index("ix_project_targets_organization_id", "project_targets", ["organization_id"])
+        op.create_index("ix_project_targets_project_id", "project_targets", ["project_id"])
 
 
 def downgrade() -> None:

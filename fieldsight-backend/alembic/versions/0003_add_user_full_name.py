@@ -17,6 +17,9 @@ depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("users")}
+    if "full_name" in columns:
+        return
     with op.batch_alter_table("users") as batch_op:
         batch_op.add_column(sa.Column("full_name", sa.String(length=200), nullable=True))
 

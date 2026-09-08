@@ -23,6 +23,13 @@ Development probes:
 
 Run `ruff check .`, `mypy app`, and `pytest` before committing.
 
+To initialize a new Neon database and create the first administrator, add
+`FIELDSIGHT_DATABASE_URL` to the ignored `.env` file and run:
+
+```powershell
+python scripts/setup_neon.py --email "admin@example.org" --username "superadmin" --full-name "Admin Name"
+```
+
 SQLite is the active database. New data models must use Alembic migrations; do not call `SQLModel.metadata.create_all()` during normal application startup.
 
 ## Deployment configuration

@@ -4,8 +4,9 @@ Revision ID: 0005_kobo_connections
 Revises: 0004_enumerator_profile
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0005_kobo_connections"
 down_revision = "0004_enumerator_profile"
@@ -14,6 +15,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if "kobo_connections" in sa.inspect(op.get_bind()).get_table_names():
+        return
     op.create_table(
         "kobo_connections",
         sa.Column("id", sa.Uuid(), nullable=False),

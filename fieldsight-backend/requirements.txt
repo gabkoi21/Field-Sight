@@ -6,6 +6,7 @@ fastapi[standard]>=0.115
 psycopg[binary]>=3.2
 pwdlib[argon2]>=0.2
 pydantic-settings>=2.7
+python-dotenv>=1.0
 PyJWT>=2.10
 sqlmodel>=0.0.22
 uvicorn[standard]>=0.34
