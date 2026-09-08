@@ -1,0 +1,15 @@
+.env
+.env.*
+*.env
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+health_assessment_xlsform.xlsx

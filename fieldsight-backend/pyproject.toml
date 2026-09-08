@@ -12,8 +12,9 @@ dependencies = [
   "alembic>=1.14",
   "cryptography>=43",
   "email-validator>=2.2",
-  "fastapi>=0.115",
+  "fastapi[standard]>=0.115",
   "httpx>=0.28",
+  "psycopg[binary]>=3.2",
   "pwdlib[argon2]>=0.2",
   "pydantic-settings>=2.7",
   "PyJWT>=2.10",
@@ -32,6 +33,9 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
