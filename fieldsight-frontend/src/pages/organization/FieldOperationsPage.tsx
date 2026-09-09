@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { AdminStatus, AdminTableFooter, adminInputClass } from "../../components/superadmin/AdminUi";
 import { Button } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/Table";
 import { apiClient, ApiError, type ApiEnumerator, type EnumeratorUpdateInput } from "../../services/apiClient";
 
@@ -21,24 +22,20 @@ export function FieldOperationsPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress] = useState("");
   const [emergencyContactName, setEmergencyContactName] = useState("");
   const [emergencyContactPhone, setEmergencyContactPhone] = useState("");
-  const [notes, setNotes] = useState("");
   const [formError, setFormError] = useState("");
   const [selectedMembershipId, setSelectedMembershipId] = useState<string | null>(null);
   const [editIsActive, setEditIsActive] = useState(true);
   const [editPhoneNumber, setEditPhoneNumber] = useState("");
-  const [editEmployeeId, setEditEmployeeId] = useState("");
   const [editGender, setEditGender] = useState("");
   const [editDateOfBirth, setEditDateOfBirth] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editEmergencyContactName, setEditEmergencyContactName] = useState("");
   const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState("");
-  const [editNotes, setEditNotes] = useState("");
   const [actionError, setActionError] = useState("");
   const manageFieldClass = `${adminInputClass} min-h-[36px] border-[#edf1f5] bg-[#f5f7fa] px-2.5 text-[12px] text-[#526177]`;
   const enumeratorsQuery = useQuery({
@@ -71,13 +68,11 @@ export function FieldOperationsPage() {
       username: string;
       password: string;
       phone_number?: string;
-      employee_id?: string;
       gender?: string;
       date_of_birth?: string;
       address?: string;
       emergency_contact_name?: string;
       emergency_contact_phone?: string;
-      notes?: string;
     }) => apiClient.createEnumerator(input),
     onSuccess: async (createdEnumerator) => {
       queryClient.setQueryData<ApiEnumerator[]>(["organization-enumerators"], (current = []) => [
@@ -177,45 +172,45 @@ export function FieldOperationsPage() {
     if (!selectedEnumerator) return;
     setEditIsActive(selectedEnumerator.is_active);
     setEditPhoneNumber(selectedEnumerator.phone_number ?? "");
-    setEditEmployeeId(selectedEnumerator.employee_id ?? "");
     setEditGender(selectedEnumerator.gender ?? "");
     setEditDateOfBirth(selectedEnumerator.date_of_birth ?? "");
     setEditAddress(selectedEnumerator.address ?? "");
     setEditEmergencyContactName(selectedEnumerator.emergency_contact_name ?? "");
     setEditEmergencyContactPhone(selectedEnumerator.emergency_contact_phone ?? "");
-    setEditNotes(selectedEnumerator.notes ?? "");
   }, [selectedEnumerator]);
   async function createEnumerator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isOrganizationAdmin) return;
+    if (!isOrganizationAdmin || createMutation.isPending) return;
     setFormError("");
+    if (fullName.trim().length < 2 || username.trim().length < 3) {
+      setFormError("Enter a full name of at least 2 characters and a username of at least 3 characters.");
+      return;
+    }
     try {
       await createMutation.mutateAsync({
         full_name: fullName.trim(),
         email: email.trim(),
         username: username.trim(),
         password,
-        phone_number: phoneNumber || undefined,
-        employee_id: employeeId || undefined,
-        gender: gender || undefined,
+        phone_number: phoneNumber.trim() || undefined,
+        gender: gender.trim() || undefined,
         date_of_birth: dateOfBirth || undefined,
-        address: address || undefined,
-        emergency_contact_name: emergencyContactName || undefined,
-        emergency_contact_phone: emergencyContactPhone || undefined,
-        notes: notes || undefined,
+        address: address.trim() || undefined,
+        emergency_contact_name: emergencyContactName.trim() || undefined,
+        emergency_contact_phone: emergencyContactPhone.trim() || undefined,
       });
+      setQuery("");
+      setProjectId("");
       setFullName("");
       setEmail("");
       setUsername("");
       setPassword("");
       setPhoneNumber("");
-      setEmployeeId("");
       setGender("");
       setDateOfBirth("");
       setAddress("");
       setEmergencyContactName("");
       setEmergencyContactPhone("");
-      setNotes("");
       setShowCreate(false);
     } catch (requestError) {
       setFormError(requestError instanceof ApiError ? requestError.message : "Unable to create the enumerator.");
@@ -245,7 +240,7 @@ export function FieldOperationsPage() {
 
   async function updateEnumerator(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedMembershipId) return;
+    if (!selectedMembershipId || updateMutation.isPending) return;
     setActionError("");
     try {
       await updateMutation.mutateAsync({
@@ -253,13 +248,12 @@ export function FieldOperationsPage() {
         input: {
           is_active: editIsActive,
           phone_number: editPhoneNumber.trim() || null,
-          employee_id: editEmployeeId.trim() || null,
           gender: editGender.trim() || null,
           date_of_birth: editDateOfBirth || null,
           address: editAddress.trim() || null,
           emergency_contact_name: editEmergencyContactName.trim() || null,
           emergency_contact_phone: editEmergencyContactPhone.trim() || null,
-          notes: editNotes.trim() || null,
+          notes: selectedEnumerator?.notes ?? null,
         },
       });
       setSelectedMembershipId(null);
@@ -275,6 +269,10 @@ export function FieldOperationsPage() {
     );
   }
 
+  if (createMutation.isPending || updateMutation.isPending) {
+    return <LoadingState label="Refreshing enumerators…" />;
+  }
+
   return (
     <>
       <div className="mb-[19px] flex items-start justify-between gap-3 max-[700px]:flex-col">
@@ -287,7 +285,7 @@ export function FieldOperationsPage() {
             Create and manage enumerator accounts for your organization.
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button onClick={() => { setFormError(""); setShowCreate(true); }}>
           <Plus size={15} /> Create enumerator
         </Button>
       </div>
@@ -368,14 +366,11 @@ export function FieldOperationsPage() {
       </div>
       <Card className="mt-[16px]">
         <div className="overflow-x-auto">
-          <Table className="min-w-[1050px] border-separate border-spacing-0 text-left">
+          <Table className="min-w-[900px] border-separate border-spacing-0 text-left">
             <TableHeader>
               <TableRow>
                 <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
                   Full name
-                </TableHead>
-                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
-                  Employee ID
                 </TableHead>
                 <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
                   Phone
@@ -401,7 +396,7 @@ export function FieldOperationsPage() {
             <TableBody>
               {enumeratorsQuery.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={9} className="px-4 py-6 text-center text-[12px] text-[#8190a4]">
+                  <TableCell colSpan={8} className="px-4 py-6 text-center text-[12px] text-[#8190a4]">
                     Loading enumerators…
                   </TableCell>
                 </TableRow>
@@ -420,9 +415,6 @@ export function FieldOperationsPage() {
                         {enumerator.email} · @{enumerator.username ?? "not set"}
                       </small>
                     </div>
-                  </TableCell>
-                  <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
-                    {enumerator.employee_id ?? "—"}
                   </TableCell>
                   <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     {enumerator.phone_number ?? "—"}
@@ -470,24 +462,28 @@ export function FieldOperationsPage() {
         </div>
       </Card>
       {selectedMembershipId && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeEnumerator}>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-[rgba(15,23,42,.48)] p-4 backdrop-blur-[1px]" onClick={closeEnumerator}>
           <form
-            className="flex max-h-[calc(100vh-2rem)] w-full max-w-[720px] flex-col overflow-hidden rounded-[6px] border border-[#dfe4e8] bg-white shadow-[0_12px_32px_rgba(16,42,67,.16)]"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-[760px] flex-col overflow-hidden rounded-[14px] border border-[#dfe4e8] bg-white shadow-[0_24px_70px_rgba(16,42,67,.28)]"
             onClick={(event) => event.stopPropagation()}
             onSubmit={updateEnumerator}
+            role="dialog" aria-modal="true" aria-labelledby="manage-enumerator-title"
           >
-            <header className="flex items-center justify-between border-b border-[#e8edf4] px-4 py-3">
-              <h2 className="m-0 text-[16px] font-semibold text-[#253342]">Manage enumerator</h2>
+            <header className="flex shrink-0 items-center justify-between border-b border-[#e8edf4] px-6 py-5">
+              <div>
+                <h2 id="manage-enumerator-title" className="m-0 text-lg font-semibold tracking-tight text-[#253342]">Manage enumerator</h2>
+                <p className="mb-0 mt-1 text-xs text-[#75849a]">Update profile details and account access.</p>
+              </div>
               <button
                 type="button"
-                className="border-0 bg-transparent p-0 text-[#8290a2]"
+                className="grid size-8 place-items-center rounded-[6px] border border-[#e1e7ee] bg-white p-0 text-[#8290a2] hover:bg-[#f6f8fb]"
                 onClick={closeEnumerator}
                 aria-label="Close enumerator card"
               >
                 <X size={18} />
               </button>
             </header>
-            <div className="grid flex-1 gap-x-[10px] gap-y-[9px] overflow-y-auto px-4 py-4 sm:grid-cols-2">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
               {enumeratorQuery.isLoading && (
                 <p className="m-0 text-xs text-[#7b8794] sm:col-span-2">Loading enumerator…</p>
               )}
@@ -500,7 +496,8 @@ export function FieldOperationsPage() {
               )}
               {selectedEnumerator && (
                 <>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <h3 className="m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-[#527093] sm:col-span-2">Account details</h3>
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Full name
                     <input
                       className={manageFieldClass + " cursor-default text-[#7b8794]"}
@@ -508,7 +505,7 @@ export function FieldOperationsPage() {
                       readOnly
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Email
                     <input
                       className={manageFieldClass + " cursor-default text-[#7b8794]"}
@@ -516,7 +513,7 @@ export function FieldOperationsPage() {
                       readOnly
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Username
                     <input
                       className={manageFieldClass + " cursor-default text-[#7b8794]"}
@@ -524,7 +521,7 @@ export function FieldOperationsPage() {
                       readOnly
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Role
                     <input
                       className={manageFieldClass + " cursor-default text-[#7b8794]"}
@@ -532,7 +529,7 @@ export function FieldOperationsPage() {
                       readOnly
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177] sm:col-span-2">
                     Status
                     <select
                       className={manageFieldClass}
@@ -543,15 +540,8 @@ export function FieldOperationsPage() {
                       <option value="inactive">Inactive</option>
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
-                    Created
-                    <input
-                      className={manageFieldClass + " cursor-default text-[#7b8794]"}
-                      value={new Date(selectedEnumerator.created_at).toLocaleDateString()}
-                      readOnly
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <h3 className="mt-1 border-t border-[#e8edf4] pt-4 m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-[#527093] sm:col-span-2">Personal details</h3>
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Phone number
                     <input
                       type="tel"
@@ -561,25 +551,19 @@ export function FieldOperationsPage() {
                       maxLength={32}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
-                    Employee ID
-                    <input
-                      className={manageFieldClass}
-                      value={editEmployeeId}
-                      onChange={(event) => setEditEmployeeId(event.target.value)}
-                      maxLength={64}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Gender
-                    <input
+                    <select
                       className={manageFieldClass}
-                      value={editGender}
+                      value={editGender.toLowerCase()}
                       onChange={(event) => setEditGender(event.target.value)}
-                      maxLength={32}
-                    />
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Date of birth
                     <input
                       type="date"
@@ -588,7 +572,7 @@ export function FieldOperationsPage() {
                       onChange={(event) => setEditDateOfBirth(event.target.value)}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Address
                     <input
                       className={manageFieldClass}
@@ -597,7 +581,8 @@ export function FieldOperationsPage() {
                       maxLength={300}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <h3 className="mt-1 border-t border-[#e8edf4] pt-4 m-0 text-[11px] font-bold uppercase tracking-[0.08em] text-[#527093] sm:col-span-2">Emergency contact</h3>
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Emergency contact name
                     <input
                       className={manageFieldClass}
@@ -606,7 +591,7 @@ export function FieldOperationsPage() {
                       maxLength={200}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
+                  <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#526177]">
                     Emergency contact phone
                     <input
                       type="tel"
@@ -616,20 +601,11 @@ export function FieldOperationsPage() {
                       maxLength={32}
                     />
                   </label>
-                  <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
-                    Notes
-                    <textarea
-                      className={manageFieldClass + " min-h-[70px] resize-y"}
-                      value={editNotes}
-                      onChange={(event) => setEditNotes(event.target.value)}
-                      maxLength={2000}
-                    />
-                  </label>{" "}
                 </>
               )}
               {actionError && <p className="m-0 text-xs text-[#b42318] sm:col-span-2">{actionError}</p>}
             </div>
-            <footer className="flex items-center justify-between gap-3 border-t border-[#e8edf4] bg-[#fbfcfd] px-4 py-2.5">
+            <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[#e8edf4] bg-[#fbfcfd] px-6 py-4">
               <button
                 type="button"
                 className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-[#f0c8cd] bg-white px-3 text-xs font-semibold text-[#b42318] disabled:cursor-not-allowed disabled:opacity-50"
@@ -649,7 +625,7 @@ export function FieldOperationsPage() {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={!selectedEnumerator || updateMutation.isPending}>
-                  {updateMutation.isPending ? "Saving…" : "Save"}
+                  {updateMutation.isPending ? "Saving…" : "Save changes"}
                 </Button>
               </div>
             </footer>
@@ -658,35 +634,33 @@ export function FieldOperationsPage() {
       )}
       {showCreate && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[rgba(16,42,67,.23)] p-4"
-          onClick={() => setShowCreate(false)}
+          className="fixed inset-0 z-50 grid place-items-center bg-[rgba(15,23,42,.48)] p-4 backdrop-blur-[1px]"
+          onClick={() => { if (!createMutation.isPending) setShowCreate(false); }}
         >
           <form
-            className="flex max-h-[calc(100vh-2rem)] w-full max-w-[620px] flex-col overflow-hidden rounded-[8px] bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-[720px] flex-col overflow-hidden rounded-[8px] border border-[#dfe4e8] bg-white shadow-[0_24px_70px_rgba(16,42,67,.28)]"
             onClick={(event) => event.stopPropagation()}
             onSubmit={createEnumerator}
+            aria-busy={createMutation.isPending}
           >
-            <header className="flex items-start justify-between border-b border-[#e8edf4] px-[22px] py-5">
+            <header className="flex shrink-0 items-center justify-between border-b border-[#e8edf4] px-5 py-4">
               <div>
-                <p className="m-0 mb-1 text-[11px] font-bold uppercase tracking-[.08em] text-brand">
-                  Organization access
-                </p>
-                <h2 className="m-0 text-xl text-[#303e67]">Create enumerator</h2>
+                <h2 className="m-0 text-[17px] font-semibold text-[#253342]">Create enumerator</h2>
                 <p className="mb-0 mt-1 text-[11px] text-[#8391a5]">
-                  The account receives the Enumerator membership role.
+                  Create an account with the Enumerator role.
                 </p>
               </div>
               <button
                 type="button"
-                className="border-0 bg-transparent text-[#8290a2]"
-                onClick={() => setShowCreate(false)}
+                className="grid size-8 place-items-center rounded-[6px] border border-[#e1e7ee] bg-white p-0 text-[#8290a2] hover:bg-[#f6f8fb]"
+                onClick={() => { if (!createMutation.isPending) setShowCreate(false); }}
                 aria-label="Close"
               >
                 <X size={19} />
               </button>
             </header>
-            <div className="grid flex-1 grid-cols-1 gap-4 px-6 py-6 overflow-auto sm:grid-cols-2">
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+            <fieldset disabled={createMutation.isPending} className="m-0 min-w-0 border-0 grid min-h-0 flex-1 grid-cols-1 gap-x-4 gap-y-3 overflow-y-auto px-5 py-5 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Full name
                 <input
                   className={adminInputClass}
@@ -697,7 +671,7 @@ export function FieldOperationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Email
                 <input
                   type="email"
@@ -707,7 +681,7 @@ export function FieldOperationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Username
                 <input
                   className={adminInputClass}
@@ -718,11 +692,7 @@ export function FieldOperationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
-                Role
-                <input className={`${adminInputClass} cursor-not-allowed`} value="Enumerator" readOnly />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Temporary password
                 <input
                   type="password"
@@ -739,21 +709,17 @@ export function FieldOperationsPage() {
                 <input
                   type="tel"
                   className={adminInputClass}
-                  value={phoneNumber}
+                  maxLength={32} value={phoneNumber}
                   onChange={(event) => setPhoneNumber(event.target.value)}
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
-                Employee ID
-                <input
-                  className={adminInputClass}
-                  value={employeeId}
-                  onChange={(event) => setEmployeeId(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Gender
-                <input className={adminInputClass} value={gender} onChange={(event) => setGender(event.target.value)} />
+                <select className={adminInputClass} value={gender} onChange={(event) => setGender(event.target.value)}>
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Date of birth
@@ -764,11 +730,11 @@ export function FieldOperationsPage() {
                   onChange={(event) => setDateOfBirth(event.target.value)}
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Address
                 <input
                   className={adminInputClass}
-                  value={address}
+                  maxLength={300} value={address}
                   onChange={(event) => setAddress(event.target.value)}
                 />
               </label>
@@ -776,7 +742,7 @@ export function FieldOperationsPage() {
                 Emergency contact name
                 <input
                   className={adminInputClass}
-                  value={emergencyContactName}
+                  maxLength={200} value={emergencyContactName}
                   onChange={(event) => setEmergencyContactName(event.target.value)}
                 />
               </label>
@@ -785,23 +751,14 @@ export function FieldOperationsPage() {
                 <input
                   type="tel"
                   className={adminInputClass}
-                  value={emergencyContactPhone}
+                  maxLength={32} value={emergencyContactPhone}
                   onChange={(event) => setEmergencyContactPhone(event.target.value)}
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177] sm:col-span-2">
-                Notes
-                <textarea
-                  className={adminInputClass}
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  maxLength={2000}
-                />
-              </label>{" "}
-              {formError && <p className="m-0 text-[11px] text-[#b42318]">{formError}</p>}
-            </div>
-            <footer className="flex justify-end gap-2 border-t border-[#e8edf4] px-[22px] py-3">
-              <Button type="button" variant="secondary" onClick={() => setShowCreate(false)}>
+              {formError && <p role="alert" className="m-0 text-[11px] text-[#b42318] sm:col-span-2">{formError}</p>}
+            </fieldset>
+            <footer className="flex shrink-0 justify-end gap-2 border-t border-[#e8edf4] bg-[#fbfcfd] px-5 py-3">
+              <Button type="button" variant="secondary" disabled={createMutation.isPending} onClick={() => { if (!createMutation.isPending) setShowCreate(false); }}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createMutation.isPending}>

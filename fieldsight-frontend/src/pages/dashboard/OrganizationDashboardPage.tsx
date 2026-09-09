@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, Clock3, Database, FileCheck2, FolderKanban, MapPin, RefreshCw, UsersRound } from "lucide-react";
+import { ArrowRight, ChevronDown, Clock3, Database, FileCheck2, FolderKanban, RefreshCw, UsersRound } from "lucide-react";
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   Pie,
@@ -20,7 +18,6 @@ import {
 import { LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
-import { SubmissionMap } from "../../components/dashboard/SubmissionMap";
 import { formatLocation } from "../../utils/location";
 
 const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
@@ -102,7 +99,6 @@ export function OrganizationDashboardPage() {
   });
 
   const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
-  const submissionsQuery = useQuery({ queryKey: ["dashboard-submissions"], queryFn: apiClient.submissions });
 
   const isLoading = authLoading || overviewQuery.isLoading;
 
@@ -163,18 +159,13 @@ export function OrganizationDashboardPage() {
           { name: "Teach For Liberia", value: 35, color: projectColors[1] },
         ];
 
-  const projectChartData = projectSummary.map((project) => ({
-    name: project.name,
-    fullName: project.name,
-    Actual: project.actual,
-    Target: project.target || project.actual,
-  }));
+  const leadingProjects = [...projectSummary]
+    .sort((a, b) => b.actual - a.actual || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+    .slice(0, 5);
+
 
   const totalProjectSubmissions = projectPieData.reduce((acc, item) => acc + item.value, 0);
-  const mapSubmissions = (submissionsQuery.data ?? []).filter(
-    (submission) => (!projectId || submission.project_id === projectId) && (!location || submission.location === location),
-  );
-  const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch(), submissionsQuery.refetch()]);
+  const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch()]);
 
   return (
     <div className="flex flex-col gap-5 text-[#24334a]">
@@ -245,14 +236,6 @@ export function OrganizationDashboardPage() {
           onClick={() => navigate("/enumerators")}
         />
       </section>
-
-      <Panel
-        title="Submission locations"
-        subtitle="GPS coverage for records in the current project and location filters"
-        action={<button className="inline-flex items-center gap-1 text-xs font-semibold text-brand" onClick={() => navigate("/analytics")}><MapPin size={13} /> Explore data</button>}
-      >
-        <SubmissionMap submissions={mapSubmissions} />
-      </Panel>
 
       <section className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] gap-4 max-[1000px]:grid-cols-1">
         <Panel
@@ -340,50 +323,35 @@ export function OrganizationDashboardPage() {
 
       <section className="grid grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)] gap-4 max-[1000px]:grid-cols-1">
         <Panel
-          title="Project performance"
-          subtitle="Delivery against each project collection target"
+          title="Top 5 projects"
+          subtitle={`Ranked by submissions • ${periodLabels[period]}`}
           action={
             <button className="text-xs font-semibold text-brand" onClick={() => navigate("/projects")}>
               View all <ArrowRight className="inline" size={13} />
             </button>
           }
         >
-          {projectSummary.length === 1 ? (
-            <SingleProjectProgress project={projectSummary[0]} />
-          ) : projectSummary.length > 0 ? (
-            <div className="h-[380px] pt-4 pb-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={projectChartData}
-                  barCategoryGap="24%"
-                  margin={{ top: 10, right: 10, left: -15, bottom: 20 }}
-                >
-                  <CartesianGrid vertical={false} stroke="#edf1f5" strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    interval={0}
-                    tick={{ fontSize: 11, fontWeight: 500, fill: "#334155" }}
-                    axisLine={{ stroke: "#e2e8f0" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 10, fill: "#64748b" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    formatter={(val: number, name: string) => [val.toLocaleString(), name]}
-                    cursor={{ fill: "rgba(11, 81, 183, 0.04)" }}
-                  />
-                  <Bar dataKey="Target" name="Target" fill="#e8edf3" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Actual" name="Actual" fill="#0b51b7" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          {leadingProjects.length > 0 ? (
+            <ol className="m-0 list-none divide-y divide-slate-100 p-0">
+              {leadingProjects.map((project, index) => (
+                <li key={project.id} className="flex items-center gap-3 py-4 first:pt-2 last:pb-2">
+                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${index === 0 ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="min-w-0 break-words text-xs font-semibold text-slate-700">{project.name}</span>
+                    </div>
+                    <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full rounded-full bg-blue-500 transition-[width] duration-500" style={{ width: `${project.target > 0 ? Math.min(100, Math.max(0, (project.actual / project.target) * 100)) : 0}%` }} />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
           ) : (
-            <div className="flex h-[380px] items-center justify-center text-xs text-[#8491a3]">
-              No project data available.
+            <div className="flex h-[180px] items-center justify-center text-xs text-[#8491a3]">
+              No projects for the selected filters.
             </div>
           )}
         </Panel>
@@ -462,30 +430,6 @@ function ProjectLegendItem({
         <span>{percentage}%</span>
         <span className="text-slate-400">•</span>
         <span>{value.toLocaleString()}</span>
-      </div>
-    </div>
-  );
-}
-
-function SingleProjectProgress({ project }: { project: { name: string; actual: number; target: number } }) {
-  const target = project.target || project.actual;
-  const progress = target > 0 ? Math.min(100, Math.round((project.actual / target) * 100)) : 0;
-  return (
-    <div className="flex h-[380px] items-center px-6">
-      <div className="w-full rounded-xl border border-[#e4eaf1] bg-[#f8fafc] p-6">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="m-0 text-xs font-semibold text-[#64748b]">{project.name}</p>
-            <strong className="mt-2 block text-3xl text-[#1e293b]">{progress}%</strong>
-          </div>
-          <span className="text-xs font-semibold text-[#64748b]">
-            {project.actual.toLocaleString()} / {target.toLocaleString()}
-          </span>
-        </div>
-        <div className="mt-5 h-4 overflow-hidden rounded-full bg-[#e4eaf1]">
-          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${progress}%` }} />
-        </div>
-        <p className="mb-0 mt-3 text-[11px] text-[#8190a4]">Submissions collected against the project target</p>
       </div>
     </div>
   );

@@ -263,7 +263,6 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
         username=payload.username,
         full_name=payload.full_name.strip(),
         phone_number=payload.phone_number,
-        employee_id=payload.employee_id,
         gender=payload.gender,
         date_of_birth=payload.date_of_birth,
         address=payload.address,
@@ -272,6 +271,7 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
         notes=payload.notes,
         password_hash=password_hasher.hash(payload.password),
     )
+    enumerator.employee_id = f"EMP-{enumerator.id.hex.upper()}"
     db.add(enumerator)
     db.flush()
     membership = OrganizationMembership(organization_id=org_id, user_id=enumerator.id, role=Role.ENUMERATOR)
@@ -296,7 +296,6 @@ def update_enumerator(
         raise HTTPException(status_code=404, detail="Enumerator account was not found.")
     for field in (
         "phone_number",
-        "employee_id",
         "gender",
         "date_of_birth",
         "address",

@@ -108,12 +108,22 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
             "email": "enumerator@example.com",
             "username": "field.enumerator",
             "password": "EnumeratorPass123!",
+            "phone_number": "+231770123456",
+            "employee_id": "EMP-001",
+            "gender": "Female",
+            "date_of_birth": "1995-03-12",
+            "address": "Monrovia",
+            "emergency_contact_name": "John Kamara",
+            "emergency_contact_phone": "+231880123456",
+            "notes": "Available weekdays",
         },
     )
     assert enumerator.status_code == 201
     assert enumerator.json()["full_name"] == "Mary Kamara"
     assert enumerator.json()["role"] == "enumerator"
     assert enumerator.json()["is_active"] is True
+    generated_id = "EMP-" + enumerator.json()["user_id"].replace("-", "").upper()
+    assert enumerator.json()["employee_id"] == generated_id
 
     complete_directory = TestClient(app).get(
         "/users",
@@ -140,6 +150,26 @@ def test_create_organization_also_creates_active_admin(tmp_path: Path) -> None:
     )
     assert enumerator_detail.status_code == 200
     assert enumerator_detail.json()["username"] == "field.enumerator"
+    assert enumerator_detail.json()["employee_id"] == generated_id
+    attempted_id_change = TestClient(app).put(
+        f"/enumerators/{membership_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+        json={"employee_id": "MANUAL-ID"},
+    )
+    assert attempted_id_change.status_code == 200
+    assert attempted_id_change.json()["employee_id"] == generated_id
+
+    for field, expected in {
+        "phone_number": "+231770123456",
+        "gender": "Female", "date_of_birth": "1995-03-12", "address": "Monrovia",
+        "emergency_contact_name": "John Kamara", "emergency_contact_phone": "+231880123456",
+        "notes": "Available weekdays",
+    }.items():
+        assert enumerator_detail.json()[field] == expected
+    with Session(engine) as db:
+        account = db.exec(select(User).where(User.email == "enumerator@example.com")).one()
+        assert password_hasher.verify("EnumeratorPass123!", account.password_hash)
+
 
     suspended = TestClient(app).put(
         f"/enumerators/{membership_id}",

@@ -30,7 +30,6 @@ class LocationUpdate(BaseModel):
 class EnumeratorUpdate(BaseModel):
     is_active: bool | None = None
     phone_number: str | None = Field(default=None, max_length=32)
-    employee_id: str | None = Field(default=None, max_length=64)
     gender: str | None = Field(default=None, max_length=32)
     date_of_birth: date | None = None
     address: str | None = Field(default=None, max_length=300)

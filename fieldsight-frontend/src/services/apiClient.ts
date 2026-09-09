@@ -78,7 +78,6 @@ export interface EnumeratorCreateInput {
   username: string;
   password: string;
   phone_number?: string;
-  employee_id?: string;
   gender?: string;
   date_of_birth?: string;
   address?: string;
@@ -90,7 +89,6 @@ export interface EnumeratorCreateInput {
 export interface EnumeratorUpdateInput {
   is_active: boolean;
   phone_number: string | null;
-  employee_id: string | null;
   gender: string | null;
   date_of_birth: string | null;
   address: string | null;
