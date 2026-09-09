@@ -519,8 +519,7 @@ export function OrganizationsPage() {
                   className={`${adminInputClass} placeholder:text-[#a0acba]`}
                   value={ownerPassword}
                   onChange={(event) => setOwnerPassword(event.target.value)}
-                  placeholder="At least 8 characters"
-                  minLength={8}
+                  placeholder="Enter a password"
                   maxLength={1024}
                   autoComplete="new-password"
                   required

@@ -729,7 +729,6 @@ export function FieldOperationsPage() {
                   className={adminInputClass}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  minLength={8}
                   maxLength={1024}
                   autoComplete="new-password"
                   required

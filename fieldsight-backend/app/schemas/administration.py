@@ -22,7 +22,7 @@ class OrganizationCreate(BaseModel):
     slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     owner_email: EmailStr
     owner_username: str | None = Field(default=None, min_length=3, max_length=100)
-    owner_password: str = Field(min_length=8, max_length=1024)
+    owner_password: str = Field(min_length=1, max_length=1024)
     owner_role: Literal["organization_admin"] = "organization_admin"
     sector_ids: list[UUID] = Field(default_factory=list)
     country: str | None = Field(default=None, max_length=100)
