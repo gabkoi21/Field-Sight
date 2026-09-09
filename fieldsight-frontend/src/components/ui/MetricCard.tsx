@@ -17,6 +17,7 @@ export function MetricCard({
   icon: Icon,
   tone = "brand",
   className = "",
+  onClick,
 }: {
   label: string;
   value: number | string;
@@ -24,9 +25,10 @@ export function MetricCard({
   icon: LucideIcon;
   tone?: MetricTone;
   className?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <Card className={`p-4 ${className}`}>
+  const content = (
+    <Card className={`h-full p-4 ${onClick ? "transition hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-md" : ""} ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <small className="text-[10px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small>
@@ -41,4 +43,9 @@ export function MetricCard({
       {context && <p className="mb-0 mt-2 text-[10px] text-[#8491a3]">{context}</p>}
     </Card>
   );
+  return onClick ? (
+    <button type="button" onClick={onClick} className="w-full cursor-pointer border-0 bg-transparent p-0 text-left">
+      {content}
+    </button>
+  ) : content;
 }

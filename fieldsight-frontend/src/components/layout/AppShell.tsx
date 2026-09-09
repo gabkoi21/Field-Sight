@@ -140,6 +140,8 @@ export function AppShell({ loading = false }: { loading?: boolean }) {
   });
   const pendingSync = pendingSyncQuery.data;
   const pendingCount = pendingSync?.pending_count ?? 0;
+  const koboConnected = (pendingSync?.sources.length ?? 0) > 0;
+  const koboHealthy = koboConnected && pendingSync?.sources.every((source) => source.status === "available");
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const routeLoaderVisible = useMinimumRouteLoader(`${pathname}:${loading ? "auth" : "ready"}`);
@@ -192,6 +194,13 @@ export function AppShell({ loading = false }: { loading?: boolean }) {
                 >
                   <Icon className="max-[1440px]:size-[17px]" size={18} />
                   {name}
+                  {name === "Kobo connections" && (
+                    <span
+                      className={`ml-auto size-2 rounded-full ${koboHealthy ? "bg-emerald-400" : koboConnected ? "bg-amber-400" : "bg-slate-400"}`}
+                      title={koboHealthy ? "Kobo connection healthy" : koboConnected ? "Kobo connection needs attention" : "No Kobo connection"}
+                      aria-label={koboHealthy ? "Kobo connection healthy" : koboConnected ? "Kobo connection needs attention" : "No Kobo connection"}
+                    />
+                  )}
                   {count && <em className="ml-auto text-[11px] not-italic">{count}</em>}
                 </NavLink>
               ))}

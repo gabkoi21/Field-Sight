@@ -13,9 +13,11 @@ import {
   X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
+import { formatLocation } from "../../utils/location";
 
 type Review = "Ready" | "Needs review" | "Invalid";
 type ExportPeriod = "daily" | "weekly" | "biweekly" | "monthly";
@@ -44,7 +46,7 @@ function toRow(submission: ApiSubmission): Row {
     id: submission.external_id,
     projectId: submission.project_id,
     enumerator: submission.enumerator ?? "Unassigned",
-    location: submission.location ?? "Not captured",
+    location: formatLocation(submission.location),
     submitted: submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : "Not recorded",
     submittedAt: submission.submitted_at,
     project: submission.project_name,
@@ -65,6 +67,7 @@ const selectClass =
   "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]";
 
 export function SubmissionsPage() {
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { data = [], isLoading } = useQuery({
     queryKey: ["submissions"],
@@ -79,7 +82,9 @@ export function SubmissionsPage() {
   });
   const [query, setQuery] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [review, setReview] = useState("All records");
+  const [review, setReview] = useState(
+    searchParams.get("review") === "needs_review" ? "Needs review" : searchParams.get("review") === "invalid" ? "Invalid" : "All records",
+  );
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("daily");
   const [selected, setSelected] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);

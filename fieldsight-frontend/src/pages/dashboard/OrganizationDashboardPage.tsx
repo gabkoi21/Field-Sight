@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, Clock3, Database, FileCheck2, FolderKanban, UsersRound } from "lucide-react";
+import { ArrowRight, ChevronDown, Clock3, Database, FileCheck2, FolderKanban, MapPin, RefreshCw, UsersRound } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -20,9 +20,22 @@ import {
 import { LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
+import { SubmissionMap } from "../../components/dashboard/SubmissionMap";
+import { formatLocation } from "../../utils/location";
 
 const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
 const projectColors = ["#0b51b7", "#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ec4899"];
+
+function relativeTime(value: string | null | undefined) {
+  if (!value) return "Not synced yet";
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 1) return "Last synced with Kobo just now";
+  if (minutes < 60) return `Last synced with Kobo ${minutes} min${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `Last synced with Kobo ${hours} hr${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `Last synced with Kobo ${days} day${days === 1 ? "" : "s"} ago`;
+}
 
 function FilterSelect({
   value,
@@ -89,6 +102,7 @@ export function OrganizationDashboardPage() {
   });
 
   const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
+  const submissionsQuery = useQuery({ queryKey: ["dashboard-submissions"], queryFn: apiClient.submissions });
 
   const isLoading = authLoading || overviewQuery.isLoading;
 
@@ -115,7 +129,7 @@ export function OrganizationDashboardPage() {
   const showSecondaryLoading = projectListLoading || enumeratorsLoading || pendingSyncQuery.isFetching;
   const projectSummary = overview?.projects ?? [];
   const projectOptions = (projectsQuery.data ?? []).map((item) => ({ label: item.name, value: item.id }));
-  const locationOptions = (overview?.available_locations ?? []).map((item) => ({ label: item, value: item }));
+  const locationOptions = (overview?.available_locations ?? []).map((item) => ({ label: formatLocation(item), value: item }));
 
   const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
   const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
@@ -157,6 +171,10 @@ export function OrganizationDashboardPage() {
   }));
 
   const totalProjectSubmissions = projectPieData.reduce((acc, item) => acc + item.value, 0);
+  const mapSubmissions = (submissionsQuery.data ?? []).filter(
+    (submission) => (!projectId || submission.project_id === projectId) && (!location || submission.location === location),
+  );
+  const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch(), submissionsQuery.refetch()]);
 
   return (
     <div className="flex flex-col gap-5 text-[#24334a]">
@@ -171,6 +189,15 @@ export function OrganizationDashboardPage() {
           </span>
         )}
         <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[11px] text-[#718096]">{relativeTime(overview?.last_synced_at)}</span>
+          <button
+            type="button"
+            onClick={refreshDashboard}
+            disabled={overviewQuery.isFetching || pendingSyncQuery.isFetching}
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#dce5ef] bg-white px-2.5 py-2 text-[11px] font-semibold text-brand hover:bg-[#f3f8ff] disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Refresh
+          </button>
           <FilterSelect value={projectId} placeholder="All projects" options={projectOptions} onChange={setProjectId} />
 
           <FilterSelect value={location} placeholder="All locations" options={locationOptions} onChange={setLocation} />
@@ -194,27 +221,38 @@ export function OrganizationDashboardPage() {
       </PageHeader>
 
       <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <MetricCard label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
+        <MetricCard label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} onClick={() => navigate("/submissions")} />
         <MetricCard
           label="Pending Review"
           value={overview?.needs_review ?? 0}
           context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready overall`}
           icon={Clock3}
           tone={(overview?.needs_review ?? 0) > 0 || (overview?.invalid_records ?? 0) > 0 ? "warning" : "brand"}
+          onClick={() => navigate("/submissions?review=needs_review")}
         />
         <MetricCard
           label="Active Projects"
           value={activeProjectsDisplay}
           context={`${totalWorkspaceProjects} projects in workspace`}
           icon={FolderKanban}
+          onClick={() => navigate("/projects")}
         />
         <MetricCard
           label="Field Team"
           value={`${activeEnumerators} / ${totalEnumeratorsCount}`}
-          context={`${activeEnumerators} active enumerators today`}
+          context={totalEnumeratorsCount ? `${activeEnumerators} active enumerators today` : "No enumerators assigned"}
           icon={UsersRound}
+          onClick={() => navigate("/enumerators")}
         />
       </section>
+
+      <Panel
+        title="Submission locations"
+        subtitle="GPS coverage for records in the current project and location filters"
+        action={<button className="inline-flex items-center gap-1 text-xs font-semibold text-brand" onClick={() => navigate("/analytics")}><MapPin size={13} /> Explore data</button>}
+      >
+        <SubmissionMap submissions={mapSubmissions} />
+      </Panel>
 
       <section className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] gap-4 max-[1000px]:grid-cols-1">
         <Panel
@@ -310,7 +348,9 @@ export function OrganizationDashboardPage() {
             </button>
           }
         >
-          {projectSummary.length > 0 ? (
+          {projectSummary.length === 1 ? (
+            <SingleProjectProgress project={projectSummary[0]} />
+          ) : projectSummary.length > 0 ? (
             <div className="h-[380px] pt-4 pb-2">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -422,6 +462,30 @@ function ProjectLegendItem({
         <span>{percentage}%</span>
         <span className="text-slate-400">•</span>
         <span>{value.toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
+
+function SingleProjectProgress({ project }: { project: { name: string; actual: number; target: number } }) {
+  const target = project.target || project.actual;
+  const progress = target > 0 ? Math.min(100, Math.round((project.actual / target) * 100)) : 0;
+  return (
+    <div className="flex h-[380px] items-center px-6">
+      <div className="w-full rounded-xl border border-[#e4eaf1] bg-[#f8fafc] p-6">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="m-0 text-xs font-semibold text-[#64748b]">{project.name}</p>
+            <strong className="mt-2 block text-3xl text-[#1e293b]">{progress}%</strong>
+          </div>
+          <span className="text-xs font-semibold text-[#64748b]">
+            {project.actual.toLocaleString()} / {target.toLocaleString()}
+          </span>
+        </div>
+        <div className="mt-5 h-4 overflow-hidden rounded-full bg-[#e4eaf1]">
+          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${progress}%` }} />
+        </div>
+        <p className="mb-0 mt-3 text-[11px] text-[#8190a4]">Submissions collected against the project target</p>
       </div>
     </div>
   );
