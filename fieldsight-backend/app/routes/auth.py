@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app.core.config import Settings, get_settings
 from app.core.security import create_access_token, hash_refresh_token, new_refresh_token, verify_password
 from app.db.session import get_session
-from app.models.identity import OrganizationMembership, RefreshSession, Role, User
+from app.models.identity import Organization, OrganizationMembership, RefreshSession, Role, User
 from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth")
@@ -159,10 +159,20 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_session
             OrganizationMembership.user_id == user.id, OrganizationMembership.is_active
         )
     ).all()
+    membership_data = []
+    for membership in memberships:
+        organization = db.get(Organization, membership.organization_id)
+        membership_data.append(
+            {
+                "organization_id": str(membership.organization_id),
+                "organization_name": organization.name if organization else "Organization",
+                "role": membership.role.value,
+            }
+        )
     return {
         "id": str(user.id),
         "email": user.email,
         "username": user.username,
         "platform_role": user.platform_role,
-        "memberships": [{"organization_id": str(row.organization_id), "role": row.role.value} for row in memberships],
+        "memberships": membership_data,
     }

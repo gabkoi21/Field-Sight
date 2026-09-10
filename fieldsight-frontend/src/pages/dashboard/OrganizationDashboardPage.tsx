@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, Clock3, Database, FileCheck2, FolderKanban, RefreshCw, UsersRound } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  Clock3,
+  Database,
+  FileCheck2,
+  FolderKanban,
+  RefreshCw,
+  UsersRound,
+} from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -22,17 +31,6 @@ import { formatLocation } from "../../utils/location";
 
 const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
 const projectColors = ["#0b51b7", "#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ec4899"];
-
-function relativeTime(value: string | null | undefined) {
-  if (!value) return "Not synced yet";
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 1) return "Last synced with Kobo just now";
-  if (minutes < 60) return `Last synced with Kobo ${minutes} min${minutes === 1 ? "" : "s"} ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `Last synced with Kobo ${hours} hr${hours === 1 ? "" : "s"} ago`;
-  const days = Math.round(hours / 24);
-  return `Last synced with Kobo ${days} day${days === 1 ? "" : "s"} ago`;
-}
 
 function FilterSelect({
   value,
@@ -125,7 +123,10 @@ export function OrganizationDashboardPage() {
   const showSecondaryLoading = projectListLoading || enumeratorsLoading || pendingSyncQuery.isFetching;
   const projectSummary = overview?.projects ?? [];
   const projectOptions = (projectsQuery.data ?? []).map((item) => ({ label: item.name, value: item.id }));
-  const locationOptions = (overview?.available_locations ?? []).map((item) => ({ label: formatLocation(item), value: item }));
+  const locationOptions = (overview?.available_locations ?? []).map((item) => ({
+    label: formatLocation(item),
+    value: item,
+  }));
 
   const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
   const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
@@ -163,7 +164,6 @@ export function OrganizationDashboardPage() {
     .sort((a, b) => b.actual - a.actual || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
     .slice(0, 5);
 
-
   const totalProjectSubmissions = projectPieData.reduce((acc, item) => acc + item.value, 0);
   const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch()]);
 
@@ -180,7 +180,6 @@ export function OrganizationDashboardPage() {
           </span>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-[11px] text-[#718096]">{relativeTime(overview?.last_synced_at)}</span>
           <button
             type="button"
             onClick={refreshDashboard}
@@ -212,28 +211,25 @@ export function OrganizationDashboardPage() {
       </PageHeader>
 
       <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <MetricCard label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} onClick={() => navigate("/submissions")} />
+        <MetricCard label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
         <MetricCard
           label="Pending Review"
           value={overview?.needs_review ?? 0}
           context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready overall`}
           icon={Clock3}
           tone={(overview?.needs_review ?? 0) > 0 || (overview?.invalid_records ?? 0) > 0 ? "warning" : "brand"}
-          onClick={() => navigate("/submissions?review=needs_review")}
         />
         <MetricCard
           label="Active Projects"
           value={activeProjectsDisplay}
           context={`${totalWorkspaceProjects} projects in workspace`}
           icon={FolderKanban}
-          onClick={() => navigate("/projects")}
         />
         <MetricCard
           label="Field Team"
           value={`${activeEnumerators} / ${totalEnumeratorsCount}`}
           context={totalEnumeratorsCount ? `${activeEnumerators} active enumerators today` : "No enumerators assigned"}
           icon={UsersRound}
-          onClick={() => navigate("/enumerators")}
         />
       </section>
 
@@ -335,7 +331,9 @@ export function OrganizationDashboardPage() {
             <ol className="m-0 list-none divide-y divide-slate-100 p-0">
               {leadingProjects.map((project, index) => (
                 <li key={project.id} className="flex items-center gap-3 py-4 first:pt-2 last:pb-2">
-                  <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${index === 0 ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                  <span
+                    className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${index === 0 ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}
+                  >
                     {index + 1}
                   </span>
                   <div className="min-w-0 flex-1">
@@ -343,7 +341,12 @@ export function OrganizationDashboardPage() {
                       <span className="min-w-0 break-words text-xs font-semibold text-slate-700">{project.name}</span>
                     </div>
                     <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full rounded-full bg-blue-500 transition-[width] duration-500" style={{ width: `${project.target > 0 ? Math.min(100, Math.max(0, (project.actual / project.target) * 100)) : 0}%` }} />
+                      <div
+                        className="h-full rounded-full bg-blue-500 transition-[width] duration-500"
+                        style={{
+                          width: `${project.target > 0 ? Math.min(100, Math.max(0, (project.actual / project.target) * 100)) : 0}%`,
+                        }}
+                      />
                     </div>
                   </div>
                 </li>

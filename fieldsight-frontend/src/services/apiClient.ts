@@ -2,6 +2,7 @@ export type Role = "super_admin" | "organization_admin" | "enumerator";
 
 export interface Membership {
   organization_id: string;
+  organization_name?: string;
   role: Exclude<Role, "super_admin">;
 }
 

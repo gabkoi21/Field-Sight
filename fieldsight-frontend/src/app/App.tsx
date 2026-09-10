@@ -26,7 +26,6 @@ import {
   SystemHealthPage,
   UsersPage,
 } from "../pages/superadmin";
-import { SyncHistoryPage } from "../pages/organization/SyncHistoryPage";
 import { TeamPage } from "../pages/organization/TeamPage";
 
 export function App() {
@@ -63,7 +62,6 @@ export function App() {
         <Route path="forms/connections" element={<KoboConnectionsPage />} />
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />
-        <Route path="sync" element={<SyncHistoryPage />} />
         <Route path="quality" element={<QualityCenterPage />} />
         <Route path="analytics" element={<ExploreAnalyzePage />} />
         <Route path="reports" element={<ReportsPage />} />

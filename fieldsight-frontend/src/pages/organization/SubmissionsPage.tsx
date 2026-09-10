@@ -186,7 +186,7 @@ export function SubmissionsPage() {
       </div>
 
       <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <Database size={19} />
           </span>
@@ -197,8 +197,8 @@ export function SubmissionsPage() {
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">
             {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
           </small>
-        </button>
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+        </article>
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
             <FileCheck2 size={19} />
           </span>
@@ -207,8 +207,8 @@ export function SubmissionsPage() {
             {projectRows.filter((row) => row.review === "Ready").length.toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Validated and export-ready records</small>
-        </button>
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+        </article>
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
             <ShieldAlert size={19} />
           </span>
@@ -217,8 +217,8 @@ export function SubmissionsPage() {
             {projectRows.filter((row) => row.review === "Needs review").length.toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Records waiting for quality review</small>
-        </button>
-        <button className="grid w-full cursor-pointer grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left [font:inherit] hover:border-[#b8dcd6] hover:shadow-[0_3px_10px_#102a4309]">
+        </article>
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]">
             <ShieldAlert size={19} />
           </span>
@@ -227,7 +227,7 @@ export function SubmissionsPage() {
             {projectRows.filter((row) => row.review === "Invalid").length.toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Blocked from export until resolved</small>
-        </button>
+        </article>
       </section>
 
       <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
@@ -374,7 +374,7 @@ export function SubmissionsPage() {
           </table>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e9eef4] bg-[#fafbfc] px-5 py-3.5 text-[11.5px] text-[#64748b]">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f2] bg-white px-[14px] py-[11px] text-[10px] text-[#84909b]">
           <span className="text-[11.5px] text-[#64748b]">
             Showing{" "}
             <strong className="font-semibold text-[#1e293b]">
@@ -385,7 +385,7 @@ export function SubmissionsPage() {
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-[11.5px] font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-[#f8fafc] px-3 text-[11px] font-medium text-[#8793a2] transition-colors hover:border-[#b8cde8] hover:bg-white hover:text-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={activePage === 1}
               aria-label="Previous page"
@@ -394,12 +394,12 @@ export function SubmissionsPage() {
               <span className="max-[520px]:hidden">Previous</span>
             </button>
 
-            <div className="flex items-center gap-1 rounded-md border border-[#e5ebf4] bg-white px-1 py-1 shadow-sm">
+            <div className="flex items-center gap-1">
               {pageNumbers.map((page, idx) =>
                 page === "..." ? (
                   <span
                     key={`ellipsis-${idx}`}
-                    className="inline-flex h-7 min-w-[26px] items-center justify-center text-[11.5px] font-medium text-[#94a3b8]"
+                    className="inline-flex h-8 min-w-8 items-center justify-center text-[11px] font-medium text-[#94a3b8]"
                   >
                     …
                   </span>
@@ -407,10 +407,10 @@ export function SubmissionsPage() {
                   <button
                     key={page}
                     type="button"
-                    className={`inline-flex h-7 min-w-[28px] items-center justify-center rounded-none px-2 text-[11.5px] font-semibold transition-colors ${
+                    className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-[11px] font-semibold transition-colors ${
                       page === activePage
-                        ? "bg-[#0b51b7] text-white shadow-sm"
-                        : "text-[#475569] hover:bg-[#f1f6fd] hover:text-[#0b51b7]"
+                        ? "border-[#0b51b7] bg-[#0b51b7] text-white"
+                        : "border-[#dce5ef] bg-white text-[#64748b] hover:border-[#b8cde8] hover:bg-[#f8fafc] hover:text-[#0b51b7]"
                     }`}
                     onClick={() => setCurrentPage(page as number)}
                   >
@@ -422,7 +422,7 @@ export function SubmissionsPage() {
 
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-white px-2.5 text-[11.5px] font-medium text-[#475569] shadow-sm transition-colors hover:border-[#b8cde8] hover:bg-[#f1f6fd] hover:text-[#0b51b7] disabled:pointer-events-none disabled:border-[#e2e8f0] disabled:bg-[#f8fafc] disabled:text-[#94a3b8] disabled:shadow-none"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-[#f8fafc] px-3 text-[11px] font-medium text-[#8793a2] transition-colors hover:border-[#b8cde8] hover:bg-white hover:text-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
               disabled={activePage === totalPages}
               aria-label="Next page"

@@ -14,7 +14,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  RefreshCw,
   Users,
   LogOut,
 } from "lucide-react";
@@ -48,7 +47,6 @@ const navigation: NavSection[] = [
       { name: "Kobo connections", path: "/forms/connections", icon: FileText },
       { name: "Submissions", path: "/submissions", icon: FileText },
       { name: "Field enumerators", path: "/enumerators", icon: Users },
-      { name: "Sync history", path: "/sync", icon: RefreshCw },
     ],
   },
   {
@@ -150,9 +148,9 @@ export function AppShell({ loading = false }: { loading?: boolean }) {
   const routeLoaderVisible = useMinimumRouteLoader(`${pathname}:${loading ? "auth" : "ready"}`);
   const displayName = user?.username || user?.email || "User";
   const displayRole = isOrganizationAdmin ? "Organization administrator" : "Field team member";
-  const currentDate = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());
-  const page =
-    pathname === "/" ? "Dashboard" : pathname.split("/")[1].replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const organization = user?.memberships.find((membership) => membership.role === "organization_admin") ?? user?.memberships[0];
+  const organizationName = organization?.organization_name ?? "Organization";
+  const organizationInitials = organizationName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "O";
   return (
     <div className="min-h-screen">
       <aside
@@ -169,13 +167,13 @@ export function AppShell({ loading = false }: { loading?: boolean }) {
         </NavLink>
         <div className="mx-3 mb-4 mt-1 flex flex-none items-center gap-[9px] rounded-[9px] border border-[#234d82] bg-[#103564] px-2.5 py-3 max-[1440px]:mx-3 max-[1440px]:mb-[13px] max-[1440px]:mt-1 max-[1440px]:p-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:mb-2 [@media(max-height:760px)_and_(min-width:1051px)]:px-[9px] [@media(max-height:760px)_and_(min-width:1051px)]:py-[7px]">
           <span className="grid size-[29px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15] max-[1440px]:size-[27px]">
-            CH
+            {organizationInitials}
           </span>
           <div>
             <small className="block text-[10px] tracking-[.8px] text-[#91a9bb] max-[1440px]:text-[9px]">
               ORGANIZATION
             </small>
-            <strong className="text-[13px] text-white max-[1440px]:text-xs">Community Health</strong>
+            <strong className="text-[13px] text-white max-[1440px]:text-xs">{organizationName}</strong>
           </div>
           <ChevronDown className="ml-auto" size={15} />
         </div>
@@ -221,12 +219,7 @@ export function AppShell({ loading = false }: { loading?: boolean }) {
           >
             <Menu />
           </button>
-          <div className="flex items-center gap-3 text-[13px]">
-            <span>{page}</span>
-            <i className="not-italic text-[#d0d5dc]">/</i>
-            <strong className="font-medium text-[#1b2836] max-[560px]:hidden">{currentDate}</strong>
-          </div>
-          <div className="flex items-center gap-[17px] max-[560px]:gap-3">
+          <div className="ml-auto flex items-center gap-[17px] max-[560px]:gap-3">
             <Search size={19} />
             <span className="relative grid size-7 place-items-center" title={`${pendingCount} Kobo submission${pendingCount === 1 ? "" : "s"} waiting to sync`}>
               <Bell size={19} />

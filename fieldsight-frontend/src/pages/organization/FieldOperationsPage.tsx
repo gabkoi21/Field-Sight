@@ -110,6 +110,21 @@ export function FieldOperationsPage() {
         .map((assignment) => assignment.membership_id),
     );
   }, [assignmentsQuery.data, projectId]);
+  const projectNamesByMembershipId = useMemo(() => {
+    const projectsById = new Map(projects.map((project) => [project.id, project.name]));
+    const namesByMembershipId = new Map<string, string[]>();
+
+    (assignmentsQuery.data ?? []).forEach((assignment) => {
+      if (!assignment.is_enabled) return;
+      const projectName = projectsById.get(assignment.project_id);
+      if (!projectName) return;
+      const names = namesByMembershipId.get(assignment.membership_id) ?? [];
+      if (!names.includes(projectName)) names.push(projectName);
+      namesByMembershipId.set(assignment.membership_id, names);
+    });
+
+    return namesByMembershipId;
+  }, [assignmentsQuery.data, projects]);
   const filteredEnumerators = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return enumerators.filter((enumerator) => {
@@ -366,11 +381,14 @@ export function FieldOperationsPage() {
       </div>
       <Card className="mt-[16px]">
         <div className="overflow-x-auto">
-          <Table className="min-w-[900px] border-separate border-spacing-0 text-left">
+          <Table className="min-w-[1040px] border-separate border-spacing-0 text-left">
             <TableHeader>
               <TableRow>
                 <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
                   Full name
+                </TableHead>
+                <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
+                  Project
                 </TableHead>
                 <TableHead className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86]">
                   Phone
@@ -396,7 +414,7 @@ export function FieldOperationsPage() {
             <TableBody>
               {enumeratorsQuery.isLoading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="px-4 py-6 text-center text-[12px] text-[#8190a4]">
+                  <TableCell colSpan={9} className="px-4 py-6 text-center text-[12px] text-[#8190a4]">
                     Loading enumerators…
                   </TableCell>
                 </TableRow>
@@ -415,6 +433,11 @@ export function FieldOperationsPage() {
                         {enumerator.email} · @{enumerator.username ?? "not set"}
                       </small>
                     </div>
+                  </TableCell>
+                  <TableCell className="max-w-[180px] px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
+                    <span className="block truncate" title={projectNamesByMembershipId.get(enumerator.membership_id)?.join(", ") ?? ""}>
+                      {projectNamesByMembershipId.get(enumerator.membership_id)?.join(", ") ?? "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="px-3 py-2 align-middle text-[12.5px] leading-[1.4] text-[#536177]">
                     {enumerator.phone_number ?? "—"}
