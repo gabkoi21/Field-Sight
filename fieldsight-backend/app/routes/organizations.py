@@ -253,6 +253,8 @@ def list_enumerators(org_id: UUID, user: CurrentUser, db: Database) -> list[Enum
 def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser, db: Database) -> EnumeratorRead:
     _authorize_organization_admin(org_id, user, db)
     _organization(org_id, db)
+    if payload.project_id:
+        _project(org_id, payload.project_id, db)
     email = str(payload.email).lower()
     if db.exec(select(User).where(User.email == email)).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Enumerator email already exists.")
@@ -269,13 +271,22 @@ def create_enumerator(org_id: UUID, payload: EnumeratorCreate, user: CurrentUser
         emergency_contact_name=payload.emergency_contact_name,
         emergency_contact_phone=payload.emergency_contact_phone,
         notes=payload.notes,
-        password_hash=password_hasher.hash(payload.password),
+        password_hash=password_hasher.hash(payload.password or secrets.token_urlsafe(32)),
     )
     enumerator.employee_id = f"EMP-{enumerator.id.hex.upper()}"
     db.add(enumerator)
     db.flush()
     membership = OrganizationMembership(organization_id=org_id, user_id=enumerator.id, role=Role.ENUMERATOR)
     db.add(membership)
+    db.flush()
+    if payload.project_id:
+        db.add(
+            FieldAssignment(
+                organization_id=org_id,
+                membership_id=membership.id,
+                project_id=payload.project_id,
+            )
+        )
     db.commit()
     db.refresh(membership)
     return _enumerator_read(membership, db)

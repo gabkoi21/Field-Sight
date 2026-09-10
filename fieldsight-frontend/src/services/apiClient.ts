@@ -76,7 +76,7 @@ export interface EnumeratorCreateInput {
   full_name: string;
   email: string;
   username: string;
-  password: string;
+  project_id?: string;
   phone_number?: string;
   gender?: string;
   date_of_birth?: string;
@@ -114,6 +114,13 @@ export interface ApiEnumerator {
   role: "enumerator";
   is_active: boolean;
   created_at: string;
+}
+
+export interface ApiFieldAssignment {
+  id: string;
+  membership_id: string;
+  project_id: string;
+  is_enabled: boolean;
 }
 
 export interface OrganizationSector {
@@ -599,6 +606,8 @@ export const apiClient = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  organizationAssignments: (organizationId: string) =>
+    request<ApiFieldAssignment[]>(`/organizations/${organizationId}/assignments`),
   deactivateEnumerator: (membershipId: string) =>
     request<void>(`/enumerators/${membershipId}`, {
       method: "DELETE",

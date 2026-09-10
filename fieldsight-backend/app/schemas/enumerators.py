@@ -10,7 +10,8 @@ class EnumeratorCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=200)
     email: EmailStr
     username: str = Field(min_length=3, max_length=100)
-    password: str = Field(min_length=1, max_length=1024)
+    project_id: UUID | None = None
+    password: str | None = Field(default=None, min_length=1, max_length=1024)
     phone_number: str | None = Field(default=None, max_length=32)
     gender: str | None = Field(default=None, max_length=32)
     date_of_birth: date | None = None

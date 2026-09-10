@@ -20,7 +20,7 @@ export function FieldOperationsPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [assignedProjectId, setAssignedProjectId] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -51,10 +51,10 @@ export function FieldOperationsPage() {
     queryFn: () => apiClient.organizationProjects(organizationId!),
     enabled: Boolean(organizationId),
   });
-  const submissionsQuery = useQuery({
-    queryKey: ["submissions"],
-    queryFn: apiClient.submissions,
-    enabled: isOrganizationAdmin,
+  const assignmentsQuery = useQuery({
+    queryKey: ["organization-assignments", organizationId],
+    queryFn: () => apiClient.organizationAssignments(organizationId!),
+    enabled: Boolean(organizationId),
   });
   const enumeratorQuery = useQuery({
     queryKey: ["organization-enumerator", selectedMembershipId],
@@ -66,7 +66,7 @@ export function FieldOperationsPage() {
       full_name: string;
       email: string;
       username: string;
-      password: string;
+      project_id: string;
       phone_number?: string;
       gender?: string;
       date_of_birth?: string;
@@ -102,14 +102,14 @@ export function FieldOperationsPage() {
     () => [...(projectsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [projectsQuery.data],
   );
-  const projectCollectors = useMemo(() => {
+  const assignedMembershipIds = useMemo(() => {
     if (!projectId) return null;
     return new Set(
-      (submissionsQuery.data ?? [])
-        .filter((submission) => submission.project_id === projectId && submission.enumerator)
-        .map((submission) => submission.enumerator!.trim().toLowerCase()),
+      (assignmentsQuery.data ?? [])
+        .filter((assignment) => assignment.project_id === projectId && assignment.is_enabled)
+        .map((assignment) => assignment.membership_id),
     );
-  }, [projectId, submissionsQuery.data]);
+  }, [assignmentsQuery.data, projectId]);
   const filteredEnumerators = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return enumerators.filter((enumerator) => {
@@ -117,10 +117,10 @@ export function FieldOperationsPage() {
         .filter(Boolean)
         .map((value) => value!.trim().toLowerCase());
       const matchesSearch = identities.join(" ").includes(normalized);
-      const matchesProject = !projectCollectors || identities.some((identity) => projectCollectors.has(identity));
+      const matchesProject = !assignedMembershipIds || assignedMembershipIds.has(enumerator.membership_id);
       return matchesSearch && matchesProject;
     });
-  }, [enumerators, query, projectCollectors]);
+  }, [assignedMembershipIds, enumerators, query]);
   const exportEnumerators = useMemo(() => {
     const days = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 }[exportPeriod];
     const cutoff = new Date();
@@ -191,7 +191,7 @@ export function FieldOperationsPage() {
         full_name: fullName.trim(),
         email: email.trim(),
         username: username.trim(),
-        password,
+        project_id: assignedProjectId,
         phone_number: phoneNumber.trim() || undefined,
         gender: gender.trim() || undefined,
         date_of_birth: dateOfBirth || undefined,
@@ -204,7 +204,7 @@ export function FieldOperationsPage() {
       setFullName("");
       setEmail("");
       setUsername("");
-      setPassword("");
+      setAssignedProjectId("");
       setPhoneNumber("");
       setGender("");
       setDateOfBirth("");
@@ -647,7 +647,7 @@ export function FieldOperationsPage() {
               <div>
                 <h2 className="m-0 text-[17px] font-semibold text-[#253342]">Create enumerator</h2>
                 <p className="mb-0 mt-1 text-[11px] text-[#8391a5]">
-                  Create an account with the Enumerator role.
+                  Add an enumerator profile and link it to their Kobo username.
                 </p>
               </div>
               <button
@@ -682,7 +682,7 @@ export function FieldOperationsPage() {
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
-                Username
+                Kobo username
                 <input
                   className={adminInputClass}
                   value={username}
@@ -693,16 +693,16 @@ export function FieldOperationsPage() {
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
-                Temporary password
-                <input
-                  type="password"
+                Assigned project
+                <select
                   className={adminInputClass}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  maxLength={1024}
-                  autoComplete="new-password"
+                  value={assignedProjectId}
+                  onChange={(event) => setAssignedProjectId(event.target.value)}
                   required
-                />
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                </select>
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-bold text-[#526177]">
                 Phone number

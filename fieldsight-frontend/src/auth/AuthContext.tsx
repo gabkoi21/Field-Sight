@@ -31,8 +31,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return currentUser;
     },
     async logout() {
-      await apiClient.logout();
-      setUser(null);
+      try {
+        await apiClient.logout();
+      } finally {
+        setUser(null);
+      }
     },
   }), [loading, user]);
 

@@ -190,8 +190,11 @@ export function SuperAdminShell() {
           <button
             className="flex w-full items-center gap-3 rounded-[7px] border-0 bg-transparent px-[13px] py-2.5 text-left text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"
             onClick={async () => {
-              await logout();
-              navigate("/login", { replace: true });
+              try {
+                await logout();
+              } finally {
+                navigate("/login", { replace: true });
+              }
             }}
           >
             <LogOut size={17} /> Sign out

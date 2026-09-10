@@ -112,8 +112,11 @@ function UserMenu({ logout, navigate, name, role }: { logout: () => Promise<void
             className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-3 text-[13px] text-[#657182] hover:bg-[#f5f7fa] hover:text-[#d85962] cursor-pointer transition-colors"
             onClick={async () => {
               setOpen(false);
-              await logout();
-              navigate("/login", { replace: true });
+              try {
+                await logout();
+              } finally {
+                navigate("/login", { replace: true });
+              }
             }}
           >
             <LogOut size={15} /> Sign out

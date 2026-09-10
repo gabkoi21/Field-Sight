@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from app.core.config import Settings, get_settings
 from app.core.security import create_access_token, hash_refresh_token, new_refresh_token, verify_password
 from app.db.session import get_session
-from app.models.identity import OrganizationMembership, RefreshSession, User
+from app.models.identity import OrganizationMembership, RefreshSession, Role, User
 from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/auth")
@@ -22,6 +22,30 @@ def _is_expired(value: datetime) -> bool:
     """Compare SQLite-naive and timezone-aware expiration values consistently."""
     normalized = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
     return normalized <= datetime.now(UTC)
+
+
+def _has_workspace_access(user: User, db: Session) -> bool:
+    """Only platform and organization administrators use the FieldSight workspace."""
+    if user.platform_role == Role.SUPER_ADMIN:
+        return True
+    return db.exec(
+        select(OrganizationMembership).where(
+            OrganizationMembership.user_id == user.id,
+            OrganizationMembership.role == Role.ORGANIZATION_ADMIN,
+            OrganizationMembership.is_active,
+        )
+    ).first() is not None
+
+
+def _require_workspace_access(user: User, db: Session) -> None:
+    if not _has_workspace_access(user, db):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "FieldSight workspace access is limited to platform and organization administrators. "
+                "Enumerators use KoboToolbox."
+            ),
+        )
 
 
 def _issue_tokens(response: Response, user: User, db: Session, settings: Settings) -> TokenResponse:
@@ -56,6 +80,7 @@ def login(
     user = db.exec(select(User).where((User.email == payload.login.lower()) | (User.username == payload.login))).first()
     if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials.")
+    _require_workspace_access(user, db)
     return _issue_tokens(response, user, db, settings)
 
 
@@ -77,6 +102,7 @@ def refresh(
     user = db.get(User, record.user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Refresh session is invalid.")
+    _require_workspace_access(user, db)
     record.revoked_at = datetime.now(UTC)
     db.add(record)
     return _issue_tokens(response, user, db, settings)
@@ -103,6 +129,7 @@ def get_current_user(
     refresh, user = db.get(RefreshSession, session_id), db.get(User, user_id)
     if refresh is None or refresh.revoked_at or user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="Authentication is invalid.")
+    _require_workspace_access(user, db)
     return user
 
 
@@ -120,6 +147,7 @@ def logout(
             db.add(record)
             db.commit()
     response.delete_cookie("refresh_token", path="/auth")
+    response.status_code = status.HTTP_204_NO_CONTENT
     return response
 
 
