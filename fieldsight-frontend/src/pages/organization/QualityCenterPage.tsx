@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, ClipboardCheck, MapPin, MessageSquare, RefreshCw, Send, ShieldCheck, UserRound } from "lucide-react";
 import { Button, LoadingState, PageHeader, Ring } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
@@ -23,8 +24,9 @@ function displayValue(value: unknown) {
 
 export function QualityCenterPage() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(() => searchParams.get("project_id") ?? "");
   const [severity, setSeverity] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");

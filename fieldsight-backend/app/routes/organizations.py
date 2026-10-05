@@ -20,6 +20,8 @@ from app.models.identity import Organization, OrganizationMembership, Organizati
 from app.models.operations import (
     FieldAssignment,
     FieldMapping,
+    Indicator,
+    IndicatorMapping,
     KoboConnection,
     Location,
     OrganizationSettings,
@@ -476,6 +478,8 @@ def delete_project(
     try:
         db.exec(delete(FieldAssignment).where(FieldAssignment.project_id == project.id))
         db.exec(delete(ProjectTarget).where(ProjectTarget.project_id == project.id))
+        db.exec(delete(IndicatorMapping).where(IndicatorMapping.project_id == project.id))
+        db.exec(delete(Indicator).where(Indicator.project_id == project.id))
         db.exec(delete(FieldMapping).where(FieldMapping.project_id == project.id))
         db.exec(delete(Submission).where(Submission.project_id == project.id))
         db.exec(delete(SyncRun).where(SyncRun.project_id == project.id))

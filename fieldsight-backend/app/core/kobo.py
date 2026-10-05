@@ -10,6 +10,15 @@ from cryptography.fernet import Fernet, InvalidToken
 from app.core.config import Settings
 
 _KOBO_HOSTS = {"kf.kobotoolbox.org", "eu.kobotoolbox.org", "kc.kobotoolbox.org"}
+_SYSTEM_QUESTION_PATHS = {
+    "start",
+    "end",
+    "formhub/uuid",
+    "meta/instanceID",
+    "meta/rootUuid",
+    "meta/instanceName",
+    "meta/deprecatedID",
+}
 
 
 def normalize_kobo_server_url(value: str) -> str:
@@ -76,6 +85,51 @@ def list_kobo_forms(server_url: str, api_token: str) -> list[dict[str, str | Non
     return forms
 
 
+def list_kobo_form_questions(server_url: str, api_token: str, form_id: str) -> list[dict[str, str]]:
+    """Return selectable survey questions from an assigned Kobo form."""
+    try:
+        response = httpx.get(
+            f"{server_url}/api/v2/assets/{form_id}/",
+            headers={"Authorization": f"Token {api_token}"},
+            timeout=15.0,
+            follow_redirects=False,
+        )
+    except httpx.HTTPError as exc:
+        raise ValueError("KoboToolbox could not be reached while reading this form.") from exc
+    if response.status_code in {401, 403}:
+        raise ValueError("Kobo rejected the stored API token.")
+    if response.status_code == 404:
+        raise ValueError("The assigned Kobo form was not found.")
+    if response.status_code >= 400:
+        raise ValueError("KoboToolbox could not read this form right now.")
+    payload = response.json()
+    content = payload.get("content", {}) if isinstance(payload, dict) else {}
+    survey = content.get("survey", []) if isinstance(content, dict) else []
+    if not isinstance(survey, list):
+        return []
+    non_questions = {"begin_group", "end_group", "begin_repeat", "end_repeat", "note", "calculate", "start", "end"}
+    questions: list[dict[str, str]] = []
+    for item in survey:
+        if not isinstance(item, dict) or str(item.get("type", "")) in non_questions:
+            continue
+        name = item.get("name")
+        xpath = item.get("$xpath")
+        if not isinstance(name, str) or not name:
+            continue
+        source_field = name
+        if isinstance(xpath, str) and xpath.strip("/"):
+            parts = [part for part in xpath.strip("/").split("/") if part]
+            if len(parts) > 1:
+                source_field = "/".join(parts[1:])
+        if source_field in _SYSTEM_QUESTION_PATHS:
+            continue
+        label = item.get("label")
+        if isinstance(label, list):
+            label = next((value for value in label if isinstance(value, str) and value), None)
+        questions.append({"source_field": source_field, "label": str(label or name)})
+    return questions
+
+
 def delete_kobo_form(server_url: str, api_token: str, form_id: str) -> None:
     """Delete a Kobo survey asset and its provider-hosted submissions."""
     try:
@@ -93,6 +147,7 @@ def delete_kobo_form(server_url: str, api_token: str, form_id: str) -> None:
         raise ValueError("Kobo rejected permission to delete this form. The local project was not deleted.")
     if response.status_code >= 400:
         raise ValueError("KoboToolbox could not delete this form. The local project was not deleted.")
+
 
 def list_kobo_submissions(server_url: str, api_token: str, form_id: str) -> list[dict[str, object]]:
     """Fetch one Kobo form's submissions while keeping provider credentials server-side."""

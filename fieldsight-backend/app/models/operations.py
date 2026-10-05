@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
-from app.models.identity import Role, utc_now
+from app.models.identity import utc_now
 
 
 class ProjectStatus(StrEnum):
@@ -19,6 +19,35 @@ class ProjectStatus(StrEnum):
     PAUSED = "paused"
     COMPLETED = "completed"
     ARCHIVED = "archived"
+
+
+class IndicatorUnit(StrEnum):
+    NUMBER = "number"
+    PERCENTAGE = "percentage"
+    RATE = "rate"
+    RATIO = "ratio"
+    CURRENCY = "currency"
+    DAYS = "days"
+    TEXT = "text"
+
+
+class IndicatorDirection(StrEnum):
+    INCREASE = "increase"
+    DECREASE = "decrease"
+
+
+class IndicatorStatus(StrEnum):
+    ON_TRACK = "on_track"
+    NEEDS_ATTENTION = "needs_attention"
+    NOT_STARTED = "not_started"
+
+
+class IndicatorCalculation(StrEnum):
+    COUNT_RECORDS = "count_records"
+    COUNT_MATCHING = "count_matching"
+    PERCENTAGE_MATCHING = "percentage_matching"
+    SUM = "sum"
+    AVERAGE = "average"
 
 
 class OrganizationSettings(SQLModel, table=True):
@@ -159,6 +188,58 @@ class ProjectTarget(SQLModel, table=True):
     unit: str = Field(default="records", sa_column=Column(String(80), nullable=False))
     direction: str = Field(default="at_least", sa_column=Column(String(20), nullable=False))
     due_date: date | None = None
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class Indicator(SQLModel, table=True):
+    """Project-scoped M&E indicator definition.
+
+    Current values are deliberately not stored here: a later calculation layer will
+    derive them from mapped, quality-approved Kobo submissions.
+    """
+
+    __tablename__ = "indicators"
+    __table_args__ = (
+        UniqueConstraint("project_id", "code", name="uq_indicator_project_code"),
+        Index("ix_indicators_org_project_active", "organization_id", "project_id", "is_active"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
+    created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))
+    name: str = Field(sa_column=Column(String(200), nullable=False))
+    code: str = Field(sa_column=Column(String(80), nullable=False))
+    description: str | None = Field(default=None, sa_column=Column(String(1000), nullable=True))
+    unit: IndicatorUnit = Field(default=IndicatorUnit.NUMBER, sa_column=Column(String(32), nullable=False))
+    direction: IndicatorDirection = Field(
+        default=IndicatorDirection.INCREASE,
+        sa_column=Column(String(32), nullable=False),
+    )
+    baseline_value: float | None = None
+    target_value: float | None = None
+    target_date: date | None = None
+    reporting_frequency: str = Field(default="monthly", sa_column=Column(String(32), nullable=False))
+    status: IndicatorStatus = Field(default=IndicatorStatus.NOT_STARTED, sa_column=Column(String(32), nullable=False))
+    is_active: bool = Field(default=True, nullable=False)
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class IndicatorMapping(SQLModel, table=True):
+    """One deterministic Kobo answer mapping for an indicator."""
+
+    __tablename__ = "indicator_mappings"
+    __table_args__ = (UniqueConstraint("indicator_id", name="uq_indicator_mapping_indicator"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
+    indicator_id: UUID = Field(sa_column=Column(ForeignKey("indicators.id"), index=True, nullable=False))
+    source_field: str = Field(sa_column=Column(String(255), nullable=False))
+    calculation: IndicatorCalculation = Field(sa_column=Column(String(32), nullable=False))
+    match_value: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 

@@ -6,18 +6,19 @@ import {
   ChevronDown,
   Clock3,
   Database,
-  FileCheck2,
   FolderKanban,
   RefreshCw,
-  UsersRound,
 } from "lucide-react";
 import {
   Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
+  ComposedChart,
+  Legend,
+  Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,8 +31,6 @@ import { apiClient } from "../../services/apiClient";
 import { formatLocation } from "../../utils/location";
 
 const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
-const projectColors = ["#0b51b7", "#0ea5e9", "#10b981", "#6366f1", "#f59e0b", "#ec4899"];
-
 function FilterSelect({
   value,
   options,
@@ -97,6 +96,12 @@ export function OrganizationDashboardPage() {
   });
 
   const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
+  const submissionsQuery = useQuery({
+    queryKey: ["dashboard-recent-submissions"],
+    queryFn: apiClient.submissions,
+    enabled: !authLoading,
+    staleTime: 30_000,
+  });
 
   const isLoading = authLoading || overviewQuery.isLoading;
 
@@ -109,14 +114,14 @@ export function OrganizationDashboardPage() {
   const overview =
     storedOverview && pendingSync
       ? {
-          ...storedOverview,
-          pending_sync_count: pendingSync.pending_count,
-          sync_status: {
-            ...storedOverview.sync_status,
-            pending_count: pendingSync.pending_count,
-            sources: pendingSync.sources,
-          },
-        }
+        ...storedOverview,
+        pending_sync_count: pendingSync.pending_count,
+        sync_status: {
+          ...storedOverview.sync_status,
+          pending_count: pendingSync.pending_count,
+          sources: pendingSync.sources,
+        },
+      }
       : storedOverview;
   const projectListLoading = projectsQuery.isLoading;
   const enumeratorsLoading = enumeratorsQuery.isLoading;
@@ -146,33 +151,89 @@ export function OrganizationDashboardPage() {
   const totalWorkspaceProjects = (projectsQuery.data ?? []).length || projectSummary.length;
   const activeProjectsWithSubs = projectSummary.filter((p) => p.actual > 0).length;
   const activeProjectsDisplay = activeProjectsWithSubs > 0 ? activeProjectsWithSubs : totalWorkspaceProjects;
-
-  const rawProjectData = projectSummary.filter((project) => project.actual > 0);
-  const projectPieData =
-    rawProjectData.length > 0
-      ? rawProjectData.map((project, index) => ({
-          name: project.name,
-          value: project.actual,
-          color: projectColors[index % projectColors.length],
-        }))
-      : [
-          { name: "Community Health Assessment", value: 65, color: projectColors[0] },
-          { name: "Teach For Liberia", value: 35, color: projectColors[1] },
-        ];
-
+  const submissionReportData = (overview?.trend ?? []).map((item) => ({
+    label: item.day,
+    received: item.submissions,
+    ready: item.approved,
+    issues: Math.max(0, item.submissions - item.approved),
+  }));
+  const regionalBreakdownData = Object.values(
+    (submissionsQuery.data ?? [])
+      .filter((item) => (!projectId || item.project_id === projectId) && (!location || item.location === location))
+      .reduce<Record<string, { region: string; ready: number; review: number; invalid: number }>>((acc, submission) => {
+        const region = formatLocation(submission.location || "Unspecified location");
+        const current = acc[region] ?? { region, ready: 0, review: 0, invalid: 0 };
+        if (submission.review_status === "ready") current.ready += 1;
+        else if (submission.review_status === "needs_review") current.review += 1;
+        else if (submission.review_status === "invalid") current.invalid += 1;
+        else current.review += 1;
+        acc[region] = current;
+        return acc;
+      }, {}),
+  )
+    .sort((a, b) => b.ready + b.review + b.invalid - (a.ready + a.review + a.invalid) || a.region.localeCompare(b.region))
+    .slice(0, 5);
   const leadingProjects = [...projectSummary]
     .sort((a, b) => b.actual - a.actual || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
     .slice(0, 5);
 
-  const totalProjectSubmissions = projectPieData.reduce((acc, item) => acc + item.value, 0);
+  const topEnumerators = Object.values(
+    (submissionsQuery.data ?? [])
+      .filter(
+        (item) =>
+          (!projectId || item.project_id === projectId) &&
+          (!location || item.location === location),
+      )
+      .reduce<
+        Record<
+          string,
+          {
+            name: string;
+            total: number;
+            ready: number;
+            review: number;
+            invalid: number;
+            lastSubmitted: string | null;
+            projects: Set<string>;
+          }
+        >
+      >((acc, submission) => {
+        const name = submission.enumerator?.trim() || "Unassigned";
+        const current = acc[name] ?? {
+          name,
+          total: 0,
+          ready: 0,
+          review: 0,
+          invalid: 0,
+          lastSubmitted: null,
+          projects: new Set<string>(),
+        };
+        current.total += 1;
+        if (submission.review_status === "ready") current.ready += 1;
+        if (submission.review_status === "needs_review") current.review += 1;
+        if (submission.review_status === "invalid") current.invalid += 1;
+        if (submission.project_name) current.projects.add(submission.project_name);
+        if (
+          submission.submitted_at &&
+          (!current.lastSubmitted || new Date(submission.submitted_at).getTime() > new Date(current.lastSubmitted).getTime())
+        ) {
+          current.lastSubmitted = submission.submitted_at;
+        }
+        acc[name] = current;
+        return acc;
+      }, {}),
+  )
+    .sort((a, b) => b.total - a.total || b.ready - a.ready || a.name.localeCompare(b.name))
+    .slice(0, 3)
+    .map((item) => ({ ...item, projectCount: item.projects.size }));
   const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch()]);
 
   return (
     <div className="flex flex-col gap-5 text-[#24334a]">
       <PageHeader
-        eyebrow="Organization intelligence"
-        title="Dashboard"
-        description="Collection performance and field operations at a glance."
+        eyebrow="Organization dashboard"
+        title="Field operations"
+        description="Track collection progress, data quality, sync status, and recent activity across projects."
       >
         {showSecondaryLoading && (
           <span className="rounded-full border border-[#dfe8f5] bg-[#f3f8ff] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3667c8]">
@@ -213,7 +274,7 @@ export function OrganizationDashboardPage() {
       <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
         <MetricCard label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
         <MetricCard
-          label="Pending Review"
+          label="Needs Review"
           value={overview?.needs_review ?? 0}
           context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready overall`}
           icon={Clock3}
@@ -226,100 +287,25 @@ export function OrganizationDashboardPage() {
           icon={FolderKanban}
         />
         <MetricCard
-          label="Field Team"
-          value={`${activeEnumerators} / ${totalEnumeratorsCount}`}
-          context={totalEnumeratorsCount ? `${activeEnumerators} active enumerators today` : "No enumerators assigned"}
-          icon={UsersRound}
+          label="Ready Records"
+          value={`${qualityRate}%`}
+          context={totalEnumeratorsCount ? `${activeEnumerators} active enumerators today` : "Based on ready records"}
+          icon={Database}
         />
       </section>
 
+      <DashboardSnapshotCards
+        regionalData={regionalBreakdownData}
+        reportData={submissionReportData}
+        allSubmissions={submissionsQuery.data ?? []}
+        allProjects={projectsQuery.data ?? []}
+      />
+
       <section className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] gap-4 max-[1000px]:grid-cols-1">
-        <Panel
-          title="Collection performance"
-          subtitle="Submission volume and records ready for analysis"
-          action={<span className="text-[10px] font-semibold text-[#718096]">{periodLabels[period]}</span>}
-        >
-          <div className="h-[220px] pt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={overview?.trend ?? []} margin={{ top: 4, right: 10, left: -25, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="orgReceived" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0b51b7" stopOpacity={0.23} />
-                    <stop offset="95%" stopColor="#0b51b7" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} stroke="#edf1f5" />
-                <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="submissions"
-                  name="Received"
-                  stroke="#0b51b7"
-                  strokeWidth={2.5}
-                  fill="url(#orgReceived)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="approved"
-                  name="Ready"
-                  stroke="#6d81f5"
-                  strokeWidth={2}
-                  fill="transparent"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
+        <TopEnumerators enumerators={topEnumerators} loading={submissionsQuery.isLoading} />
 
-        <Panel title="Data readiness" subtitle="Quality status of records in this view">
-          <div className="flex h-[220px] flex-col justify-between pt-1">
-            <div>
-              <div className="flex items-end justify-between">
-                <div>
-                  <strong className="text-[34px] tracking-[-1px] text-[#1e293b]">{qualityRate}%</strong>
-                  <span className="ml-2 text-[10px] font-medium text-[#8190a4]">analysis ready</span>
-                </div>
-                <FileCheck2 className="text-brand" size={24} />
-              </div>
-              <div className="mt-3.5 h-2 overflow-hidden rounded-full bg-[#e8edf3]">
-                <div
-                  className="h-full rounded-full bg-brand transition-all duration-500"
-                  style={{ width: `${qualityRate}%` }}
-                />
-              </div>
-              <div className="mt-5 space-y-3 border-t border-[#edf0f4] pt-4">
-                <div className="flex items-center text-xs">
-                  <span className="mr-2.5 size-2.5 rounded-full bg-brand" />
-                  <span className="flex-1 font-medium text-[#475569]">Ready for analysis</span>
-                  <strong className="text-xs font-semibold text-[#1e293b]">{overview?.ready_records ?? 0}</strong>
-                </div>
-                <div className="flex items-center text-xs">
-                  <span className="mr-2.5 size-2.5 rounded-full bg-[#f0a640]" />
-                  <span className="flex-1 font-medium text-[#475569]">Needs review</span>
-                  <strong className="text-xs font-semibold text-[#1e293b]">{overview?.needs_review ?? 0}</strong>
-                </div>
-                <div className="flex items-center text-xs">
-                  <span className="mr-2.5 size-2.5 rounded-full bg-[#db5b66]" />
-                  <span className="flex-1 font-medium text-[#475569]">Invalid records</span>
-                  <strong className="text-xs font-semibold text-[#1e293b]">{overview?.invalid_records ?? 0}</strong>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate("/submissions")}
-              className="inline-flex items-center gap-1.5 border-t border-[#edf0f4] pt-3 text-xs font-semibold text-brand hover:underline cursor-pointer"
-            >
-              Review records <ArrowRight size={13} />
-            </button>
-          </div>
-        </Panel>
-      </section>
-
-      <section className="grid grid-cols-[minmax(0,1.25fr)_minmax(340px,.75fr)] gap-4 max-[1000px]:grid-cols-1">
         <Panel
-          title="Top 5 projects"
+          title="Top projects"
           subtitle={`Ranked by submissions • ${periodLabels[period]}`}
           action={
             <button className="text-xs font-semibold text-brand" onClick={() => navigate("/projects")}>
@@ -358,82 +344,403 @@ export function OrganizationDashboardPage() {
             </div>
           )}
         </Panel>
-
-        <Panel title="Submissions by Project" subtitle="Distribution of data across active workspaces">
-          <div className="space-y-4 pt-2">
-            <div className="relative flex items-center justify-center">
-              <div className="h-[210px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={projectPieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={62}
-                      outerRadius={88}
-                      paddingAngle={projectPieData.length > 1 ? 3 : 0}
-                      stroke="#ffffff"
-                      strokeWidth={2}
-                    >
-                      {projectPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val: number, name: string) => [`${val.toLocaleString()} submissions`, name]} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="pointer-events-none absolute flex flex-col items-center justify-center text-center">
-                <strong className="text-xl font-bold text-gray-900">{totalProjectSubmissions.toLocaleString()}</strong>
-                <span className="text-[11px] font-medium text-gray-500">Total</span>
-              </div>
-            </div>
-
-            <div className="space-y-2 border-t border-gray-100 pt-3">
-              {projectPieData.map((item) => {
-                const pct = totalProjectSubmissions > 0 ? Math.round((item.value / totalProjectSubmissions) * 100) : 0;
-                return (
-                  <ProjectLegendItem
-                    key={item.name}
-                    name={item.name}
-                    value={item.value}
-                    percentage={pct}
-                    color={item.color}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </Panel>
       </section>
     </div>
   );
 }
 
-function ProjectLegendItem({
-  name,
-  value,
-  percentage,
-  color,
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function DashboardSnapshotCards({
+  regionalData,
+  allSubmissions,
 }: {
-  name: string;
-  value: number;
-  percentage: number;
-  color: string;
+  regionalData: Array<{ region: string; ready: number; review: number; invalid: number }>;
+  reportData?: Array<{ label: string; received: number; ready: number; issues: number }>;
+  allSubmissions: Array<{ submitted_at?: string | null; project_id?: string }>;
+  allProjects?: Array<{ id: string }>;
 }) {
+  const hasRegionalData = regionalData.some((item) => item.ready > 0 || item.review > 0 || item.invalid > 0);
+
+  // ── Annual data: aggregate submissions + active projects per month ──────
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-indexed
+  const annualData = MONTH_LABELS.map((month, idx) => {
+    const monthSubs = allSubmissions.filter((s) => {
+      if (!s.submitted_at) return false;
+      const d = new Date(s.submitted_at);
+      return d.getFullYear() === currentYear && d.getMonth() === idx;
+    });
+    const activeProjects = new Set(monthSubs.map((s) => s.project_id).filter(Boolean)).size;
+    return {
+      month,
+      submissions: monthSubs.length,
+      projects: activeProjects,         // always real count — 0 if nothing submitted
+      isCurrent: idx === currentMonth,
+      isFuture: idx > currentMonth,
+    };
+  });
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md bg-slate-50/80 px-2.5 py-2">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        <span className="truncate text-[11px] font-medium text-slate-700">{name}</span>
-      </div>
-      <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
-        <span>{percentage}%</span>
-        <span className="text-slate-400">•</span>
-        <span>{value.toLocaleString()}</span>
-      </div>
+    <section className="grid grid-cols-[minmax(280px,.42fr)_minmax(0,1fr)] gap-4 max-[940px]:grid-cols-1">
+      <article className="min-w-0 rounded-lg border border-[#edf0f4] bg-white px-5 pb-5 pt-5 shadow-[0_4px_14px_rgba(23,40,70,.04)]">
+        <div>
+          <h2 className="m-0 text-sm font-semibold text-[#24334a]">Submissions by location</h2>
+          <p className="m-0 mt-1 text-[10px] text-[#8491a3]">Volume and quality mix by field area</p>
+        </div>
+        <ChartLegend
+          items={[
+            { label: "Ready", color: "#0b51b7" },
+            { label: "Review", color: "#f0a640" },
+            { label: "Invalid", color: "#db5b66" },
+          ]}
+        />
+        <div className="mt-5 h-[270px]">
+          {hasRegionalData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={regionalData} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "#53627a" }}
+                  allowDecimals={false}
+                />
+                <YAxis
+                  dataKey="region"
+                  type="category"
+                  width={112}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: "#53627a" }}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgba(11, 81, 183, .04)" }}
+                  formatter={(value: number, name: string) => [
+                    Number(value).toLocaleString(),
+                    name === "ready" ? "Ready" : name === "review" ? "Needs review" : "Invalid",
+                  ]}
+                  contentStyle={{
+                    border: "1px solid #e3e9f1",
+                    borderRadius: "8px",
+                    boxShadow: "0 8px 22px rgba(23, 40, 70, .08)",
+                  }}
+                />
+                <Bar dataKey="ready" stackId="quality" fill="#0b51b7" barSize={12} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="review" stackId="quality" fill="#f0a640" barSize={12} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="invalid" stackId="quality" fill="#db5b66" barSize={12} radius={[0, 6, 6, 0]} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChartState label="No location submissions yet." />
+          )}
+        </div>
+      </article>
+
+      {/* ── Submission Report card ─────────────────────────────────────────── */}
+      <article className="min-w-0 rounded-lg border border-[#edf0f4] bg-white px-5 pb-5 pt-5 shadow-[0_4px_14px_rgba(23,40,70,.04)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="m-0 text-sm font-semibold text-[#24334a]">Submission report</h2>
+            <p className="m-0 mt-1 text-[10px] text-[#8491a3]">
+              Monthly submissions & active projects — {currentYear}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            {/* ── Period: Year only ── */}
+            <span className="rounded-md border border-[#bdd0eb] bg-[#f3f8ff] px-2.5 py-1 text-[10px] font-semibold text-brand">
+              Year
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5 h-[270px]">
+          <AnnualSubmissionReportChart data={annualData} currentMonth={currentMonth} />
+        </div>
+
+        <div className="mt-3 flex justify-center">
+          <ChartLegend
+            align="center"
+            items={[
+              { label: "Total Submissions", color: "#0b51b7" },
+              { label: "Total Projects", color: "#10b981" },
+            ]}
+          />
+        </div>
+      </article>
+    </section>
+  );
+}
+
+// ─── Annual macro chart — custom tooltip ────────────────────────────────────
+function AnnualTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; dataKey: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const meta: Record<string, { color: string; label: string; suffix?: string }> = {
+    submissions: { color: "#0b51b7", label: "Total Submissions" },
+    projects: { color: "#10b981", label: "Total Projects", suffix: "active" },
+  };
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,0.98)",
+        border: "1px solid #e3e9f1",
+        borderRadius: 10,
+        boxShadow: "0 12px 32px rgba(23,40,70,.14)",
+        padding: "10px 14px",
+        minWidth: 168,
+      }}
+    >
+      <p style={{ margin: "0 0 9px", fontSize: 11, fontWeight: 700, color: "#24334a", letterSpacing: "0.04em" }}>
+        {label}
+      </p>
+      {payload.map((entry) => {
+        const m = meta[entry.dataKey] ?? { color: "#888", label: entry.name };
+        return (
+          <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, fontSize: 12 }}>
+            <span
+              style={{
+                width: 9, height: 9, borderRadius: "50%",
+                backgroundColor: m.color, flexShrink: 0,
+                boxShadow: `0 0 0 2.5px ${m.color}30`,
+              }}
+            />
+            <span style={{ color: "#5f6f85", flex: 1 }}>{m.label}</span>
+            <span style={{ fontWeight: 700, color: "#24334a" }}>
+              {Number(entry.value).toLocaleString()}
+              {m.suffix ? <span style={{ fontWeight: 400, color: "#8a97aa", marginLeft: 3, fontSize: 10 }}>{m.suffix}</span> : null}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+// ─── Annual macro view: line across all 12 months + project bars ─────────────
+function AnnualSubmissionReportChart({
+  data,
+  currentMonth,
+}: {
+  data: Array<{ month: string; submissions: number; projects: number; isCurrent: boolean; isFuture: boolean }>;
+  currentMonth: number;
+}) {
+  const currentLabel = data[currentMonth]?.month ?? "";
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data} margin={{ top: 12, right: 20, left: -8, bottom: 4 }} barCategoryGap="40%">
+        <defs>
+          <linearGradient id="gradSubsArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0b51b7" stopOpacity={0.18} />
+            <stop offset="100%" stopColor="#0b51b7" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="gradProjects" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+            <stop offset="100%" stopColor="#34d399" stopOpacity={0.85} />
+          </linearGradient>
+          <linearGradient id="gradProjectsFuture" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="#10b981" stopOpacity={0.10} />
+          </linearGradient>
+          <filter id="annualDotGlow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <CartesianGrid vertical={false} stroke="#edf1f5" strokeDasharray="3 3" />
+
+        <XAxis
+          dataKey="month"
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 11, fill: "#8a97aa", fontWeight: 500 }}
+          tickMargin={8}
+        />
+        <YAxis
+          yAxisId="subs"
+          domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: "#a0aab7" }}
+          allowDecimals={false}
+          width={30}
+        />
+        <YAxis
+          yAxisId="proj"
+          orientation="right"
+          domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fontSize: 10, fill: "#10b981", opacity: 0.75 }}
+          allowDecimals={false}
+          width={26}
+        />
+
+        <Tooltip
+          content={<AnnualTooltip />}
+          cursor={{ stroke: "#c8d6e8", strokeWidth: 1, strokeDasharray: "4 3", fill: "rgba(11,81,183,0.035)" }}
+        />
+
+        {currentLabel && (
+          <ReferenceLine
+            yAxisId="subs"
+            x={currentLabel}
+            stroke="#4338ca"
+            strokeDasharray="4 3"
+            strokeOpacity={0.4}
+            strokeWidth={1.5}
+            label={{ value: "Now", position: "insideTopRight", fontSize: 9, fill: "#4338ca", opacity: 0.6, dy: -4 }}
+          />
+        )}
+
+        {/* Total Projects — slim bars on right axis */}
+        <Bar
+          yAxisId="proj"
+          dataKey="projects"
+          name="Total Projects"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={14}
+          isAnimationActive
+          animationDuration={900}
+          animationEasing="ease-out"
+        >
+          {data.map((entry) => (
+            <Cell
+              key={entry.month}
+              fill={entry.isFuture ? "url(#gradProjectsFuture)" : "url(#gradProjects)"}
+              opacity={entry.isCurrent ? 1 : entry.isFuture ? 0.45 : 0.85}
+            />
+          ))}
+        </Bar>
+
+        {/* Total Submissions — continuous line spanning all 12 months; sits at 0 for empty months */}
+        <Area
+          yAxisId="subs"
+          type="monotone"
+          dataKey="submissions"
+          name="Total Submissions"
+          stroke="#0b51b7"
+          strokeWidth={2.5}
+          fill="url(#gradSubsArea)"
+          dot={(props) => {
+            const { cx, cy, payload } = props as { cx: number; cy: number; payload: { isFuture: boolean } };
+            if (payload.isFuture) {
+              return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill="#0b51b7" fillOpacity={0.25} stroke="none" />;
+            }
+            return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill="#0b51b7" stroke="#fff" strokeWidth={1.5} />;
+          }}
+          activeDot={{ r: 5, fill: "#0b51b7", stroke: "#fff", strokeWidth: 2, filter: "url(#annualDotGlow)" }}
+          isAnimationActive
+          animationDuration={1100}
+          animationEasing="ease-out"
+          connectNulls
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+
+function ChartLegend({
+  items,
+  align = "center",
+}: {
+  items: Array<{ label: string; color: string }>;
+  align?: "center" | "right";
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-medium text-[#5f6f85] ${align === "right" ? "justify-end" : "justify-center"}`}>
+      {items.map((item) => (
+        <span key={item.label} className="inline-flex items-center gap-2">
+          <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function EmptyChartState({ label }: { label: string }) {
+  return <div className="grid h-full place-items-center text-center text-xs text-[#8491a3]">{label}</div>;
+}
+
+function TopEnumerators({
+  enumerators,
+  loading,
+}: {
+  enumerators: Array<{
+    name: string;
+    total: number;
+    ready: number;
+    review: number;
+    invalid: number;
+    lastSubmitted: string | null;
+    projectCount: number;
+  }>;
+  loading: boolean;
+}) {
+  return (
+    <Panel title="Top three enumerators" subtitle="Highest submission volume in this view">
+      {loading ? (
+        <div className="grid h-[260px] place-items-center text-xs text-[#8491a3]">Loading enumerator rankings...</div>
+      ) : enumerators.length ? (
+        <ol className="m-0 list-none divide-y divide-[#edf1f5] p-0">
+          {enumerators.map((enumerator, index) => {
+            const readyRate = enumerator.total ? Math.round((enumerator.ready / enumerator.total) * 100) : 0;
+            return (
+              <li key={enumerator.name} className="flex min-h-[86px] items-center gap-3 py-5 first:pt-3 last:pb-3">
+                <span className={`grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold ${index === 0 ? "bg-brand text-white" : "bg-[#f1f5f9] text-[#607086]"}`}>
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <strong className="block truncate text-sm font-semibold text-[#24334a]">{enumerator.name}</strong>
+                      <span className="mt-1 block text-[10px] text-[#8491a3]">
+                        {enumerator.projectCount} project{enumerator.projectCount === 1 ? "" : "s"} • Last active{" "}
+                        {formatSubmissionDate(enumerator.lastSubmitted)}
+                      </span>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <strong className="block text-sm font-semibold text-[#24334a]">{enumerator.total}</strong>
+                      <span className="text-[10px] text-[#8491a3]">submissions</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#edf2f7]">
+                    <div className="h-full rounded-full bg-brand" style={{ width: `${readyRate}%` }} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#718096]">
+                    <span>{readyRate}% ready</span>
+                    <span>{enumerator.review} review</span>
+                    <span>{enumerator.invalid} invalid</span>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <div className="grid h-[260px] place-items-center text-center text-xs text-[#8491a3]">
+          No enumerator activity matches the current filters.
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function formatSubmissionDate(value: string | null) {
+  if (!value) return "Not recorded";
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }

@@ -338,6 +338,76 @@ export interface ProjectIntelligence {
   indicators: { mapping_id: string; name: string; value: number; summary: string }[];
   targets: { id: string; name: string; target: number; actual: number; unit: string; progress: number; remaining: number; status: string }[];
 }
+
+export type IndicatorUnit = "number" | "percentage" | "rate" | "ratio" | "currency" | "days" | "text";
+export type IndicatorDirection = "increase" | "decrease";
+export type IndicatorStatus = "on_track" | "needs_attention" | "not_started";
+export type IndicatorFrequency = "weekly" | "monthly" | "quarterly" | "semi_annual" | "annual";
+export type IndicatorCalculation = "count_records" | "count_matching" | "percentage_matching" | "sum" | "average";
+
+export interface IndicatorMapping {
+  id: string;
+  indicator_id: string;
+  source_field: string;
+  calculation: IndicatorCalculation;
+  match_value: string | null;
+}
+
+export interface IndicatorMappingInput {
+  source_field: string;
+  calculation: IndicatorCalculation;
+  match_value: string | null;
+}
+
+export interface IndicatorField {
+  source_field: string;
+  label: string;
+}
+
+export interface IndicatorResultPoint {
+  period: string;
+  value: number | null;
+  eligible_records: number;
+  mapped_records: number;
+}
+
+export interface IndicatorLocationResult {
+  location: string;
+  value: number | null;
+  eligible_records: number;
+  mapped_records: number;
+}
+
+export interface Indicator {
+  id: string;
+  project_id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  unit: IndicatorUnit;
+  direction: IndicatorDirection;
+  baseline_value: number | null;
+  target_value: number | null;
+  target_date: string | null;
+  reporting_frequency: IndicatorFrequency;
+  status: IndicatorStatus;
+  is_active: boolean;
+  mapping: IndicatorMapping | null;
+  current_value: number | null;
+  eligible_records: number;
+  mapped_records: number;
+  history: IndicatorResultPoint[];
+  location_breakdown: IndicatorLocationResult[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type IndicatorInput = Omit<
+  Indicator,
+  "id" | "project_id" | "status" | "is_active" | "mapping" | "current_value" | "eligible_records" | "mapped_records" | "history" | "location_breakdown" | "created_at" | "updated_at"
+>;
+export type IndicatorUpdateInput = Partial<IndicatorInput> & { is_active?: boolean };
+export type IndicatorCreateInput = IndicatorInput & { mapping?: IndicatorMappingInput | null };
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -470,6 +540,7 @@ async function request<T>(
 }
 
 export const apiClient = {
+  hasStoredAccessToken: () => Boolean(accessToken),
   async login(login: string, password: string, remember: boolean) {
     const result = await request<{ access_token: string }>(
       "/auth/login",
@@ -595,7 +666,29 @@ export const apiClient = {
     request<ProjectTarget>(`/projects/${projectId}/targets`, { method: "POST", body: JSON.stringify(target) }),
   deleteProjectTarget: (projectId: string, targetId: string) =>
     request<void>(`/projects/${projectId}/targets/${targetId}`, { method: "DELETE" }),
-  projectIntelligence: (projectId: string) => request<ProjectIntelligence>(`/projects/${projectId}/intelligence`),  enumerators: () => request<ApiEnumerator[]>("/enumerators"),
+  projectIntelligence: (projectId: string) => request<ProjectIntelligence>(`/projects/${projectId}/intelligence`),
+  indicators: (projectId: string) => request<Indicator[]>(`/projects/${projectId}/indicators`),
+  createIndicator: (projectId: string, input: IndicatorCreateInput) =>
+    request<Indicator>(`/projects/${projectId}/indicators`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateIndicator: (indicatorId: string, input: IndicatorUpdateInput) =>
+    request<Indicator>(`/indicators/${indicatorId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  deleteIndicator: (indicatorId: string) =>
+    request<void>(`/indicators/${indicatorId}`, { method: "DELETE" }),
+  indicatorFields: (projectId: string) => request<IndicatorField[]>(`/projects/${projectId}/indicator-fields`),
+  saveIndicatorMapping: (indicatorId: string, input: IndicatorMappingInput) =>
+    request<IndicatorMapping>(`/indicators/${indicatorId}/mapping`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  deleteIndicatorMapping: (indicatorId: string) =>
+    request<void>(`/indicators/${indicatorId}/mapping`, { method: "DELETE" }),
+  enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
   updateEnumerator: (membershipId: string, input: EnumeratorUpdateInput) =>
     request<ApiEnumerator>(`/enumerators/${membershipId}`, {

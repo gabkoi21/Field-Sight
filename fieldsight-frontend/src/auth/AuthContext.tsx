@@ -17,6 +17,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleSessionExpired = () => setUser(null);
     window.addEventListener("fieldsight-session-expired", handleSessionExpired);
+    if (!apiClient.hasStoredAccessToken()) {
+      setLoading(false);
+      return () => window.removeEventListener("fieldsight-session-expired", handleSessionExpired);
+    }
     apiClient.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
     return () => window.removeEventListener("fieldsight-session-expired", handleSessionExpired);
   }, []);

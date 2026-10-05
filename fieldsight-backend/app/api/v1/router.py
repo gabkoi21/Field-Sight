@@ -6,6 +6,7 @@ from app.routes.administration import router as administration_router
 from app.routes.auth import router as auth_router
 from app.routes.collection import router as collection_router
 from app.routes.health import router as health_router
+from app.routes.indicators import router as indicators_router
 from app.routes.intelligence import router as intelligence_router
 from app.routes.kobo import router as kobo_router
 from app.routes.onboarding import router as onboarding_router
@@ -24,3 +25,4 @@ api_router.include_router(enumerator_router)
 api_router.include_router(kobo_router)
 api_router.include_router(collection_router)
 api_router.include_router(intelligence_router)
+api_router.include_router(indicators_router)
