@@ -31,8 +31,8 @@ export function MetricCard({
     <Card className={`h-full p-4 ${onClick ? "transition hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-md" : ""} ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <small className="text-[10px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small>
-          <strong className="mt-2 block text-[1.5rem] font-semibold leading-none tracking-[-.04em] text-[#24334a]">
+          <small className="text-xs font-bold uppercase tracking-wider text-[#64748b]">{label}</small>
+          <strong className="mt-2 block text-[1.85rem] font-bold leading-none tracking-tight text-[#1e293b]">
             {typeof value === "number" ? value.toLocaleString() : value}
           </strong>
         </div>
@@ -40,7 +40,7 @@ export function MetricCard({
           <Icon size={18} />
         </span>
       </div>
-      {context && <p className="mb-0 mt-2 text-[10px] text-[#8491a3]">{context}</p>}
+      {context && <p className="mb-0 mt-2 text-xs text-[#64748b]">{context}</p>}
     </Card>
   );
   return onClick ? (

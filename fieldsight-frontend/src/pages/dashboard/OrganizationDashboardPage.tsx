@@ -250,31 +250,13 @@ export function OrganizationDashboardPage() {
             <RefreshCw size={13} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Refresh
           </button>
           <FilterSelect value={projectId} placeholder="All projects" options={projectOptions} onChange={setProjectId} />
-
-          <FilterSelect value={location} placeholder="All locations" options={locationOptions} onChange={setLocation} />
-
-          <div className="relative">
-            <select
-              className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[12px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
-              value={period}
-              onChange={(event) => setPeriod(event.target.value)}
-            >
-              <option value="today">Today</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-            </select>
-            <ChevronDown
-              size={14}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8492a4]"
-            />
-          </div>
         </div>
       </PageHeader>
 
-      <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <MetricCard label="Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
+      <section className="grid grid-cols-3 gap-3 max-[1050px]:grid-cols-3 max-[820px]:grid-cols-1">
+        <MetricCard label="Total Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
         <MetricCard
-          label="Needs Review"
+          label="Quality Check"
           value={overview?.needs_review ?? 0}
           context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready overall`}
           icon={Clock3}
@@ -285,12 +267,6 @@ export function OrganizationDashboardPage() {
           value={activeProjectsDisplay}
           context={`${totalWorkspaceProjects} projects in workspace`}
           icon={FolderKanban}
-        />
-        <MetricCard
-          label="Ready Records"
-          value={`${qualityRate}%`}
-          context={totalEnumeratorsCount ? `${activeEnumerators} active enumerators today` : "Based on ready records"}
-          icon={Database}
         />
       </section>
 
@@ -306,7 +282,7 @@ export function OrganizationDashboardPage() {
 
         <Panel
           title="Top projects"
-          subtitle={`Ranked by submissions • ${periodLabels[period]}`}
+          subtitle="Ranked by total submissions"
           action={
             <button className="text-xs font-semibold text-brand" onClick={() => navigate("/projects")}>
               View all <ArrowRight className="inline" size={13} />
@@ -324,7 +300,7 @@ export function OrganizationDashboardPage() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0 break-words text-xs font-semibold text-slate-700">{project.name}</span>
+                      <span className="min-w-0 break-words text-sm font-semibold text-slate-800">{project.name}</span>
                     </div>
                     <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
                       <div
@@ -385,8 +361,8 @@ function DashboardSnapshotCards({
     <section className="grid grid-cols-[minmax(280px,.42fr)_minmax(0,1fr)] gap-4 max-[940px]:grid-cols-1">
       <article className="min-w-0 rounded-lg border border-[#edf0f4] bg-white px-5 pb-5 pt-5 shadow-[0_4px_14px_rgba(23,40,70,.04)]">
         <div>
-          <h2 className="m-0 text-sm font-semibold text-[#24334a]">Submissions by location</h2>
-          <p className="m-0 mt-1 text-[10px] text-[#8491a3]">Volume and quality mix by field area</p>
+          <h2 className="m-0 text-base font-semibold text-[#1e293b]">Submissions by location</h2>
+          <p className="m-0 mt-1 text-xs text-[#64748b]">Volume and quality mix by field area</p>
         </div>
         <ChartLegend
           items={[
@@ -403,7 +379,7 @@ function DashboardSnapshotCards({
                   type="number"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: "#53627a" }}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
                   allowDecimals={false}
                 />
                 <YAxis
@@ -412,7 +388,7 @@ function DashboardSnapshotCards({
                   width={112}
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: "#53627a" }}
+                  tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
                 />
                 <Tooltip
                   cursor={{ fill: "rgba(11, 81, 183, .04)" }}
@@ -441,14 +417,14 @@ function DashboardSnapshotCards({
       <article className="min-w-0 rounded-lg border border-[#edf0f4] bg-white px-5 pb-5 pt-5 shadow-[0_4px_14px_rgba(23,40,70,.04)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="m-0 text-sm font-semibold text-[#24334a]">Submission report</h2>
-            <p className="m-0 mt-1 text-[10px] text-[#8491a3]">
+            <h2 className="m-0 text-base font-semibold text-[#1e293b]">Submission report</h2>
+            <p className="m-0 mt-1 text-xs text-[#64748b]">
               Monthly submissions & active projects — {currentYear}
             </p>
           </div>
           <div className="flex items-center gap-1">
             {/* ── Period: Year only ── */}
-            <span className="rounded-md border border-[#bdd0eb] bg-[#f3f8ff] px-2.5 py-1 text-[10px] font-semibold text-brand">
+            <span className="rounded-md border border-[#bdd0eb] bg-[#f3f8ff] px-3 py-1.5 text-xs font-semibold text-brand">
               Year
             </span>
           </div>
@@ -463,7 +439,7 @@ function DashboardSnapshotCards({
             align="center"
             items={[
               { label: "Total Submissions", color: "#0b51b7" },
-              { label: "Total Projects", color: "#10b981" },
+              { label: "Total Projects", color: "#f0a640" },
             ]}
           />
         </div>
@@ -485,7 +461,7 @@ function AnnualTooltip({
   if (!active || !payload?.length) return null;
   const meta: Record<string, { color: string; label: string; suffix?: string }> = {
     submissions: { color: "#0b51b7", label: "Total Submissions" },
-    projects: { color: "#10b981", label: "Total Projects", suffix: "active" },
+    projects: { color: "#f0a640", label: "Total Projects", suffix: "active" },
   };
   return (
     <div
@@ -498,13 +474,13 @@ function AnnualTooltip({
         minWidth: 168,
       }}
     >
-      <p style={{ margin: "0 0 9px", fontSize: 11, fontWeight: 700, color: "#24334a", letterSpacing: "0.04em" }}>
+      <p style={{ margin: "0 0 9px", fontSize: 13, fontWeight: 700, color: "#1e293b", letterSpacing: "0.02em" }}>
         {label}
       </p>
       {payload.map((entry) => {
         const m = meta[entry.dataKey] ?? { color: "#888", label: entry.name };
         return (
-          <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, fontSize: 12 }}>
+          <div key={entry.dataKey} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, fontSize: 13 }}>
             <span
               style={{
                 width: 9, height: 9, borderRadius: "50%",
@@ -512,10 +488,10 @@ function AnnualTooltip({
                 boxShadow: `0 0 0 2.5px ${m.color}30`,
               }}
             />
-            <span style={{ color: "#5f6f85", flex: 1 }}>{m.label}</span>
-            <span style={{ fontWeight: 700, color: "#24334a" }}>
+            <span style={{ color: "#475569", flex: 1 }}>{m.label}</span>
+            <span style={{ fontWeight: 700, color: "#1e293b" }}>
               {Number(entry.value).toLocaleString()}
-              {m.suffix ? <span style={{ fontWeight: 400, color: "#8a97aa", marginLeft: 3, fontSize: 10 }}>{m.suffix}</span> : null}
+              {m.suffix ? <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 4, fontSize: 11 }}>{m.suffix}</span> : null}
             </span>
           </div>
         );
@@ -543,12 +519,12 @@ function AnnualSubmissionReportChart({
             <stop offset="100%" stopColor="#0b51b7" stopOpacity={0.02} />
           </linearGradient>
           <linearGradient id="gradProjects" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-            <stop offset="100%" stopColor="#34d399" stopOpacity={0.85} />
+            <stop offset="0%" stopColor="#f0a640" stopOpacity={1} />
+            <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.85} />
           </linearGradient>
           <linearGradient id="gradProjectsFuture" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#10b981" stopOpacity={0.10} />
+            <stop offset="0%" stopColor="#f0a640" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="#f0a640" stopOpacity={0.10} />
           </linearGradient>
           <filter id="annualDotGlow" x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="2.5" result="blur" />
@@ -565,7 +541,7 @@ function AnnualSubmissionReportChart({
           dataKey="month"
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 11, fill: "#8a97aa", fontWeight: 500 }}
+          tick={{ fontSize: 12, fill: "#64748b", fontWeight: 600 }}
           tickMargin={8}
         />
         <YAxis
@@ -573,7 +549,7 @@ function AnnualSubmissionReportChart({
           domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 10, fill: "#a0aab7" }}
+          tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
           allowDecimals={false}
           width={30}
         />
@@ -583,7 +559,7 @@ function AnnualSubmissionReportChart({
           domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 10, fill: "#10b981", opacity: 0.75 }}
+          tick={{ fontSize: 11, fill: "#d97706", fontWeight: 500 }}
           allowDecimals={false}
           width={26}
         />
@@ -661,7 +637,7 @@ function ChartLegend({
   align?: "center" | "right";
 }) {
   return (
-    <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-medium text-[#5f6f85] ${align === "right" ? "justify-end" : "justify-center"}`}>
+    <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-[#475569] ${align === "right" ? "justify-end" : "justify-center"}`}>
       {items.map((item) => (
         <span key={item.label} className="inline-flex items-center gap-2">
           <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -694,34 +670,34 @@ function TopEnumerators({
   return (
     <Panel title="Top three enumerators" subtitle="Highest submission volume in this view">
       {loading ? (
-        <div className="grid h-[260px] place-items-center text-xs text-[#8491a3]">Loading enumerator rankings...</div>
+        <div className="grid h-[200px] place-items-center text-xs text-[#8491a3]">Loading enumerator rankings...</div>
       ) : enumerators.length ? (
         <ol className="m-0 list-none divide-y divide-[#edf1f5] p-0">
           {enumerators.map((enumerator, index) => {
             const readyRate = enumerator.total ? Math.round((enumerator.ready / enumerator.total) * 100) : 0;
             return (
-              <li key={enumerator.name} className="flex min-h-[86px] items-center gap-3 py-5 first:pt-3 last:pb-3">
-                <span className={`grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold ${index === 0 ? "bg-brand text-white" : "bg-[#f1f5f9] text-[#607086]"}`}>
+              <li key={enumerator.name} className="flex items-center gap-3 py-2.5 first:pt-1 last:pb-1">
+                <span className={`grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold ${index === 0 ? "bg-brand text-white" : "bg-[#f1f5f9] text-[#607086]"}`}>
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-baseline justify-between gap-3">
                     <div className="min-w-0">
-                      <strong className="block truncate text-sm font-semibold text-[#24334a]">{enumerator.name}</strong>
-                      <span className="mt-1 block text-[10px] text-[#8491a3]">
+                      <strong className="block truncate text-sm font-semibold text-[#1e293b]">{enumerator.name}</strong>
+                      <span className="block text-xs text-[#64748b]">
                         {enumerator.projectCount} project{enumerator.projectCount === 1 ? "" : "s"} • Last active{" "}
                         {formatSubmissionDate(enumerator.lastSubmitted)}
                       </span>
                     </div>
                     <div className="shrink-0 text-right">
-                      <strong className="block text-sm font-semibold text-[#24334a]">{enumerator.total}</strong>
-                      <span className="text-[10px] text-[#8491a3]">submissions</span>
+                      <strong className="block text-sm font-bold text-[#1e293b]">{enumerator.total}</strong>
+                      <span className="text-xs text-[#64748b]">submissions</span>
                     </div>
                   </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#edf2f7]">
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#edf2f7]">
                     <div className="h-full rounded-full bg-brand" style={{ width: `${readyRate}%` }} />
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#718096]">
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#64748b]">
                     <span>{readyRate}% ready</span>
                     <span>{enumerator.review} review</span>
                     <span>{enumerator.invalid} invalid</span>
@@ -732,7 +708,7 @@ function TopEnumerators({
           })}
         </ol>
       ) : (
-        <div className="grid h-[260px] place-items-center text-center text-xs text-[#8491a3]">
+        <div className="grid h-[200px] place-items-center text-center text-xs text-[#8491a3]">
           No enumerator activity matches the current filters.
         </div>
       )}
