@@ -16,17 +16,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
-import { Badge, Button, LoadingState } from "../../components/ui";
+import { Badge, Button, LoadingState, MetricCard } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, ApiError, type ApiSubmission } from "../../services/apiClient";
 import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
 
-const tone = {
-  blue: "bg-[#edf3fc] text-[#4d7fc6]",
-  green: "bg-[#e8f6f4] text-[#0b51b7]",
-  purple: "bg-[#f0edfa] text-[#7868b8]",
-  orange: "bg-[#fff3e5] text-[#d88935]",
-};
 
 function relativeTime(value: string | null | undefined) {
   if (!value) return "Never";
@@ -38,6 +32,52 @@ function relativeTime(value: string | null | undefined) {
   if (hours < 24) return `${hours} hr ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+export function ProjectKPIGrid({
+  project,
+}: {
+  project: {
+    totalSubmissions?: number;
+    target?: number | null;
+    readyRecords?: number;
+    needsAttentionCount?: number;
+    activeEnumerators?: number;
+  };
+}) {
+  const needsAttention = project.needsAttentionCount ?? 0;
+
+  return (
+    <section className="grid grid-cols-3 gap-3 max-[1050px]:grid-cols-3 max-[820px]:grid-cols-1 mb-5">
+      <MetricCard
+        label="Total Submissions"
+        value={project.totalSubmissions || 0}
+        context={
+          project.target ? (
+            `Target: ${project.target.toLocaleString()}`
+          ) : (
+            <span className="text-brand font-medium hover:underline">+ Set target</span>
+          )
+        }
+        icon={Database}
+        tone="brand"
+      />
+      <MetricCard
+        label="Records Ready"
+        value={project.readyRecords || 0}
+        context={`${needsAttention} record${needsAttention === 1 ? "" : "s"} need attention`}
+        icon={FileCheck2}
+        tone={needsAttention > 0 ? "warning" : "brand"}
+      />
+      <MetricCard
+        label="Active Enumerators"
+        value={project.activeEnumerators || 0}
+        context="Contributing to this project"
+        icon={Users}
+        tone="brand"
+      />
+    </section>
+  );
 }
 
 export function ProjectWorkspacePage() {
@@ -115,7 +155,7 @@ export function ProjectWorkspacePage() {
               </div>
               <p className="m-0 text-[0.8125rem] text-[#77869b]">
                 Project workspace <span className="mx-1 text-[#c6ced8]"> / </span>
-                {project.kobo_form_name ? "Kobo form connected" : "No form connected"}
+                {project.kobo_form_name ? `Kobo form: ${project.kobo_form_name} • Last sync: ${relativeTime(overview?.last_synced_at)}` : "No form connected"}
               </p>
             </div>
           </div>
@@ -155,40 +195,15 @@ export function ProjectWorkspacePage() {
           Analytics
         </NavLink>
       </nav>
-      <section className="grid grid-cols-4 gap-[14px] max-[1120px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <Metric
-          icon={Database}
-          tone="blue"
-          label="Submissions"
-          value={totalSubmissions.toLocaleString()}
-          note={
-            project.target_sample_size
-              ? "of " + project.target_sample_size.toLocaleString() + " target"
-              : "No target configured"
-          }
-        />
-        <Metric
-          icon={FileCheck2}
-          tone="green"
-          label="Records ready"
-          value={readyRecords.toLocaleString()}
-          note={`${overview?.blocked_records ?? 0} records need attention`}
-        />
-        <Metric
-          icon={Users}
-          tone="purple"
-          label="Active enumerators"
-          value={String(activeEnumerators)}
-          note="Contributing to this project"
-        />
-        <Metric
-          icon={Clock3}
-          tone="orange"
-          label="Last sync"
-          value={relativeTime(overview?.last_synced_at)}
-          note={project.kobo_form_name ?? "No Kobo form assigned"}
-        />
-      </section>
+      <ProjectKPIGrid
+        project={{
+          totalSubmissions,
+          target: project.target_sample_size,
+          readyRecords,
+          needsAttentionCount: overview?.blocked_records ?? projectSubmissions.filter((item) => item.review_status === "needs_review" || item.review_status === "rejected").length,
+          activeEnumerators,
+        }}
+      />
       <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
         <SubmissionActivityPanel
           submissions={projectSubmissions}
@@ -206,34 +221,6 @@ export function ProjectWorkspacePage() {
   );
 }
 
-function Metric({
-  icon: Icon,
-  tone: color,
-  label,
-  value,
-  note,
-}: {
-  icon: LucideIcon;
-  tone: keyof typeof tone;
-  label: string;
-  value: string;
-  note: string;
-}) {
-  return (
-    <Card className="p-[17px]">
-      <div className="flex justify-between">
-        <div>
-          <p className="m-0 text-[11px] font-bold uppercase tracking-[.07em] text-[#8491a5]">{label}</p>
-          <strong className="mt-2 block text-[23px] leading-none text-[#2e4364]">{value}</strong>
-        </div>
-        <span className={"grid size-9 place-items-center rounded-lg " + tone[color]}>
-          <Icon size={18} />
-        </span>
-      </div>
-      <p className="mb-0 mt-2.5 text-xs text-[#78869a]">{note}</p>
-    </Card>
-  );
-}
 
 function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
   const [view, setView] = useState<"counties" | "communities">("counties");

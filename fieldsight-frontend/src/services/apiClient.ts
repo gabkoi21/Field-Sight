@@ -135,6 +135,11 @@ export interface CreateProjectInput {
   organization_sector_id: string;
   description?: string;
   target_sample_size?: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  status?: string;
+  priority?: string;
+  tags?: string[];
 }
 export interface ApiProject {
   id: string;

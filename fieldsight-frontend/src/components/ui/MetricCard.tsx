@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "./Card";
 
@@ -21,7 +22,7 @@ export function MetricCard({
 }: {
   label: string;
   value: number | string;
-  context?: string;
+  context?: ReactNode;
   icon: LucideIcon;
   tone?: MetricTone;
   className?: string;
@@ -40,7 +41,7 @@ export function MetricCard({
           <Icon size={18} />
         </span>
       </div>
-      {context && <p className="mb-0 mt-2 text-xs text-[#64748b]">{context}</p>}
+      {context && <div className="mb-0 mt-2 text-xs text-[#64748b]">{context}</div>}
     </Card>
   );
   return onClick ? (
