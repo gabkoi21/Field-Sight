@@ -161,19 +161,19 @@ export function SystemHealthPage() {
                   )}
                 </span>
                 <div>
-                  <strong className="block text-[12px] text-[#324158]">
+                  <strong className="block text-[14px] text-[#324158]">
                     {service.name}
                   </strong>
-                  <small className="mt-0.5 block text-[10px] text-[#8793a2]">
+                  <small className="mt-0.5 block text-[12px] text-[#8793a2]">
                     {service.description}
                   </small>
                 </div>
               </div>
               <div className="max-[760px]:hidden">
-                <small className="block text-[9px] uppercase tracking-[.06em] text-[#8793a2]">
+                <small className="block text-[11px] uppercase tracking-[.06em] text-[#8793a2]">
                   Current
                 </small>
-                <strong className="text-[11px] capitalize text-[#455467]">
+                <strong className="text-[12px] capitalize text-[#455467]">
                   {service.detail}
                 </strong>
               </div>
@@ -209,10 +209,10 @@ export function SystemHealthPage() {
                   <RowIcon size={15} />
                 </span>
                 <div>
-                  <small className="block text-[9px] uppercase tracking-[.05em] text-[#8793a2]">
+                  <small className="block text-[11px] uppercase tracking-[.05em] text-[#8793a2]">
                     {label as string}
                   </small>
-                  <strong className="text-[11px] capitalize text-[#324158]">
+                  <strong className="text-[12px] capitalize text-[#324158]">
                     {value as string}
                   </strong>
                 </div>

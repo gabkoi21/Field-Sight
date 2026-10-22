@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { Link2, RefreshCw, X } from "lucide-react";
-import { Button } from "../components/ui";
-import { AssignFormModal } from "../pages/organization/ProjectsPage";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import {
   apiClient,
   type ApiProject,
@@ -19,7 +16,7 @@ import {
 } from "./WorkspaceUI";
 
 const input =
-  "h-9 w-full min-w-0 rounded border border-[#e3e5eb] bg-white px-3 text-xs text-[#49515c] outline-none focus:border-[#8b77d3] focus:ring-1 focus:ring-[#8b77d3]/15";
+  "h-9 w-full min-w-0 rounded border border-[#e3e5eb] bg-white px-3 text-xs text-[#49515c] outline-none focus:border-[#0b51b7] focus:ring-1 focus:ring-[#0b51b7]/15";
 function metadata(project: ApiProject): WorkspaceDetails {
   const data = project.workspace_details ?? {};
   return {
@@ -51,8 +48,6 @@ export function WorkspaceDetailsPage() {
     health_status: "",
   });
   const [message, setMessage] = useState("");
-  const [assigning, setAssigning] = useState(false);
-  const [syncMessage, setSyncMessage] = useState("");
   function reset() {
     if (!project) return;
     setName(project.name);
@@ -64,15 +59,7 @@ export function WorkspaceDetailsPage() {
   useEffect(() => {
     reset();
     setMessage("");
-    setSyncMessage("");
-    setAssigning(false);
   }, [projectId, project?.updated_at]);
-  const submissions = useQuery({
-    queryKey: ["submissions"],
-    queryFn: apiClient.submissions,
-  });
-  const records =
-    submissions.data?.filter((row) => row.project_id === projectId) ?? [];
   const save = useMutation({
     mutationFn: () =>
       apiClient.updateProject(organizationId, projectId, {
@@ -91,21 +78,7 @@ export function WorkspaceDetailsPage() {
       await cache.invalidateQueries({
         queryKey: ["organization-projects", organizationId],
       });
-      setMessage("Workspace details saved.");
-    },
-  });
-  const sync = useMutation({
-    mutationFn: () => apiClient.syncProjectKoboForm(projectId),
-    onSuccess: async (result) => {
-      setSyncMessage(
-        `Sync complete: ${result.created} new, ${result.updated} updated, ${result.skipped} unchanged.`,
-      );
-      await Promise.all([
-        cache.invalidateQueries({ queryKey: ["submissions"] }),
-        cache.invalidateQueries({ queryKey: ["workspace-tables"] }),
-        cache.invalidateQueries({ queryKey: ["indicators", projectId] }),
-        cache.invalidateQueries({ queryKey: ["kobo-pending-sync"] }),
-      ]);
+      setMessage("Project details saved.");
     },
   });
   function update<K extends keyof WorkspaceDetails>(
@@ -127,8 +100,8 @@ export function WorkspaceDetailsPage() {
       });
   return (
     <Page
-      title={project?.name ?? "Workspace details"}
-      description="Manage the details of this workspace."
+      title={project?.name ?? "Project details"}
+      description="Manage the details of this project."
     >
       <WorkspaceGate>
         <WorkspaceTabs />
@@ -205,9 +178,9 @@ export function WorkspaceDetailsPage() {
                   label="End date"
                 />
               </DetailField>
-              <DetailField label="Workspace ID code">
+              <DetailField label="Project ID code">
                 <input
-                  aria-label="Workspace ID code"
+                  aria-label="Project ID code"
                   className={input}
                   maxLength={80}
                   value={details.code}
@@ -285,62 +258,21 @@ export function WorkspaceDetailsPage() {
                   setMessage("");
                   save.reset();
                 }}
-                className="rounded border border-[#b6abd9] bg-white px-5 py-2 text-xs text-[#7661cd] disabled:opacity-40"
+                className="rounded border border-[#b8ccea] bg-white px-5 py-2 text-xs text-[#0b51b7] hover:bg-[#edf4ff] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={save.isPending || !changed || name.trim().length < 2}
-                className="rounded border-0 bg-[#6049c8] px-5 py-2 text-xs font-medium text-white disabled:opacity-40"
+                className="rounded border-0 bg-[#0b51b7] px-5 py-2 text-xs font-medium text-white hover:bg-[#084394] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {save.isPending ? "Saving…" : "Save changes"}
               </button>
             </div>
           </form>
         </Panel>
-        {syncMessage && <Notice>{syncMessage}</Notice>}
-        {sync.error && <Notice error>{sync.error.message}</Notice>}
-        {submissions.error && (
-          <Notice error>{submissions.error.message}</Notice>
-        )}
-        <Panel className="p-5">
-          <h2 className="m-0 text-sm font-semibold">Data collection</h2>
-          <p className="my-3 text-xs leading-6 text-[#87969d]">
-            {records.length} stored responses ·{" "}
-            {records.filter((row) => row.review_status === "ready").length}{" "}
-            ready for analysis
-            <br />
-            Assigned form: {project?.kobo_form_name ?? "None"}
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={() => setAssigning(true)}>
-              <Link2 size={14} />
-              Assign Kobo form
-            </Button>
-            <Button
-              disabled={
-                !project?.kobo_connection_id ||
-                !project?.kobo_form_id ||
-                sync.isPending
-              }
-              onClick={() => sync.mutate()}
-            >
-              <RefreshCw size={14} />
-              {sync.isPending ? "Syncing…" : "Sync form"}
-            </Button>
-            <Link className="text-xs text-[#7661cd]" to="/data-tables">
-              Open data tables →
-            </Link>
-          </div>
-        </Panel>
       </WorkspaceGate>
-      {assigning && project && (
-        <AssignFormModal
-          project={project}
-          onClose={() => setAssigning(false)}
-        />
-      )}
     </Page>
   );
 }
@@ -353,7 +285,7 @@ function DetailField({
 }) {
   return (
     <div className="grid min-w-0 content-start gap-1.5">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-[#92949f]">
+      <div className="text-[12px] font-medium uppercase tracking-wide text-[#92949f]">
         {label}
       </div>
       {children}
@@ -419,7 +351,7 @@ function Tags({
       {values.map((value) => (
         <span
           key={value}
-          className="inline-flex items-center gap-1 rounded-full border border-[#e0e1e7] bg-[#f7f7f9] px-2 py-0.5 text-[10px] text-[#626977]"
+          className="inline-flex items-center gap-1 rounded-full border border-[#e0e1e7] bg-[#f7f7f9] px-2 py-0.5 text-[12px] text-[#626977]"
         >
           <button
             aria-label={`Remove ${value} from ${label.toLowerCase()}`}

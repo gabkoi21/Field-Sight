@@ -98,7 +98,7 @@ export function ProfilePage() {
                   onChange={(e) => setLanding(e.target.value)}
                 >
                   {[
-                    ["/projects", "Workspaces"],
+                    ["/projects", "Projects"],
                     ["/", "Collection overview"],
                     ["/indicators", "Indicators"],
                     ["/dashboards", "Dashboards"],

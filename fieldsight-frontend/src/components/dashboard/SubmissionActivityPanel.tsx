@@ -138,7 +138,7 @@ export function SubmissionActivityPanel({
         }
       >
         {submissions && current?.quota ? (
-          <span className="rounded-md bg-[#edf3fc] px-2 py-1 text-[10px] font-semibold text-brand">
+          <span className="rounded-md bg-[#edf3fc] px-2 py-1 text-[12px] font-semibold text-brand">
             Goal: {current.quota}/day
           </span>
         ) : null}
@@ -158,7 +158,7 @@ export function SubmissionActivityPanel({
           <button
             key={p.label}
             onClick={() => (submissions ? setView((p as { id: typeof view }).id) : setPeriodIdx(i))}
-            className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
               submissions
                 ? view === (p as { id: string }).id
                   ? "bg-[#e8f1ff] font-semibold text-[#0b51b7]"
@@ -178,8 +178,8 @@ export function SubmissionActivityPanel({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={barData} margin={{ top: 2, right: 6, left: -26, bottom: 0 }} barCategoryGap="35%">
             <CartesianGrid vertical={false} stroke="#eef1f4" />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#8491a5", fontSize: 11 }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 10 }} allowDecimals={false} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#8491a5", fontSize: 12 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 12 }} allowDecimals={false} />
             <Tooltip
               cursor={{ fill: "#f0f5ff" }}
               contentStyle={{ border: "1px solid #e5e8ec", borderRadius: 6, fontSize: 12 }}
@@ -221,7 +221,7 @@ export function SubmissionActivityPanel({
                     label={{
                       value: String("version" in point ? point.version ?? "" : ""),
                       position: "insideTopRight",
-                      fontSize: 9,
+                      fontSize: 12,
                       fill: "#7868b8",
                     }}
                   />

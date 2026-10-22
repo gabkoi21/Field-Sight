@@ -46,7 +46,7 @@ export function ProjectIntelligencePanel({ projectId }: { projectId: string }) {
       <article className="rounded-[9px] border border-[#dfe4e9] bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="m-0 text-[10px] font-bold uppercase tracking-[.09em] text-brand">Project Pulse</p>
+            <p className="m-0 text-[12px] font-bold uppercase tracking-[.09em] text-brand">Project Pulse</p>
             <h2 className="mb-0 mt-1 text-lg">What needs attention today?</h2>
           </div>
           <span
@@ -66,7 +66,7 @@ export function ProjectIntelligencePanel({ projectId }: { projectId: string }) {
                 )}
                 {item.name}
               </span>
-              <p className="mb-0 mt-2 text-[11px] text-[#748298]">{item.detail}</p>
+              <p className="mb-0 mt-2 text-[12px] text-[#748298]">{item.detail}</p>
             </div>
           ))}
         </div>
@@ -85,7 +85,7 @@ export function ProjectIntelligencePanel({ projectId }: { projectId: string }) {
       <article className="rounded-[9px] border border-[#dfe4e9] bg-white p-5">
         <div className="mb-4">
           <h2 className="m-0 text-sm">Field mapping</h2>
-          <p className="mb-0 mt-1 text-[11px] text-[#7c899c]">Give Kobo questions a clear FieldSight meaning.</p>
+          <p className="mb-0 mt-1 text-[12px] text-[#7c899c]">Give Kobo questions a clear FieldSight meaning.</p>
         </div>
         <div className="max-h-[250px] space-y-2 overflow-y-auto">
           {sourceFields.map((source) => {
@@ -99,7 +99,7 @@ export function ProjectIntelligencePanel({ projectId }: { projectId: string }) {
                 key={source}
                 className="grid grid-cols-[minmax(120px,.8fr)_1fr_125px] items-center gap-2 max-[560px]:grid-cols-1"
               >
-                <code className="truncate text-[10px] text-[#738298]">{source}</code>
+                <code className="truncate text-[12px] text-[#738298]">{source}</code>
                 <input
                   className="rounded-md border border-[#dce4ed] px-2 py-1.5 text-xs"
                   value={current.display_name}

@@ -153,8 +153,8 @@ export function ProjectWorkspacePage() {
                 </h1>
                 <Badge value={project.status} />
               </div>
-              <p className="m-0 text-[0.8125rem] text-[#77869b]">
-                Project workspace <span className="mx-1 text-[#c6ced8]"> / </span>
+              <p className="m-0 text-[0.875rem] text-[#77869b]">
+                Project project <span className="mx-1 text-[#c6ced8]"> / </span>
                 {project.kobo_form_name ? `Kobo form: ${project.kobo_form_name} • Last sync: ${relativeTime(overview?.last_synced_at)}` : "No form connected"}
               </p>
             </div>
@@ -185,14 +185,14 @@ export function ProjectWorkspacePage() {
         </p>
       )}
       <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
-        <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[13px] font-semibold text-brand">
+        <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[14px] font-semibold text-brand">
           Overview
         </span>
-        <NavLink to={`/projects/${project.id}/indicators`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Indicators</NavLink>
-        <NavLink to={`/projects/${project.id}/indicators?view=results`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Monitoring</NavLink>
+        <NavLink to={`/projects/${project.id}/indicators`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[14px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Indicators</NavLink>
+        <NavLink to={`/projects/${project.id}/indicators?view=results`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[14px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Monitoring</NavLink>
         <NavLink
           to={`/analytics?project_id=${project.id}`}
-          className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]"
+          className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[14px] font-semibold text-[#75849a] no-underline hover:text-[#344562]"
         >
           Analytics
         </NavLink>
@@ -270,7 +270,7 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
           <select
             value={view}
             onChange={(e) => setView(e.target.value as "counties" | "communities")}
-            className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[12px] font-medium text-[#344562] focus:outline-none focus:ring-2 focus:ring-brand/30"
+            className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[14px] font-medium text-[#344562] focus:outline-none focus:ring-2 focus:ring-brand/30"
           >
             <option value="counties">Counties</option>
             <option value="communities">Communities</option>
@@ -289,7 +289,7 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
           <LocationDonutChart segments={top3} total={submissions.length} colors={COLORS} />
           <table className="mt-5 w-full text-left">
             <thead>
-              <tr className="border-b border-[#edf0f4] text-[10px] font-semibold uppercase tracking-[.06em] text-[#8491a3]">
+              <tr className="border-b border-[#edf0f4] text-[12px] font-semibold uppercase tracking-[.06em] text-[#8491a3]">
                 <th className="pb-2">Location</th>
                 <th className="pb-2 text-right">%</th>
                 <th className="pb-2 text-right">Count</th>
@@ -298,16 +298,16 @@ function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
             <tbody>
               {top3.map(([name, count], i) => (
                 <tr key={name} className="border-b border-[#f4f6f9] last:border-0">
-                  <td className="py-2.5 text-[12px] text-[#2e4364]">
+                  <td className="py-2.5 text-[14px] text-[#2e4364]">
                     <span className="flex items-center gap-2">
                       <i className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[i] }} />
                       {name}
                     </span>
                   </td>
-                  <td className="py-2.5 text-right text-[12px] font-semibold text-[#2e4364]">
+                  <td className="py-2.5 text-right text-[14px] font-semibold text-[#2e4364]">
                     {submissions.length ? Math.round((count / submissions.length) * 100) : 0}%
                   </td>
-                  <td className="py-2.5 text-right text-[12px] text-[#8491a3]">{count.toLocaleString()}</td>
+                  <td className="py-2.5 text-right text-[14px] text-[#8491a3]">{count.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -345,7 +345,7 @@ function LocationDonutChart({
         <span className="absolute inset-[28px] grid place-items-center rounded-full bg-white text-center shadow-inner">
           <div>
             <strong className="block text-[22px] font-bold leading-none text-[#1d2a38]">{total}</strong>
-            <span className="mt-1 block text-[10px] font-medium uppercase tracking-[.06em] text-[#8491a3]">total</span>
+            <span className="mt-1 block text-[12px] font-medium uppercase tracking-[.06em] text-[#8491a3]">total</span>
           </div>
         </span>
       </div>
@@ -375,7 +375,7 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
     <Card className="flex h-full flex-col justify-between p-[17px]">
       <div>
         <CardHeader title="Enumerator leaderboard" subtitle="Contributions to this project">
-          <span className="rounded-[5px] border border-[#dce4ed] bg-[#f8fafc] px-2 py-1 text-[10px] font-semibold text-[#536177]">
+          <span className="rounded-[5px] border border-[#dce4ed] bg-[#f8fafc] px-2 py-1 text-[12px] font-semibold text-[#536177]">
             Top 5
           </span>
         </CardHeader>
@@ -398,7 +398,7 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
                 <div className="flex items-center justify-between gap-2.5">
                   <div className="flex min-w-0 items-center gap-2">
                     <span
-                      className={`grid size-5 shrink-0 place-items-center rounded-full border text-[9px] font-bold ${badgeClass}`}
+                      className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${badgeClass}`}
                     >
                       {index + 1}
                     </span>
@@ -407,8 +407,8 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2.5 text-xs">
-                    <span className="text-[10px] font-medium text-[#64748b]">{pct}% share</span>
-                    <strong className="text-[12px] font-bold text-[#0b51b7]">{item.count.toLocaleString()}</strong>
+                    <span className="text-[12px] font-medium text-[#64748b]">{pct}% share</span>
+                    <strong className="text-[14px] font-bold text-[#0b51b7]">{item.count.toLocaleString()}</strong>
                   </div>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -419,7 +419,7 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
                     />
                   </div>
                   {item.lastSubmission && (
-                    <span className="shrink-0 text-[10px] text-[#94a3b8]">
+                    <span className="shrink-0 text-[12px] text-[#94a3b8]">
                       Active {relativeTime(item.lastSubmission)}
                     </span>
                   )}
@@ -438,7 +438,7 @@ function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
       <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
         <NavLink
           to="/field-enumerators"
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+          className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand hover:underline"
         >
           View field team <ArrowRight size={12} />
         </NavLink>
@@ -466,7 +466,7 @@ function ProjectExceptionAlerts({ submissions, projectName }: { submissions: Api
       <div>
         <CardHeader title="Automated Exception Alerts" subtitle="Flagged data & rule anomalies">
           <span
-            className={`rounded-[5px] border px-2 py-1 text-[10px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}
+            className={`rounded-[5px] border px-2 py-1 text-[12px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}
           >
             {anomalies.length} {anomalies.length === 1 ? "exception" : "exceptions"}
           </span>
@@ -476,16 +476,16 @@ function ProjectExceptionAlerts({ submissions, projectName }: { submissions: Api
             <div key={sub.id} className="rounded-md border border-[#fee4e2] bg-[#fff5f5] p-3 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <strong className="font-semibold text-[#991b1b]">{sub.external_id}</strong>
-                <time className="text-[10px] text-[#7f1d1d]">{relativeTime(sub.submitted_at)}</time>
+                <time className="text-[12px] text-[#7f1d1d]">{relativeTime(sub.submitted_at)}</time>
               </div>
-              <p className="mb-1 mt-0.5 text-[11px] text-[#7f1d1d]">
+              <p className="mb-1 mt-0.5 text-[12px] text-[#7f1d1d]">
                 {sub.enumerator ?? "Unassigned"} {sub.location ? `• ${sub.location}` : ""}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {issues.map((issue) => (
                   <span
                     key={issue}
-                    className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[10px] font-medium text-[#991b1b]"
+                    className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[12px] font-medium text-[#991b1b]"
                   >
                     {issue}
                   </span>
@@ -499,7 +499,7 @@ function ProjectExceptionAlerts({ submissions, projectName }: { submissions: Api
                 <ShieldCheck size={20} />
               </span>
               <strong className="mt-2 block text-xs font-semibold text-[#1f2937]">No active exceptions</strong>
-              <p className="m-0 mt-1 max-w-[240px] text-[11px] text-[#6b7280]">
+              <p className="m-0 mt-1 max-w-[240px] text-[12px] text-[#6b7280]">
                 All submissions for {projectName} passed automated validation rules.
               </p>
             </div>
@@ -509,7 +509,7 @@ function ProjectExceptionAlerts({ submissions, projectName }: { submissions: Api
       <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
         <NavLink
           to="/submissions"
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+          className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand hover:underline"
         >
           Manage all submissions <ArrowRight size={12} />
         </NavLink>

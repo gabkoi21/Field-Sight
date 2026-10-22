@@ -7,6 +7,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  ArrowLeft,
   BarChart3,
   GitBranch,
   Link2,
@@ -27,6 +28,7 @@ import {
 } from "recharts";
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
+import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import { CollectedDataPanel } from "../../workspace/CollectedDataPanel";
 import { Button, LoadingState } from "../../components/ui";
 import {
@@ -259,7 +261,7 @@ export function IndicatorWorkspacePage() {
               >
                 <div className="mb-2 flex justify-between gap-3">
                   <span
-                    className="text-[10px] font-semibold uppercase tracking-wide"
+                    className="text-[12px] font-semibold uppercase tracking-wide"
                     style={{ color: accents[node.node_type] }}
                   >
                     {node.node_type}
@@ -290,7 +292,7 @@ export function IndicatorWorkspacePage() {
                 <strong className="block text-xs leading-5 text-[#24434c]">
                   {node.title}
                 </strong>
-                <span className="mt-3 block text-[10px] text-[#73868d]">
+                <span className="mt-3 block text-[12px] text-[#73868d]">
                   {
                     items.filter((item) => item.framework_node_id === node.id)
                       .length
@@ -300,7 +302,7 @@ export function IndicatorWorkspacePage() {
                 {node.node_type !== "activity" && (
                   <button
                     onClick={() => addNode(null, node.id)}
-                    className="mt-3 flex w-full items-center justify-center gap-1 border-0 bg-[#edf5f5] py-1.5 text-[10px] text-[#0c8593]"
+                    className="mt-3 flex w-full items-center justify-center gap-1 border-0 bg-[#edf5f5] py-1.5 text-[12px] text-[#0c8593]"
                   >
                     <Plus size={12} />
                     Add child result
@@ -324,15 +326,21 @@ export function IndicatorWorkspacePage() {
   if (loading || projects.isLoading) return <LoadingState />;
   return (
     <div className="space-y-5 text-[#24434c]">
+      <Link
+        to={projectId ? `/projects/${projectId}` : "/projects"}
+        className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+      >
+        <ArrowLeft size={15} /> Back to project
+      </Link>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="mb-1 mt-0 text-[10px] font-semibold uppercase tracking-[.16em] text-[#0c8593]">
+          <p className="mb-1 mt-0 text-[12px] font-semibold uppercase tracking-[.16em] text-[#0c8593]">
             FieldSight / Monitoring & evaluation
           </p>
           <h1 className="m-0 text-[28px] font-semibold tracking-tight">
             Indicators
           </h1>
-          <p className="mb-0 mt-1 text-[13px] text-[#73868d]">
+          <p className="mb-0 mt-1 text-[14px] text-[#73868d]">
             Connect project results to measurable evidence and targets.
           </p>
         </div>
@@ -341,6 +349,7 @@ export function IndicatorWorkspacePage() {
           Add indicator
         </Button>
       </header>
+      {projectId && <WorkspaceTabs />}
       {!org ? (
         <Panel>
           <Empty
@@ -370,7 +379,7 @@ export function IndicatorWorkspacePage() {
           <Panel>
             <div className="flex flex-wrap items-end gap-4 p-4">
               <label className="min-w-[220px] flex-1">
-                <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-[#73868d]">
+                <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
                   Project
                 </span>
                 <select
@@ -397,7 +406,7 @@ export function IndicatorWorkspacePage() {
                 </select>
               </label>
               <label>
-                <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-[#73868d]">
+                <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
                   Submitted from (UTC)
                 </span>
                 <input
@@ -409,7 +418,7 @@ export function IndicatorWorkspacePage() {
                 />
               </label>
               <label>
-                <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-[#73868d]">
+                <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
                   Submitted through (UTC)
                 </span>
                 <input
@@ -430,7 +439,7 @@ export function IndicatorWorkspacePage() {
               )}
             </div>
             <nav
-              aria-label="Indicator workspace"
+              aria-label="Indicator project"
               className="flex overflow-x-auto border-t border-[#e7edef] px-4"
             >
               {[
@@ -510,7 +519,7 @@ export function IndicatorWorkspacePage() {
                         <div className="flex min-w-max flex-col items-center">
                           <div className="w-[235px] bg-[#126f82] px-5 py-4 text-center text-sm font-semibold text-white">
                             {project?.name ?? "Project"}
-                            <span className="mt-1 block text-[10px] font-normal opacity-75">
+                            <span className="mt-1 block text-[12px] font-normal opacity-75">
                               Results framework
                             </span>
                           </div>
@@ -539,7 +548,7 @@ export function IndicatorWorkspacePage() {
                           <Panel>
                             <div className="flex flex-wrap items-end justify-between gap-4 p-4">
                               <label className="min-w-[240px] flex-1">
-                                <span className="mb-1.5 block text-[10px] uppercase text-[#73868d]">
+                                <span className="mb-1.5 block text-[12px] uppercase text-[#73868d]">
                                   Indicator
                                 </span>
                                 <select
@@ -733,7 +742,7 @@ export function IndicatorWorkspacePage() {
                       ].map(([label, value]) => (
                         <Panel key={label}>
                           <div className="p-4">
-                            <span className="text-[10px] uppercase tracking-wide text-[#73868d]">
+                            <span className="text-[12px] uppercase tracking-wide text-[#73868d]">
                               {label}
                             </span>
                             <strong className="mt-2 block text-2xl font-semibold">
@@ -757,7 +766,7 @@ export function IndicatorWorkspacePage() {
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full min-w-[940px] border-collapse text-left text-xs">
-                            <thead className="bg-[#f8fbfb] text-[10px] font-medium uppercase tracking-wide text-[#73868d]">
+                            <thead className="bg-[#f8fbfb] text-[12px] font-medium uppercase tracking-wide text-[#73868d]">
                               <tr>
                                 {[
                                   "Indicator",
@@ -811,7 +820,7 @@ export function IndicatorWorkspacePage() {
                                         ? `${group.type[0].toUpperCase() + group.type.slice(1)} · `
                                         : ""}
                                       {group.title}
-                                      <span className="ml-3 text-[10px] font-normal text-[#73868d]">
+                                      <span className="ml-3 text-[12px] font-normal text-[#73868d]">
                                         {
                                           items.filter(
                                             (item) =>
@@ -847,7 +856,7 @@ export function IndicatorWorkspacePage() {
                                         >
                                           {item.name}
                                         </button>
-                                        <small className="mt-1 block text-[10px] text-[#8a9ba1]">
+                                        <small className="mt-1 block text-[12px] text-[#8a9ba1]">
                                           {item.code}
                                         </small>
                                       </td>
@@ -1038,7 +1047,7 @@ function Icon({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="mb-1 block text-[10px] uppercase tracking-wide text-[#8a9ba1]">
+      <span className="mb-1 block text-[12px] uppercase tracking-wide text-[#8a9ba1]">
         {label}
       </span>
       <span className="leading-5 text-[#24434c]">{value}</span>
@@ -1065,7 +1074,7 @@ function Status({ item }: { item: Indicator }) {
             }[item.schedule_status];
   return (
     <span
-      className={`inline-block rounded px-2 py-1 text-[10px] ${item.target_achieved ? "bg-[#e6f5ec] text-[#207554]" : item.schedule_status === "overdue" ? "bg-[#fff1e8] text-[#a9592c]" : "bg-[#eef4f5] text-[#55737c]"}`}
+      className={`inline-block rounded px-2 py-1 text-[12px] ${item.target_achieved ? "bg-[#e6f5ec] text-[#207554]" : item.schedule_status === "overdue" ? "bg-[#fff1e8] text-[#a9592c]" : "bg-[#eef4f5] text-[#55737c]"}`}
     >
       {label}
     </span>
@@ -1074,7 +1083,7 @@ function Status({ item }: { item: Indicator }) {
 function Progress({ indicator }: { indicator: Indicator }) {
   return (
     <div>
-      <div className="mb-1.5 text-[11px]">
+      <div className="mb-1.5 text-[12px]">
         <strong className="font-semibold text-[#0c8593]">
           {amount(indicator.current_value, indicator.unit)}
         </strong>{" "}
@@ -1093,7 +1102,7 @@ function Progress({ indicator }: { indicator: Indicator }) {
               }}
             />
           </div>
-          <span className="mt-1 block text-[9px] text-[#8a9ba1]">
+          <span className="mt-1 block text-[11px] text-[#8a9ba1]">
             {indicator.progress_percent}%{" "}
             {indicator.baseline_value !== null &&
             indicator.baseline_value !== indicator.target_value
@@ -1157,13 +1166,13 @@ function IndicatorResults({
             value={amount(indicator.baseline_value, indicator.unit)}
           />
           <div>
-            <span className="mb-2 block text-[10px] uppercase tracking-wide text-[#8a9ba1]">
+            <span className="mb-2 block text-[12px] uppercase tracking-wide text-[#8a9ba1]">
               Actual vs overall target
             </span>
             <Progress indicator={indicator} />
           </div>
           <div>
-            <span className="mb-2 block text-[10px] uppercase tracking-wide text-[#8a9ba1]">
+            <span className="mb-2 block text-[12px] uppercase tracking-wide text-[#8a9ba1]">
               Deadline · {indicator.target_date ?? "Not set"}
             </span>
             <Status item={indicator} />
@@ -1177,7 +1186,7 @@ function IndicatorResults({
           </h3>
           <div className="max-h-[340px] overflow-auto">
             <table className="w-full min-w-[400px] border-collapse text-left text-xs">
-              <thead className="bg-[#f8fbfb] text-[10px] uppercase text-[#8a9ba1]">
+              <thead className="bg-[#f8fbfb] text-[12px] uppercase text-[#8a9ba1]">
                 <tr>
                   {["Period", "Target", "Actual", "Answered / eligible"].map(
                     (label) => (
@@ -1222,10 +1231,10 @@ function IndicatorResults({
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={indicator.history}>
                   <CartesianGrid vertical={false} stroke="#e6edef" />
-                  <XAxis dataKey="period" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
+                  <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar
                     dataKey="target_value"
                     name="Period target"
@@ -1260,7 +1269,7 @@ function IndicatorResults({
         ].map(([label, value]) => (
           <Panel key={label}>
             <div className="p-4">
-              <span className="text-[10px] uppercase tracking-wide text-[#8a9ba1]">
+              <span className="text-[12px] uppercase tracking-wide text-[#8a9ba1]">
                 {label}
               </span>
               <strong className="mt-2 block text-xl font-semibold">
@@ -1276,7 +1285,7 @@ function IndicatorResults({
         </h3>
         <div className="overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#f8fbfb] text-[10px] uppercase text-[#8a9ba1]">
+            <thead className="bg-[#f8fbfb] text-[12px] uppercase text-[#8a9ba1]">
               <tr>
                 {["Location", "Actual", "Denominator", "Eligible records"].map(
                   (label) => (
@@ -1301,7 +1310,7 @@ function IndicatorResults({
             </tbody>
           </table>
         </div>
-        <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-4 text-[11px] leading-6 text-[#6f858d]">
+        <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-4 text-[12px] leading-6 text-[#6f858d]">
           <strong>
             {indicator.eligible_records} ready submissions included;{" "}
             {indicator.quality_excluded_records} excluded by quality status.

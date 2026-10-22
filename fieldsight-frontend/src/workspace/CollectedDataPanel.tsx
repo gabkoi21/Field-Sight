@@ -136,7 +136,7 @@ export function CollectedDataPanel({
         ) : results.data?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] text-left text-xs">
-              <thead className="bg-[#f8fafb] text-[10px] uppercase tracking-wide text-[#87969d]">
+              <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-wide text-[#87969d]">
                 <tr>
                   {["Date", "Result", "Location", "Notes", ""].map((h) => (
                     <th key={h} className="px-5 py-3 font-medium">

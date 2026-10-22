@@ -41,7 +41,7 @@ export function OrganizationSettingsPage() {
   return (
     <Page
       title="Organization settings"
-      description="Manage shared workspace defaults and organization access."
+      description="Manage shared project defaults and organization access."
     >
       {[query.error, save.error].filter(Boolean).map((e, i) => (
         <Notice error key={i}>
@@ -125,7 +125,7 @@ export function OrganizationSettingsPage() {
                 user menu.
               </p>
               <div className="flex flex-wrap gap-4 text-xs text-[#168596]">
-                <Link to="/team">Manage team →</Link>
+                <Link to="/settings/admins">Manage administrators →</Link>
                 <Link to="/profile">Profile & security →</Link>
               </div>
             </Panel>

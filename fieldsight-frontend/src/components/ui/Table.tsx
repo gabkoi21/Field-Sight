@@ -7,7 +7,7 @@ function join(...values: Array<string | undefined>) {
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
     <div className="w-full overflow-x-auto">
-      <table className={join("w-full text-left text-[13px]", className)} {...props} />
+      <table className={join("w-full text-left text-[14px]", className)} {...props} />
     </div>
   );
 }
@@ -27,7 +27,7 @@ export function TableRow({ className, ...props }: ComponentProps<"tr">) {
 export function TableHead({ className, ...props }: ComponentProps<"th">) {
   return (
     <th
-      className={join("h-11 px-5 text-[11px] font-semibold uppercase tracking-[.04em] text-[#728093]", className)}
+      className={join("h-11 px-5 text-[12px] font-semibold uppercase tracking-[.04em] text-[#728093]", className)}
       {...props}
     />
   );

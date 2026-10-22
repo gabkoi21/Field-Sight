@@ -45,7 +45,7 @@ function FilterSelect({
   return (
     <div className="relative">
       <select
-        className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[12px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
+        className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[14px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -236,7 +236,7 @@ export function OrganizationDashboardPage() {
         description="Track collection progress, data quality, sync status, and recent activity across projects."
       >
         {showSecondaryLoading && (
-          <span className="rounded-full border border-[#dfe8f5] bg-[#f3f8ff] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#3667c8]">
+          <span className="rounded-full border border-[#dfe8f5] bg-[#f3f8ff] px-2.5 py-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#3667c8]">
             Updating data…
           </span>
         )}
@@ -245,7 +245,7 @@ export function OrganizationDashboardPage() {
             type="button"
             onClick={refreshDashboard}
             disabled={overviewQuery.isFetching || pendingSyncQuery.isFetching}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#dce5ef] bg-white px-2.5 py-2 text-[11px] font-semibold text-brand hover:bg-[#f3f8ff] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-[#dce5ef] bg-white px-2.5 py-2 text-[12px] font-semibold text-brand hover:bg-[#f3f8ff] disabled:opacity-50"
           >
             <RefreshCw size={13} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Refresh
           </button>
@@ -265,7 +265,7 @@ export function OrganizationDashboardPage() {
         <MetricCard
           label="Active Projects"
           value={activeProjectsDisplay}
-          context={`${totalWorkspaceProjects} projects in workspace`}
+          context={`${totalWorkspaceProjects} projects in project`}
           icon={FolderKanban}
         />
       </section>
@@ -379,7 +379,7 @@ function DashboardSnapshotCards({
                   type="number"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  tick={{ fontSize: 12, fill: "#64748b" }}
                   allowDecimals={false}
                 />
                 <YAxis
@@ -388,7 +388,7 @@ function DashboardSnapshotCards({
                   width={112}
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
+                  tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }}
                 />
                 <Tooltip
                   cursor={{ fill: "rgba(11, 81, 183, .04)" }}
@@ -491,7 +491,7 @@ function AnnualTooltip({
             <span style={{ color: "#475569", flex: 1 }}>{m.label}</span>
             <span style={{ fontWeight: 700, color: "#1e293b" }}>
               {Number(entry.value).toLocaleString()}
-              {m.suffix ? <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 4, fontSize: 11 }}>{m.suffix}</span> : null}
+              {m.suffix ? <span style={{ fontWeight: 400, color: "#64748b", marginLeft: 4, fontSize: 12 }}>{m.suffix}</span> : null}
             </span>
           </div>
         );
@@ -549,7 +549,7 @@ function AnnualSubmissionReportChart({
           domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 11, fill: "#64748b", fontWeight: 500 }}
+          tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }}
           allowDecimals={false}
           width={30}
         />
@@ -559,7 +559,7 @@ function AnnualSubmissionReportChart({
           domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
           axisLine={false}
           tickLine={false}
-          tick={{ fontSize: 11, fill: "#d97706", fontWeight: 500 }}
+          tick={{ fontSize: 12, fill: "#d97706", fontWeight: 500 }}
           allowDecimals={false}
           width={26}
         />
@@ -577,7 +577,7 @@ function AnnualSubmissionReportChart({
             strokeDasharray="4 3"
             strokeOpacity={0.4}
             strokeWidth={1.5}
-            label={{ value: "Now", position: "insideTopRight", fontSize: 9, fill: "#4338ca", opacity: 0.6, dy: -4 }}
+            label={{ value: "Now", position: "insideTopRight", fontSize: 12, fill: "#4338ca", opacity: 0.6, dy: -4 }}
           />
         )}
 

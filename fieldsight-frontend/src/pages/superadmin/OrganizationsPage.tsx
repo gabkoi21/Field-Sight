@@ -376,7 +376,7 @@ export function OrganizationsPage() {
                 <tr key={organization.id} className="hover:bg-[#fbfcfe]">
                   <td>
                     <div className="flex items-center gap-2.5">
-                      <span className="grid size-8 place-items-center rounded-[7px] bg-[#e9f1ff] text-[10px] font-bold text-brand">
+                      <span className="grid size-8 place-items-center rounded-[7px] bg-[#e9f1ff] text-[12px] font-bold text-brand">
                         {organization.initials}
                       </span>
                       <strong>{organization.name}</strong>
@@ -432,7 +432,7 @@ export function OrganizationsPage() {
                 <h2 className="m-0 text-[17px] font-semibold text-[#253342]">
                   Add organization
                 </h2>
-                <p className="mb-0 mt-1 text-[11px] text-[#8391a5]">
+                <p className="mb-0 mt-1 text-[12px] text-[#8391a5]">
                   Create the organization and its administrator account.
                 </p>
               </div>
@@ -446,7 +446,7 @@ export function OrganizationsPage() {
               </button>
             </header>
             <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2">
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Organization name
                 <input
                   autoFocus
@@ -475,7 +475,7 @@ export function OrganizationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Slug
                 <input
                   className={`${adminInputClass} placeholder:text-[#a0acba]`}
@@ -489,7 +489,7 @@ export function OrganizationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Organization owner email
                 <input
                   type="email"
@@ -500,19 +500,19 @@ export function OrganizationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Owner role
                 <input
                   className={`${adminInputClass} cursor-not-allowed text-[#68778a]`}
                   value="Organization Admin"
                   readOnly
                 />
-                <small className="text-[10px] font-normal text-[#8997a9]">
+                <small className="text-[12px] font-normal text-[#8997a9]">
                   Organization Admin is an organization membership role, not a
                   platform role.
                 </small>
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Temporary owner password
                 <input
                   type="password"
@@ -524,12 +524,12 @@ export function OrganizationsPage() {
                   autoComplete="new-password"
                   required
                 />
-                <small className="text-[10px] font-normal text-[#8997a9]">
+                <small className="text-[12px] font-normal text-[#8997a9]">
                   The organization administrator uses this password for their
                   first login.
                 </small>
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Primary sector
                 <select
                   className={adminInputClass}
@@ -544,7 +544,7 @@ export function OrganizationsPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Country
                 <input
                   className={`${adminInputClass} placeholder:text-[#a0acba]`}
@@ -553,7 +553,7 @@ export function OrganizationsPage() {
                   placeholder="e.g. Liberia"
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Time zone
                 <input
                   className={`${adminInputClass} placeholder:text-[#a0acba]`}
@@ -563,26 +563,26 @@ export function OrganizationsPage() {
                   required
                 />
               </label>
-              <div className="rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px] text-[10px] leading-[1.5] text-[#8997a9] sm:col-span-2">
+              <div className="rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px] text-[12px] leading-[1.5] text-[#8997a9] sm:col-span-2">
                 This creates the organization and its organization administrator
                 account together. No invitation is sent.
               </div>
               {formError && (
-                <p className="!m-0 text-[11px] text-[#b42318] sm:col-span-2">
+                <p className="!m-0 text-[12px] text-[#b42318] sm:col-span-2">
                   {formError}
                 </p>
               )}
             </div>
             <footer className="flex justify-end gap-2 border-t border-[#e8edf4] bg-[#fbfcfd] px-5 py-3">
               <button
-                className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold leading-normal text-[#5b6a7e]"
+                className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#5b6a7e]"
                 type="button"
                 onClick={closeCreate}
               >
                 Cancel
               </button>
               <button
-                className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold leading-normal text-white"
+                className="flex cursor-pointer items-center gap-[5px] rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-white"
                 type="submit"
                 disabled={createMutation.isPending}
               >
@@ -617,7 +617,7 @@ export function OrganizationsPage() {
               </button>
             </header>
             <div className="grid flex-1 gap-3 p-5 overflow-y-auto sm:grid-cols-2">
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177] sm:col-span-2">
                 Organization name
                 <input
                   className={adminInputClass}
@@ -628,7 +628,7 @@ export function OrganizationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177] sm:col-span-2">
                 Slug
                 <input
                   className={adminInputClass}
@@ -640,7 +640,7 @@ export function OrganizationsPage() {
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177] sm:col-span-2">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177] sm:col-span-2">
                 Owner email
                 <input
                   className={adminInputClass + " bg-[#f5f7fa] text-[#7b8794]"}
@@ -648,7 +648,7 @@ export function OrganizationsPage() {
                   readOnly
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Country
                 <input
                   className={adminInputClass}
@@ -658,7 +658,7 @@ export function OrganizationsPage() {
                   placeholder="e.g. Liberia"
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Time zone
                 <input
                   className={adminInputClass}
@@ -670,14 +670,14 @@ export function OrganizationsPage() {
                 />
               </label>
               <fieldset className="m-0 rounded-[5px] border border-[#dfe4e8] px-3 pb-3 pt-2 sm:col-span-2">
-                <legend className="px-1 text-[11px] font-bold text-[#526177]">
+                <legend className="px-1 text-[12px] font-bold text-[#526177]">
                   Sectors
                 </legend>
                 <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
                   {sectors.map((sector) => (
                     <label
                       key={sector.id}
-                      className="flex items-center gap-2 text-[11px] font-medium text-[#526177]"
+                      className="flex items-center gap-2 text-[12px] font-medium text-[#526177]"
                     >
                       <input
                         type="checkbox"
@@ -694,14 +694,14 @@ export function OrganizationsPage() {
                     </label>
                   ))}
                   {sectors.length === 0 && (
-                    <span className="text-[10px] text-[#8997a9]">
+                    <span className="text-[12px] text-[#8997a9]">
                       No active sectors are available.
                     </span>
                   )}
                 </div>
               </fieldset>
               {editError && (
-                <p className="m-0 text-[11px] text-[#b42318] sm:col-span-2">
+                <p className="m-0 text-[12px] text-[#b42318] sm:col-span-2">
                   {editError}
                 </p>
               )}
@@ -709,7 +709,7 @@ export function OrganizationsPage() {
             <footer className="flex justify-end gap-2 border-t border-[#e8edf4] bg-[#fbfcfd] px-5 py-3">
               <button
                 type="button"
-                className="mr-auto inline-flex items-center gap-1.5 rounded-[5px] border border-[#fecaca] bg-[#fff5f5] px-3 py-2 text-[11px] font-semibold text-[#dc2626] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mr-auto inline-flex items-center gap-1.5 rounded-[5px] border border-[#fecaca] bg-[#fff5f5] px-3 py-2 text-[12px] font-semibold text-[#dc2626] disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={deactivateOrganization}
                 disabled={deleteMutation.isPending || updateMutation.isPending}
               >
@@ -720,14 +720,14 @@ export function OrganizationsPage() {
               </button>
               <button
                 type="button"
-                className="rounded-[5px] border border-[#dce5ef] bg-white px-3 py-2 text-[11px] font-semibold text-[#5b6a7e]"
+                className="rounded-[5px] border border-[#dce5ef] bg-white px-3 py-2 text-[12px] font-semibold text-[#5b6a7e]"
                 onClick={closeEdit}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="rounded-[5px] border border-brand bg-brand px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-60"
+                className="rounded-[5px] border border-brand bg-brand px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? "Saving…" : "Save changes"}

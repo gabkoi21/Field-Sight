@@ -45,7 +45,7 @@ export function FormsPage() {
                 <span className="grid size-10 place-items-center rounded-lg bg-[#edf5ff] text-[#4c7ccd]">
                   <FileText size={20} />
                 </span>
-                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[10px] font-semibold text-[#21834c]">
+                <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[12px] font-semibold text-[#21834c]">
                   <CheckCircle2 size={12} /> Active
                 </span>
               </div>

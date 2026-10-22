@@ -56,15 +56,15 @@ function toRow(submission: ApiSubmission): Row {
     device: "Kobo Collect",
   };
 }
-const eyebrowClass = "!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase";
-const reviewBadgeClass = "inline-block rounded-[3px] px-[6px] py-[4px] text-[11px] font-bold";
+const eyebrowClass = "!m-0 !mb-[6px] text-[12px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase";
+const reviewBadgeClass = "inline-block rounded-[3px] px-[6px] py-[4px] text-[12px] font-bold";
 const reviewStyles: Record<Review, string> = {
   Ready: "bg-[#e9f8f1] text-[#22a779]",
   "Needs review": "bg-[#fff3e5] text-[#d9841c]",
   Invalid: "bg-[#fff0f2] text-[#d95667]",
 };
 const selectClass =
-  "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[11px] font-normal leading-normal text-[#69798e]";
+  "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[12px] font-normal leading-normal text-[#69798e]";
 
 export function SubmissionsPage() {
   const [searchParams] = useSearchParams();
@@ -179,7 +179,7 @@ export function SubmissionsPage() {
         <div>
           <p className={eyebrowClass}>DATA COLLECTION</p>
           <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px]">Submissions</h1>
-          <p className="!m-0 text-[13px] text-[#75849a]">
+          <p className="!m-0 text-[14px] text-[#75849a]">
             Review every completed form sent from your field teams and connected sources.
           </p>
         </div>
@@ -190,11 +190,11 @@ export function SubmissionsPage() {
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <Database size={19} />
           </span>
-          <span className="block text-[11px] font-medium text-[#6f7d8a]">All submissions</span>
+          <span className="block text-[12px] font-medium text-[#6f7d8a]">All submissions</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {projectRows.length.toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">
+          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">
             {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
           </small>
         </article>
@@ -202,31 +202,31 @@ export function SubmissionsPage() {
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
             <FileCheck2 size={19} />
           </span>
-          <span className="block text-[11px] font-medium text-[#6f7d8a]">Ready for analysis</span>
+          <span className="block text-[12px] font-medium text-[#6f7d8a]">Ready for analysis</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {projectRows.filter((row) => row.review === "Ready").length.toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Validated and export-ready records</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Validated and export-ready records</small>
         </article>
         <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
             <ShieldAlert size={19} />
           </span>
-          <span className="block text-[11px] font-medium text-[#6f7d8a]">Needs review</span>
+          <span className="block text-[12px] font-medium text-[#6f7d8a]">Needs review</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {projectRows.filter((row) => row.review === "Needs review").length.toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Records waiting for quality review</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Records waiting for quality review</small>
         </article>
         <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]">
             <ShieldAlert size={19} />
           </span>
-          <span className="block text-[11px] font-medium text-[#6f7d8a]">Invalid records</span>
+          <span className="block text-[12px] font-medium text-[#6f7d8a]">Invalid records</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {projectRows.filter((row) => row.review === "Invalid").length.toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[10px] text-[#88939d]">Blocked from export until resolved</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Blocked from export until resolved</small>
         </article>
       </section>
 
@@ -234,7 +234,7 @@ export function SubmissionsPage() {
         <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
           <Search size={16} />
           <input
-            className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] font-normal leading-normal text-[#4e5e74] outline-none"
+            className="w-full border-0 bg-transparent py-[8px] font-sans text-[14px] font-normal leading-normal text-[#4e5e74] outline-none"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -273,7 +273,7 @@ export function SubmissionsPage() {
           type="button"
           onClick={exportCsv}
           disabled={!exportRows.length}
-          className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[12px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[14px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download size={16} />
           Export data
@@ -289,7 +289,7 @@ export function SubmissionsPage() {
                   (heading) => (
                     <th
                       key={heading}
-                      className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86] whitespace-nowrap"
+                      className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#5f6f86] whitespace-nowrap"
                     >
                       {heading}
                     </th>
@@ -301,40 +301,40 @@ export function SubmissionsPage() {
             <tbody>
               {paginatedRows.map((row) => (
                 <tr key={row.id} className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]">
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#536177]">
-                    <span className="block text-left text-[12.5px] font-semibold leading-normal text-[#0b51b7]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#536177]">
+                    <span className="block text-left text-[14px] font-semibold leading-normal text-[#0b51b7]">
                       {row.id}
-                      <small className="mt-[2px] block text-[10.5px] font-normal text-[#8a99ad]">
+                      <small className="mt-[2px] block text-[12px] font-normal text-[#8a99ad]">
                         Mobile submission
                       </small>
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#374151]">
-                    <strong className="block text-[12.5px] font-semibold text-[#1f2937]">{row.project}</strong>
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#374151]">
+                    <strong className="block text-[14px] font-semibold text-[#1f2937]">{row.project}</strong>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#374151]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#374151]">
                     <div className="flex items-center gap-[9px]">
-                      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-[#dfeeff] text-[10px] font-bold text-[#1d4ed8]">
+                      <span className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-[#dfeeff] text-[12px] font-bold text-[#1d4ed8]">
                         {row.enumerator
                           .split(" ")
                           .map((part) => part[0])
                           .join("")}
                       </span>
-                      <span className="text-[12.5px] font-medium text-[#374151]">{row.enumerator}</span>
+                      <span className="text-[14px] font-medium text-[#374151]">{row.enumerator}</span>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#6b7280]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#6b7280]">
                     <span className="flex items-center gap-[5px]">
                       <MapPin size={14} className="text-[#9ca3af]" />
                       {row.location}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45] text-[#374151] tabular-nums">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#374151] tabular-nums">
                     {row.submitted}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]">
                     <span
-                      className={`flex items-center gap-[6px] text-[12.5px] font-medium ${row.sync === "Pending" ? "text-[#d97706]" : "text-[#059669]"}`}
+                      className={`flex items-center gap-[6px] text-[14px] font-medium ${row.sync === "Pending" ? "text-[#d97706]" : "text-[#059669]"}`}
                     >
                       <i
                         className={`h-[8px] w-[8px] shrink-0 rounded-full ${row.sync === "Pending" ? "bg-[#fbbf24]" : "bg-[#34d399]"}`}
@@ -342,11 +342,11 @@ export function SubmissionsPage() {
                       {row.sync}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45]">
+                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]">
                     <span className={`${reviewBadgeClass} ${reviewStyles[row.review]}`}>{row.review}</span>
                   </td>
                   <td
-                    className="whitespace-nowrap px-4 py-3 align-middle text-[12.5px] leading-[1.45]"
+                    className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <button
@@ -361,10 +361,10 @@ export function SubmissionsPage() {
               {visible.length === 0 && (
                 <tr>
                   <td
-                    className="whitespace-nowrap border-t border-[#edf1f5] px-4 py-3 text-[11px] leading-[1.45] text-[#536177]"
+                    className="whitespace-nowrap border-t border-[#edf1f5] px-4 py-3 text-[12px] leading-[1.45] text-[#536177]"
                     colSpan={9}
                   >
-                    <div className="p-[38px] text-center text-[12px] text-[#8190a4]">
+                    <div className="p-[38px] text-center text-[14px] text-[#8190a4]">
                       No submissions match these filters.
                     </div>
                   </td>
@@ -374,8 +374,8 @@ export function SubmissionsPage() {
           </table>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f2] bg-white px-[14px] py-[11px] text-[10px] text-[#84909b]">
-          <span className="text-[11.5px] text-[#64748b]">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f2] bg-white px-[14px] py-[11px] text-[12px] text-[#84909b]">
+          <span className="text-[12px] text-[#64748b]">
             Showing{" "}
             <strong className="font-semibold text-[#1e293b]">
               {firstVisibleRow}–{lastVisibleRow}
@@ -385,7 +385,7 @@ export function SubmissionsPage() {
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-[#f8fafc] px-3 text-[11px] font-medium text-[#8793a2] transition-colors hover:border-[#b8cde8] hover:bg-white hover:text-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-[#f8fafc] px-3 text-[12px] font-medium text-[#8793a2] transition-colors hover:border-[#b8cde8] hover:bg-white hover:text-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
               disabled={activePage === 1}
               aria-label="Previous page"
@@ -399,7 +399,7 @@ export function SubmissionsPage() {
                 page === "..." ? (
                   <span
                     key={`ellipsis-${idx}`}
-                    className="inline-flex h-8 min-w-8 items-center justify-center text-[11px] font-medium text-[#94a3b8]"
+                    className="inline-flex h-8 min-w-8 items-center justify-center text-[12px] font-medium text-[#94a3b8]"
                   >
                     …
                   </span>
@@ -407,7 +407,7 @@ export function SubmissionsPage() {
                   <button
                     key={page}
                     type="button"
-                    className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-[11px] font-semibold transition-colors ${
+                    className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-[12px] font-semibold transition-colors ${
                       page === activePage
                         ? "border-[#0b51b7] bg-[#0b51b7] text-white"
                         : "border-[#dce5ef] bg-white text-[#64748b] hover:border-[#b8cde8] hover:bg-[#f8fafc] hover:text-[#0b51b7]"
@@ -422,7 +422,7 @@ export function SubmissionsPage() {
 
             <button
               type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-[#f8fafc] px-3 text-[11px] font-medium text-[#8793a2] transition-colors hover:border-[#b8cde8] hover:bg-white hover:text-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 items-center gap-1 rounded-md border border-[#dce5ef] bg-[#f8fafc] px-3 text-[12px] font-medium text-[#8793a2] transition-colors hover:border-[#b8cde8] hover:bg-white hover:text-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
               disabled={activePage === totalPages}
               aria-label="Next page"
@@ -460,47 +460,47 @@ export function SubmissionsPage() {
 
                 <div className="flex-1 overflow-auto px-[21px] py-[18px]">
                   <div className="mb-[22px] flex gap-[7px]">
-                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-normal text-[#0b51b7]">
+                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[12px] font-semibold leading-normal text-[#0b51b7]">
                       Open full record <ExternalLink size={14} />
                     </button>
-                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[11px] font-semibold leading-normal text-[#0b51b7]">
+                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[12px] font-semibold leading-normal text-[#0b51b7]">
                       Download
                     </button>
                   </div>
-                  <h3 className="!m-0 !mb-[12px] text-[10px] font-bold tracking-[.35px] text-[#65758c] uppercase">
+                  <h3 className="!m-0 !mb-[12px] text-[12px] font-bold tracking-[.35px] text-[#65758c] uppercase">
                     Collection details
                   </h3>
                   <dl className="!m-0 grid grid-cols-2 gap-[14px] max-[460px]:grid-cols-1">
                     <div>
-                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Project</dt>
-                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.project}</dd>
+                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Project</dt>
+                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.project}</dd>
                     </div>
                     <div>
-                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Form</dt>
-                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.form}</dd>
+                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Form</dt>
+                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.form}</dd>
                     </div>
                     <div>
-                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Collector</dt>
-                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.enumerator}</dd>
+                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Collector</dt>
+                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.enumerator}</dd>
                     </div>
                     <div>
-                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Location</dt>
-                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.location}</dd>
+                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Location</dt>
+                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.location}</dd>
                     </div>
                     <div>
-                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Received</dt>
-                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.submitted}</dd>
+                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Received</dt>
+                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.submitted}</dd>
                     </div>
                     <div>
-                      <dt className="mb-[4px] text-[10px] text-[#97a4b3]">Device</dt>
-                      <dd className="!m-0 text-[11px] font-semibold text-[#435269]">{record?.device}</dd>
+                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Device</dt>
+                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.device}</dd>
                     </div>
                   </dl>
                   <div className="mt-[24px] border-t border-[#edf1f5] pt-[19px]">
-                    <h3 className="!m-0 !mb-[12px] text-[10px] font-bold tracking-[.35px] text-[#65758c] uppercase">
+                    <h3 className="!m-0 !mb-[12px] text-[12px] font-bold tracking-[.35px] text-[#65758c] uppercase">
                       Review activity
                     </h3>
-                    <p className="!m-0 flex items-center gap-[5px] text-[11px] text-[#77869a]">
+                    <p className="!m-0 flex items-center gap-[5px] text-[12px] text-[#77869a]">
                       <span className="mr-[3px] grid h-[25px] w-[25px] place-items-center rounded-full bg-[#e8f1fb] text-[8px] font-bold text-[#2866a8]">
                         AJ
                       </span>
@@ -511,13 +511,13 @@ export function SubmissionsPage() {
                 </div>
 
                 <footer className="flex justify-end gap-[7px] border-t border-[#e7edf3] bg-white px-[21px] py-[14px] max-[460px]:flex-wrap">
-                  <button className="cursor-pointer rounded-[5px] border border-[#e2b8be] bg-white px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-[#c55763]">
+                  <button className="cursor-pointer rounded-[5px] border border-[#e2b8be] bg-white px-[10px] py-[8px] font-sans text-[12px] font-semibold leading-normal text-[#c55763]">
                     Reject
                   </button>
-                  <button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-[#5c6b7f]">
+                  <button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[10px] py-[8px] font-sans text-[12px] font-semibold leading-normal text-[#5c6b7f]">
                     Request correction
                   </button>
-                  <button className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[10px] py-[8px] font-sans text-[11px] font-semibold leading-normal text-white">
+                  <button className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[10px] py-[8px] font-sans text-[12px] font-semibold leading-normal text-white">
                     Mark ready
                   </button>
                 </footer>

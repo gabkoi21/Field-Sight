@@ -87,7 +87,7 @@ export function KoboConnectionsPage() {
           </div>
         </article>
         <article className="rounded-lg border border-[#e7e9ed] bg-white p-5">
-          <p className="m-0 text-[10px] font-semibold uppercase tracking-[.08em] text-[#8391a5]">Security</p>
+          <p className="m-0 text-[12px] font-semibold uppercase tracking-[.08em] text-[#8391a5]">Security</p>
           <p className="mb-0 mt-2 text-xs leading-5 text-[#62748a]">
             Tokens are encrypted on the backend and are never displayed after saving.
           </p>
@@ -124,7 +124,7 @@ export function KoboConnectionsPage() {
                 )}
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <span className="rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[10px] font-semibold text-[#21834c]">
+                <span className="rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[12px] font-semibold text-[#21834c]">
                   {connection.is_verified ? "Verified" : "Not verified"}
                 </span>
               </div>
@@ -144,7 +144,7 @@ export function KoboConnectionsPage() {
           <form className="w-full max-w-[520px] overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]" onClick={(event) => event.stopPropagation()} onSubmit={saveConnection}>
             <header className="flex items-start justify-between border-b border-[#e8edf4] px-6 py-5">
               <div>
-                <p className="m-0 text-[10px] font-semibold uppercase tracking-[.08em] text-brand">KoboToolbox</p>
+                <p className="m-0 text-[12px] font-semibold uppercase tracking-[.08em] text-brand">KoboToolbox</p>
                 <h2 className="mb-0 mt-1 text-lg text-[#303e67]">Connect Kobo account</h2>
               </div>
               <button className="border-0 bg-transparent text-[#8290a2]" type="button" onClick={closeConnectionForm} aria-label="Close">

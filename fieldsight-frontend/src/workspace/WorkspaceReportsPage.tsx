@@ -88,7 +88,7 @@ export function WorkspaceReportsPage() {
   }
   return (
     <Page
-      title="Workspace report"
+      title="Project report"
       description="A reproducible summary of stored evidence and indicator progress."
       actions={
         <>
@@ -143,7 +143,7 @@ export function WorkspaceReportsPage() {
           !invalid && (
             <>
               <Panel className="p-6">
-                <p className="text-[10px] uppercase tracking-widest text-[#87969d]">
+                <p className="text-[12px] uppercase tracking-widest text-[#87969d]">
                   Monitoring & evaluation
                 </p>
                 <h2 className="text-xl font-semibold">{project?.name}</h2>
@@ -167,7 +167,7 @@ export function WorkspaceReportsPage() {
                 </h2>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[750px] text-left text-xs">
-                    <thead className="bg-[#f8fafb] text-[10px] uppercase text-[#87969d]">
+                    <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
                       <tr>
                         {[
                           "Indicator",
@@ -223,7 +223,7 @@ export function WorkspaceReportsPage() {
                 </div>
                 {!indicators.data?.length && (
                   <p className="p-5 text-sm text-[#87969d]">
-                    No indicators have been defined for this workspace.
+                    No indicators have been defined for this project.
                   </p>
                 )}
               </Panel>

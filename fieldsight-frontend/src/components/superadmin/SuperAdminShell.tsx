@@ -142,11 +142,11 @@ export function SuperAdminShell() {
         </NavLink>
 
         <div className="mx-3 mb-3 flex flex-none items-center gap-2.5 rounded-[9px] border border-[#234d82] bg-[#103564] p-3 max-[1440px]:mx-3">
-          <span className="grid size-[30px] place-items-center rounded-[7px] bg-[#d9af63] text-[10px] font-bold text-[#563d15]">
+          <span className="grid size-[30px] place-items-center rounded-[7px] bg-[#d9af63] text-[12px] font-bold text-[#563d15]">
             SA
           </span>
           <div className="min-w-0">
-            <small className="block text-[9px] font-semibold tracking-[.1em] text-[#91a9bb]">
+            <small className="block text-[11px] font-semibold tracking-[.1em] text-[#91a9bb]">
               PLATFORM
             </small>
             <strong className="block truncate text-xs text-white">
@@ -159,7 +159,7 @@ export function SuperAdminShell() {
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navigation.map((section) => (
             <div key={section.label}>
-              <p className="mx-[14px] mb-1.5 mt-4 text-[9px] font-semibold uppercase tracking-[.1em] text-[#91a9bb]">
+              <p className="mx-[14px] mb-1.5 mt-4 text-[11px] font-semibold uppercase tracking-[.1em] text-[#91a9bb]">
                 {section.label}
               </p>
               {section.items.map(({ label, path, icon: Icon, end }) => (
@@ -169,7 +169,7 @@ export function SuperAdminShell() {
                   to={path}
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
-                    `my-0.5 flex min-h-10 w-full items-center gap-3 rounded-[7px] px-[13px] py-[9px] text-[13px] font-medium no-underline transition-colors hover:bg-[rgba(11,81,183,.52)] hover:text-white max-[1440px]:min-h-9 max-[1440px]:py-2 max-[1440px]:text-xs ${isActive ? "bg-[rgba(11,81,183,.52)] text-white" : "text-[#b5c7d5]"}`
+                    `my-0.5 flex min-h-10 w-full items-center gap-3 rounded-[7px] px-[13px] py-[9px] text-[14px] font-medium no-underline transition-colors hover:bg-[rgba(11,81,183,.52)] hover:text-white max-[1440px]:min-h-9 max-[1440px]:py-2 max-[1440px]:text-xs ${isActive ? "bg-[rgba(11,81,183,.52)] text-white" : "text-[#b5c7d5]"}`
                   }
                 >
                   <Icon size={18} />
@@ -185,7 +185,7 @@ export function SuperAdminShell() {
             to="/"
             className="mb-1 flex w-full items-center gap-3 rounded-[7px] px-[13px] py-2.5 text-xs text-[#b5c7d5] no-underline hover:bg-[rgba(11,81,183,.52)] hover:text-white"
           >
-            <Building2 size={17} /> Organization workspace
+            <Building2 size={17} /> Organization project
           </NavLink>
           <button
             className="flex w-full items-center gap-3 rounded-[7px] border-0 bg-transparent px-[13px] py-2.5 text-left text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"
@@ -204,7 +204,7 @@ export function SuperAdminShell() {
 
       <main className="ml-[258px] min-h-screen max-[1440px]:ml-[232px] max-[1050px]:ml-0">
         <header className="sticky top-0 z-[5] flex h-[60px] items-center justify-between border-b border-[#eceff5] bg-white px-6 shadow-[0_1px_4px_rgba(23,33,47,.04)] max-[1440px]:h-16 max-[1440px]:px-7 max-[560px]:h-[58px] max-[560px]:px-4">
-          <div className="flex items-center gap-3 text-[13px] text-[#657182]">
+          <div className="flex items-center gap-3 text-[14px] text-[#657182]">
             <button
               aria-label="Open navigation"
               className="mr-1 hidden border-0 bg-transparent p-0 text-[#657182] max-[1050px]:block"
@@ -234,7 +234,7 @@ export function SuperAdminShell() {
             <button
               type="button"
               onClick={openProfile}
-              className="grid size-8 place-items-center rounded-full border-2 border-white bg-[#d9af63] p-0 text-[10px] font-bold text-[#563d15] shadow-[0_2px_8px_rgba(177,124,38,.35)] transition hover:scale-105 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#71808e]"
+              className="grid size-8 place-items-center rounded-full border-2 border-white bg-[#d9af63] p-0 text-[12px] font-bold text-[#563d15] shadow-[0_2px_8px_rgba(177,124,38,.35)] transition hover:scale-105 hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#71808e]"
               aria-label="Open profile settings"
             >
               GA
@@ -266,13 +266,13 @@ export function SuperAdminShell() {
           >
             <header className="!flex !items-start !justify-between !border-b !border-[#e8edf4] !bg-white !px-[22px] !py-[20px]">
               <div>
-                <p className="!m-0 !mb-[6px] text-[11px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase">
+                <p className="!m-0 !mb-[6px] text-[12px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase">
                   PROFILE SETTINGS
                 </p>
                 <h2 className="!m-0 !mb-[6px] !mt-[4px] text-[21px] font-normal tracking-[-.3px] text-[#303e67]">
                   Update profile
                 </h2>
-                <p className="!m-0 text-[11px] text-[#8391a5]">
+                <p className="!m-0 text-[12px] text-[#8391a5]">
                   Manage your platform administrator details.
                 </p>
               </div>
@@ -287,41 +287,41 @@ export function SuperAdminShell() {
             </header>
             <div className="flex flex-1 flex-col gap-[15px] overflow-auto px-[22px] py-[21px]">
               <div className="flex items-center gap-[11px] rounded-[6px] border border-[#e2e9f0] bg-[#f9fbfd] p-[11px]">
-                <span className="grid size-10 place-items-center rounded-full bg-[#d9af63] text-[11px] font-bold text-[#563d15]">
+                <span className="grid size-10 place-items-center rounded-full bg-[#d9af63] text-[12px] font-bold text-[#563d15]">
                   GA
                 </span>
                 <div>
-                  <strong className="block text-[12px] text-[#48586e]">
+                  <strong className="block text-[14px] text-[#48586e]">
                     Platform administrator
                   </strong>
-                  <small className="text-[10px] text-[#8997a9]">
+                  <small className="text-[12px] text-[#8997a9]">
                     Full platform access
                   </small>
                 </div>
               </div>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Full name
                 <input
-                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
+                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[14px] text-[#425162] outline-none focus:border-[#aeb8c4]"
                   value={profileName}
                   onChange={(event) => setProfileName(event.target.value)}
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Email address
                 <input
-                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[12px] text-[#425162] outline-none focus:border-[#aeb8c4]"
+                  className="min-h-[36px] w-full rounded-[5px] border border-[#dce2e7] bg-white px-[9px] text-[14px] text-[#425162] outline-none focus:border-[#aeb8c4]"
                   type="email"
                   value={profileEmail}
                   onChange={(event) => setProfileEmail(event.target.value)}
                   required
                 />
               </label>
-              <label className="flex flex-col gap-[6px] text-[11px] font-bold text-[#526177]">
+              <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177]">
                 Role
                 <input
-                  className="min-h-[36px] w-full cursor-not-allowed rounded-[5px] border border-[#e2e7ec] bg-[#f7f9fb] px-[9px] text-[12px] text-[#84909b] outline-none"
+                  className="min-h-[36px] w-full cursor-not-allowed rounded-[5px] border border-[#e2e7ec] bg-[#f7f9fb] px-[9px] text-[14px] text-[#84909b] outline-none"
                   value="Super Admin"
                   readOnly
                 />
@@ -329,14 +329,14 @@ export function SuperAdminShell() {
             </div>
             <footer className="flex justify-end gap-[8px] border-t border-[#e8edf4] bg-white px-[22px] py-[14px]">
               <button
-                className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[11px] font-semibold text-[#5b6a7e]"
+                className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[11px] py-[9px] font-sans text-[12px] font-semibold text-[#5b6a7e]"
                 type="button"
                 onClick={closeProfile}
               >
                 Cancel
               </button>
               <button
-                className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[11px] font-semibold text-white"
+                className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[11px] py-[9px] font-sans text-[12px] font-semibold text-white"
                 type="submit"
               >
                 Save changes

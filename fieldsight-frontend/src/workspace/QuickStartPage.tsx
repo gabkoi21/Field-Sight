@@ -16,13 +16,13 @@ const chapters = [
     id: "welcome",
     title: "Welcome to FieldSight",
     summary: "Move from field evidence to measurable results.",
-    body: "FieldSight brings your workspace team, survey tables, indicator plan and results together. Start with a workspace, define what success means, then bring in your data and report your progress.",
+    body: "FieldSight brings your project team, survey tables, indicator plan and results together. Start with a project, define what success means, then bring in your data and report your progress.",
     steps: [
-      "Open a workspace from the Workspaces page. Your selection follows you between screens.",
+      "Open a project from the Projects page. Your selection follows you between screens.",
       "Use Indicators for your monitoring plan, Data tables for evidence, and Dashboards for reporting.",
       "Keep collection activity separate from outcome measures: a submitted form is evidence, not automatically an achieved outcome.",
     ],
-    action: "Explore workspaces",
+    action: "Explore projects",
     to: "/projects",
   },
   {
@@ -40,15 +40,15 @@ const chapters = [
   },
   {
     id: "workspaces",
-    title: "Understanding workspaces",
+    title: "Understanding projects",
     summary: "One home for a project, programme or country package.",
-    body: "A FieldSight workspace is backed by an existing project. It contains its own results framework, indicator plan, source tables and team assignments. Organization administrators can manage every workspace in their organization.",
+    body: "A FieldSight project brings together its results framework, indicator plan, source tables and team assignments. Organization administrators can manage every project in their organization.",
     steps: [
-      "Open Workspaces and choose a project card to switch context.",
-      "Keep related forms, indicators and reporting targets within the same workspace.",
-      "Your existing projects and data remain available as workspaces.",
+      "Open Projects and choose a project from the list to switch context.",
+      "Keep related forms, indicators and reporting targets within the same project.",
+      "Each project keeps its own data and reporting targets together.",
     ],
-    action: "View workspaces",
+    action: "View projects",
     to: "/projects",
   },
   {
@@ -66,35 +66,35 @@ const chapters = [
   },
   {
     id: "create",
-    title: "Create a workspace",
+    title: "Create a project",
     summary: "Start with a name, sector and project dates.",
-    body: "Workspaces organize the work you intend to monitor. Use Add workspace, enter a name and dates, and select one of your organization's enabled sectors.",
+    body: "Projects organize the work you intend to monitor. Use Add project, enter a name and dates, and select one of your organization's enabled sectors.",
     steps: [
-      "Choose a short, recognizable workspace name.",
+      "Choose a short, recognizable project name.",
       "Set the start and end date, and add a description to explain the scope.",
-      "Save the workspace, then open Details, Team or Indicators to continue.",
+      "Save the project, then open Details, Team or Indicators to continue.",
     ],
-    action: "Create a workspace",
+    action: "Create a project",
     to: "/projects",
   },
   {
     id: "add-team",
-    title: "Add workspace team members",
-    summary: "Assign existing field staff to a workspace.",
-    body: "Invite colleagues to the organization first. After they accept, use the Workspace team tab to assign active field members to the selected workspace.",
+    title: "Add project team members",
+    summary: "Assign existing field staff to a project.",
+    body: "Invite colleagues to the organization first. After they accept, use the Project team tab to assign active field members to the selected project.",
     steps: [
-      "Open the relevant workspace from the Workspaces page.",
-      "Open Team & invitations → Workspace team, then choose an active field member.",
-      "Organization administrators already have access to every workspace. Field access uses FieldSight's existing collection assignments.",
+      "Open the relevant project from the Projects page.",
+      "Open Team & invitations → Project team, then choose an active field member.",
+      "Organization administrators already have access to every project. Field access uses FieldSight's existing collection assignments.",
     ],
-    action: "Open workspace team",
+    action: "Open project team",
     to: "/team?scope=workspace",
   },
   {
     id: "permissions",
     title: "Manage team members",
     summary: "Review roles and enable or deactivate access.",
-    body: "FieldSight retains its existing Organization administrator and Field team member roles. Use the organization team list to change roles or deactivate membership; use workspace assignments to manage field collection access.",
+    body: "FieldSight retains its existing Organization administrator and Field team member roles. Use the organization team list to change roles or deactivate membership; use project assignments to manage field collection access.",
     steps: [
       "Organization administrators manage organization data, connections and team settings.",
       "Field team members collect through KoboToolbox. This FieldSight portal remains administrator-only; an invitation does not create a Kobo account.",
@@ -133,7 +133,7 @@ const chapters = [
     id: "import",
     title: "Import data",
     summary: "Connect Kobo or import a CSV table.",
-    body: "Data tables holds the survey responses stored in your workspace. Import a CSV file, or use a verified Kobo connection and sync the form assigned to your workspace.",
+    body: "Data tables holds the survey responses stored in your project. Import a CSV file, or use a verified Kobo connection and sync the form assigned to your project.",
     steps: [
       "Use Import table and choose Local CSV or KoboToolbox.",
       "CSV files need unique column headings. Optionally identify the date and location columns; preview the file before saving.",
@@ -159,7 +159,7 @@ const chapters = [
     id: "troubleshooting",
     title: "Troubleshooting",
     summary: "Resolve common access, import and results issues.",
-    body: "If a screen is empty, first check the current workspace and any date or quality filters. An empty result means there is no eligible evidence for that selection.",
+    body: "If a screen is empty, first check the current project and any date or quality filters. An empty result means there is no eligible evidence for that selection.",
     steps: [
       "Sign-in: retype your email and password. If you do not have an account, request a fresh invitation from your administrator.",
       "Kobo sync: verify the connection, assign a form, then inspect sync history. Failed or partial imports are not reported as successful.",
@@ -176,7 +176,7 @@ const chapters = [
     body: "Use Help in the top bar or Quick-start guide in the sidebar to return here. Each chapter links directly to the relevant FieldSight screen.",
     steps: [
       "Search this guide for a workflow or issue.",
-      "Share the exact error message and workspace name with your administrator when asking for support.",
+      "Share the exact error message and project name with your administrator when asking for support.",
       "For result questions, include the source table, question, calculation, date range and quality selection.",
     ],
     action: "Open organization team",
@@ -195,7 +195,7 @@ export function QuickStartPage() {
   return (
     <Page
       title="Quick-start guide"
-      description="Set up your workspace, connect evidence and track your results."
+      description="Set up your project, connect evidence and track your results."
     >
       <div className="grid grid-cols-[250px_minmax(0,1fr)] gap-5 max-md:grid-cols-1">
         <Panel className="self-start p-3">
@@ -231,7 +231,7 @@ export function QuickStartPage() {
           </nav>
         </Panel>
         <Panel className="p-7 max-sm:p-5">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[#168596]">
+          <div className="flex items-center gap-2 text-[12px] uppercase tracking-widest text-[#168596]">
             <BookOpen size={15} />
             Getting started · {index + 1} of {chapters.length}
           </div>
@@ -260,7 +260,7 @@ export function QuickStartPage() {
           {index === 0 && projects.length > 0 && (
             <p className="mt-5 flex items-center gap-2 text-xs text-[#398169]">
               <CheckCircle2 size={14} />
-              {projects.length} workspaces available in your organization.
+              {projects.length} projects available in your organization.
             </p>
           )}
           <div className="mt-10 flex justify-between border-t border-[#e4ebed] pt-5">
@@ -286,7 +286,7 @@ export function QuickStartPage() {
             )}
           </div>
           <a
-            className="mt-8 inline-flex items-center gap-1 text-[10px] text-[#8d9ca3]"
+            className="mt-8 inline-flex items-center gap-1 text-[12px] text-[#8d9ca3]"
             href="https://www.toladata.com/docs/quick-start-guide/welcome-to-toladata/"
             target="_blank"
             rel="noreferrer"
