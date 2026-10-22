@@ -105,7 +105,7 @@ export function ProjectWorkspacePage() {
     mutationFn: () => apiClient.syncProjectKoboForm(projectId!),
     onSuccess: async (result) => {
       setSyncMessage(
-        `Sync complete: ${result.created} new and ${result.updated} updated submission${result.created + result.updated === 1 ? "" : "s"}.`,
+        `Sync complete: ${result.received} received, ${result.created} new, ${result.updated} updated, ${result.skipped} unchanged.`,
       );
       await queryClient.invalidateQueries({ queryKey: ["submissions"] });
       await queryClient.invalidateQueries({ queryKey: ["sync-runs"] });
@@ -188,6 +188,8 @@ export function ProjectWorkspacePage() {
         <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[13px] font-semibold text-brand">
           Overview
         </span>
+        <NavLink to={`/projects/${project.id}/indicators`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Indicators</NavLink>
+        <NavLink to={`/projects/${project.id}/indicators?view=results`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Monitoring</NavLink>
         <NavLink
           to={`/analytics?project_id=${project.id}`}
           className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[13px] font-semibold text-[#75849a] no-underline hover:text-[#344562]"

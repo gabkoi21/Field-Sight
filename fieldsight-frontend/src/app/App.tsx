@@ -1,19 +1,31 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { skipLogin } from "../auth/developmentAccess";
 import {
   RequireOrganizationMember,
   RequireSuperAdmin,
 } from "../auth/RouteGuards";
-import { AppShell } from "../components/layout/AppShell";
-import { ExploreAnalyzePage } from "../pages/organization/ExploreAnalyzePage";
+import { WorkspaceShell } from "../workspace/WorkspaceShell";
+import { SurveyQuestionExplorer } from "../pages/organization/SurveyQuestionExplorer";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { OrganizationDashboardPage } from "../pages/dashboard/OrganizationDashboardPage";
 import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
 import { KoboConnectionsPage } from "../pages/organization/KoboConnectionsPage";
-import { ProjectsPage } from "../pages/organization/ProjectsPage";
-import { ProjectWorkspacePage } from "../pages/organization/ProjectWorkspacePage";
+import { WorkspacesPage } from "../workspace/WorkspacesPage";
+import { WorkspaceDetailsPage } from "../workspace/WorkspaceDetailsPage";
+import { QuickStartPage } from "../workspace/QuickStartPage";
+import { WorkspaceTeamPage } from "../workspace/WorkspaceTeamPage";
+import { DataTablesPage } from "../workspace/DataTablesPage";
+import { WorkspaceFormsPage } from "../workspace/WorkspaceFormsPage";
+import { DashboardsPage } from "../workspace/DashboardsPage";
+import {
+  ProfilePage,
+  AcceptInvitationPage,
+  AccountHelpPage,
+} from "../workspace/ProfilePage";
+import { OrganizationSettingsPage } from "../workspace/OrganizationSettingsPage";
+import { ProjectIndicatorsPage } from "../pages/organization/ProjectIndicatorsPage";
 import { QualityCenterPage } from "../pages/organization/QualityCenterPage";
-import { ReportsPage } from "../pages/organization/ReportsPage";
-import { SettingsPage } from "../pages/organization/SettingsPage";
+import { WorkspaceReportsPage as ReportsPage } from "../workspace/WorkspaceReportsPage";
 import { SubmissionsPage } from "../pages/organization/SubmissionsPage";
 import {
   AuditLogPage,
@@ -26,12 +38,17 @@ import {
   SystemHealthPage,
   UsersPage,
 } from "../pages/superadmin";
-import { TeamPage } from "../pages/organization/TeamPage";
 
 export function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={skipLogin ? <Navigate replace to="/" /> : <LoginPage />}
+      />
+      <Route path="/sign-in" element={<LoginPage />} />
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+      <Route path="/account-help" element={<AccountHelpPage />} />
       <Route
         path="/superadmin"
         element={
@@ -52,24 +69,38 @@ export function App() {
       <Route
         element={
           <RequireOrganizationMember>
-            <AppShell />
+            <WorkspaceShell />
           </RequireOrganizationMember>
         }
       >
         <Route index element={<OrganizationDashboardPage />} />
-        <Route path="projects" element={<ProjectsPage />} />
-        <Route path="projects/:projectId" element={<ProjectWorkspacePage />} />
+        <Route path="projects" element={<WorkspacesPage />} />
+        <Route
+          path="workspaces"
+          element={<Navigate replace to="/projects" />}
+        />
+        <Route path="projects/:projectId" element={<WorkspaceDetailsPage />} />
+        <Route
+          path="projects/:projectId/indicators"
+          element={<ProjectIndicatorsPage />}
+        />
+        <Route path="indicators" element={<ProjectIndicatorsPage />} />
         <Route path="forms/connections" element={<KoboConnectionsPage />} />
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />
         <Route path="quality" element={<QualityCenterPage />} />
-        <Route path="analytics" element={<ExploreAnalyzePage />} />
+        <Route path="analytics" element={<SurveyQuestionExplorer />} />
         <Route path="reports" element={<ReportsPage />} />
-        <Route path="team" element={<TeamPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="projects/:projectId/team" element={<WorkspaceTeamPage workspaceOnly />} />
+        <Route path="team" element={<WorkspaceTeamPage />} />
+        <Route path="settings" element={<OrganizationSettingsPage />} />
+        <Route path="guide" element={<QuickStartPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="forms" element={<WorkspaceFormsPage />} />
+        <Route path="data-tables" element={<DataTablesPage key="data-tables" />} />
+        <Route path="dashboards" element={<DashboardsPage />} />
       </Route>
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
   );
 }
-

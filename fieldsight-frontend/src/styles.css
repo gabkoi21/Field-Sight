@@ -3,5 +3,29 @@
 @tailwind utilities;
 
 button {
-	border-radius: 6px !important;
+  border-radius: 6px !important;
+}
+
+@media print {
+  .fieldsight-workspace > aside,
+  .fieldsight-workspace main > header,
+  .fieldsight-workspace button,
+  .fieldsight-workspace nav {
+    display: none !important;
+  }
+  .fieldsight-workspace main {
+    margin-left: 0 !important;
+  }
+  .fieldsight-workspace {
+    background: white !important;
+  }
+  .fieldsight-workspace .overflow-x-auto {
+    overflow: visible !important;
+  }
+  .fieldsight-workspace thead {
+    display: table-header-group;
+  }
+  .fieldsight-workspace tr {
+    break-inside: avoid;
+  }
 }

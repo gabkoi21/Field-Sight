@@ -1,5 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { apiClient, type CurrentUser } from "../services/apiClient";
+import { skipLogin } from "./developmentAccess";
+
+const previewUser: CurrentUser = {
+  id: "local-preview",
+  email: "preview@fieldsight.local",
+  username: "Local preview",
+  platform_role: "super_admin",
+  memberships: [],
+};
 
 interface AuthValue {
   user: CurrentUser | null;
@@ -11,17 +20,17 @@ interface AuthValue {
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<CurrentUser | null>(skipLogin && !apiClient.hasStoredAccessToken() ? previewUser : null);
+  const [loading, setLoading] = useState(!skipLogin || apiClient.hasStoredAccessToken());
 
   useEffect(() => {
-    const handleSessionExpired = () => setUser(null);
+    const handleSessionExpired = () => setUser(skipLogin ? previewUser : null);
     window.addEventListener("fieldsight-session-expired", handleSessionExpired);
     if (!apiClient.hasStoredAccessToken()) {
       setLoading(false);
       return () => window.removeEventListener("fieldsight-session-expired", handleSessionExpired);
     }
-    apiClient.me().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false));
+    apiClient.me().then(setUser).catch(() => setUser(skipLogin ? previewUser : null)).finally(() => setLoading(false));
     return () => window.removeEventListener("fieldsight-session-expired", handleSessionExpired);
   }, []);
 
@@ -35,10 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return currentUser;
     },
     async logout() {
+      if (skipLogin && !apiClient.hasStoredAccessToken()) return;
       try {
         await apiClient.logout();
       } finally {
-        setUser(null);
+        setUser(skipLogin ? previewUser : null);
       }
     },
   }), [loading, user]);

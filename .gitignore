@@ -1,0 +1,5 @@
+# Local database files and merge recovery backups
+fieldsight-backend/fieldsight.db
+fieldsight-backend/fieldsight.db-shm
+fieldsight-backend/fieldsight.db-wal
+sqlite-merge-backup-*/

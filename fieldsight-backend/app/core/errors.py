@@ -26,9 +26,12 @@ def install_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Pydantic model validators may include exception objects in ctx.
+        # Keep the public contract serializable without echoing submitted data.
+        details = [{"loc": error["loc"], "msg": error["msg"], "type": error["type"]} for error in exc.errors()]
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=_error_body(request, "validation_error", "Request validation failed.", exc.errors()),
+            content=_error_body(request, "validation_error", "Request validation failed.", details),
         )
 
     @app.exception_handler(HTTPException)

@@ -115,7 +115,8 @@ def test_admin_can_manage_project_indicators(tmp_path: object) -> None:
     assert listed.status_code == 200
     assert listed.json()[0]["code"] == "WASH-01"
     fields = client.get(f"/projects/{project_id}/indicator-fields", headers=headers)
-    assert fields.json() == [{"source_field": "safe_water", "label": "safe_water"}]
+    assert fields.json()[0]["source_field"] == "safe_water"
+    assert fields.json()[0]["form_id"] == "water-form"
     mapping = client.put(
         f"/indicators/{indicator_id}/mapping",
         headers=headers,
@@ -129,12 +130,15 @@ def test_admin_can_manage_project_indicators(tmp_path: object) -> None:
     calculated = client.get(f"/indicators/{indicator_id}", headers=headers)
     assert calculated.json()["current_value"] == 50
     assert calculated.json()["mapped_records"] == 2
-    assert calculated.json()["status"] == "needs_attention"
-    assert len(calculated.json()["history"]) == 2
+    assert calculated.json()["status"] == "in_progress"
+    assert calculated.json()["schedule_status"] == "not_due"
+    assert calculated.json()["target_achieved"] is False
+    assert len(calculated.json()["history"]) == 1
+    assert calculated.json()["history"][0]["period"] == "2026-Q3"
     assert {item["location"] for item in calculated.json()["location_breakdown"]} == {"Kajo-Keji", "Yei"}
     updated = client.patch(f"/indicators/{indicator_id}", headers=headers, json={"target_value": 75})
     assert updated.status_code == 200
     assert updated.json()["target_value"] == 75
-    assert updated.json()["status"] == "needs_attention"
+    assert updated.json()["status"] == "in_progress"
     deleted = client.delete(f"/indicators/{indicator_id}", headers=headers)
     assert deleted.status_code == 204

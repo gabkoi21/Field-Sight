@@ -15,6 +15,12 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
+For the local demo organization, run `python -m scripts.create_demo_organization`
+and enter the desired demo password at the prompt. This creates or updates
+`org@gmail.com` as an administrator of **Demo Organization** in development
+SQLite only. It does not send email. The frontend uses the login screen by
+default; `VITE_SKIP_LOGIN=true` explicitly enables the local preview bypass.
+
 Development probes:
 
 - `GET /health/live`

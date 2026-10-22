@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.routes.administration import router as administration_router
+from app.routes.analysis import router as analysis_router
 from app.routes.auth import router as auth_router
 from app.routes.collection import router as collection_router
 from app.routes.health import router as health_router
@@ -13,6 +14,7 @@ from app.routes.onboarding import router as onboarding_router
 from app.routes.organizations import enumerator_router
 from app.routes.organizations import router as organizations_router
 from app.routes.sectors import router as sectors_router
+from app.routes.workspace import router as workspace_router
 
 api_router = APIRouter()
 api_router.include_router(health_router, tags=["system"])
@@ -26,3 +28,5 @@ api_router.include_router(kobo_router)
 api_router.include_router(collection_router)
 api_router.include_router(intelligence_router)
 api_router.include_router(indicators_router)
+api_router.include_router(analysis_router)
+api_router.include_router(workspace_router)
