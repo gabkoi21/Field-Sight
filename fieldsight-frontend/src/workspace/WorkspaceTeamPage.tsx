@@ -94,8 +94,8 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
   ].filter(Boolean);
   return (
     <Page
-      title={workspaceOnly ? `${project?.name ?? "Workspace"} — Team` : "Team & invitations"}
-      description={workspaceOnly ? "Manage the people assigned to this workspace." : "Manage organization access and assign colleagues to a workspace."}
+      title={workspaceOnly ? `${project?.name ?? "Project"} — Team` : "Team & invitations"}
+      description={workspaceOnly ? "Manage the people assigned to this project." : "Manage organization access and assign colleagues to a project."}
       actions={
         <Button
           onClick={() => {
@@ -114,7 +114,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
         {!workspaceOnly && <div className="flex gap-5 border-b border-[#e4ebed] px-5">
           {[
             [false, "Organization team"],
-            [true, "Workspace team"],
+            [true, "Project team"],
           ].map(([value, label]) => (
             <button
               key={String(label)}
@@ -128,8 +128,8 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
         <div className="flex items-start gap-3 p-4 text-xs leading-6 text-[#73868d]">
           <ShieldCheck className="shrink-0 text-[#168596]" size={18} />
           {scope
-            ? `Workspace: ${project?.name ?? "Select a workspace"}. Organization administrators already have access. Field members use collection assignments; administrative analytics remain administrator-only.`
-            : "Organization administrators manage every workspace in this portal. Field members collect through KoboToolbox and do not sign in to the FieldSight portal."}
+            ? `Project: ${project?.name ?? "Select a project"}. Organization administrators already have access. Field members use collection assignments; administrative analytics remain administrator-only.`
+            : "Organization administrators manage every project in this portal. Field members collect through KoboToolbox and do not sign in to the FieldSight portal."}
         </div>
       </Panel>
       {errors.map((error, i) => (
@@ -175,7 +175,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
                   </Field>
                 </div>
                 <Button type="submit" disabled={!member || assign.isPending}>
-                  Add to workspace
+                  Add to project
                 </Button>
               </form>
             </Panel>
@@ -185,7 +185,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
               members={assignments.data ?? []}
               action={(item) => (
                 <button
-                  aria-label={`Remove ${item.email} from workspace`}
+                  aria-label={`Remove ${item.email} from project`}
                   onClick={() => {
                     const row = assignments.data?.find((a) => a.id === item.id);
                     if (row) {
@@ -306,7 +306,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
         <Dialog
           title="Remove team member?"
           compact
-          description={`Remove ${removing.full_name ?? removing.email} from ${project?.name ?? "this workspace"}? Their organization account will remain active.`}
+          description={`Remove ${removing.full_name ?? removing.email} from ${project?.name ?? "this project"}? Their organization account will remain active.`}
           error={remove.error?.message}
           onClose={() => { if (!remove.isPending) setRemoving(null); }}
         >

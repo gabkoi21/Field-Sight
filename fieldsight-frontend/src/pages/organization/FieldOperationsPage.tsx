@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
+import { ArrowLeft, Download, MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useWorkspace } from "../../workspace/WorkspaceContext";
+import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import { useAuth } from "../../auth/AuthContext";
 import { AdminStatus, AdminTableFooter, adminInputClass } from "../../components/superadmin/AdminUi";
 import { Button } from "../../components/ui";
@@ -10,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { apiClient, ApiError, type ApiEnumerator, type EnumeratorUpdateInput } from "../../services/apiClient";
 
 export function FieldOperationsPage() {
+  const workspace = useWorkspace();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isOrganizationAdmin = Boolean(user?.memberships.some((membership) => membership.role === "organization_admin"));
@@ -290,6 +294,13 @@ export function FieldOperationsPage() {
 
   return (
     <>
+      <Link
+        to={workspace.projectId ? `/projects/${workspace.projectId}/team` : "/projects"}
+        className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+      >
+        <ArrowLeft size={15} /> Back to {workspace.projectId ? "project team" : "workspaces"}
+      </Link>
+      {workspace.projectId && <div className="mb-5"><WorkspaceTabs /></div>}
       <div className="mb-[19px] flex items-start justify-between gap-3 max-[700px]:flex-col">
         <div>
           <p className="!m-0 !mb-[6px] text-[10px] font-bold uppercase leading-[1.4] tracking-[.08em] text-[#0b51b7]">

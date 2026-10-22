@@ -246,7 +246,7 @@ export function SurveyQuestionExplorer() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.16em] text-[#0c8593]">
-            FieldSight / Evidence workspace
+            FieldSight / Evidence project
           </p>
           <h1 className="m-0 text-[28px] font-semibold tracking-tight">
             Explore & analyze
@@ -381,7 +381,7 @@ export function SurveyQuestionExplorer() {
                 </div>
                 <nav
                   className="flex border-t border-[#e7edef] px-4"
-                  aria-label="Analysis workspace"
+                  aria-label="Analysis project"
                 >
                   {["explore", "saved"].map((value) => (
                     <button

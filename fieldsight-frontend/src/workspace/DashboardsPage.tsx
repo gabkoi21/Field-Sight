@@ -135,7 +135,7 @@ export function DashboardsPage() {
   return (
     <Page
       title="Dashboards"
-      description="Build a shared view of your workspace's results and evidence."
+      description="Build a shared view of your project's results and evidence."
       actions={
         <Button onClick={() => edit("new")}>
           <Plus size={14} />
@@ -404,7 +404,7 @@ export function DashboardsPage() {
             </Field>
             <Notice>
               Visible to organization administrators with access to this
-              workspace. Public sharing is not enabled.
+              project. Public sharing is not enabled.
             </Notice>
             <Button
               type="submit"

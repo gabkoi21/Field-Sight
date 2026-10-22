@@ -185,7 +185,7 @@ export function SuperAdminShell() {
             to="/"
             className="mb-1 flex w-full items-center gap-3 rounded-[7px] px-[13px] py-2.5 text-xs text-[#b5c7d5] no-underline hover:bg-[rgba(11,81,183,.52)] hover:text-white"
           >
-            <Building2 size={17} /> Organization workspace
+            <Building2 size={17} /> Organization project
           </NavLink>
           <button
             className="flex w-full items-center gap-3 rounded-[7px] border-0 bg-transparent px-[13px] py-2.5 text-left text-xs text-[#b5c7d5] hover:bg-[rgba(11,81,183,.52)] hover:text-white"

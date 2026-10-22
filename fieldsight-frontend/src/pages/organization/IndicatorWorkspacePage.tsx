@@ -7,6 +7,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import {
+  ArrowLeft,
   BarChart3,
   GitBranch,
   Link2,
@@ -324,6 +325,12 @@ export function IndicatorWorkspacePage() {
   if (loading || projects.isLoading) return <LoadingState />;
   return (
     <div className="space-y-5 text-[#24434c]">
+      <Link
+        to={projectId ? `/projects/${projectId}` : "/projects"}
+        className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+      >
+        <ArrowLeft size={15} /> Back to project
+      </Link>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="mb-1 mt-0 text-[10px] font-semibold uppercase tracking-[.16em] text-[#0c8593]">
@@ -430,7 +437,7 @@ export function IndicatorWorkspacePage() {
               )}
             </div>
             <nav
-              aria-label="Indicator workspace"
+              aria-label="Indicator project"
               className="flex overflow-x-auto border-t border-[#e7edef] px-4"
             >
               {[

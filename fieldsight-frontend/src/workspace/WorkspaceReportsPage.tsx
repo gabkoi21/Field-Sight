@@ -88,7 +88,7 @@ export function WorkspaceReportsPage() {
   }
   return (
     <Page
-      title="Workspace report"
+      title="Project report"
       description="A reproducible summary of stored evidence and indicator progress."
       actions={
         <>
@@ -223,7 +223,7 @@ export function WorkspaceReportsPage() {
                 </div>
                 {!indicators.data?.length && (
                   <p className="p-5 text-sm text-[#87969d]">
-                    No indicators have been defined for this workspace.
+                    No indicators have been defined for this project.
                   </p>
                 )}
               </Panel>

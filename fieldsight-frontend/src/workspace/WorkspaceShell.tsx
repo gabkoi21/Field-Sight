@@ -47,9 +47,9 @@ function Shell() {
   });
   const sections = [
     {
-      title: "Workspace",
+      title: "Project",
       items: [
-        { name: "Workspaces", path: "/projects", icon: FolderKanban },
+        { name: "Projects", path: "/projects", icon: FolderKanban },
         {
           name: "Details & activity",
           path: workspace.projectId

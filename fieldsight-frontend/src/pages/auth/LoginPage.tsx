@@ -78,7 +78,7 @@ export function LoginPage() {
         </p>
 
         <h1 className="m-0 text-[2rem] font-bold tracking-[-0.05em]">
-          Sign in to your workspace
+          Sign in to your project
         </h1>
 
         <p className="mt-[7px] max-w-[680px] text-[0.8125rem] leading-[1.55] text-[#758092]">
@@ -161,7 +161,7 @@ export function LoginPage() {
           <span className="font-serif text-[70px] text-[#8db6f5]">“</span>
 
           <h2 className="m-0 text-[34px] font-bold leading-[1.25] tracking-[-1px] text-white">
-            Bring every collection workflow into one trustworthy data workspace.
+            Bring every collection workflow into one trustworthy data project.
           </h2>
 
           <p className="max-w-[410px] leading-[1.7] text-[#dfeaf4]">

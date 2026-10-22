@@ -154,7 +154,7 @@ export function ProjectWorkspacePage() {
                 <Badge value={project.status} />
               </div>
               <p className="m-0 text-[0.8125rem] text-[#77869b]">
-                Project workspace <span className="mx-1 text-[#c6ced8]"> / </span>
+                Project project <span className="mx-1 text-[#c6ced8]"> / </span>
                 {project.kobo_form_name ? `Kobo form: ${project.kobo_form_name} • Last sync: ${relativeTime(overview?.last_synced_at)}` : "No form connected"}
               </p>
             </div>

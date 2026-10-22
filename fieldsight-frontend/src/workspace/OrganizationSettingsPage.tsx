@@ -41,7 +41,7 @@ export function OrganizationSettingsPage() {
   return (
     <Page
       title="Organization settings"
-      description="Manage shared workspace defaults and organization access."
+      description="Manage shared project defaults and organization access."
     >
       {[query.error, save.error].filter(Boolean).map((e, i) => (
         <Notice error key={i}>

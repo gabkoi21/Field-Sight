@@ -265,7 +265,7 @@ export function OrganizationDashboardPage() {
         <MetricCard
           label="Active Projects"
           value={activeProjectsDisplay}
-          context={`${totalWorkspaceProjects} projects in workspace`}
+          context={`${totalWorkspaceProjects} projects in project`}
           icon={FolderKanban}
         />
       </section>

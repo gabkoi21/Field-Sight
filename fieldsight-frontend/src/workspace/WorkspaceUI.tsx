@@ -54,11 +54,13 @@ export function Page({
   title,
   description,
   actions,
+  breadcrumb = "FieldSight / Project",
   children,
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
+  breadcrumb?: string;
   children: ReactNode;
 }) {
   return (
@@ -66,7 +68,7 @@ export function Page({
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.16em] text-[#73868d]">
-            FieldSight / Workspace
+            {breadcrumb}
           </p>
           <h1 className="m-0 text-[27px] font-semibold tracking-tight text-[#193a49]">
             {title}
@@ -86,13 +88,13 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
   if (!state.project)
     return (
       <Panel className="p-10 text-center">
-        <h2 className="text-lg">Create your first workspace</h2>
+        <h2 className="text-lg">Create your first project</h2>
         <p className="text-sm text-[#73828b]">
-          A workspace holds your team, data tables, framework and indicator
+          A project holds your team, data tables, framework and indicator
           plan.
         </p>
         <Link className="text-sm text-[#117e8f]" to="/projects">
-          Open workspaces →
+          Open projects →
         </Link>
       </Panel>
     );
@@ -102,7 +104,7 @@ export function WorkspaceTabs() {
   const { projectId } = useWorkspace();
   return (
     <nav
-      aria-label="Workspace sections"
+      aria-label="Project sections"
       className="flex gap-5 overflow-x-auto border-b border-[#e1e7eb] bg-white px-5 text-xs text-[#607882]"
     >
       {[

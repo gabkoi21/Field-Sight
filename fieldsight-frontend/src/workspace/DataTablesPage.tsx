@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -25,6 +25,7 @@ import {
 } from "./WorkspaceUI";
 
 export function DataTablesPage() {
+  const [params] = useSearchParams();
   const { projectId, project, selectProject } = useWorkspace();
   const cache = useQueryClient();
   const [selection, setSelection] = useState<{
@@ -33,8 +34,8 @@ export function DataTablesPage() {
   } | null>(null);
   const form = selection?.project === projectId ? selection.id : "";
   const [offset, setOffset] = useState(0);
-  const [importing, setImporting] = useState(false);
-  const [source, setSource] = useState<"choose" | "csv">("choose");
+  const [importing, setImporting] = useState(params.get("import") === "csv");
+  const [source, setSource] = useState<"choose" | "csv">(params.get("import") === "csv" ? "csv" : "choose");
   const [title, setTitle] = useState("");
   const [csvText, setCsv] = useState("");
   const [dateColumn, setDate] = useState("");
@@ -86,7 +87,15 @@ export function DataTablesPage() {
   }
   const chosen = tables.data?.find((t) => t.id === form);
   return (
+    <div className="space-y-5">
+      <Link
+        to={projectId ? `/projects/${projectId}` : "/projects"}
+        className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+      >
+        <ArrowLeft size={15} /> Back to project
+      </Link>
     <Page
+      breadcrumb={project?.name ?? "Select a project"}
       title="Data tables"
       description="Review your stored evidence and link it to your indicator plan."
       actions={
@@ -156,7 +165,7 @@ export function DataTablesPage() {
                 className="text-xs text-[#168596]"
                 to={`/analytics?project_id=${projectId}`}
               >
-                Analyze this workspace →
+                Analyze this project →
               </Link>
             </header>
             {rows.isLoading ? (
@@ -286,7 +295,7 @@ export function DataTablesPage() {
       {importing && (
         <Dialog
           title="Import a data table"
-          description={`Workspace: ${project?.name ?? "Select a workspace"}`}
+          description={`Project: ${project?.name ?? "Select a project"}`}
           error={importer.error?.message || fileError}
           onClose={() => setImporting(false)}
         >
@@ -384,6 +393,7 @@ export function DataTablesPage() {
         </Dialog>
       )}
     </Page>
+    </div>
   );
 }
 function cell(value: unknown) {

@@ -91,7 +91,7 @@ export function WorkspaceDetailsPage() {
       await cache.invalidateQueries({
         queryKey: ["organization-projects", organizationId],
       });
-      setMessage("Workspace details saved.");
+      setMessage("Project details saved.");
     },
   });
   const sync = useMutation({
@@ -127,8 +127,8 @@ export function WorkspaceDetailsPage() {
       });
   return (
     <Page
-      title={project?.name ?? "Workspace details"}
-      description="Manage the details of this workspace."
+      title={project?.name ?? "Project details"}
+      description="Manage the details of this project."
     >
       <WorkspaceGate>
         <WorkspaceTabs />
@@ -205,9 +205,9 @@ export function WorkspaceDetailsPage() {
                   label="End date"
                 />
               </DetailField>
-              <DetailField label="Workspace ID code">
+              <DetailField label="Project ID code">
                 <input
-                  aria-label="Workspace ID code"
+                  aria-label="Project ID code"
                   className={input}
                   maxLength={80}
                   value={details.code}
