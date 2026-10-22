@@ -3,7 +3,7 @@ import { BarChart3 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { ApiError } from "../../services/apiClient";
+import { ApiError, apiClient } from "../../services/apiClient";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -23,9 +23,31 @@ export function LoginPage() {
     try {
       const user = await login(username.trim(), password, remember);
 
-      navigate(user.platform_role === "super_admin" ? "/superadmin" : "/", { replace: true });
+      const profile =
+        user.platform_role === "super_admin"
+          ? null
+          : await apiClient.profile().catch(() => null);
+      const allowed = [
+        "/",
+        "/projects",
+        "/indicators",
+        "/dashboards",
+        "/guide",
+      ];
+      navigate(
+        user.platform_role === "super_admin"
+          ? "/superadmin"
+          : profile && allowed.includes(profile.landing_page)
+            ? profile.landing_page
+            : "/projects",
+        { replace: true },
+      );
     } catch (requestError) {
-      setError(requestError instanceof ApiError ? requestError.message : "Unable to connect to FieldSight.");
+      setError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : "Unable to connect to FieldSight.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -36,7 +58,10 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-screen grid-cols-2 bg-white max-[700px]:grid-cols-1">
-      <form className="m-auto w-[min(420px,calc(100%_-_48px))]" onSubmit={handleSubmit}>
+      <form
+        className="m-auto w-[min(420px,calc(100%_-_48px))]"
+        onSubmit={handleSubmit}
+      >
         <NavLink
           to="/"
           className="inline-block pb-[62px] text-[19px] font-bold tracking-[-.25px] text-[#102a43] no-underline max-[700px]:pb-[42px]"
@@ -48,9 +73,13 @@ export function LoginPage() {
           <span className="leading-none">FieldSight</span>
         </NavLink>
 
-        <p className="mb-1.5 text-[10px] font-bold uppercase leading-[1.4] tracking-[.08em] text-brand">WELCOME BACK</p>
+        <p className="mb-1.5 text-[10px] font-bold uppercase leading-[1.4] tracking-[.08em] text-brand">
+          WELCOME BACK
+        </p>
 
-        <h1 className="m-0 text-[2rem] font-bold tracking-[-0.05em]">Sign in to your workspace</h1>
+        <h1 className="m-0 text-[2rem] font-bold tracking-[-0.05em]">
+          Sign in to your workspace
+        </h1>
 
         <p className="mt-[7px] max-w-[680px] text-[0.8125rem] leading-[1.55] text-[#758092]">
           Manage trusted data from collection through reporting.
@@ -82,31 +111,48 @@ export function LoginPage() {
         </label>
 
         {error && (
-          <p className="mt-[14px] text-[13px] font-medium text-[#b42318]" role="alert">
+          <p
+            className="mt-[14px] text-[13px] font-medium text-[#b42318]"
+            role="alert"
+          >
             {error}
           </p>
         )}
 
         <div className="my-[17px] flex items-center justify-between">
           <label className="m-0 text-xs text-[#758092]">
-            <input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />{" "}
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+            />{" "}
             Remember me
           </label>
 
-          <a className="text-xs font-bold no-underline text-brand" href="#">
+          <NavLink
+            className="text-xs font-bold no-underline text-brand"
+            to="/account-help"
+          >
             Forgot password?
-          </a>
+          </NavLink>
         </div>
 
-        <Button className="justify-center w-full" type="submit" disabled={submitting}>
+        <Button
+          className="justify-center w-full"
+          type="submit"
+          disabled={submitting}
+        >
           {submitting ? "Signing in..." : "Sign in"}
         </Button>
 
         <p className="text-center text-xs text-[#758092]">
           Need access?{" "}
-          <a className="font-bold no-underline text-brand" href="#">
+          <NavLink
+            className="font-bold no-underline text-brand"
+            to="/accept-invitation"
+          >
             Accept an invitation
-          </a>
+          </NavLink>
         </p>
       </form>
 
@@ -119,11 +165,14 @@ export function LoginPage() {
           </h2>
 
           <p className="max-w-[410px] leading-[1.7] text-[#dfeaf4]">
-            Monitor progress, resolve quality issues, and turn field data into decisions.
+            Monitor progress, resolve quality issues, and turn field data into
+            decisions.
           </p>
         </div>
 
-        <small className="text-[10px] tracking-[1.1px] text-[#8aa9ba]">FIELDSIGHT · DATA OPERATIONS</small>
+        <small className="text-[10px] tracking-[1.1px] text-[#8aa9ba]">
+          FIELDSIGHT · DATA OPERATIONS
+        </small>
       </div>
     </div>
   );

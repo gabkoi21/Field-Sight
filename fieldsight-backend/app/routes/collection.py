@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import case, func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
@@ -30,7 +31,7 @@ def _submission_time(value: object) -> datetime | None:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC) if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     except ValueError:
         return None
 
@@ -38,7 +39,7 @@ def _submission_time(value: object) -> datetime | None:
 def _external_id(payload: dict[str, object]) -> str | None:
     for key in ("_id", "_uuid", "instanceID"):
         value = payload.get(key)
-        if value is not None:
+        if value is not None and str(value).strip():
             return str(value)
     meta = payload.get("meta")
     if isinstance(meta, dict) and meta.get("instanceID"):
@@ -95,9 +96,13 @@ def sync_project_kobo_form(
         for payload in payloads:
             external_id = _external_id(payload)
             if external_id is None:
-                continue
+                raise ValueError("Kobo returned a submission without an external ID. Import was not completed.")
             existing = db.exec(
-                select(Submission).where(Submission.project_id == project.id, Submission.external_id == external_id)
+                select(Submission).where(
+                    Submission.project_id == project.id,
+                    Submission.kobo_form_id == project.kobo_form_id,
+                    Submission.external_id == external_id,
+                )
             ).first()
             if existing is None:
                 db.add(
@@ -124,37 +129,29 @@ def sync_project_kobo_form(
                 existing.updated_at = datetime.now(UTC)
                 db.add(existing)
                 updated += 1
-        if created == 0 and updated == 0:
-            db.delete(run)
-            db.commit()
-            return {
-                "sync_run_id": None,
-                "status": "unchanged",
-                "received": len(payloads),
-                "created": 0,
-                "updated": 0,
-            }
-        run.status = "completed"
+        run.status = "unchanged" if created == 0 and updated == 0 else "completed"
         run.received_count = len(payloads)
         run.created_count = created
         run.updated_count = updated
         run.completed_at = datetime.now(UTC)
         db.add(run)
         db.commit()
-    except ValueError as exc:
+    except (ValueError, SQLAlchemyError) as exc:
         db.rollback()
         run.status = "failed"
-        run.error_message = str(exc)
+        message = str(exc) if isinstance(exc, ValueError) else "Submission storage failed. Retry the full import."
+        run.error_message = message
         run.completed_at = datetime.now(UTC)
         db.add(run)
         db.commit()
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=message) from exc
     return {
         "sync_run_id": str(run.id),
         "status": run.status,
         "received": run.received_count,
         "created": run.created_count,
         "updated": run.updated_count,
+        "skipped": run.received_count - run.created_count - run.updated_count,
     }
 
 
@@ -191,6 +188,7 @@ def list_sync_runs(user: CurrentUser, db: Database) -> list[dict[str, object]]:
             "received": run.received_count,
             "created": run.created_count,
             "updated": run.updated_count,
+            "skipped": run.received_count - run.created_count - run.updated_count,
             "error_message": run.error_message,
             "started_at": run.started_at,
             "completed_at": run.completed_at,
@@ -245,7 +243,9 @@ def pending_kobo_submissions(
                 }
             )
             continue
-        imported_ids = set(db.exec(select(Submission.external_id).where(Submission.project_id == project.id)).all())
+        imported_ids = set(db.exec(select(Submission.external_id).where(
+            Submission.project_id == project.id, Submission.kobo_form_id == project.kobo_form_id,
+        )).all())
         outstanding = len(remote_ids - imported_ids)
         pending_count += outstanding
         sources.append(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -150,21 +150,79 @@ def delete_kobo_form(server_url: str, api_token: str, form_id: str) -> None:
 
 
 def list_kobo_submissions(server_url: str, api_token: str, form_id: str) -> list[dict[str, object]]:
-    """Fetch one Kobo form's submissions while keeping provider credentials server-side."""
-    try:
-        response = httpx.get(
-            f"{server_url}/api/v2/assets/{form_id}/data/",
-            params={"format": "json", "limit": 1000},
-            headers={"Authorization": f"Token {api_token}"},
-            timeout=30.0,
-            follow_redirects=False,
-        )
-    except httpx.HTTPError as exc:
-        raise ValueError("KoboToolbox could not be reached while importing submissions.") from exc
-    if response.status_code in {401, 403}:
-        raise ValueError("Kobo rejected the stored API token.")
-    if response.status_code >= 400:
-        raise ValueError("KoboToolbox could not download this form's submissions.")
-    payload = response.json()
-    results = payload.get("results", []) if isinstance(payload, dict) else payload
-    return [item for item in results if isinstance(item, dict)] if isinstance(results, list) else []
+    """Read every v2 page, or fail without returning a partial import.
+
+    Never forward the stored token to a provider-supplied URL outside this
+    server and form. Bound pagination and reject repeated URLs/records.
+    """
+    server_url = normalize_kobo_server_url(server_url)
+    path = f"/api/v2/assets/{quote(form_id, safe='')}/data/"
+    url = f"{server_url}{path}?format=json&limit=1000"
+    visited: set[str] = set()
+    identifiers: set[str] = set()
+    submissions: list[dict[str, object]] = []
+    expected_count: int | None = None
+    for _ in range(10_000):
+        try:
+            parsed = urlparse(url)
+            request_url = httpx.URL(url)
+        except (ValueError, httpx.InvalidURL) as exc:
+            raise ValueError("Kobo returned an invalid submission pagination URL.") from exc
+        if (
+            parsed.scheme != "https"
+            or parsed.netloc != urlparse(server_url).netloc
+            or parsed.path not in {path, path.rstrip("/") + ".json"}
+            or parsed.fragment
+        ):
+            raise ValueError("Kobo returned an unsafe submission pagination URL.")
+        canonical_url = str(request_url.copy_with(query=b"")) + str(sorted(request_url.params.multi_items()))
+        if canonical_url in visited:
+            raise ValueError("Kobo returned a repeated submission page. Import was not completed.")
+        visited.add(canonical_url)
+        try:
+            response = httpx.get(
+                url,
+                headers={"Authorization": f"Token {api_token}"},
+                timeout=30.0,
+                follow_redirects=False,
+            )
+        except httpx.HTTPError as exc:
+            raise ValueError("KoboToolbox could not be reached while importing submissions.") from exc
+        if response.status_code in {401, 403}:
+            raise ValueError("Kobo rejected the stored API token.")
+        if not 200 <= response.status_code < 300:
+            raise ValueError("KoboToolbox could not download this form's submissions.")
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ValueError("Kobo returned invalid JSON. Import was not completed.") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("results"), list) or "next" not in payload:
+            raise ValueError("Kobo returned an invalid submission page. Import was not completed.")
+        count = payload.get("count")
+        if count is not None:
+            if type(count) is not int or count < 0 or (expected_count is not None and count != expected_count):
+                raise ValueError("Kobo submission totals changed or are invalid. Retry the full import.")
+            expected_count = count
+        for item in payload["results"]:
+            if not isinstance(item, dict):
+                raise ValueError("Kobo returned an invalid submission record. Import was not completed.")
+            # Kobo v2 supplies _id. Reject overlapping/repeated pages rather
+            # than counting them as successfully downloaded distinct records.
+            if item.get("_id") is not None:
+                identifier = str(item["_id"])
+                if identifier in identifiers:
+                    raise ValueError("Kobo returned duplicate submission IDs. Retry the full import.")
+                identifiers.add(identifier)
+            submissions.append(item)
+        next_url = payload["next"]
+        if next_url is None:
+            if expected_count is not None and len(submissions) != expected_count:
+                raise ValueError("Kobo returned an incomplete submission download. Retry the full import.")
+            return submissions
+        if not isinstance(next_url, str) or not next_url or not payload["results"]:
+            raise ValueError("Kobo returned invalid submission pagination. Import was not completed.")
+        try:
+            url = urljoin(url, next_url)
+        except ValueError as exc:
+            raise ValueError("Kobo returned an invalid submission pagination URL.") from exc
+    raise ValueError("Kobo submission pagination exceeded the safety limit. Import was not completed.")

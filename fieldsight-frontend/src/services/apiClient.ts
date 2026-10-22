@@ -1,5 +1,146 @@
 export type Role = "super_admin" | "organization_admin" | "enumerator";
 
+export interface SurveyField {
+  source_field: string;
+  label: string;
+  type:
+    | "select_one"
+    | "select_multiple"
+    | "number"
+    | "date"
+    | "text"
+    | "geopoint"
+    | "repeat";
+  choices: Array<{ value: string; label: string }>;
+  source: "kobo" | "mapping" | "inferred";
+  supported: boolean;
+}
+export interface SurveyCatalogue {
+  project_id: string;
+  form_id: string | null;
+  form_name: string | null;
+  form_version: string | null;
+  fields: SurveyField[];
+  forms: string[];
+  locations: string[];
+  enumerators: string[];
+  schema_updated_at: string | null;
+  warning: string | null;
+}
+export interface AnalysisQuery {
+  project_id: string;
+  form_id: string | null;
+  source_field: string;
+  measure: "auto" | "count" | "sum" | "average" | "min" | "max";
+  group_by: string | null;
+  time_grain: "day" | "month" | "year";
+  filters: {
+    date_from: string | null;
+    date_to: string | null;
+    location: string | null;
+    enumerator: string | null;
+    review_status: "ready" | "needs_review" | "invalid" | "all";
+    categories: string[];
+  };
+}
+export interface AnalysisResult {
+  project_id: string;
+  form_id: string | null;
+  field: SurveyField;
+  measure: string;
+  total_records: number;
+  eligible_records: number;
+  answered_records: number;
+  missing_records: number;
+  invalid_answers: number;
+  denominator: number;
+  value: number | null;
+  series: Array<{
+    name: string;
+    group: string | null;
+    value: number | null;
+    count: number;
+    percent: number | null;
+  }>;
+  filters: AnalysisQuery["filters"];
+  group_by: string | null;
+  note: string;
+  generated_at: string;
+}
+export interface SavedAnalysis {
+  id: string;
+  title: string;
+  query: AnalysisQuery;
+  chart: "bar" | "line" | "donut" | "table";
+  created_at: string;
+}
+
+export interface WorkspaceMember {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  email: string;
+  role: "organization_admin" | "enumerator";
+  is_active: boolean;
+}
+export interface WorkspaceInvitation {
+  id: string;
+  email: string;
+  role: WorkspaceMember["role"];
+  status: "pending" | "accepted" | "expired" | "revoked";
+  expires_at: string;
+}
+export interface WorkspaceProfile {
+  email: string;
+  full_name: string | null;
+  landing_page: string;
+}
+export interface WorkspaceTable {
+  id: string;
+  title: string;
+  source: string;
+  records: number;
+}
+export interface WorkspaceTableRows {
+  fields: SurveyField[];
+  total: number;
+  offset: number;
+  rows: Array<{
+    id: string;
+    review_status: string;
+    submitted_at: string | null;
+    answers: Record<string, unknown>;
+  }>;
+}
+export interface CollectedResultInput {
+  result_date: string;
+  value: number | null;
+  narrative: string | null;
+  location: string | null;
+  notes: string | null;
+}
+export interface CollectedResult extends CollectedResultInput {
+  id: string;
+  created_at: string;
+}
+export interface DashboardWidget {
+  id: string;
+  title: string;
+  kind: "indicator" | "analysis" | "text";
+  source_id: string | null;
+  text: string;
+  width: 1 | 2;
+}
+export interface WorkspaceDashboardInput {
+  title: string;
+  description: string;
+  project_id: string;
+  widgets: DashboardWidget[];
+}
+export interface WorkspaceDashboard extends WorkspaceDashboardInput {
+  id: string;
+  created_at: string;
+}
 export interface Membership {
   organization_id: string;
   organization_name?: string;
@@ -196,7 +337,6 @@ export interface UpdateOrganizationInput {
   timezone: string;
 }
 
-
 export interface ApiSubmission {
   id: string;
   external_id: string;
@@ -209,7 +349,6 @@ export interface ApiSubmission {
   review_status: string;
   raw_answers: Record<string, unknown>;
 }
-
 
 export interface ApiAnalyticsOverview {
   total_submissions: number;
@@ -284,6 +423,7 @@ export interface ApiSyncResult {
   received: number;
   created: number;
   updated: number;
+  skipped: number;
 }
 
 export interface ApiSyncRun {
@@ -293,6 +433,7 @@ export interface ApiSyncRun {
   received: number;
   created: number;
   updated: number;
+  skipped: number;
   error_message: string | null;
   started_at: string;
   completed_at: string | null;
@@ -315,7 +456,15 @@ export interface FieldMapping {
   source_field: string;
   display_name: string;
   meaning: string | null;
-  data_type: "text" | "number" | "date" | "boolean" | "single_select" | "multiple_select" | "gps" | "location";
+  data_type:
+    | "text"
+    | "number"
+    | "date"
+    | "boolean"
+    | "single_select"
+    | "multiple_select"
+    | "gps"
+    | "location";
   is_required: boolean;
   is_location: boolean;
 }
@@ -339,27 +488,68 @@ export interface ProjectTarget {
 export interface ProjectIntelligence {
   overall_progress: number;
   project_status: "On Track" | "Needs Attention";
-  pulse: { name: string; status: "On track" | "Needs attention"; detail: string }[];
-  indicators: { mapping_id: string; name: string; value: number; summary: string }[];
-  targets: { id: string; name: string; target: number; actual: number; unit: string; progress: number; remaining: number; status: string }[];
+  pulse: {
+    name: string;
+    status: "On track" | "Needs attention";
+    detail: string;
+  }[];
+  indicators: {
+    mapping_id: string;
+    name: string;
+    value: number;
+    summary: string;
+  }[];
+  targets: {
+    id: string;
+    name: string;
+    target: number;
+    actual: number;
+    unit: string;
+    progress: number;
+    remaining: number;
+    status: string;
+  }[];
 }
 
-export type IndicatorUnit = "number" | "percentage" | "rate" | "ratio" | "currency" | "days" | "text";
+export type IndicatorUnit =
+  | "number"
+  | "percentage"
+  | "rate"
+  | "ratio"
+  | "currency"
+  | "days"
+  | "text";
 export type IndicatorDirection = "increase" | "decrease";
-export type IndicatorStatus = "on_track" | "needs_attention" | "not_started";
-export type IndicatorFrequency = "weekly" | "monthly" | "quarterly" | "semi_annual" | "annual";
-export type IndicatorCalculation = "count_records" | "count_matching" | "percentage_matching" | "sum" | "average";
+export type IndicatorStatus =
+  | "on_track"
+  | "needs_attention"
+  | "not_started"
+  | "in_progress";
+export type IndicatorFrequency =
+  | "weekly"
+  | "monthly"
+  | "quarterly"
+  | "semi_annual"
+  | "annual";
+export type IndicatorCalculation =
+  | "count_records"
+  | "count_matching"
+  | "percentage_matching"
+  | "sum"
+  | "average";
 
 export interface IndicatorMapping {
   id: string;
   indicator_id: string;
   source_field: string;
+  source_form_id: string | null;
   calculation: IndicatorCalculation;
   match_value: string | null;
 }
 
 export interface IndicatorMappingInput {
   source_field: string;
+  source_form_id?: string | null;
   calculation: IndicatorCalculation;
   match_value: string | null;
 }
@@ -367,6 +557,10 @@ export interface IndicatorMappingInput {
 export interface IndicatorField {
   source_field: string;
   label: string;
+  type: SurveyField["type"];
+  choices: SurveyField["choices"];
+  form_id: string | null;
+  supported: boolean;
 }
 
 export interface IndicatorResultPoint {
@@ -374,6 +568,12 @@ export interface IndicatorResultPoint {
   value: number | null;
   eligible_records: number;
   mapped_records: number;
+  numerator: number | null;
+  denominator: number;
+  missing_records: number;
+  invalid_answers: number;
+  target_value: number | null;
+  target_achieved: boolean | null;
 }
 
 export interface IndicatorLocationResult {
@@ -381,9 +581,14 @@ export interface IndicatorLocationResult {
   value: number | null;
   eligible_records: number;
   mapped_records: number;
+  numerator: number | null;
+  denominator: number;
 }
 
 export interface Indicator {
+  result_source: "table" | "manual" | "unconfigured";
+  qualitative_value: string | null;
+  manual_result_count: number;
   id: string;
   project_id: string;
   name: string;
@@ -397,22 +602,75 @@ export interface Indicator {
   reporting_frequency: IndicatorFrequency;
   status: IndicatorStatus;
   is_active: boolean;
+  framework_node_id: string | null;
   mapping: IndicatorMapping | null;
   current_value: number | null;
   eligible_records: number;
   mapped_records: number;
+  numerator: number | null;
+  denominator: number;
+  missing_records: number;
+  invalid_answers: number;
+  quality_excluded_records: number;
+  undated_records: number;
+  target_achieved: boolean | null;
+  progress_percent: number | null;
+  schedule_status:
+    | "achieved"
+    | "not_due"
+    | "overdue"
+    | "no_deadline"
+    | "no_target"
+    | "no_data";
+  mapping_health:
+    | "unmapped"
+    | "healthy"
+    | "field_missing"
+    | "form_missing"
+    | "unsupported"
+    | "type_mismatch";
+  calculation_note: string;
+  source_form_id: string | null;
+  date_from: string | null;
+  date_to: string | null;
   history: IndicatorResultPoint[];
   location_breakdown: IndicatorLocationResult[];
   created_at: string;
   updated_at: string;
 }
 
-export type IndicatorInput = Omit<
+export type IndicatorInput = Pick<
   Indicator,
-  "id" | "project_id" | "status" | "is_active" | "mapping" | "current_value" | "eligible_records" | "mapped_records" | "history" | "location_breakdown" | "created_at" | "updated_at"
+  | "name"
+  | "code"
+  | "description"
+  | "unit"
+  | "direction"
+  | "baseline_value"
+  | "target_value"
+  | "target_date"
+  | "reporting_frequency"
+  | "framework_node_id"
 >;
-export type IndicatorUpdateInput = Partial<IndicatorInput> & { is_active?: boolean };
-export type IndicatorCreateInput = IndicatorInput & { mapping?: IndicatorMappingInput | null };
+export interface FrameworkNode {
+  id: string;
+  project_id: string;
+  title: string;
+  node_type: "goal" | "objective" | "outcome" | "output" | "activity";
+  parent_id: string | null;
+  sort_order: number;
+  created_at: string;
+}
+export type FrameworkNodeInput = Pick<
+  FrameworkNode,
+  "title" | "node_type" | "parent_id" | "sort_order"
+>;
+export type IndicatorUpdateInput = Partial<IndicatorInput> & {
+  is_active?: boolean;
+};
+export type IndicatorCreateInput = IndicatorInput & {
+  mapping?: IndicatorMappingInput | null;
+};
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -541,10 +799,179 @@ async function request<T>(
   }
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
+  if (response.headers.get("Content-Type")?.includes("text/csv"))
+    return response.text() as Promise<T>;
   return response.json() as Promise<T>;
 }
 
 export const apiClient = {
+  organizationSettings: (org: string) =>
+    request<{
+      country: string | null;
+      timezone: string;
+      default_language: string;
+      retention_days: number;
+      export_reason_required: boolean;
+    }>(`/organizations/${org}/settings`),
+  saveOrganizationSettings: (
+    org: string,
+    input: {
+      country: string | null;
+      timezone: string;
+      default_language: string;
+    },
+  ) =>
+    request(`/organizations/${org}/settings`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  updateProject: (
+    org: string,
+    id: string,
+    input: Partial<CreateProjectInput>,
+  ) =>
+    request<ApiProject>(`/organizations/${org}/projects/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  workspaceTeam: (org: string) =>
+    request<WorkspaceMember[]>(`/organizations/${org}/team`),
+  updateWorkspaceMember: (
+    org: string,
+    id: string,
+    input: { role: WorkspaceMember["role"]; is_active: boolean },
+  ) =>
+    request(`/organizations/${org}/team/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  invitations: (org: string) =>
+    request<WorkspaceInvitation[]>(`/organizations/${org}/invitations`),
+  inviteMember: (
+    org: string,
+    input: { email: string; role: WorkspaceMember["role"] },
+  ) =>
+    request<WorkspaceInvitation & { token: string }>(
+      `/organizations/${org}/invitations`,
+      { method: "POST", body: JSON.stringify(input) },
+    ),
+  revokeInvitation: (org: string, id: string) =>
+    request<void>(`/organizations/${org}/invitations/${id}`, {
+      method: "DELETE",
+    }),
+  acceptInvitation: (input: {
+    token: string;
+    full_name: string;
+    password: string;
+  }) =>
+    request<{ email: string; role: WorkspaceMember["role"] }>(
+      "/auth/accept-invitation",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    ),
+  profile: () => request<WorkspaceProfile>("/auth/profile"),
+  saveProfile: (input: WorkspaceProfile) =>
+    request<WorkspaceProfile>("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify({
+        full_name: input.full_name,
+        landing_page: input.landing_page,
+      }),
+    }),
+  changePassword: (current_password: string, new_password: string) =>
+    request("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+  projectTeam: (project: string) =>
+    request<(WorkspaceMember & { assignment_id: string })[]>(
+      `/projects/${project}/team`,
+    ),
+  addProjectMember: (project: string, membership_id: string) =>
+    request(`/projects/${project}/team`, {
+      method: "POST",
+      body: JSON.stringify({ membership_id }),
+    }),
+  removeProjectMember: (project: string, id: string) =>
+    request<void>(`/projects/${project}/team/${id}`, { method: "DELETE" }),
+  tables: (project: string) =>
+    request<WorkspaceTable[]>(`/projects/${project}/tables`),
+  tableRows: (project: string, form: string, offset = 0) =>
+    request<WorkspaceTableRows>(
+      `/projects/${project}/tables/${encodeURIComponent(form)}?offset=${offset}`,
+    ),
+  importTable: (
+    project: string,
+    input: {
+      title: string;
+      csv_text: string;
+      date_column: string | null;
+      location_column: string | null;
+    },
+  ) =>
+    request<{ form_id: string; imported: number }>(
+      `/projects/${project}/tables/import`,
+      { method: "POST", body: JSON.stringify(input) },
+    ),
+  collectedResults: (id: string) =>
+    request<CollectedResult[]>(`/indicators/${id}/collected-results`),
+  addCollectedResult: (id: string, input: CollectedResultInput) =>
+    request<CollectedResult>(`/indicators/${id}/collected-results`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  deleteCollectedResult: (id: string, result: string) =>
+    request<void>(`/indicators/${id}/collected-results/${result}`, {
+      method: "DELETE",
+    }),
+  dashboards: () => request<WorkspaceDashboard[]>("/dashboards"),
+  createDashboard: (input: WorkspaceDashboardInput) =>
+    request<WorkspaceDashboard>("/dashboards", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  saveDashboard: (id: string, input: WorkspaceDashboardInput) =>
+    request<WorkspaceDashboard>(`/dashboards/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  deleteDashboard: (id: string) =>
+    request<void>(`/dashboards/${id}`, { method: "DELETE" }),
+  surveyFields: (
+    projectId: string,
+    formId?: string | null,
+    refresh = false,
+  ) => {
+    const params = new URLSearchParams();
+    if (formId) params.set("form_id", formId);
+    if (refresh) params.set("refresh_schema", "true");
+    return request<SurveyCatalogue>(
+      `/projects/${projectId}/survey-fields?${params}`,
+    );
+  },
+  queryAnalysis: (query: AnalysisQuery) =>
+    request<AnalysisResult>("/analysis/query", {
+      method: "POST",
+      body: JSON.stringify(query),
+    }),
+  exportAnalysis: (query: AnalysisQuery) =>
+    request<string>("/analysis/export", {
+      method: "POST",
+      body: JSON.stringify(query),
+    }),
+  savedAnalyses: (projectId: string) =>
+    request<SavedAnalysis[]>(
+      `/analysis/saved?project_id=${encodeURIComponent(projectId)}`,
+    ),
+  saveAnalysis: (input: Pick<SavedAnalysis, "title" | "query" | "chart">) =>
+    request<SavedAnalysis>("/analysis/saved", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  deleteSavedAnalysis: (id: string) =>
+    request<void>(`/analysis/saved/${id}`, { method: "DELETE" }),
   hasStoredAccessToken: () => Boolean(accessToken),
   async login(login: string, password: string, remember: boolean) {
     const result = await request<{ access_token: string }>(
@@ -578,12 +1005,18 @@ export const apiClient = {
   organizationProjects: (organizationId: string) =>
     request<ApiProject[]>(`/organizations/${organizationId}/projects`),
   getProject: (organizationId: string, projectId: string) =>
-    request<ApiProject>(`/organizations/${organizationId}/projects/${projectId}`),
+    request<ApiProject>(
+      `/organizations/${organizationId}/projects/${projectId}`,
+    ),
   deleteProject: (organizationId: string, projectId: string) =>
     request<void>(`/organizations/${organizationId}/projects/${projectId}`, {
       method: "DELETE",
     }),
-  assignProjectKoboForm: (projectId: string, connectionId: string, formId: string) =>
+  assignProjectKoboForm: (
+    projectId: string,
+    connectionId: string,
+    formId: string,
+  ) =>
     request<KoboConnection>(`/kobo/connections/projects/${projectId}/form`, {
       method: "PUT",
       body: JSON.stringify({ connection_id: connectionId, form_id: formId }),
@@ -636,43 +1069,118 @@ export const apiClient = {
       body: JSON.stringify({ form_id: form.id, form_name: form.name }),
     }),
   submissions: () => request<ApiSubmission[]>("/submissions"),
-  analyticsOverview: (filters: { projectId?: string; location?: string; period?: string } = {}) => {
+  analyticsOverview: (
+    filters: { projectId?: string; location?: string; period?: string } = {},
+  ) => {
     const params = new URLSearchParams();
     if (filters.projectId) params.set("project_id", filters.projectId);
     if (filters.location) params.set("location", filters.location);
     if (filters.period) params.set("period", filters.period);
     const query = params.toString();
-    return request<ApiAnalyticsOverview>(`/analytics/overview${query ? `?${query}` : ""}`);
+    return request<ApiAnalyticsOverview>(
+      `/analytics/overview${query ? `?${query}` : ""}`,
+    );
   },
-  dashboardOverview: (filters: { projectId?: string; location?: string; period?: string } = {}) => {
+  dashboardOverview: (
+    filters: { projectId?: string; location?: string; period?: string } = {},
+  ) => {
     const params = new URLSearchParams();
     if (filters.projectId) params.set("project_id", filters.projectId);
     if (filters.location) params.set("location", filters.location);
     if (filters.period) params.set("period", filters.period);
     const query = params.toString();
-    return request<ApiDashboardOverview>(`/dashboard/overview${query ? `?${query}` : ""}`);
+    return request<ApiDashboardOverview>(
+      `/dashboard/overview${query ? `?${query}` : ""}`,
+    );
   },
   qualityIssues: (projectId?: string) =>
-    request<ApiQualityIssue[]>(`/quality/issues${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`),
+    request<ApiQualityIssue[]>(
+      `/quality/issues${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
+    ),
   runQualityValidation: (projectId?: string) =>
-    request<ApiQualityResult>(`/quality/run${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`, { method: "POST" }),
-  updateSubmissionReviewStatus: (submissionId: string, status: "ready" | "needs_review" | "invalid") =>
-    request<{ id: string; review_status: string }>(`/submissions/${submissionId}/review-status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    }),  syncProjectKoboForm: (projectId: string) => request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
+    request<ApiQualityResult>(
+      `/quality/run${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
+      { method: "POST" },
+    ),
+  updateSubmissionReviewStatus: (
+    submissionId: string,
+    status: "ready" | "needs_review" | "invalid",
+  ) =>
+    request<{ id: string; review_status: string }>(
+      `/submissions/${submissionId}/review-status`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      },
+    ),
+  syncProjectKoboForm: (projectId: string) =>
+    request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
   syncRuns: () => request<ApiSyncRun[]>("/sync-runs"),
   pendingKoboSync: () => request<ApiPendingKoboSync>("/sync/pending"),
-  fieldMappings: (projectId: string) => request<FieldMappingOverview>(`/projects/${projectId}/field-mappings`),
-  replaceFieldMappings: (projectId: string, mappings: Omit<FieldMapping, "id" | "project_id">[]) =>
-    request<FieldMapping[]>(`/projects/${projectId}/field-mappings`, { method: "PUT", body: JSON.stringify(mappings) }),
-  projectTargets: (projectId: string) => request<ProjectTarget[]>(`/projects/${projectId}/targets`),
-  createProjectTarget: (projectId: string, target: Omit<ProjectTarget, "id" | "project_id">) =>
-    request<ProjectTarget>(`/projects/${projectId}/targets`, { method: "POST", body: JSON.stringify(target) }),
+  fieldMappings: (projectId: string) =>
+    request<FieldMappingOverview>(`/projects/${projectId}/field-mappings`),
+  replaceFieldMappings: (
+    projectId: string,
+    mappings: Omit<FieldMapping, "id" | "project_id">[],
+  ) =>
+    request<FieldMapping[]>(`/projects/${projectId}/field-mappings`, {
+      method: "PUT",
+      body: JSON.stringify(mappings),
+    }),
+  projectTargets: (projectId: string) =>
+    request<ProjectTarget[]>(`/projects/${projectId}/targets`),
+  createProjectTarget: (
+    projectId: string,
+    target: Omit<ProjectTarget, "id" | "project_id">,
+  ) =>
+    request<ProjectTarget>(`/projects/${projectId}/targets`, {
+      method: "POST",
+      body: JSON.stringify(target),
+    }),
   deleteProjectTarget: (projectId: string, targetId: string) =>
-    request<void>(`/projects/${projectId}/targets/${targetId}`, { method: "DELETE" }),
-  projectIntelligence: (projectId: string) => request<ProjectIntelligence>(`/projects/${projectId}/intelligence`),
-  indicators: (projectId: string) => request<Indicator[]>(`/projects/${projectId}/indicators`),
+    request<void>(`/projects/${projectId}/targets/${targetId}`, {
+      method: "DELETE",
+    }),
+  projectIntelligence: (projectId: string) =>
+    request<ProjectIntelligence>(`/projects/${projectId}/intelligence`),
+  indicators: (projectId: string, dateFrom = "", dateTo = "") => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("date_from", dateFrom);
+    if (dateTo) params.set("date_to", dateTo);
+    return request<Indicator[]>(`/projects/${projectId}/indicators?${params}`);
+  },
+  resultsFramework: (projectId: string) =>
+    request<FrameworkNode[]>(`/projects/${projectId}/results-framework`),
+  createFrameworkNode: (projectId: string, input: FrameworkNodeInput) =>
+    request<FrameworkNode>(`/projects/${projectId}/results-framework`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateFrameworkNode: (
+    projectId: string,
+    id: string,
+    input: FrameworkNodeInput,
+  ) =>
+    request<FrameworkNode>(`/projects/${projectId}/results-framework/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  deleteFrameworkNode: (projectId: string, id: string) =>
+    request<void>(`/projects/${projectId}/results-framework/${id}`, {
+      method: "DELETE",
+    }),
+  saveIndicatorPeriodTargets: (
+    id: string,
+    targets: Array<{ period: string; target_value: number }>,
+  ) =>
+    request<Array<{ period: string; target_value: number }>>(
+      `/indicators/${id}/period-targets`,
+      { method: "PUT", body: JSON.stringify(targets) },
+    ),
+  indicatorPeriodTargets: (id: string) =>
+    request<Array<{ period: string; target_value: number }>>(
+      `/indicators/${id}/period-targets`,
+    ),
   createIndicator: (projectId: string, input: IndicatorCreateInput) =>
     request<Indicator>(`/projects/${projectId}/indicators`, {
       method: "POST",
@@ -685,7 +1193,10 @@ export const apiClient = {
     }),
   deleteIndicator: (indicatorId: string) =>
     request<void>(`/indicators/${indicatorId}`, { method: "DELETE" }),
-  indicatorFields: (projectId: string) => request<IndicatorField[]>(`/projects/${projectId}/indicator-fields`),
+  indicatorFields: (projectId: string, formId?: string | null) =>
+    request<IndicatorField[]>(
+      `/projects/${projectId}/indicator-fields${formId ? `?form_id=${encodeURIComponent(formId)}` : ""}`,
+    ),
   saveIndicatorMapping: (indicatorId: string, input: IndicatorMappingInput) =>
     request<IndicatorMapping>(`/indicators/${indicatorId}/mapping`, {
       method: "PUT",
@@ -694,7 +1205,8 @@ export const apiClient = {
   deleteIndicatorMapping: (indicatorId: string) =>
     request<void>(`/indicators/${indicatorId}/mapping`, { method: "DELETE" }),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),
-  enumerator: (membershipId: string) => request<ApiEnumerator>(`/enumerators/${membershipId}`),
+  enumerator: (membershipId: string) =>
+    request<ApiEnumerator>(`/enumerators/${membershipId}`),
   updateEnumerator: (membershipId: string, input: EnumeratorUpdateInput) =>
     request<ApiEnumerator>(`/enumerators/${membershipId}`, {
       method: "PUT",
@@ -706,11 +1218,11 @@ export const apiClient = {
       body: JSON.stringify(input),
     }),
   organizationAssignments: (organizationId: string) =>
-    request<ApiFieldAssignment[]>(`/organizations/${organizationId}/assignments`),
+    request<ApiFieldAssignment[]>(
+      `/organizations/${organizationId}/assignments`,
+    ),
   deactivateEnumerator: (membershipId: string) =>
     request<void>(`/enumerators/${membershipId}`, {
       method: "DELETE",
     }),
 };
-
-

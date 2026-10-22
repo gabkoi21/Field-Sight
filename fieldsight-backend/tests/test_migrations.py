@@ -2,6 +2,7 @@ from pathlib import Path
 from sqlite3 import connect
 
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 from alembic import command
 from app.core.config import get_settings
@@ -29,6 +30,6 @@ def test_empty_database_upgrades_to_head(tmp_path: Path, monkeypatch) -> None:
             )
         }
 
-    assert revision == ("0010_dashboard_query_indexes",)
+    assert revision == (ScriptDirectory.from_config(config).get_current_head(),)
     assert {"users", "projects", "sync_runs", "submissions"} <= tables
     get_settings.cache_clear()

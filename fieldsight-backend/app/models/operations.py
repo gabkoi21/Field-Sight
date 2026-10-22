@@ -138,7 +138,7 @@ class SyncRun(SQLModel, table=True):
 class Submission(SQLModel, table=True):
     __tablename__ = "submissions"
     __table_args__ = (
-        UniqueConstraint("project_id", "external_id", name="uq_submission_project_external_id"),
+        UniqueConstraint("project_id", "kobo_form_id", "external_id", name="uq_submission_project_form_external_id"),
         Index("ix_submissions_org_submitted_at", "organization_id", "submitted_at"),
         Index("ix_submissions_org_project_submitted_at", "organization_id", "project_id", "submitted_at"),
         Index("ix_submissions_org_review_submitted_at", "organization_id", "review_status", "submitted_at"),
@@ -176,6 +176,32 @@ class FieldMapping(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
+class SurveySchema(SQLModel, table=True):
+    __tablename__ = "survey_schemas"
+    __table_args__ = (UniqueConstraint("project_id", "form_id", name="uq_survey_schema_project_form"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), nullable=False, index=True))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), nullable=False, index=True))
+    form_id: str = Field(sa_column=Column(String(255), nullable=False))
+    version: str | None = None
+    fields_json: list[dict[str, object]] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class SavedAnalysis(SQLModel, table=True):
+    __tablename__ = "saved_analyses"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), nullable=False, index=True))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), nullable=False, index=True))
+    created_by_id: UUID = Field(sa_column=Column(ForeignKey("users.id"), nullable=False))
+    title: str = Field(sa_column=Column(String(200), nullable=False))
+    query_json: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    chart: str = "bar"
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
 class ProjectTarget(SQLModel, table=True):
     __tablename__ = "project_targets"
 
@@ -190,6 +216,19 @@ class ProjectTarget(SQLModel, table=True):
     due_date: date | None = None
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class ResultFrameworkNode(SQLModel, table=True):
+    __tablename__ = "result_framework_nodes"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), nullable=False, index=True))
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), nullable=False, index=True))
+    parent_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("result_framework_nodes.id")))
+    title: str = Field(sa_column=Column(String(300), nullable=False))
+    node_type: str = Field(default="outcome", sa_column=Column(String(32), nullable=False))
+    sort_order: int = 0
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
 class Indicator(SQLModel, table=True):
@@ -221,10 +260,24 @@ class Indicator(SQLModel, table=True):
     target_value: float | None = None
     target_date: date | None = None
     reporting_frequency: str = Field(default="monthly", sa_column=Column(String(32), nullable=False))
+    framework_node_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(ForeignKey("result_framework_nodes.id", name="fk_indicator_framework_node")),
+    )
     status: IndicatorStatus = Field(default=IndicatorStatus.NOT_STARTED, sa_column=Column(String(32), nullable=False))
     is_active: bool = Field(default=True, nullable=False)
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class IndicatorPeriodTarget(SQLModel, table=True):
+    __tablename__ = "indicator_period_targets"
+    __table_args__ = (UniqueConstraint("indicator_id", "period", name="uq_indicator_period_target"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    indicator_id: UUID = Field(sa_column=Column(ForeignKey("indicators.id"), nullable=False, index=True))
+    period: str = Field(sa_column=Column(String(16), nullable=False))
+    target_value: float
 
 
 class IndicatorMapping(SQLModel, table=True):
@@ -238,6 +291,7 @@ class IndicatorMapping(SQLModel, table=True):
     project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
     indicator_id: UUID = Field(sa_column=Column(ForeignKey("indicators.id"), index=True, nullable=False))
     source_field: str = Field(sa_column=Column(String(255), nullable=False))
+    source_form_id: str | None = Field(default=None, sa_column=Column(String(255)))
     calculation: IndicatorCalculation = Field(sa_column=Column(String(32), nullable=False))
     match_value: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
