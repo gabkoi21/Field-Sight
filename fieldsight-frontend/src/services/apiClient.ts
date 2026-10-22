@@ -282,7 +282,20 @@ export interface CreateProjectInput {
   priority?: string;
   tags?: string[];
 }
+export interface WorkspaceDetails {
+  code: string;
+  stage: string;
+  countries: string[];
+  topics: string[];
+  group: string;
+  cost_unit: string;
+  funding: string;
+  health_status: "" | "red" | "amber" | "green";
+}
 export interface ApiProject {
+  updated_at?: string;
+  country?: string | null;
+  workspace_details?: Partial<WorkspaceDetails>;
   id: string;
   organization_id: string;
   name: string;
@@ -828,7 +841,9 @@ export const apiClient = {
   updateProject: (
     org: string,
     id: string,
-    input: Partial<CreateProjectInput>,
+    input: Partial<CreateProjectInput> & {
+      workspace_details?: WorkspaceDetails;
+    },
   ) =>
     request<ApiProject>(`/organizations/${org}/projects/${id}`, {
       method: "PATCH",

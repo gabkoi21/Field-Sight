@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useWorkspace } from "./WorkspaceContext";
 import { LoadingState } from "../components/ui";
 
@@ -103,24 +103,27 @@ export function WorkspaceTabs() {
   return (
     <nav
       aria-label="Workspace sections"
-      className="flex gap-5 overflow-x-auto border-b border-[#e1e7eb] bg-white px-5 py-3 text-xs text-[#607882]"
+      className="flex gap-5 overflow-x-auto border-b border-[#e1e7eb] bg-white px-5 text-xs text-[#607882]"
     >
       {[
         ["Details", `/projects/${projectId}`],
-        ["Team", `/team?scope=workspace`],
+        ["Team", `/projects/${projectId}/team`],
         ["Indicators", `/projects/${projectId}/indicators`],
-        ["Forms", "/forms"],
-        ["Data tables", "/data-tables"],
-        ["Analysis", "/analytics"],
-        ["Dashboards", "/dashboards"],
+        ["Forms", `/forms?project_id=${projectId}`],
+        ["Data tables", `/data-tables?project_id=${projectId}`],
+        ["Analysis", `/analytics?project_id=${projectId}`],
+        ["Dashboards", `/dashboards?project_id=${projectId}`],
       ].map(([label, to]) => (
-        <Link
+        <NavLink
           key={label}
           to={to}
-          className="shrink-0 text-inherit no-underline hover:text-[#117e8f]"
+          end={label === "Details"}
+          className={({ isActive }) =>
+            `shrink-0 border-b-2 py-3 no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#117e8f] ${isActive ? "border-[#117e8f] font-semibold text-[#117e8f]" : "border-transparent text-[#607882] hover:border-[#b7d7dc] hover:text-[#117e8f]"}`
+          }
         >
           {label}
-        </Link>
+        </NavLink>
       ))}
     </nav>
   );

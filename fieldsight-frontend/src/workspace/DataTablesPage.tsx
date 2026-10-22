@@ -24,7 +24,7 @@ import {
   fieldClass,
 } from "./WorkspaceUI";
 
-export function DataTablesPage({ formsOnly = false }: { formsOnly?: boolean }) {
+export function DataTablesPage() {
   const { projectId, project, selectProject } = useWorkspace();
   const cache = useQueryClient();
   const [selection, setSelection] = useState<{
@@ -87,12 +87,8 @@ export function DataTablesPage({ formsOnly = false }: { formsOnly?: boolean }) {
   const chosen = tables.data?.find((t) => t.id === form);
   return (
     <Page
-      title={formsOnly ? "Forms & sources" : "Data tables"}
-      description={
-        formsOnly
-          ? "Collection forms and imported tables available in the selected workspace."
-          : "Review your stored evidence and link it to your indicator plan."
-      }
+      title="Data tables"
+      description="Review your stored evidence and link it to your indicator plan."
       actions={
         <>
           <Button variant="secondary" onClick={() => tables.refetch()}>

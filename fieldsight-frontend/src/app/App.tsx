@@ -15,6 +15,7 @@ import { WorkspaceDetailsPage } from "../workspace/WorkspaceDetailsPage";
 import { QuickStartPage } from "../workspace/QuickStartPage";
 import { WorkspaceTeamPage } from "../workspace/WorkspaceTeamPage";
 import { DataTablesPage } from "../workspace/DataTablesPage";
+import { WorkspaceFormsPage } from "../workspace/WorkspaceFormsPage";
 import { DashboardsPage } from "../workspace/DashboardsPage";
 import {
   ProfilePage,
@@ -90,12 +91,13 @@ export function App() {
         <Route path="quality" element={<QualityCenterPage />} />
         <Route path="analytics" element={<SurveyQuestionExplorer />} />
         <Route path="reports" element={<ReportsPage />} />
+        <Route path="projects/:projectId/team" element={<WorkspaceTeamPage workspaceOnly />} />
         <Route path="team" element={<WorkspaceTeamPage />} />
         <Route path="settings" element={<OrganizationSettingsPage />} />
         <Route path="guide" element={<QuickStartPage />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="forms" element={<DataTablesPage formsOnly />} />
-        <Route path="data-tables" element={<DataTablesPage />} />
+        <Route path="forms" element={<WorkspaceFormsPage />} />
+        <Route path="data-tables" element={<DataTablesPage key="data-tables" />} />
         <Route path="dashboards" element={<DashboardsPage />} />
       </Route>
       <Route path="*" element={<Navigate replace to="/" />} />

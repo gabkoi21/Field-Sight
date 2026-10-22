@@ -18,7 +18,7 @@ const chapters = [
     summary: "Move from field evidence to measurable results.",
     body: "FieldSight brings your workspace team, survey tables, indicator plan and results together. Start with a workspace, define what success means, then bring in your data and report your progress.",
     steps: [
-      "Choose a workspace in the top bar. Your selected workspace follows you between screens.",
+      "Open a workspace from the Workspaces page. Your selection follows you between screens.",
       "Use Indicators for your monitoring plan, Data tables for evidence, and Dashboards for reporting.",
       "Keep collection activity separate from outcome measures: a submitted form is evidence, not automatically an achieved outcome.",
     ],
@@ -44,7 +44,7 @@ const chapters = [
     summary: "One home for a project, programme or country package.",
     body: "A FieldSight workspace is backed by an existing project. It contains its own results framework, indicator plan, source tables and team assignments. Organization administrators can manage every workspace in their organization.",
     steps: [
-      "Use the workspace selector in the top bar to switch context.",
+      "Open Workspaces and choose a project card to switch context.",
       "Keep related forms, indicators and reporting targets within the same workspace.",
       "Your existing projects and data remain available as workspaces.",
     ],
@@ -83,7 +83,7 @@ const chapters = [
     summary: "Assign existing field staff to a workspace.",
     body: "Invite colleagues to the organization first. After they accept, use the Workspace team tab to assign active field members to the selected workspace.",
     steps: [
-      "Select the workspace in the top bar.",
+      "Open the relevant workspace from the Workspaces page.",
       "Open Team & invitations → Workspace team, then choose an active field member.",
       "Organization administrators already have access to every workspace. Field access uses FieldSight's existing collection assignments.",
     ],

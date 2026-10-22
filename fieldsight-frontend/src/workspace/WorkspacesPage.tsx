@@ -2,45 +2,51 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ArrowRight,
-  CalendarDays,
+  ChevronDown,
+  MoreVertical,
+  Filter,
+  MapPin,
+  Users,
   FolderKanban,
   Plus,
   Search,
 } from "lucide-react";
-import { Button, LoadingState } from "../components/ui";
+import { LoadingState } from "../components/ui";
 import { apiClient } from "../services/apiClient";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
-import { Field, Notice, Page, Panel, fieldClass } from "./WorkspaceUI";
+import { Field, Notice, Panel, fieldClass } from "./WorkspaceUI";
 
 export function WorkspacesPage() {
   const workspace = useWorkspace();
   const cache = useQueryClient();
   const navigate = useNavigate();
+  const [tab, setTab] = useState("workspace");
+  const [sort, setSort] = useState<{
+    key: "name" | "id" | "start_date" | "end_date" | "status";
+    ascending: boolean;
+  }>({ key: "name", ascending: true });
+  const [actionProject, setActionProject] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [sector, setSector] = useState("");
   const sectors = useQuery({
     queryKey: ["organization-sectors", workspace.organizationId],
     queryFn: () => apiClient.organizationSectors(workspace.organizationId),
     enabled: Boolean(workspace.organizationId),
   });
-  const names = useQuery({ queryKey: ["sectors"], queryFn: apiClient.sectors });
   const create = useMutation({
     mutationFn: () =>
       apiClient.createProject(workspace.organizationId, {
         name: name.trim(),
-        description,
         start_date: start || null,
         end_date: end || null,
         organization_sector_id:
-          sector || sectors.data?.find((s) => s.is_active)?.id || "",
+          sectors.data?.find((s) => s.is_active)?.id || "",
         status: "draft",
       }),
     onSuccess: async (data) => {
@@ -50,144 +56,455 @@ export function WorkspacesPage() {
       navigate(`/projects/${data.id}`);
     },
   });
+  const update = useMutation({
+    mutationFn: () =>
+      apiClient.updateProject(workspace.organizationId, actionProject!, {
+        name: name.trim(),
+        start_date: start || null,
+        end_date: end || null,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        cache.invalidateQueries({ queryKey: ["organization-projects"] }),
+        cache.invalidateQueries({
+          queryKey: ["project", workspace.organizationId, actionProject],
+        }),
+      ]);
+      setActionProject(null);
+    },
+  });
+  const saving = create.isPending || update.isPending;
+  function closeForm() {
+    if (!saving) {
+      setAdding(false);
+      setActionProject(null);
+    }
+  }
+  function openWorkspace(id: string) {
+    workspace.selectProject(id);
+    navigate(`/projects/${id}`);
+  }
   const filtered = workspace.projects.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) &&
       (!status || p.status === status),
   );
+  const submissions = useQuery({
+    queryKey: ["submissions"],
+    queryFn: apiClient.submissions,
+    enabled: tab === "sites",
+  });
+  const sites = new Map<string, number>();
+  for (const row of submissions.data ?? []) {
+    if (row.project_id === workspace.projectId && row.location)
+      sites.set(row.location, (sites.get(row.location) ?? 0) + 1);
+  }
+  const addButtonClass =
+    "inline-flex items-center gap-2 rounded border-0 bg-[#6049c8] px-4 py-2 text-xs font-medium text-white hover:bg-[#513cb4]";
   return (
-    <Page
-      title="Workspaces"
-      description="Your projects, programmes and country portfolios, organized around results."
-      actions={
-        <Button
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="m-0 text-[27px] font-semibold tracking-tight text-[#252b33]">
+          Workspace
+        </h1>
+        <button
+          className={addButtonClass}
           onClick={() => {
+            setActionProject(null);
             setAdding(true);
             setName("");
-            setDescription("");
             setStart("");
             setEnd("");
             create.reset();
           }}
         >
-          <Plus size={15} />
-          Add workspace
-        </Button>
-      }
-    >
-      <Panel className="flex flex-wrap items-center gap-4 px-5 py-4">
-        <div className="relative min-w-[200px] flex-1">
-          <Search size={15} className="absolute left-3 top-3 text-[#95a2a9]" />
-          <input
-            aria-label="Search workspaces"
-            className={`${fieldClass} pl-9`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Find a workspace…"
+          <Plus size={14} />
+          Add new Workspace
+        </button>
+      </header>
+      <div className="flex items-center gap-2">
+        <label className="relative w-full max-w-[420px]">
+          <MapPin
+            size={14}
+            className="pointer-events-none absolute left-3 top-2.5 text-[#7661cd]"
           />
-        </div>
-        <select
-          aria-label="Workspace status"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="rounded-md border border-[#dce4e8] bg-white px-3 py-2.5 text-xs text-[#73868d]"
+          <span className="sr-only">Workspace</span>
+          <select
+            className="w-full rounded border border-[#e4e5eb] bg-white py-2 pl-9 pr-3 text-xs text-[#46505b] outline-none focus:border-[#8a75da]"
+            value={
+              filtered.some((p) => p.id === workspace.projectId)
+                ? workspace.projectId
+                : ""
+            }
+            onChange={(event) => workspace.selectProject(event.target.value)}
+          >
+            {!filtered.some((p) => p.id === workspace.projectId) && (
+              <option value="">
+                {filtered.length
+                  ? "Select a workspace"
+                  : "No matching workspaces"}
+              </option>
+            )}
+            {filtered.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          aria-label="Filter workspaces"
+          aria-expanded={showFilters}
+          className={`grid size-8 shrink-0 place-items-center rounded border border-[#e4e5eb] ${showFilters ? "bg-[#ede8fb]" : "bg-white"} text-[#7661cd]`}
+          onClick={() => setShowFilters(!showFilters)}
         >
-          <option value="">All statuses</option>
-          {[
-            "draft",
-            "active",
-            "in_review",
-            "paused",
-            "completed",
-            "archived",
-          ].map((s) => (
-            <option key={s} value={s}>
-              {s.replaceAll("_", " ")}
-            </option>
-          ))}
-        </select>
-        <span className="text-xs text-[#87969d]">
-          {filtered.length} workspaces
-        </span>
-      </Panel>
-      {workspace.error && <Notice error>{workspace.error.message}</Notice>}
-      {workspace.loading ? (
-        <LoadingState />
-      ) : filtered.length ? (
-        <div className="grid grid-cols-3 gap-5 max-xl:grid-cols-2 max-md:grid-cols-1">
-          {filtered.map((project, index) => (
-            <Panel key={project.id} className="flex flex-col overflow-hidden">
-              <div
-                className="h-1"
-                style={{
-                  backgroundColor: ["#218fa0", "#7db5a0", "#c5a96d"][index % 3],
-                }}
-              />
-              <div className="flex flex-1 flex-col p-5">
-                <div className="mb-5 flex items-center justify-between">
-                  <FolderKanban size={23} className="text-[#78a0a9]" />
-                  <span
-                    className={`rounded px-2 py-1 text-[10px] capitalize ${project.status === "active" ? "bg-[#e9f6ef] text-[#408569]" : "bg-[#f1f4f6] text-[#87969d]"}`}
-                  >
-                    {project.status.replaceAll("_", " ")}
-                  </span>
-                </div>
-                <Link
-                  onClick={() => workspace.selectProject(project.id)}
-                  to={`/projects/${project.id}`}
-                  className="text-base font-semibold text-[#28434d] no-underline"
-                >
-                  {project.name}
-                </Link>
-                <p className="mb-5 mt-2 line-clamp-2 text-xs leading-6 text-[#87969d]">
-                  {project.description ||
-                    "Add a description in workspace details."}
-                </p>
-                <div className="mt-auto flex items-center gap-2 border-t border-[#edf0f2] pt-4 text-[10px] text-[#87969d]">
-                  <CalendarDays size={13} />
-                  {project.start_date ?? "No start date"} —{" "}
-                  {project.end_date ?? "No end date"}
-                  <Link
-                    aria-label={`Open ${project.name}`}
-                    onClick={() => workspace.selectProject(project.id)}
-                    className="ml-auto text-[#168596]"
-                    to={`/projects/${project.id}`}
-                  >
-                    <ArrowRight size={15} />
-                  </Link>
-                </div>
-              </div>
-            </Panel>
-          ))}
-        </div>
-      ) : (
-        <Panel className="p-12 text-center">
-          <FolderKanban className="mx-auto text-[#8aadb5]" size={32} />
-          <h2 className="text-lg">
-            {search || status
-              ? "No workspaces match"
-              : "Create your first workspace"}
-          </h2>
-          <p className="text-sm text-[#87969d]">
-            Start with the project you want to monitor.
-          </p>
+          <Filter size={14} />
+        </button>
+      </div>
+      {showFilters && (
+        <Panel className="flex flex-wrap items-center gap-3 p-4">
+          <div className="relative min-w-[200px] flex-1">
+            <Search
+              size={14}
+              className="absolute left-3 top-3 text-[#95a2a9]"
+            />
+            <input
+              aria-label="Search workspaces"
+              placeholder="Find a workspace…"
+              className={`${fieldClass} pl-9`}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <select
+            aria-label="Workspace status"
+            className={fieldClass + " max-w-[180px]"}
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="">All statuses</option>
+            {[
+              "draft",
+              "active",
+              "in_review",
+              "paused",
+              "completed",
+              "archived",
+            ].map((value) => (
+              <option key={value} value={value}>
+                {value.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+          <button
+            className="border-0 bg-transparent text-xs text-[#7661cd]"
+            onClick={() => {
+              setSearch("");
+              setStatus("");
+            }}
+          >
+            Clear filters
+          </button>
         </Panel>
       )}
-      {adding && (
+      <nav
+        aria-label="Workspace tabs"
+        role="tablist"
+        className="flex gap-1 overflow-x-auto border-b border-[#dddfe5]"
+      >
+        {[
+          { id: "workspace", label: "Workspace", icon: FolderKanban },
+          { id: "sites", label: "Sites", icon: MapPin },
+          { id: "stakeholders", label: "Stakeholders", icon: Users },
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            role="tab"
+            id={`workspace-tab-${id}`}
+            aria-controls={`workspace-panel-${id}`}
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3 text-xs ${tab === id ? "border-[#7661cd] bg-white font-medium text-[#7661cd]" : "border-transparent bg-transparent text-[#92949f] hover:text-[#7661cd]"}`}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </nav>
+      {workspace.error && <Notice error>{workspace.error.message}</Notice>}
+      <div
+        role="tabpanel"
+        id={`workspace-panel-${tab}`}
+        aria-labelledby={`workspace-tab-${tab}`}
+      >
+        {workspace.loading ? (
+          <LoadingState />
+        ) : !workspace.project ? (
+          <Panel className="p-10 text-center">
+            <h2 className="text-lg">Create your first workspace</h2>
+            <p className="text-sm text-[#87969d]">
+              Start with the project you want to monitor.
+            </p>
+          </Panel>
+        ) : tab === "workspace" ? (
+          <div className="overflow-x-auto border-y border-[#e8e8ee] bg-white">
+            <table className="w-full min-w-[970px] border-collapse text-left text-xs">
+              <thead className="bg-[#f6f6f8] text-[9px] uppercase tracking-wide text-[#a0a0a9]">
+                <tr>
+                  {[
+                    { label: "Name", key: "name" },
+                    { label: "Workspace ID code", key: "id" },
+                    { label: "Stage", key: null },
+                    { label: "Group", key: null },
+                    { label: "Start date", key: "start_date" },
+                    { label: "End date", key: "end_date" },
+                    { label: "Status", key: "status" },
+                  ].map((column) => (
+                    <th
+                      key={column.label}
+                      scope="col"
+                      className="px-4 py-2.5 font-medium"
+                      aria-sort={
+                        sort.key === column.key
+                          ? sort.ascending
+                            ? "ascending"
+                            : "descending"
+                          : undefined
+                      }
+                    >
+                      {column.key ? (
+                        <button
+                          className="flex items-center gap-1 border-0 bg-transparent p-0 text-[9px] font-medium uppercase tracking-wide text-inherit"
+                          onClick={() =>
+                            setSort((current) => ({
+                              key: column.key as typeof sort.key,
+                              ascending:
+                                current.key === column.key
+                                  ? !current.ascending
+                                  : true,
+                            }))
+                          }
+                        >
+                          {column.label}
+                          <ChevronDown
+                            size={10}
+                            className={
+                              sort.key === column.key && !sort.ascending
+                                ? "rotate-180"
+                                : ""
+                            }
+                          />
+                        </button>
+                      ) : (
+                        <span>{column.label}</span>
+                      )}
+                    </th>
+                  ))}
+                  <th scope="col" className="w-10">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...filtered]
+                  .sort(
+                    (a, b) =>
+                      String(a[sort.key] ?? "").localeCompare(
+                        String(b[sort.key] ?? ""),
+                      ) * (sort.ascending ? 1 : -1),
+                  )
+                  .map((project) => (
+                    <tr
+                      key={project.id}
+                      tabIndex={0}
+                      aria-label={`Open workspace ${project.name}`}
+                      onClick={(event) => {
+                        if (
+                          !(event.target as HTMLElement).closest(
+                            "a,button,input,select",
+                          )
+                        )
+                          openWorkspace(project.id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.target === event.currentTarget &&
+                          (event.key === "Enter" || event.key === " ")
+                        ) {
+                          event.preventDefault();
+                          openWorkspace(project.id);
+                        }
+                      }}
+                      className="cursor-pointer border-t border-[#ececf1] outline-none hover:bg-[#faf9fe] focus-visible:bg-[#f2edff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8970d6]"
+                    >
+                      <td className="max-w-[310px] px-4 py-4">
+                        <Link
+                          onClick={() => workspace.selectProject(project.id)}
+                          to={`/projects/${project.id}`}
+                          className="font-medium leading-5 text-[#7661cd] no-underline hover:underline"
+                        >
+                          {project.name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-4 text-[#676974]">
+                        <span title={`Workspace ID: ${project.id}`}>
+                          {project.workspace_details?.code ||
+                            project.id.slice(0, 8).toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-[#676974]">
+                        {project.workspace_details?.stage || "Not set"}
+                      </td>
+                      <td className="px-4 py-4 text-[#676974]">
+                        {project.workspace_details?.group || "Not set"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-[#676974]">
+                        {displayDate(project.start_date)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-[#676974]">
+                        {displayDate(project.end_date)}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className="inline-flex items-center"
+                          title={
+                            project.workspace_details?.health_status ||
+                            project.status.replaceAll("_", " ")
+                          }
+                        >
+                          <span
+                            role="img"
+                            aria-label={`Status: ${project.workspace_details?.health_status || project.status.replaceAll("_", " ")}`}
+                            className="inline-block size-2.5 rounded-full"
+                            style={{
+                              backgroundColor:
+                                ((
+                                  {
+                                    red: "#e34e4e",
+                                    amber: "#e9b34b",
+                                    green: "#48ad83",
+                                  } as Record<string, string>
+                                )[
+                                  project.workspace_details?.health_status ?? ""
+                                ] ||
+                                  (
+                                    {
+                                      active: "#43ad80",
+                                      draft: "#a0a6b0",
+                                      paused: "#e6ad48",
+                                      in_review: "#8970d6",
+                                      completed: "#5599cc",
+                                      archived: "#b7bdc5",
+                                    } as Record<string, string>
+                                  )[project.status]) ??
+                                "#a0a6b0",
+                            }}
+                          />
+                        </span>
+                      </td>
+                      <td className="px-2 py-4">
+                        <button
+                          aria-label={`Actions for ${project.name}`}
+                          title="Update workspace"
+                          className="grid size-7 place-items-center border-0 bg-transparent text-[#7661cd] hover:bg-[#f1edfb]"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            workspace.selectProject(project.id);
+                            setAdding(false);
+                            setName(project.name);
+                            setStart(project.start_date ?? "");
+                            setEnd(project.end_date ?? "");
+                            update.reset();
+                            setActionProject(project.id);
+                          }}
+                        >
+                          <MoreVertical size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {!filtered.length && (
+              <p className="p-6 text-center text-xs text-[#92949f]">
+                No workspaces match your filters.
+              </p>
+            )}
+          </div>
+        ) : tab === "sites" ? (
+          <Panel>
+            <h2 className="m-0 border-b border-[#edf0f2] px-5 py-4 text-sm font-semibold">
+              Workspace sites
+            </h2>
+            <p className="px-5 text-xs leading-6 text-[#87969d]">
+              Locations recorded in this workspace's stored responses.
+            </p>
+            {submissions.isLoading ? (
+              <LoadingState />
+            ) : submissions.error ? (
+              <div className="p-5">
+                <Notice error>{submissions.error.message}</Notice>
+              </div>
+            ) : sites.size ? (
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#f8fafb] text-[10px] uppercase text-[#92949f]">
+                  <tr>
+                    <th className="px-5 py-3 font-medium">Site / location</th>
+                    <th className="px-5 py-3 font-medium">Stored responses</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...sites]
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([site, count]) => (
+                      <tr key={site} className="border-t border-[#edf0f2]">
+                        <td className="px-5 py-4">{site}</td>
+                        <td className="px-5 py-4">{count}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="p-6 text-sm text-[#87969d]">
+                No site locations are recorded in this workspace's responses
+                yet.
+              </p>
+            )}
+          </Panel>
+        ) : (
+          <Panel className="p-6">
+            <h2 className="mt-0 text-sm font-semibold">Stakeholders</h2>
+            <p className="text-sm leading-7 text-[#87969d]">
+              Partner and external stakeholder records are not connected yet.
+              Internal project members are managed separately in Team &
+              invitations.
+            </p>
+            <Link to="/team?scope=workspace" className="text-xs text-[#7661cd]">
+              View workspace team →
+            </Link>
+          </Panel>
+        )}
+      </div>
+      {(adding || actionProject) && (
         <Dialog
-          title="Add workspace"
-          description="Start with a name, sector and dates. Add your team and indicator plan next."
-          error={create.error?.message ?? sectors.error?.message}
-          onClose={() => setAdding(false)}
+          title={actionProject ? "Update Workspace" : "Add new Workspace"}
+          compact
+          error={
+            actionProject
+              ? update.error?.message
+              : (create.error?.message ?? sectors.error?.message)
+          }
+          onClose={closeForm}
         >
           <form
             className="grid gap-4"
             onSubmit={(e) => {
               e.preventDefault();
-              create.mutate();
+              if (actionProject) update.mutate();
+              else create.mutate();
             }}
           >
-            <Field label="Workspace name">
+            <Field label="Name *">
               <input
                 required
                 minLength={2}
@@ -196,28 +513,6 @@ export function WorkspacesPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
-            </Field>
-            <Field label="Sector">
-              <select
-                required
-                className={fieldClass}
-                value={
-                  sector || sectors.data?.find((s) => s.is_active)?.id || ""
-                }
-                onChange={(e) => setSector(e.target.value)}
-              >
-                {!sectors.data?.some((s) => s.is_active) && (
-                  <option value="">No enabled sectors</option>
-                )}
-                {sectors.data
-                  ?.filter((s) => s.is_active)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {names.data?.find((n) => n.id === s.sector_id)?.name ??
-                        "Enabled sector"}
-                    </option>
-                  ))}
-              </select>
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Start date">
@@ -238,24 +533,48 @@ export function WorkspacesPage() {
                 />
               </Field>
             </div>
-            <Field label="Description">
-              <textarea
-                className={fieldClass}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </Field>
-            <Button
-              type="submit"
-              disabled={
-                create.isPending || !sectors.data?.some((s) => s.is_active)
-              }
-            >
-              Save workspace
-            </Button>
+            {!actionProject &&
+              !sectors.isLoading &&
+              !sectors.error &&
+              !sectors.data?.some((s) => s.is_active) && (
+                <Notice error>
+                  An enabled organization sector is required before creating a
+                  workspace.{" "}
+                  <Link to="/settings" className="text-inherit underline">
+                    Open organization settings
+                  </Link>
+                </Notice>
+              )}
+            <div className="mt-4 flex justify-end gap-3 border-t border-[#e8e8ee] pt-4">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={closeForm}
+                className="rounded border border-[#8d7bd0] bg-white px-5 py-2 text-sm font-medium text-[#7661cd] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  saving ||
+                  name.trim().length < 2 ||
+                  (!actionProject && !sectors.data?.some((s) => s.is_active))
+                }
+                className="rounded border border-[#6049c8] bg-[#6049c8] px-6 py-2 text-sm font-medium text-white hover:bg-[#513cb4] disabled:opacity-50"
+              >
+                {saving ? "Saving…" : actionProject ? "Save changes" : "Save"}
+              </button>
+            </div>
           </form>
         </Dialog>
       )}
-    </Page>
+    </div>
   );
+}
+
+function displayDate(value: string | null) {
+  if (!value) return "—";
+  const [year, month, day] = value.split("-");
+  return `${day}.${month}.${year}`;
 }

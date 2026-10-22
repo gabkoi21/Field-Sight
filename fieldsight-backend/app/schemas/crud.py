@@ -1,14 +1,28 @@
 """Update schemas for tenant resources with lifecycle-aware deletion."""
 
 from datetime import date
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.operations import ProjectStatus
 
 
+class WorkspaceDetailsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    code: str = Field(default="", max_length=80)
+    stage: str = Field(default="", max_length=100)
+    countries: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(default_factory=list, max_length=30)
+    topics: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(default_factory=list, max_length=30)
+    group: str = Field(default="", max_length=150)
+    cost_unit: str = Field(default="", max_length=100)
+    funding: str = Field(default="", max_length=300)
+    health_status: Literal["", "red", "amber", "green"] = ""
+
+
 class ProjectUpdate(BaseModel):
+    workspace_details: WorkspaceDetailsInput | None = None
     name: str | None = Field(default=None, min_length=2, max_length=200)
     description: str | None = None
     country: str | None = None

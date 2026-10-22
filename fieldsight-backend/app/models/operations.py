@@ -72,6 +72,7 @@ class Project(SQLModel, table=True):
     )
     name: str = Field(sa_column=Column(String(200), nullable=False))
     description: str = ""
+    workspace_details: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     country: str | None = None
     status: ProjectStatus = ProjectStatus.DRAFT
     start_date: date | None = None

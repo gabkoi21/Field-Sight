@@ -6,12 +6,12 @@ import { apiClient, type WorkspaceMember } from "../services/apiClient";
 import { Button, LoadingState } from "../components/ui";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
-import { Field, Notice, Page, Panel, fieldClass } from "./WorkspaceUI";
+import { Field, Notice, Page, Panel, WorkspaceTabs, fieldClass } from "./WorkspaceUI";
 
-export function WorkspaceTeamPage() {
+export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: boolean }) {
   const { organizationId, projectId, project } = useWorkspace();
   const [params, setParams] = useSearchParams();
-  const scope = params.get("scope") === "workspace";
+  const scope = workspaceOnly || params.get("scope") === "workspace";
   const cache = useQueryClient();
   const [inviting, setInviting] = useState(false);
   const [email, setEmail] = useState("");
@@ -19,6 +19,7 @@ export function WorkspaceTeamPage() {
   const [member, setMember] = useState("");
   const [link, setLink] = useState("");
   const [copied, setCopied] = useState(false);
+  const [removing, setRemoving] = useState<(WorkspaceMember & { assignment_id: string }) | null>(null);
   const team = useQuery({
     queryKey: ["workspace-team", organizationId],
     queryFn: () => apiClient.workspaceTeam(organizationId),
@@ -76,7 +77,10 @@ export function WorkspaceTeamPage() {
   });
   const remove = useMutation({
     mutationFn: (id: string) => apiClient.removeProjectMember(projectId, id),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      setRemoving(null);
+      await refresh();
+    },
   });
   const errors = [
     team.error,
@@ -90,8 +94,8 @@ export function WorkspaceTeamPage() {
   ].filter(Boolean);
   return (
     <Page
-      title="Team & invitations"
-      description="Manage organization access and assign colleagues to a workspace."
+      title={workspaceOnly ? `${project?.name ?? "Workspace"} — Team` : "Team & invitations"}
+      description={workspaceOnly ? "Manage the people assigned to this workspace." : "Manage organization access and assign colleagues to a workspace."}
       actions={
         <Button
           onClick={() => {
@@ -105,8 +109,9 @@ export function WorkspaceTeamPage() {
         </Button>
       }
     >
+      {workspaceOnly && <WorkspaceTabs />}
       <Panel>
-        <div className="flex gap-5 border-b border-[#e4ebed] px-5">
+        {!workspaceOnly && <div className="flex gap-5 border-b border-[#e4ebed] px-5">
           {[
             [false, "Organization team"],
             [true, "Workspace team"],
@@ -119,7 +124,7 @@ export function WorkspaceTeamPage() {
               {label}
             </button>
           ))}
-        </div>
+        </div>}
         <div className="flex items-start gap-3 p-4 text-xs leading-6 text-[#73868d]">
           <ShieldCheck className="shrink-0 text-[#168596]" size={18} />
           {scope
@@ -183,7 +188,10 @@ export function WorkspaceTeamPage() {
                   aria-label={`Remove ${item.email} from workspace`}
                   onClick={() => {
                     const row = assignments.data?.find((a) => a.id === item.id);
-                    if (row) remove.mutate(row.assignment_id);
+                    if (row) {
+                      remove.reset();
+                      setRemoving(row);
+                    }
                   }}
                   className="border-0 bg-transparent text-[#bb6370]"
                   disabled={remove.isPending}
@@ -293,6 +301,22 @@ export function WorkspaceTeamPage() {
             )}
           </Panel>
         </>
+      )}
+      {removing && (
+        <Dialog
+          title="Remove team member?"
+          compact
+          description={`Remove ${removing.full_name ?? removing.email} from ${project?.name ?? "this workspace"}? Their organization account will remain active.`}
+          error={remove.error?.message}
+          onClose={() => { if (!remove.isPending) setRemoving(null); }}
+        >
+          <div className="flex justify-end gap-3">
+            <Button disabled={remove.isPending} onClick={() => setRemoving(null)}>Cancel</Button>
+            <Button disabled={remove.isPending} onClick={() => remove.mutate(removing.assignment_id)}>
+              {remove.isPending ? "Removing…" : "Remove member"}
+            </Button>
+          </div>
+        </Dialog>
       )}
       {inviting && (
         <Dialog

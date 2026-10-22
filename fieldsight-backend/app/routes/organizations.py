@@ -435,6 +435,8 @@ def update_project(org_id: UUID, project_id: UUID, payload: ProjectUpdate, user:
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
     changes = payload.model_dump(exclude_unset=True)
+    if "workspace_details" in changes and changes["workspace_details"] is None:
+        raise HTTPException(status_code=422, detail="Workspace details cannot be null.")
     start_date = changes.get("start_date", project.start_date)
     end_date = changes.get("end_date", project.end_date)
     if start_date and end_date and end_date < start_date:

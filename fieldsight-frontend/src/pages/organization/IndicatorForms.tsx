@@ -61,12 +61,14 @@ export function FormField({
 }
 export function Dialog({
   title,
+  compact = false,
   description,
   error,
   onClose,
   children,
 }: {
   title: string;
+  compact?: boolean;
   description?: string;
   error?: string;
   onClose: () => void;
@@ -117,7 +119,9 @@ export function Dialog({
       aria-label={title}
       className="fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"
     >
-      <section className="max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+      <section
+        className={`max-h-[90vh] w-full ${compact ? "max-w-[520px]" : "max-w-[680px]"} overflow-y-auto rounded-lg bg-white p-6 shadow-xl`}
+      >
         <header className="mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4">
           <div>
             <h2 className="m-0 text-lg font-semibold text-[#24434c]">

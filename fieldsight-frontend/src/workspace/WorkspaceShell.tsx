@@ -16,7 +16,6 @@ import {
   Menu,
   Settings,
   ShieldCheck,
-  Target,
   Users,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -58,7 +57,6 @@ function Shell() {
             : "/projects",
           icon: ClipboardList,
         },
-        { name: "Indicators", path: "/indicators", icon: Target },
         { name: "Forms", path: "/forms", icon: FileText },
         { name: "Data tables", path: "/data-tables", icon: Database },
       ],
@@ -91,8 +89,8 @@ function Shell() {
   ];
   function active(path: string) {
     if (path === "/projects") return location.pathname === "/projects";
-    if (path === "/indicators")
-      return location.pathname.endsWith("/indicators");
+    if (workspace.projectId && path === `/projects/${workspace.projectId}`)
+      return location.pathname === path || location.pathname === `${path}/indicators` || location.pathname === `${path}/team`;
     return location.pathname === path;
   }
   return (
@@ -128,7 +126,9 @@ function Shell() {
               {section.items.map(({ name, path, icon: Icon }) => (
                 <NavLink
                   key={name}
-                  to={path}
+                  to={workspace.projectId && ["/forms", "/data-tables", "/analytics", "/dashboards"].includes(path)
+                    ? `${path}?project_id=${workspace.projectId}`
+                    : path}
                   onClick={() => setOpen(false)}
                   className={`my-0.5 flex items-center gap-2.5 rounded-md px-3 py-2 text-xs no-underline transition-colors hover:bg-[#0b51b7]/50 hover:text-white ${active(path) ? "bg-[#0b51b7]/50 font-semibold text-white" : "text-[#b5c7d5]"}`}
                 >
@@ -157,26 +157,7 @@ function Shell() {
           >
             <Menu size={20} />
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <FolderKanban size={15} className="shrink-0 text-[#8a9da6]" />
-            <label className="min-w-0">
-              <span className="sr-only">Current workspace</span>
-              <select
-                className="max-w-[360px] truncate border-0 bg-transparent text-xs font-medium outline-none max-sm:max-w-[150px]"
-                value={workspace.projectId}
-                onChange={(e) => workspace.selectProject(e.target.value)}
-              >
-                {!workspace.projects.length && (
-                  <option value="">Select a workspace</option>
-                )}
-                {workspace.projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <div className="flex-1" />
           <div className="relative">
             <button
               aria-label="Sync notifications"
