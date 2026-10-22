@@ -100,7 +100,7 @@ export function WorkspacesPage() {
       sites.set(row.location, (sites.get(row.location) ?? 0) + 1);
   }
   const addButtonClass =
-    "inline-flex items-center gap-2 rounded border-0 bg-[#6049c8] px-4 py-2 text-xs font-medium text-white hover:bg-[#513cb4]";
+    "inline-flex min-h-9 items-center justify-center gap-2 rounded border-0 bg-[#0b51b7] px-4 py-2 text-sm font-semibold text-white hover:bg-[#084394] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7]";
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -119,18 +119,18 @@ export function WorkspacesPage() {
           }}
         >
           <Plus size={14} />
-          Add new Project
+          Add new project
         </button>
       </header>
       <div className="flex items-center gap-2">
         <label className="relative w-full max-w-[420px]">
           <MapPin
             size={14}
-            className="pointer-events-none absolute left-3 top-2.5 text-[#7661cd]"
+            className="pointer-events-none absolute left-3 top-2.5 text-[#0b51b7]"
           />
           <span className="sr-only">Project</span>
           <select
-            className="w-full rounded border border-[#e4e5eb] bg-white py-2 pl-9 pr-3 text-xs text-[#46505b] outline-none focus:border-[#8a75da]"
+            className="h-9 w-full rounded border border-[#e4e5eb] bg-white pl-9 pr-3 text-sm text-[#46505b] outline-none focus:border-[#0b51b7]"
             value={
               filtered.some((p) => p.id === workspace.projectId)
                 ? workspace.projectId
@@ -155,7 +155,7 @@ export function WorkspacesPage() {
         <button
           aria-label="Filter projects"
           aria-expanded={showFilters}
-          className={`grid size-8 shrink-0 place-items-center rounded border border-[#e4e5eb] ${showFilters ? "bg-[#ede8fb]" : "bg-white"} text-[#7661cd]`}
+          className={`grid size-9 shrink-0 place-items-center rounded border border-[#e4e5eb] ${showFilters ? "bg-[#edf4ff]" : "bg-white"} text-[#0b51b7]`}
           onClick={() => setShowFilters(!showFilters)}
         >
           <Filter size={14} />
@@ -197,7 +197,7 @@ export function WorkspacesPage() {
             ))}
           </select>
           <button
-            className="border-0 bg-transparent text-xs text-[#7661cd]"
+            className="border-0 bg-transparent text-xs text-[#0b51b7]"
             onClick={() => {
               setSearch("");
               setStatus("");
@@ -224,7 +224,7 @@ export function WorkspacesPage() {
             aria-controls={`workspace-panel-${id}`}
             aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3 text-xs ${tab === id ? "border-[#7661cd] bg-white font-medium text-[#7661cd]" : "border-transparent bg-transparent text-[#92949f] hover:text-[#7661cd]"}`}
+            className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3 text-xs ${tab === id ? "border-[#0b51b7] bg-white font-medium text-[#0b51b7]" : "border-transparent bg-transparent text-[#73828b] hover:text-[#0b51b7]"}`}
           >
             <Icon size={14} />
             {label}
@@ -248,8 +248,8 @@ export function WorkspacesPage() {
           </Panel>
         ) : tab === "workspace" ? (
           <div className="overflow-x-auto border-y border-[#e8e8ee] bg-white">
-            <table className="w-full min-w-[970px] border-collapse text-left text-xs">
-              <thead className="bg-[#f6f6f8] text-[9px] uppercase tracking-wide text-[#a0a0a9]">
+            <table className="w-full min-w-[970px] border-collapse text-left text-sm">
+              <thead className="bg-[#f6f6f8] text-[12px] uppercase tracking-[.04em] text-[#73828b]">
                 <tr>
                   {[
                     { label: "Name", key: "name" },
@@ -274,7 +274,7 @@ export function WorkspacesPage() {
                     >
                       {column.key ? (
                         <button
-                          className="flex items-center gap-1 border-0 bg-transparent p-0 text-[9px] font-medium uppercase tracking-wide text-inherit"
+                          className="flex items-center gap-1 border-0 bg-transparent p-0 text-[12px] font-medium uppercase tracking-[.04em] text-inherit"
                           onClick={() =>
                             setSort((current) => ({
                               key: column.key as typeof sort.key,
@@ -335,33 +335,33 @@ export function WorkspacesPage() {
                           openWorkspace(project.id);
                         }
                       }}
-                      className="cursor-pointer border-t border-[#ececf1] outline-none hover:bg-[#faf9fe] focus-visible:bg-[#f2edff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8970d6]"
+                      className="cursor-pointer border-t border-[#ececf1] outline-none hover:bg-[#f5f9ff] focus-visible:bg-[#edf4ff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0b51b7]"
                     >
                       <td className="max-w-[310px] px-4 py-4">
                         <Link
                           onClick={() => workspace.selectProject(project.id)}
                           to={`/projects/${project.id}`}
-                          className="font-medium leading-5 text-[#7661cd] no-underline hover:underline"
+                          className="font-medium leading-5 text-[#0b51b7] no-underline hover:underline"
                         >
                           {project.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-4 text-[#676974]">
+                      <td className="px-4 py-4 text-[#49515c]">
                         <span title={`Project ID: ${project.id}`}>
                           {project.workspace_details?.code ||
                             project.id.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-[#676974]">
+                      <td className="px-4 py-4 text-[#49515c]">
                         {project.workspace_details?.stage || "Not set"}
                       </td>
-                      <td className="px-4 py-4 text-[#676974]">
+                      <td className="px-4 py-4 text-[#49515c]">
                         {project.workspace_details?.group || "Not set"}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-[#676974]">
+                      <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
                         {displayDate(project.start_date)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-[#676974]">
+                      <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
                         {displayDate(project.end_date)}
                       </td>
                       <td className="px-4 py-4">
@@ -406,7 +406,7 @@ export function WorkspacesPage() {
                         <button
                           aria-label={`Actions for ${project.name}`}
                           title="Update project"
-                          className="grid size-7 place-items-center border-0 bg-transparent text-[#7661cd] hover:bg-[#f1edfb]"
+                          className="grid size-7 place-items-center border-0 bg-transparent text-[#0b51b7] hover:bg-[#edf4ff]"
                           onClick={(event) => {
                             event.stopPropagation();
                             workspace.selectProject(project.id);
@@ -447,7 +447,7 @@ export function WorkspacesPage() {
               </div>
             ) : sites.size ? (
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#f8fafb] text-[10px] uppercase text-[#92949f]">
+                <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#92949f]">
                   <tr>
                     <th className="px-5 py-3 font-medium">Site / location</th>
                     <th className="px-5 py-3 font-medium">Stored responses</th>
@@ -479,7 +479,7 @@ export function WorkspacesPage() {
               Internal project members are managed separately in Team &
               invitations.
             </p>
-            <Link to="/team?scope=workspace" className="text-xs text-[#7661cd]">
+            <Link to="/team?scope=workspace" className="text-xs text-[#0b51b7]">
               View project team →
             </Link>
           </Panel>
@@ -487,7 +487,7 @@ export function WorkspacesPage() {
       </div>
       {(adding || actionProject) && (
         <Dialog
-          title={actionProject ? "Update Project" : "Add new Project"}
+          title={actionProject ? "Update Project" : "Add new project"}
           compact
           error={
             actionProject
@@ -550,7 +550,7 @@ export function WorkspacesPage() {
                 type="button"
                 disabled={saving}
                 onClick={closeForm}
-                className="rounded border border-[#8d7bd0] bg-white px-5 py-2 text-sm font-medium text-[#7661cd] disabled:opacity-50"
+                className="rounded border border-[#0b51b7] bg-white px-5 py-2 text-sm font-medium text-[#0b51b7] disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -561,7 +561,7 @@ export function WorkspacesPage() {
                   name.trim().length < 2 ||
                   (!actionProject && !sectors.data?.some((s) => s.is_active))
                 }
-                className="rounded border border-[#6049c8] bg-[#6049c8] px-6 py-2 text-sm font-medium text-white hover:bg-[#513cb4] disabled:opacity-50"
+                className="rounded border border-[#0b51b7] bg-[#0b51b7] px-6 py-2 text-sm font-medium text-white hover:bg-[#084394] disabled:opacity-50"
               >
                 {saving ? "Saving…" : actionProject ? "Save changes" : "Save"}
               </button>

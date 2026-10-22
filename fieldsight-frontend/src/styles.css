@@ -2,8 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    font-family: 'Inter', Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-size: 0.875rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input, select, textarea, button {
+    font-family: inherit;
+  }
+
+  th, td {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Third-party maps and chart tooltips use their own default font stacks. */
+.leaflet-container,
+.leaflet-popup-content,
+.leaflet-tooltip,
+.recharts-wrapper,
+.recharts-default-tooltip {
+  font-family: 'Inter', Arial, sans-serif;
+}
+
 button {
   border-radius: 6px !important;
+}
+
+button.fieldsight-avatar {
+  border-radius: 50% !important;
 }
 
 @media print {

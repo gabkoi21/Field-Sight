@@ -231,7 +231,7 @@ export function QuickStartPage() {
           </nav>
         </Panel>
         <Panel className="p-7 max-sm:p-5">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[#168596]">
+          <div className="flex items-center gap-2 text-[12px] uppercase tracking-widest text-[#168596]">
             <BookOpen size={15} />
             Getting started · {index + 1} of {chapters.length}
           </div>
@@ -286,7 +286,7 @@ export function QuickStartPage() {
             )}
           </div>
           <a
-            className="mt-8 inline-flex items-center gap-1 text-[10px] text-[#8d9ca3]"
+            className="mt-8 inline-flex items-center gap-1 text-[12px] text-[#8d9ca3]"
             href="https://www.toladata.com/docs/quick-start-guide/welcome-to-toladata/"
             target="_blank"
             rel="noreferrer"

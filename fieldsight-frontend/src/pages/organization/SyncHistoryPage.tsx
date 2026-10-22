@@ -80,7 +80,7 @@ export function SyncHistoryPage() {
           {failedRuns ? <AlertCircle size={20} /> : <Link2 size={20} />}
         </span>
         <div>
-          <strong className="text-[13px]">
+          <strong className="text-[14px]">
             {failedRuns ? `${failedRuns} synchronization run${failedRuns === 1 ? "" : "s"} failed` : "KoboToolbox synchronization healthy"}
           </strong>
           <p className="mt-1 text-xs text-[#667688]">

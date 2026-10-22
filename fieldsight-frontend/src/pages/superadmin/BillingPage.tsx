@@ -75,7 +75,7 @@ export function BillingPage() {
 
       <section className="mt-[18px] grid grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)] gap-[18px] max-[1000px]:grid-cols-1">
         <AdminPanel title="Revenue trend" description="Recurring revenue collected over six months">
-          <div className="flex h-[24px] justify-end gap-[14px] pt-[5px] text-[10px] text-[#788591]">
+          <div className="flex h-[24px] justify-end gap-[14px] pt-[5px] text-[12px] text-[#788591]">
             <span className="flex items-center gap-[5px]"><i className="size-[7px] rounded-full bg-[#0b51b7]" /> Collected revenue</span>
             <span className="flex items-center gap-[5px]"><i className="size-[7px] rounded-full bg-[#6d81f5]" /> Revenue target</span>
           </div>
@@ -84,8 +84,8 @@ export function BillingPage() {
               <AreaChart data={revenueTrend} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
                 <defs><linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0b51b7" stopOpacity=".22" /><stop offset="1" stopColor="#0b51b7" stopOpacity="0" /></linearGradient></defs>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#7d8996", fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 10 }} tickFormatter={(value) => `${value}k`} />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#7d8996", fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9aa4ae", fontSize: 12 }} tickFormatter={(value) => `${value}k`} />
                 <Tooltip formatter={(value: number) => [`${value}k`, ""]} contentStyle={{ border: "1px solid #e5e8ec", borderRadius: 6, fontSize: 12 }} />
                 <Area type="monotone" dataKey="revenue" name="Collected revenue" stroke="#0b51b7" strokeWidth={2.4} fill="url(#revenueFill)" />
                 <Area type="monotone" dataKey="target" name="Revenue target" stroke="#6d81f5" strokeWidth={2} fill="transparent" strokeDasharray="4 3" />
@@ -100,17 +100,17 @@ export function BillingPage() {
               <div className="mb-5 last:mb-0" key={plan.name}>
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <strong className="block text-[12px] text-[#324158]">{plan.name}</strong>
-                    <small className="text-[10px] text-[#8793a2]">{plan.organizations} organizations</small>
+                    <strong className="block text-[14px] text-[#324158]">{plan.name}</strong>
+                    <small className="text-[12px] text-[#8793a2]">{plan.organizations} organizations</small>
                   </div>
-                  <strong className="text-[12px] text-[#324158]">{plan.revenue}</strong>
+                  <strong className="text-[14px] text-[#324158]">{plan.revenue}</strong>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-[#edf1f6]">
                   <div className={`h-full rounded-full ${plan.color}`} style={{ width: `${plan.share}%` }} />
                 </div>
               </div>
             ))}
-            <div className="mt-5 rounded-[8px] bg-[#f5f8fc] p-3 text-[10px] leading-[1.6] text-[#657182]">
+            <div className="mt-5 rounded-[8px] bg-[#f5f8fc] p-3 text-[12px] leading-[1.6] text-[#657182]">
               Enterprise accounts represent half of recurring revenue and 25% of platform organizations.
             </div>
           </div>

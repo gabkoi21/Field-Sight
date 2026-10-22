@@ -1,22 +1,21 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
-import { Check, Copy, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Check, ChevronLeft, ChevronRight, Copy, Plus, ShieldCheck, Trash2, Users } from "lucide-react";
 import { apiClient, type WorkspaceMember } from "../services/apiClient";
 import { Button, LoadingState } from "../components/ui";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
 import { Field, Notice, Page, Panel, WorkspaceTabs, fieldClass } from "./WorkspaceUI";
 
-export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: boolean }) {
+export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: { workspaceOnly?: boolean; adminOnly?: boolean }) {
   const { organizationId, projectId, project } = useWorkspace();
   const [params, setParams] = useSearchParams();
-  const scope = workspaceOnly || params.get("scope") === "workspace";
+  const scope = !adminOnly && params.get("scope") === "workspace";
+  const memberRole = adminOnly ? "organization_admin" : "enumerator";
   const cache = useQueryClient();
   const [inviting, setInviting] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<WorkspaceMember["role"]>("enumerator");
-  const [member, setMember] = useState("");
   const [link, setLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [removing, setRemoving] = useState<(WorkspaceMember & { assignment_id: string }) | null>(null);
@@ -43,7 +42,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
     ]);
   }
   const invite = useMutation({
-    mutationFn: () => apiClient.inviteMember(organizationId, { email, role }),
+    mutationFn: () => apiClient.inviteMember(organizationId, { email, role: memberRole }),
     onSuccess: async (result) => {
       setLink(
         `${window.location.origin}/accept-invitation?token=${encodeURIComponent(result.token)}`,
@@ -64,13 +63,6 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
       apiClient.updateWorkspaceMember(organizationId, id, { role, is_active }),
     onSuccess: refresh,
   });
-  const assign = useMutation({
-    mutationFn: () => apiClient.addProjectMember(projectId, member),
-    onSuccess: async () => {
-      setMember("");
-      await refresh();
-    },
-  });
   const revoke = useMutation({
     mutationFn: (id: string) => apiClient.revokeInvitation(organizationId, id),
     onSuccess: refresh,
@@ -88,15 +80,17 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
     assignments.error,
     invite.error,
     update.error,
-    assign.error,
     revoke.error,
     remove.error,
   ].filter(Boolean);
   return (
     <Page
-      title={workspaceOnly ? `${project?.name ?? "Project"} — Team` : "Team & invitations"}
-      description={workspaceOnly ? "Manage the people assigned to this project." : "Manage organization access and assign colleagues to a project."}
+      breadcrumb={workspaceOnly ? project?.name ?? "Select a project" : "FieldSight / Project"}
+      title={adminOnly ? "Administrator accounts" : "Team & invitations"}
+      description={adminOnly ? "Manage organization administrators and their invitations." : "Manage field members and project team assignments."}
       actions={
+        <div className="flex flex-wrap items-center gap-3">
+        {!adminOnly && <Link className="text-sm text-[#0b51b7]" to={`/enumerators?project_id=${projectId}`}>Manage enumerators →</Link>}
         <Button
           onClick={() => {
             setInviting(true);
@@ -105,84 +99,52 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
           }}
         >
           <Plus size={15} />
-          Invite member
+          {adminOnly ? "Invite administrator" : "Invite enumerator"}
         </Button>
+        </div>
       }
     >
       {workspaceOnly && <WorkspaceTabs />}
-      <Panel>
-        {!workspaceOnly && <div className="flex gap-5 border-b border-[#e4ebed] px-5">
+      {adminOnly && <Link to="/settings" className="text-sm text-[#0b51b7]">← Back to organization settings</Link>}
+      {!adminOnly && <Panel>
+        <div aria-label="Team views" className="flex flex-wrap items-center gap-2 border-b border-[#e1e7eb] px-4 pt-2">
           {[
-            [false, "Organization team"],
+            [false, "Field team"],
             [true, "Project team"],
           ].map(([value, label]) => (
             <button
               key={String(label)}
-              className={`border-0 border-b-2 bg-transparent py-3 text-xs ${scope === value ? "border-[#168596] font-semibold text-[#168596]" : "border-transparent text-[#73868d]"}`}
-              onClick={() => setParams(value ? { scope: "workspace" } : {})}
+              aria-pressed={scope === value}
+              className={`min-h-11 border-0 border-b-2 bg-transparent px-4 py-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#0b51b7] ${scope === value ? "border-[#0b51b7] font-semibold text-[#0b51b7]" : "border-transparent text-[#607882] hover:bg-[#f5f9ff] hover:text-[#0b51b7]"}`}
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                if (value) next.set("scope", "workspace");
+                else next.delete("scope");
+                setParams(next);
+              }}
             >
               {label}
             </button>
           ))}
-        </div>}
-        <div className="flex items-start gap-3 p-4 text-xs leading-6 text-[#73868d]">
-          <ShieldCheck className="shrink-0 text-[#168596]" size={18} />
-          {scope
-            ? `Project: ${project?.name ?? "Select a project"}. Organization administrators already have access. Field members use collection assignments; administrative analytics remain administrator-only.`
-            : "Organization administrators manage every project in this portal. Field members collect through KoboToolbox and do not sign in to the FieldSight portal."}
         </div>
-      </Panel>
+        {!scope && <div className="flex items-start gap-3 p-4 text-xs leading-6 text-[#73868d]">
+          <ShieldCheck className="shrink-0 text-[#168596]" size={18} />
+          Field team lists your organization’s enumerators. Project team shows the members assigned to this project.
+        </div>}
+      </Panel>}
       {errors.map((error, i) => (
         <Notice error key={i}>
           {error?.message}
         </Notice>
       ))}
-      {team.isLoading ? (
+      {team.isLoading || (scope && assignments.isLoading) ? (
         <LoadingState />
       ) : scope ? (
         <>
-          {projectId && (
-            <Panel className="p-5">
-              <form
-                className="flex flex-wrap items-end gap-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  assign.mutate();
-                }}
-              >
-                <div className="min-w-[240px] flex-1">
-                  <Field label="Add existing team member">
-                    <select
-                      className={fieldClass}
-                      value={member}
-                      onChange={(e) => setMember(e.target.value)}
-                      required
-                    >
-                      <option value="">Choose an active field member</option>
-                      {team.data
-                        ?.filter(
-                          (m) =>
-                            m.role === "enumerator" &&
-                            m.is_active &&
-                            !assignments.data?.some((a) => a.id === m.id),
-                        )
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.full_name ?? m.email}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
-                </div>
-                <Button type="submit" disabled={!member || assign.isPending}>
-                  Add to project
-                </Button>
-              </form>
-            </Panel>
-          )}
           <Panel>
             <TeamTable
-              members={assignments.data ?? []}
+              key={`project-${projectId}`}
+              members={(assignments.data ?? []).filter((item) => item.role === "enumerator")}
               action={(item) => (
                 <button
                   aria-label={`Remove ${item.email} from project`}
@@ -201,7 +163,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
               )}
             />
             {!assignments.data?.length && (
-              <Empty message="No field members assigned. Invite a colleague, then add their accepted account here." />
+              <Empty message="No field members are assigned to this project yet." />
             )}
           </Panel>
         </>
@@ -209,27 +171,12 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
         <>
           <Panel>
             <TeamTable
-              members={team.data ?? []}
+              key={`organization-${organizationId}`}
+              members={(team.data ?? []).filter((item) => item.role === memberRole)}
               action={(item) => (
                 <div className="flex items-center gap-3">
-                  <select
-                    aria-label={`Role for ${item.email}`}
-                    value={item.role}
-                    className="rounded border border-[#e1e7eb] bg-white px-2 py-1 text-xs"
-                    disabled={update.isPending}
-                    onChange={(e) =>
-                      update.mutate({
-                        id: item.id,
-                        role: e.target.value as WorkspaceMember["role"],
-                        is_active: item.is_active,
-                      })
-                    }
-                  >
-                    <option value="organization_admin">
-                      Organization administrator
-                    </option>
-                    <option value="enumerator">Field team member</option>
-                  </select>
+                  <span className="text-sm text-[#607882]">{adminOnly ? "Administrator" : "Enumerator"}</span>
+
                   <button
                     disabled={update.isPending}
                     onClick={() => {
@@ -256,10 +203,10 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
             <h2 className="m-0 border-b border-[#e4ebed] px-5 py-4 text-sm font-semibold">
               Invitations
             </h2>
-            {invitations.data?.length ? (
+            {invitations.data?.some((item) => item.role === memberRole) ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#f8fafb] text-[10px] uppercase text-[#87969d]">
+                  <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
                     <tr>
                       {["Email", "Role", "Status", "Expires", ""].map((h) => (
                         <th key={h} className="px-5 py-3 font-medium">
@@ -269,7 +216,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
                     </tr>
                   </thead>
                   <tbody>
-                    {invitations.data.map((item) => (
+                    {invitations.data.filter((item) => item.role === memberRole).map((item) => (
                       <tr key={item.id} className="border-t border-[#edf0f2]">
                         <td className="px-5 py-4">{item.email}</td>
                         <td>
@@ -370,19 +317,8 @@ export function WorkspaceTeamPage({ workspaceOnly = false }: { workspaceOnly?: b
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </Field>
-              <Field label="Organization role">
-                <select
-                  className={fieldClass}
-                  value={role}
-                  onChange={(e) =>
-                    setRole(e.target.value as WorkspaceMember["role"])
-                  }
-                >
-                  <option value="enumerator">Field team member</option>
-                  <option value="organization_admin">
-                    Organization administrator
-                  </option>
-                </select>
+              <Field label="Role">
+                <input className={fieldClass} readOnly value={adminOnly ? "Organization administrator" : "Enumerator"} />
               </Field>
               <Button type="submit" disabled={invite.isPending}>
                 {invite.isPending ? "Creating…" : "Create invitation"}
@@ -401,38 +337,61 @@ function TeamTable({
   members: WorkspaceMember[];
   action: (item: WorkspaceMember) => React.ReactNode;
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const pageCount = Math.max(1, Math.ceil(members.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * pageSize;
+  const visibleMembers = members.slice(start, start + pageSize);
   return (
+    <>
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[660px] text-left text-xs">
-        <thead className="bg-[#f8fafb] text-[10px] uppercase tracking-wide text-[#87969d]">
+      <table className="w-full min-w-[760px] border-collapse whitespace-nowrap text-left text-sm">
+        <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-[.04em] text-[#73828b]">
           <tr>
             {["Member", "Email", "Status", "Access"].map((h) => (
-              <th key={h} className="px-5 py-3 font-medium">
+              <th key={h} scope="col" className="px-4 py-3 font-medium">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {members.map((item) => (
-            <tr key={item.id} className="border-t border-[#edf0f2]">
-              <td className="px-5 py-4 font-medium">
+          {visibleMembers.map((item) => (
+            <tr key={item.id} className="border-t border-[#edf0f2] hover:bg-[#fafcfc]">
+              <td className="px-4 py-3 font-medium">
                 {item.full_name ?? "Team member"}
               </td>
-              <td className="px-5">{item.email}</td>
-              <td className="px-5">
+              <td className="px-4 py-3">{item.email}</td>
+              <td className="px-4 py-3">
                 <span
-                  className={`rounded px-2 py-1 text-[10px] ${item.is_active ? "bg-[#eaf7ef] text-[#388567]" : "bg-[#f5edef] text-[#ac6671]"}`}
+                  className={`rounded px-2 py-1 text-[12px] ${item.is_active ? "bg-[#eaf7ef] text-[#388567]" : "bg-[#f5edef] text-[#ac6671]"}`}
                 >
                   {item.is_active ? "Active" : "Inactive"}
                 </span>
               </td>
-              <td className="px-5">{action(item)}</td>
+              <td className="px-4 py-3">{action(item)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e1e7eb] px-5 py-3 text-xs text-[#73828b]">
+      <span aria-live="polite">{members.length ? start + 1 : 0}–{Math.min(start + pageSize, members.length)} of {members.length} members</span>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2">Rows per page
+          <select className="rounded border border-[#dce4e8] bg-white px-2 py-1 text-[#24434c]" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+            {[10,25,50].map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
+        </label>
+        <nav aria-label="Team pagination" className="flex items-center gap-2">
+          <Button variant="secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={13} />Previous</Button>
+          <span>Page {currentPage} of {pageCount}</span>
+          <Button variant="secondary" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>Next<ChevronRight size={13} /></Button>
+        </nav>
+      </div>
+    </footer>
+    </>
   );
 }
 function Empty({ message }: { message: string }) {

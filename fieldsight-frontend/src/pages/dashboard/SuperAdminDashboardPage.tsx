@@ -96,9 +96,9 @@ export function SuperAdminDashboardPage() {
     <div className="flex flex-col gap-5 text-[#24334a]">
       <header className="flex items-end justify-between gap-4 max-[700px]:flex-col max-[700px]:items-start">
         <div>
-          <p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.12em] text-brand">Platform operations</p>
+          <p className="mb-1 mt-0 text-[12px] font-bold uppercase tracking-[.12em] text-brand">Platform operations</p>
           <h1 className="m-0 text-[2rem] font-bold tracking-[-.05em]">Platform overview</h1>
-          <p className="mb-0 mt-1.5 text-[0.8125rem] text-[#718096]">
+          <p className="mb-0 mt-1.5 text-[0.875rem] text-[#718096]">
             Tenant access, account coverage, and service health from live FieldSight records.
           </p>
         </div>
@@ -122,7 +122,7 @@ export function SuperAdminDashboardPage() {
           <strong className="block text-xs">
             {platformHealthy ? "All monitored services are operational" : "Service status is unavailable"}
           </strong>
-          <p className="mb-0 mt-1 text-[11px] text-[#718096]">
+          <p className="mb-0 mt-1 text-[12px] text-[#718096]">
             {statusQuery.data
               ? `${statusQuery.data.service} ${statusQuery.data.api_version} · ${statusQuery.data.environment}`
               : "Waiting for the platform status endpoint."}
@@ -159,8 +159,8 @@ export function SuperAdminDashboardPage() {
             <ResponsiveContainer>
               <BarChart data={accountRoles} layout="vertical" margin={{ left: 30, right: 20 }}>
                 <CartesianGrid horizontal={false} stroke="#edf1f5" />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
-                <YAxis type="category" dataKey="name" width={125} tick={{ fontSize: 10 }} />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                <YAxis type="category" dataKey="name" width={125} tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#0b51b7" radius={[0, 5, 5, 0]} barSize={18} />
               </BarChart>
@@ -262,7 +262,7 @@ export function SuperAdminDashboardPage() {
                 </span>
                 <span className="flex-1">
                   <strong className="block text-xs">{item.title}</strong>
-                  <small className="mt-1 block text-[10px] leading-4 text-[#7b899c]">{item.detail}</small>
+                  <small className="mt-1 block text-[12px] leading-4 text-[#7b899c]">{item.detail}</small>
                 </span>
                 <ArrowRight className="mt-1 text-[#9aa7b8]" size={14} />
               </button>
@@ -271,7 +271,7 @@ export function SuperAdminDashboardPage() {
               <div className="rounded-lg bg-[#f4f8fd] p-4 text-center">
                 <CheckCircle2 className="mx-auto text-brand" size={20} />
                 <strong className="mt-2 block text-xs">No platform exceptions</strong>
-                <p className="mb-0 mt-1 text-[10px] text-[#7b899c]">
+                <p className="mb-0 mt-1 text-[12px] text-[#7b899c]">
                   Organizations, users, and monitored services are available.
                 </p>
               </div>

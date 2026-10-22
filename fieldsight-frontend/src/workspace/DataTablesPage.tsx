@@ -21,11 +21,12 @@ import {
   Page,
   Panel,
   WorkspaceGate,
+  WorkspaceTabs,
   fieldClass,
 } from "./WorkspaceUI";
 
 export function DataTablesPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const { projectId, project, selectProject } = useWorkspace();
   const cache = useQueryClient();
   const [selection, setSelection] = useState<{
@@ -42,6 +43,14 @@ export function DataTablesPage() {
   const [locationColumn, setLocation] = useState("");
   const [message, setMessage] = useState("");
   const [fileError, setFileError] = useState("");
+  function closeImport() {
+    setImporting(false);
+    if (params.has("import")) {
+      const next = new URLSearchParams(params);
+      next.delete("import");
+      setParams(next, { replace: true });
+    }
+  }
   const tables = useQuery({
     queryKey: ["workspace-tables", projectId],
     queryFn: () => apiClient.tables(projectId),
@@ -67,7 +76,7 @@ export function DataTablesPage() {
         cache.invalidateQueries({ queryKey: ["survey-fields"] }),
         cache.invalidateQueries({ queryKey: ["quality"] }),
       ]);
-      setImporting(false);
+      closeImport();
       setSelection({ project: projectId, id: result.form_id });
       setOffset(0);
       setMessage(
@@ -123,6 +132,7 @@ export function DataTablesPage() {
       }
     >
       <WorkspaceGate>
+        <WorkspaceTabs />
         <Panel className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <span className="text-sm font-medium">{project?.name}</span>
           <Link className="text-xs text-[#168596]" to="/forms/connections">
@@ -175,7 +185,7 @@ export function DataTablesPage() {
                 <>
                   <div className="max-h-[520px] overflow-auto">
                     <table className="w-full border-collapse whitespace-nowrap text-left text-xs">
-                      <thead className="sticky top-0 bg-[#f8fafb] text-[10px] uppercase text-[#87969d]">
+                      <thead className="sticky top-0 bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
                         <tr>
                           <th className="px-4 py-3 font-medium">
                             Review status
@@ -198,7 +208,7 @@ export function DataTablesPage() {
                           >
                             <td className="px-4 py-3">
                               <span
-                                className={`rounded px-2 py-1 text-[10px] ${row.review_status === "ready" ? "bg-[#ecf7f0] text-[#388567]" : "bg-[#fff7e8] text-[#a6803f]"}`}
+                                className={`rounded px-2 py-1 text-[12px] ${row.review_status === "ready" ? "bg-[#ecf7f0] text-[#388567]" : "bg-[#fff7e8] text-[#a6803f]"}`}
                               >
                                 {row.review_status.replaceAll("_", " ")}
                               </span>
@@ -219,7 +229,7 @@ export function DataTablesPage() {
                   </div>
                   <footer className="flex items-center justify-between border-t border-[#e1e7eb] px-5 py-3 text-xs text-[#87969d]">
                     <span>
-                      {offset + 1}–{Math.min(offset + 50, rows.data.total)} of{" "}
+                      {rows.data.total ? offset + 1 : 0}–{Math.min(offset + 50, rows.data.total)} of{" "}
                       {rows.data.total}
                     </span>
                     <div className="flex gap-2">
@@ -253,7 +263,7 @@ export function DataTablesPage() {
                   <span className="grid size-10 place-items-center rounded-lg bg-[#edf6f7] text-[#168596]">
                     <Database size={19} />
                   </span>
-                  <span className="rounded bg-[#f4f7f8] px-2 py-1 text-[10px] text-[#87969d]">
+                  <span className="rounded bg-[#f4f7f8] px-2 py-1 text-[12px] text-[#87969d]">
                     {table.source}
                   </span>
                 </div>
@@ -297,7 +307,7 @@ export function DataTablesPage() {
           title="Import a data table"
           description={`Project: ${project?.name ?? "Select a project"}`}
           error={importer.error?.message || fileError}
-          onClose={() => setImporting(false)}
+          onClose={closeImport}
         >
           {source === "choose" ? (
             <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
@@ -355,7 +365,7 @@ export function DataTablesPage() {
                   <p className="text-xs text-[#73868d]">
                     File preview · first lines
                   </p>
-                  <pre className="max-h-40 overflow-auto rounded-md bg-[#f5f8f9] p-3 text-[11px] leading-5">
+                  <pre className="max-h-40 overflow-auto rounded-md bg-[#f5f8f9] p-3 text-[12px] leading-5">
                     {csvText.split(/\r?\n/).slice(0, 6).join("\n")}
                   </pre>
                 </div>

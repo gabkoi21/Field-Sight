@@ -186,7 +186,7 @@ export function UsersPage() {
           <label className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[5px] border border-[#dce5ef] bg-white px-[9px] text-[#8492a4]">
             <Search size={15} />
             <input
-              className="w-full border-0 bg-transparent py-[8px] font-sans text-[12px] text-[#4e5e74] outline-none"
+              className="w-full border-0 bg-transparent py-[8px] font-sans text-[14px] text-[#4e5e74] outline-none"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search users, email, organization, or role…"
@@ -194,7 +194,7 @@ export function UsersPage() {
           </label>
           <label className="relative flex min-h-[38px] min-w-[185px] items-center rounded-[5px] border border-[#dce5ef] bg-white px-[9px]">
             <select
-              className="w-full appearance-none border-0 bg-transparent py-[8px] pr-5 font-sans text-[11px] text-[#69798e] outline-none"
+              className="w-full appearance-none border-0 bg-transparent py-[8px] pr-5 font-sans text-[12px] text-[#69798e] outline-none"
               value={role}
               onChange={(event) => setRole(event.target.value as RoleFilter)}
             >
@@ -235,7 +235,7 @@ export function UsersPage() {
                 <tr key={user.id} className="hover:bg-[#fbfcfe]">
                   <td>
                     <div className="flex items-center gap-2.5">
-                      <span className="grid size-8 place-items-center rounded-[7px] bg-[#f0edff] text-[10px] font-bold text-[#6d5bd0]">
+                      <span className="grid size-8 place-items-center rounded-[7px] bg-[#f0edff] text-[12px] font-bold text-[#6d5bd0]">
                         {user.initials}
                       </span>
                       <div>

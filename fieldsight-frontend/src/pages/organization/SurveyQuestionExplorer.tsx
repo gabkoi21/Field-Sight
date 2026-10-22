@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
+import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import {
   apiClient,
   type AnalysisQuery,
@@ -245,13 +246,13 @@ export function SurveyQuestionExplorer() {
     <div className="space-y-5 text-[#213e47]">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.16em] text-[#0c8593]">
+          <p className="mb-1 mt-0 text-[12px] font-bold uppercase tracking-[.16em] text-[#0c8593]">
             FieldSight / Evidence project
           </p>
           <h1 className="m-0 text-[28px] font-semibold tracking-tight">
             Explore & analyze
           </h1>
-          <p className="mb-0 mt-1 text-[13px] text-[#73868d]">
+          <p className="mb-0 mt-1 text-[14px] text-[#73868d]">
             Ask a question of your field data. See the evidence behind every
             result.
           </p>
@@ -286,6 +287,7 @@ export function SurveyQuestionExplorer() {
           </Button>
         </div>
       </header>
+      {workspace.projectId && <WorkspaceTabs />}
       {!org ? (
         <Panel>
           <div className="p-12 text-center">
@@ -508,7 +510,7 @@ export function SurveyQuestionExplorer() {
                             <span className="block text-xs font-medium leading-5">
                               {item.label}
                             </span>
-                            <small className="mt-1 block text-[10px] uppercase tracking-wide opacity-65">
+                            <small className="mt-1 block text-[12px] uppercase tracking-wide opacity-65">
                               {item.type.replaceAll("_", " ")}
                               {!item.supported ? " · unavailable" : ""}
                             </small>
@@ -529,7 +531,7 @@ export function SurveyQuestionExplorer() {
                           <h2 className="m-0 text-sm font-semibold">
                             {field?.label ?? "Choose a question"}
                           </h2>
-                          <p className="mb-0 mt-1 text-[11px] text-[#73868d]">
+                          <p className="mb-0 mt-1 text-[12px] text-[#73868d]">
                             {field?.source_field ?? ""}
                           </p>
                         </div>
@@ -738,7 +740,7 @@ export function SurveyQuestionExplorer() {
                           ].map(([label, value]) => (
                             <Panel key={label}>
                               <div className="p-4">
-                                <small className="text-[10px] uppercase tracking-wide text-[#73868d]">
+                                <small className="text-[12px] uppercase tracking-wide text-[#73868d]">
                                   {label}
                                 </small>
                                 <strong className="mt-2 block text-2xl font-semibold">
@@ -756,7 +758,7 @@ export function SurveyQuestionExplorer() {
                                   ? `${result.measure}: ${format(result.value)}`
                                   : "Response distribution"}
                               </h3>
-                              <small className="text-[11px] text-[#73868d]">
+                              <small className="text-[12px] text-[#73868d]">
                                 {result.total_records.toLocaleString()} source
                                 records · Review status:{" "}
                                 {filters.review_status.replaceAll("_", " ")}
@@ -772,7 +774,7 @@ export function SurveyQuestionExplorer() {
                                   key={type}
                                   aria-pressed={chart === type}
                                   onClick={() => setChart(type)}
-                                  className={`border px-2 py-1.5 text-[11px] capitalize ${chart === type ? "border-[#0c8593] bg-[#e8f5f3] text-[#08717c]" : "border-[#e0e8eb] bg-white text-[#73868d]"}`}
+                                  className={`border px-2 py-1.5 text-[12px] capitalize ${chart === type ? "border-[#0c8593] bg-[#e8f5f3] text-[#08717c]" : "border-[#e0e8eb] bg-white text-[#73868d]"}`}
                                 >
                                   {type}
                                 </button>
@@ -801,7 +803,7 @@ export function SurveyQuestionExplorer() {
                               <ResultChart result={result} chart={chart} />
                             </div>
                           )}
-                          <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-3 text-[11px] leading-5 text-[#73868d]">
+                          <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-3 text-[12px] leading-5 text-[#73868d]">
                             <strong className="text-[#3d5962]">
                               Denominator: {result.denominator.toLocaleString()}{" "}
                               answered submissions.
@@ -900,7 +902,7 @@ function Panel({ children }: { children: ReactNode }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block min-w-0 flex-1">
-      <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-wide text-[#73868d]">
+      <span className="mb-1.5 block text-[12px] font-medium uppercase tracking-wide text-[#73868d]">
         {label}
       </span>
       {children}
@@ -927,7 +929,7 @@ function ResultsTable({ result }: { result: AnalysisResult }) {
   return (
     <div className="max-h-[420px] overflow-auto">
       <table className="w-full min-w-[480px] border-collapse text-left text-xs">
-        <thead className="sticky top-0 bg-[#f8fbfb] text-[10px] uppercase tracking-wide text-[#73868d]">
+        <thead className="sticky top-0 bg-[#f8fbfb] text-[12px] uppercase tracking-wide text-[#73868d]">
           <tr>
             {[
               "Response / period",
@@ -1005,8 +1007,8 @@ function ResultChart({
       ) : chart === "line" ? (
         <LineChart data={data} margin={{ left: 5, right: 20, bottom: 25 }}>
           <CartesianGrid vertical={false} stroke="#e9eff0" />
-          <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} />
+          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+          <YAxis tick={{ fontSize: 12 }} />
           <Tooltip />
           <Line
             isAnimationActive={false}
@@ -1020,8 +1022,8 @@ function ResultChart({
       ) : (
         <BarChart data={data} margin={{ left: 5, right: 20, bottom: 35 }}>
           <CartesianGrid vertical={false} stroke="#e9eff0" />
-          <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} />
+          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+          <YAxis tick={{ fontSize: 12 }} />
           <Tooltip />
           <Bar
             isAnimationActive={false}

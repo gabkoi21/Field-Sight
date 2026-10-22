@@ -73,7 +73,7 @@ export function LoginPage() {
           <span className="leading-none">FieldSight</span>
         </NavLink>
 
-        <p className="mb-1.5 text-[10px] font-bold uppercase leading-[1.4] tracking-[.08em] text-brand">
+        <p className="mb-1.5 text-[12px] font-bold uppercase leading-[1.4] tracking-[.08em] text-brand">
           WELCOME BACK
         </p>
 
@@ -81,7 +81,7 @@ export function LoginPage() {
           Sign in to your project
         </h1>
 
-        <p className="mt-[7px] max-w-[680px] text-[0.8125rem] leading-[1.55] text-[#758092]">
+        <p className="mt-[7px] max-w-[680px] text-[0.875rem] leading-[1.55] text-[#758092]">
           Manage trusted data from collection through reporting.
         </p>
 
@@ -112,7 +112,7 @@ export function LoginPage() {
 
         {error && (
           <p
-            className="mt-[14px] text-[13px] font-medium text-[#b42318]"
+            className="mt-[14px] text-[14px] font-medium text-[#b42318]"
             role="alert"
           >
             {error}
@@ -170,7 +170,7 @@ export function LoginPage() {
           </p>
         </div>
 
-        <small className="text-[10px] tracking-[1.1px] text-[#8aa9ba]">
+        <small className="text-[12px] tracking-[1.1px] text-[#8aa9ba]">
           FIELDSIGHT · DATA OPERATIONS
         </small>
       </div>

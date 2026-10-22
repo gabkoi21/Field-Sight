@@ -91,9 +91,10 @@ export function App() {
         <Route path="quality" element={<QualityCenterPage />} />
         <Route path="analytics" element={<SurveyQuestionExplorer />} />
         <Route path="reports" element={<ReportsPage />} />
-        <Route path="projects/:projectId/team" element={<WorkspaceTeamPage workspaceOnly />} />
-        <Route path="team" element={<WorkspaceTeamPage />} />
+        <Route path="projects/:projectId/team" element={<FieldOperationsPage projectEmbedded />} />
+        <Route path="team" element={<FieldOperationsPage />} />
         <Route path="settings" element={<OrganizationSettingsPage />} />
+        <Route path="settings/admins" element={<WorkspaceTeamPage adminOnly />} />
         <Route path="guide" element={<QuickStartPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="forms" element={<WorkspaceFormsPage />} />

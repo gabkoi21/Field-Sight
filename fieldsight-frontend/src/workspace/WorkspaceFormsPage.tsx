@@ -37,7 +37,7 @@ export function WorkspaceFormsPage() {
         <ArrowLeft size={15} /> Back to project
       </Link>
     <Page breadcrumb={project?.name ?? "Select a project"} title="Forms" description="Manage the questionnaires used to collect data for this project."
-      actions={<div className="flex items-center gap-4"><Link className="text-sm text-[#168596]" to="/forms/connections">Manage Kobo connections →</Link><Button disabled={!project} onClick={() => setAdding(true)}><Plus size={14} />Add form</Button></div>}>
+      actions={<div className="flex flex-wrap items-center gap-4"><Link className="text-sm text-[#168596]" to="/forms/connections">Manage Kobo connections →</Link><Button disabled={!project} onClick={() => setAdding(true)}><Plus size={14} />Add form</Button></div>}>
       <WorkspaceGate>
         <WorkspaceTabs />
         <Panel className="p-5">
@@ -56,7 +56,7 @@ export function WorkspaceFormsPage() {
               ) : <p className="text-sm text-[#73868d]">Assign a Kobo questionnaire to start collecting data for this project.</p>}
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button variant="secondary" onClick={() => setAssigning(true)}>{project?.kobo_form_id ? "Change assigned form" : "Assign Kobo form"}</Button>
-                <Button disabled={!project?.kobo_connection_id || !project?.kobo_form_id || sync.isPending}
+                <Button title={!project?.kobo_connection_id ? "Assign a form from a live Kobo connection to enable sync." : undefined} disabled={!project?.kobo_connection_id || !project?.kobo_form_id || sync.isPending}
                   onClick={() => sync.mutate(projectId)}><RefreshCw size={14} />{sync.isPending && syncHere ? "Syncing…" : "Sync form"}</Button>
               </div>
             </div>

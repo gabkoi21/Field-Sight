@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -9,6 +9,7 @@ type WorkspaceState = {
   projects: ApiProject[];
   projectId: string;
   project: ApiProject | undefined;
+  hasSelectedProject: boolean;
   selectProject: (id: string) => void;
   loading: boolean;
   error: Error | null;
@@ -30,8 +31,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     enabled: Boolean(organizationId),
   });
   const projects = query.data ?? [];
+  useEffect(() => {
+    if (location.pathname === "/projects" || location.pathname === "/workspaces") {
+      setSelected("");
+    }
+  }, [location.pathname]);
   const routeId = location.pathname.match(/^\/projects\/([^/]+)/)?.[1];
   const queryId = new URLSearchParams(location.search).get("project_id");
+  const explicitId = routeId ?? queryId ?? selected;
+  const hasSelectedProject = projects.some((p) => p.id === explicitId);
+  useEffect(() => {
+    const id = routeId ?? queryId;
+    if (id && projects.some((p) => p.id === id)) setSelected(id);
+  }, [routeId, queryId, query.data]);
   const projectId =
     routeId ??
     (projects.some((p) => p.id === queryId)
@@ -56,6 +68,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         projects,
         projectId,
         project: projects.find((p) => p.id === projectId),
+        hasSelectedProject,
         selectProject,
         loading: query.isLoading,
         error: query.error,

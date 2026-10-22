@@ -13,8 +13,12 @@ export default {
         line: '#eceff5',
       },
       fontFamily: {
-        sans: ['Roboto', 'Arial', 'sans-serif'],
-        display: ['Roboto', 'Arial', 'sans-serif'],
+        sans: ['Inter', 'Arial', 'sans-serif'],
+        display: ['Inter', 'Arial', 'sans-serif'],
+      },
+      fontSize: {
+        xs: ['0.875rem', { lineHeight: '1.375rem' }],
+        sm: ['0.875rem', { lineHeight: '1.375rem' }],
       },
       transitionTimingFunction: {
         snappy: 'cubic-bezier(.22,1,.36,1)',

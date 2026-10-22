@@ -107,7 +107,7 @@ export function AssignFormModal({
         <div className="p-5">
           {/* Connection picker — only shown when there are multiple connections */}
           {connectionsQuery.isLoading ? (
-            <div className="flex items-center gap-2 py-4 text-[13px] text-[#708090]">
+            <div className="flex items-center gap-2 py-4 text-[14px] text-[#708090]">
               <Ring className="size-3.5 text-brand" /> Loading…
             </div>
           ) : connections.length === 0 ? (
@@ -122,7 +122,7 @@ export function AssignFormModal({
                   key={c.id}
                   type="button"
                   onClick={() => setSelectedConnectionId(c.id)}
-                  className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
+                  className={`rounded-full border px-3.5 py-1.5 text-[14px] font-semibold transition-colors ${
                     effectiveConnectionId === c.id
                       ? "border-brand bg-brand text-white"
                       : "border-[#dfe4e8] bg-white text-[#526177] hover:border-brand hover:text-brand"
@@ -326,7 +326,7 @@ function CreateProjectModal({
         {/* Body */}
         <div className="flex flex-col gap-4 p-6 max-h-[calc(100vh-210px)] overflow-y-auto">
           {/* Project Name */}
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+          <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
             Project name <span className="text-red-500">*</span>
             <input
               type="text"
@@ -339,7 +339,7 @@ function CreateProjectModal({
           </label>
 
           {/* Sector */}
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+          <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
             Sector <span className="text-red-500">*</span>
             <div className="relative">
               <select
@@ -371,7 +371,7 @@ function CreateProjectModal({
           </label>
 
           {/* Description */}
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+          <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
             Description
             <textarea
               rows={3}
@@ -384,7 +384,7 @@ function CreateProjectModal({
 
           {/* Start Date & End Date */}
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+            <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
               Start date
               <input
                 type="date"
@@ -393,7 +393,7 @@ function CreateProjectModal({
                 className={fieldClass}
               />
             </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+            <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
               End date
               <input
                 type="date"
@@ -406,7 +406,7 @@ function CreateProjectModal({
 
           {/* Priority & Status */}
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+            <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
               Priority
               <div className="relative">
                 <select
@@ -424,7 +424,7 @@ function CreateProjectModal({
                 />
               </div>
             </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-[#475569]">
+            <label className="flex flex-col gap-1.5 text-[14px] font-semibold text-[#475569]">
               Status
               <div className="relative">
                 <select
@@ -550,7 +550,7 @@ export function ProjectsPage() {
     <div className="flex flex-col gap-[18px]">
       <header className="mb-[2px] flex items-end justify-between gap-4 max-[700px]:flex-col max-[700px]:items-start">
         <div>
-          <p className="!mb-[5px] !mt-0 !text-[12px] !font-bold !tracking-[.08em] !text-[#0b51b7]">
+          <p className="!mb-[5px] !mt-0 !text-[14px] !font-bold !tracking-[.08em] !text-[#0b51b7]">
             PROGRAM OPERATIONS
           </p>
           <h1 className="!m-0 !font-sans !text-[30px] !font-bold !leading-[1.25] !tracking-[-.45px] !text-[#1d2a38]">
@@ -619,7 +619,7 @@ export function ProjectsPage() {
                   <h2 className="m-0 truncate text-[17px] font-semibold text-[#1e293b]">
                     {project.name}
                   </h2>
-                  <span className="mt-1 inline-flex rounded-full bg-[#e8f6f4] px-2.5 py-[3px] text-[12px] font-semibold text-[#0b51b7]">
+                  <span className="mt-1 inline-flex rounded-full bg-[#e8f6f4] px-2.5 py-[3px] text-[14px] font-semibold text-[#0b51b7]">
                     {project.status}
                   </span>
                 </div>
@@ -643,7 +643,7 @@ export function ProjectsPage() {
                   )}
                 </span>
                 <button
-                  className="inline-flex shrink-0 items-center gap-1 border-0 bg-transparent text-[13px] font-semibold text-[#0b51b7] hover:underline"
+                  className="inline-flex shrink-0 items-center gap-1 border-0 bg-transparent text-[14px] font-semibold text-[#0b51b7] hover:underline"
                   onClick={() => setAssigningProject(project)}
                   type="button"
                 >
@@ -654,7 +654,7 @@ export function ProjectsPage() {
               <footer className="mt-4 flex items-center justify-between gap-2 border-t border-[#edf0f2] pt-3">
                 <button
                   type="button"
-                  className="inline-flex h-[36px] items-center gap-[6px] rounded-[6px] border border-[#f0c8cd] bg-white px-3 text-[13px] font-semibold text-[#b42318] hover:bg-[#fff5f6] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-[36px] items-center gap-[6px] rounded-[6px] border border-[#f0c8cd] bg-white px-3 text-[14px] font-semibold text-[#b42318] hover:bg-[#fff5f6] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={deleteMutation.isPending}
                   onClick={() => openDeleteModal(project)}
                 >
@@ -665,7 +665,7 @@ export function ProjectsPage() {
                     : "Delete"}
                 </button>
                 <NavLink to={`/projects/${project.id}`}>
-                  <button className="inline-flex h-[36px] items-center gap-[6px] rounded-[6px] border border-[#dce2e7] bg-white px-3 text-[13px] font-semibold text-[#546271] hover:border-[#0b51b7] hover:text-[#0b51b7]">
+                  <button className="inline-flex h-[36px] items-center gap-[6px] rounded-[6px] border border-[#dce2e7] bg-white px-3 text-[14px] font-semibold text-[#546271] hover:border-[#0b51b7] hover:text-[#0b51b7]">
                     Manage project <ArrowUpRight size={13} />
                   </button>
                 </NavLink>
@@ -713,7 +713,7 @@ export function ProjectsPage() {
                     its Kobo submissions will also be permanently deleted.
                   </p>
                 )}
-                <p className="mb-0 mt-3 text-[13px] font-semibold text-[#b42318]">
+                <p className="mb-0 mt-3 text-[14px] font-semibold text-[#b42318]">
                   This action cannot be undone.
                 </p>
                 {deleteError && (

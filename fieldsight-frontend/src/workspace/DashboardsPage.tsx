@@ -43,6 +43,7 @@ import {
   Page,
   Panel,
   WorkspaceGate,
+  WorkspaceTabs,
   fieldClass,
 } from "./WorkspaceUI";
 
@@ -134,6 +135,7 @@ export function DashboardsPage() {
   const invalid = Boolean(from && through && from > through);
   return (
     <Page
+      breadcrumb={project?.name ?? "Select a project"}
       title="Dashboards"
       description="Build a shared view of your project's results and evidence."
       actions={
@@ -144,6 +146,7 @@ export function DashboardsPage() {
       }
     >
       <WorkspaceGate>
+        <WorkspaceTabs />
         {[dashboards.error, create.error, save.error, remove.error]
           .filter(Boolean)
           .map((e, i) => (
@@ -274,7 +277,7 @@ export function DashboardsPage() {
                 >
                   Clear filters
                 </button>
-                <span className="mb-2 ml-auto text-[10px] text-[#87969d]">
+                <span className="mb-2 ml-auto text-[12px] text-[#87969d]">
                   Saved within {project?.name}
                 </span>
               </div>
@@ -625,7 +628,7 @@ function Widget({
             )}
           </>
         )}
-        <p className="mt-4 text-[10px] text-[#87969d]">
+        <p className="mt-4 text-[12px] text-[#87969d]">
           {item.result_source === "manual"
             ? `${item.manual_result_count} manual results`
             : `${item.eligible_records} ready records`}{" "}
@@ -707,21 +710,21 @@ function Widget({
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 10 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             ) : saved.chart === "line" ? (
               <LineChart data={data}>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Line dataKey="value" stroke="#25a6b4" strokeWidth={2} />
               </LineChart>
             ) : (
               <BarChart data={data}>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Bar dataKey="value" fill="#25a6b4" radius={[3, 3, 0, 0]} />
               </BarChart>
@@ -729,7 +732,7 @@ function Widget({
           </ResponsiveContainer>
         )}
       </div>
-      <p className="mb-2 text-[10px] text-[#87969d]">
+      <p className="mb-2 text-[12px] text-[#87969d]">
         {result.data.answered_records} answered / {result.data.eligible_records}{" "}
         eligible · {result.data.missing_records} missing ·{" "}
         {result.data.invalid_answers} invalid

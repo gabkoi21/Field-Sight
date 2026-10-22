@@ -311,9 +311,9 @@ export function ExploreAnalyzePage() {
     <div className="text-[#25324a]">
       <header className="mb-5 flex items-start justify-between gap-4 max-[700px]:flex-col">
         <div>
-          <p className="mb-1 mt-0 text-[10px] font-bold uppercase tracking-[.12em] text-brand">Project intelligence</p>
+          <p className="mb-1 mt-0 text-[12px] font-bold uppercase tracking-[.12em] text-brand">Project intelligence</p>
           <h1 className="m-0 text-[2rem] font-bold tracking-[-.05em]">Analysis</h1>
-          <p className="mb-0 mt-1 max-w-[650px] text-[0.8125rem] text-[#75849a]">
+          <p className="mb-0 mt-1 max-w-[650px] text-[0.875rem] text-[#75849a]">
             Turn synchronized field records into evidence, comparisons, and practical project signals.
           </p>
         </div>
@@ -402,7 +402,7 @@ export function ExploreAnalyzePage() {
         <Card>
           <CardHeader title={selectedField ? fieldLabel(selectedField) : "Question analysis"} subtitle={chartLabel}>
             <select
-              className="rounded-md border border-[#dce5ef] bg-white px-2 py-1.5 text-[10px]"
+              className="rounded-md border border-[#dce5ef] bg-white px-2 py-1.5 text-[12px]"
               value={chartOverride}
               onChange={(event) => setChartOverride(event.target.value)}
             >
@@ -444,8 +444,8 @@ export function ExploreAnalyzePage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} stroke="#edf1f5" />
-                  <XAxis dataKey="date" tick={{ fontSize: 9 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Area type="monotone" dataKey="count" stroke="#0b51b7" strokeWidth={2.5} fill="url(#fieldArea)" />
                 </AreaChart>
@@ -464,13 +464,13 @@ export function ExploreAnalyzePage() {
                   />
                   {chartType === "histogram" ? (
                     <>
-                      <XAxis dataKey="name" angle={-20} textAnchor="end" tick={{ fontSize: 9 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
+                      <XAxis dataKey="name" angle={-20} textAnchor="end" tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                     </>
                   ) : (
                     <>
-                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 9 }} />
-                      <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 9 }} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
                     </>
                   )}
                   <Tooltip />
@@ -509,7 +509,7 @@ export function ExploreAnalyzePage() {
             ))}
             {!frequency.length && <p className="text-xs text-[#8190a4]">No response ranking is available.</p>}
           </div>
-          <div className="mx-5 mb-5 rounded-lg bg-[#f5f8fc] p-3 text-[11px] leading-5 text-[#64748b]">
+          <div className="mx-5 mb-5 rounded-lg bg-[#f5f8fc] p-3 text-[12px] leading-5 text-[#64748b]">
             <strong className="text-[#26364d]">Interpretation</strong>
             <br />
             {insight}
@@ -531,8 +531,8 @@ export function ExploreAnalyzePage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid vertical={false} stroke="#edf1f5" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10 }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
+                  <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Area
                     type="monotone"
@@ -606,8 +606,8 @@ export function ExploreAnalyzePage() {
             <ResponsiveContainer>
               <BarChart data={crossTab}>
                 <CartesianGrid vertical={false} stroke="#edf1f5" />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 9 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: "10px", paddingTop: "10px" }} />
                 {comparisonKeys.map((key, index) => (
@@ -672,14 +672,14 @@ function Metric({
     <Card className="p-4">
       <div className="flex justify-between">
         <div>
-          <small className="text-[10px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small>
+          <small className="text-[12px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small>
           <strong className="mt-2 block text-[24px] tracking-[-.5px]">{value}</strong>
         </div>
         <span className="grid size-10 place-items-center rounded-md bg-[#eaf2ff] text-brand">
           <Icon size={18} />
         </span>
       </div>
-      <p className="mb-0 mt-2 flex items-center gap-1 text-[10px] text-[#8996a8]">
+      <p className="mb-0 mt-2 flex items-center gap-1 text-[12px] text-[#8996a8]">
         <ArrowUpRight size={11} />
         {note}
       </p>
@@ -691,7 +691,7 @@ function CardHeader({ title, subtitle, children }: { title: string; subtitle: st
     <header className="flex items-center justify-between gap-3 border-b border-[#e9eef4] px-5 py-4">
       <div>
         <h2 className="m-0 text-sm font-semibold text-[#24334a]">{title}</h2>
-        <p className="mb-0 mt-1 text-[10px] text-[#8b98aa]">{subtitle}</p>
+        <p className="mb-0 mt-1 text-[12px] text-[#8b98aa]">{subtitle}</p>
       </div>
       {children}
     </header>

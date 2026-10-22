@@ -5,7 +5,6 @@ import {
   Bell,
   BookOpen,
   ClipboardList,
-  Database,
   FileBarChart,
   FileText,
   FolderKanban,
@@ -15,8 +14,6 @@ import {
   LogOut,
   Menu,
   Settings,
-  ShieldCheck,
-  Users,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -52,13 +49,12 @@ function Shell() {
         { name: "Projects", path: "/projects", icon: FolderKanban },
         {
           name: "Details & activity",
-          path: workspace.projectId
+          path: workspace.hasSelectedProject
             ? `/projects/${workspace.projectId}`
             : "/projects",
           icon: ClipboardList,
         },
         { name: "Forms", path: "/forms", icon: FileText },
-        { name: "Data tables", path: "/data-tables", icon: Database },
       ],
     },
     {
@@ -72,17 +68,13 @@ function Shell() {
     {
       title: "Data operations",
       items: [
-        { name: "Collection overview", path: "/", icon: BarChart3 },
         { name: "Kobo connections", path: "/forms/connections", icon: Link2 },
         { name: "Submissions", path: "/submissions", icon: FileText },
-        { name: "Data quality", path: "/quality", icon: ShieldCheck },
-        { name: "Field team", path: "/enumerators", icon: Users },
       ],
     },
     {
       title: "Administration",
       items: [
-        { name: "Team & invitations", path: "/team", icon: Users },
         { name: "Organization settings", path: "/settings", icon: Settings },
       ],
     },
@@ -103,27 +95,27 @@ function Shell() {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[220px] flex-col border-r border-[#173d6e] bg-[#071f47] text-[#b5c7d5] transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed bottom-0 left-0 top-16 z-40 flex w-[220px] flex-col border-r border-[#173d6e] bg-[#071f47] text-[#b5c7d5] transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <NavLink
-          to="/projects"
-          className="flex h-16 shrink-0 items-center gap-2.5 border-b border-[#173d6e] px-5 text-xl font-bold tracking-tight text-white no-underline"
-        >
-          <span className="grid size-8 place-items-center rounded-lg bg-[#0b51b7] text-white">
-            <BarChart3 size={18} />
-          </span>
-          FieldSight
-        </NavLink>
         <nav
           aria-label="Main navigation"
           className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-5"
         >
           {sections.map((section) => (
             <div key={section.title} className="mb-4">
-              <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
+              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
                 {section.title}
               </p>
-              {section.items.map(({ name, path, icon: Icon }) => (
+              {section.items.map(({ name, path, icon: Icon }) => name === "Details & activity" && !workspace.hasSelectedProject ? (
+                <div key={name} className="my-0.5 px-3 py-2">
+                  <span aria-disabled="true" className="flex items-center gap-2.5 text-xs text-[#91a9bb] opacity-60">
+                    <Icon size={15} />{name}
+                  </span>
+                  <NavLink to="/projects" onClick={() => setOpen(false)} className="mt-1 block pl-6 text-[12px] text-[#b5c7d5] underline underline-offset-2">
+                    Choose a project first
+                  </NavLink>
+                </div>
+              ) : (
                 <NavLink
                   key={name}
                   to={workspace.projectId && ["/forms", "/data-tables", "/analytics", "/dashboards"].includes(path)
@@ -148,8 +140,8 @@ function Shell() {
           Quick-start guide<span className="ml-auto">↗</span>
         </NavLink>
       </aside>
-      <main className="min-h-screen lg:ml-[220px]">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-[#e1e7eb] bg-white px-6 max-sm:px-4">
+      <main className="min-h-screen pt-16 lg:ml-[220px]">
+        <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center gap-4 border-b border-[#e1e7eb] bg-white px-6 max-sm:px-4">
           <button
             aria-label="Toggle navigation"
             className="border-0 bg-transparent lg:hidden"
@@ -166,7 +158,7 @@ function Shell() {
             >
               <Bell size={17} />
               {Boolean(pending.data?.pending_count) && (
-                <span className="absolute -right-1 -top-1 rounded-full bg-[#d85962] px-1 text-[9px] text-white">
+                <span className="absolute -right-1 -top-1 rounded-full bg-[#d85962] px-1 text-[11px] text-white">
                   {pending.data?.pending_count}
                 </span>
               )}
@@ -202,7 +194,7 @@ function Shell() {
               aria-label="User menu"
               aria-expanded={menu}
               onClick={() => setMenu(!menu)}
-              className="rounded-full border-0 bg-[#e6f1f2] px-3 py-2 text-[10px] font-semibold text-[#197b8a]"
+              className="fieldsight-avatar grid size-9 shrink-0 place-items-center rounded-full border-0 bg-[#e6f1f2] p-0 text-[12px] font-semibold text-[#197b8a]"
             >
               {user?.email.slice(0, 2).toUpperCase()}
             </button>
@@ -213,7 +205,6 @@ function Shell() {
                 </p>
                 {[
                   ["Profile & security", "/profile"],
-                  ["Team & invitations", "/team"],
                   ["Quick-start guide", "/guide"],
                 ].map(([label, to]) => (
                   <NavLink
