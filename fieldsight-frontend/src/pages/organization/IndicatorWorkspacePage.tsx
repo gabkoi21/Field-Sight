@@ -9,10 +9,12 @@ import {
 import {
   ArrowLeft,
   BarChart3,
+  ChevronDown,
   GitBranch,
   Link2,
   Pencil,
   Plus,
+  SlidersHorizontal,
   Target,
   Trash2,
 } from "lucide-react";
@@ -55,6 +57,13 @@ const accents: Record<FrameworkNode["node_type"], string> = {
   output: "#289bae",
   activity: "#36b89e",
 };
+const registerGroups = {
+  goal: { border: "#c4a227", background: "#fffbed" },
+  objective: { border: "#c4a227", background: "#fffbed" },
+  outcome: { border: "#298977", background: "#eaf9f4" },
+  output: { border: "#7259bd", background: "#f5f2fc" },
+  activity: { border: "#218eaa", background: "#edf7fb" },
+};
 const amount = (value: number | null, unit = "number") =>
   value === null
     ? "Not reported"
@@ -80,6 +89,11 @@ export function IndicatorWorkspacePage() {
   const cache = useQueryClient();
   const [dateFrom, setFrom] = useState("");
   const [dateTo, setTo] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Indicator | "new" | null>(null);
   const [mapping, setMapping] = useState<Indicator | null>(null);
@@ -105,6 +119,8 @@ export function IndicatorWorkspacePage() {
     setPeriodTargets(null);
     setNodeEditor(null);
     setError("");
+    setSourceFilter("all");
+    setCollapsedGroups(new Set());
   }, [projectId]);
   const invalidDates = Boolean(dateFrom && dateTo && dateFrom > dateTo);
   const indicators = useQuery({
@@ -119,6 +135,14 @@ export function IndicatorWorkspacePage() {
   });
   const nodes = framework.data ?? [];
   const items = indicators.data ?? [];
+  const visibleItems = items.filter((item) => {
+    const matchesSource =
+      sourceFilter === "all" ||
+      (sourceFilter === "mapped" && item.mapping_health === "healthy") ||
+      (sourceFilter === "unmapped" && item.mapping_health !== "healthy") ||
+      (sourceFilter === "achieved" && item.target_achieved === true);
+    return matchesSource;
+  });
   const selected = items.find((item) => item.id === selectedId) ?? items[0];
   async function refresh() {
     await Promise.all([
@@ -330,14 +354,14 @@ export function IndicatorWorkspacePage() {
         to={projectId ? `/projects/${projectId}` : "/projects"}
         className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
       >
-        <ArrowLeft size={15} /> Back to project
+        <ArrowLeft size={15} /> Project overview
       </Link>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="mb-1 mt-0 text-[12px] font-semibold uppercase tracking-[.16em] text-[#0c8593]">
-            FieldSight / Monitoring & evaluation
+            {project?.name ?? "FieldSight"} / Monitoring & evaluation
           </p>
-          <h1 className="m-0 text-[28px] font-semibold tracking-tight">
+          <h1 className="m-0 text-[28px] font-semibold tracking-tight text-[#24434c]">
             Indicators
           </h1>
           <p className="mb-0 mt-1 text-[14px] text-[#73868d]">
@@ -377,8 +401,14 @@ export function IndicatorWorkspacePage() {
       ) : (
         <>
           <Panel>
-            <div className="flex flex-wrap items-end gap-4 p-4">
-              <label className="min-w-[220px] flex-1">
+            <div className={`flex flex-wrap items-center gap-3 ${routeProject ? "justify-end px-4 py-1.5" : "p-5"}`}>
+              {routeProject && (
+                <div className="mr-auto flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <p className="m-0 text-sm font-medium text-[#24434c]">Indicator filters</p>
+                  <p className="m-0 text-xs text-[#73868d]">Filter by source mapping, target achievement or submission date.</p>
+                </div>
+              )}
+              {!routeProject && <label className="min-w-[220px] flex-1">
                 <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
                   Project
                 </span>
@@ -386,6 +416,7 @@ export function IndicatorWorkspacePage() {
                   aria-label="Project"
                   className={inputClass}
                   value={projectId}
+                  disabled={Boolean(routeProject)}
                   onChange={(e) => {
                     workspace.selectProject(e.target.value);
                     navigate(
@@ -398,46 +429,103 @@ export function IndicatorWorkspacePage() {
                   {!project && (
                     <option value={projectId}>Project unavailable</option>
                   )}
-                  {projects.data.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
+                  {projects.data
+                    .filter((item) => !routeProject || item.id === routeProject)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
                 </select>
-              </label>
-              <label>
-                <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
-                  Submitted from (UTC)
-                </span>
-                <input
-                  aria-label="Submitted from"
-                  type="date"
-                  className={inputClass}
-                  value={dateFrom}
-                  onChange={(e) => setFrom(e.target.value)}
+              </label>}
+              <button
+                type="button"
+                aria-expanded={filtersOpen}
+                aria-controls="indicator-date-filters"
+                onClick={() => setFiltersOpen((open) => !open)}
+                className="inline-flex h-8 shrink-0 self-center items-center justify-center gap-1.5 rounded border border-[#dce5e8] bg-white px-2.5 py-0 text-xs text-[#3f7a86] hover:bg-[#f7fafb]"
+              >
+                <SlidersHorizontal size={15} aria-hidden="true" /> Filters
+                {(dateFrom || dateTo || sourceFilter !== "all") && (
+                  <span className="rounded bg-[#eaf5f6] px-1.5 text-xs">
+                    Active
+                  </span>
+                )}
+                <ChevronDown
+                  size={14}
+                  aria-hidden="true"
+                  className={filtersOpen ? "rotate-180" : ""}
                 />
-              </label>
-              <label>
-                <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
-                  Submitted through (UTC)
-                </span>
-                <input
-                  aria-label="Submitted through"
-                  type="date"
-                  className={inputClass}
-                  value={dateTo}
-                  onChange={(e) => setTo(e.target.value)}
-                />
-              </label>
-              {project && (
-                <Link
-                  to={`/projects/${project.id}`}
-                  className="pb-2 text-xs text-[#0c8593] no-underline"
-                >
-                  Project overview →
-                </Link>
-              )}
+              </button>
             </div>
+            {filtersOpen && (
+              <section
+                id="indicator-date-filters"
+                aria-label="Indicator filters"
+                className="border-t border-[#e7edef] bg-[#fafcfd] pt-4"
+              >
+                <div className="grid max-w-[900px] grid-cols-3 items-end gap-4 px-5 pb-4 max-[700px]:grid-cols-1">
+                  <label className="grid min-w-0 gap-2">
+                    <span className="block text-[12px] uppercase tracking-wide text-[#73868d]">
+                      Indicator status
+                    </span>
+                    <select
+                      aria-label="Filter indicators"
+                      value={sourceFilter}
+                      onChange={(event) => setSourceFilter(event.target.value)}
+                      className={`${inputClass} h-10`}
+                    >
+                      <option value="all">All indicators</option>
+                      <option value="mapped">Source mapped</option>
+                      <option value="unmapped">Needs mapping attention</option>
+                      <option value="achieved">Target achieved</option>
+                    </select>
+                  </label>
+                  <label className="grid min-w-0 gap-2">
+                    <span className="block text-[12px] uppercase tracking-wide text-[#73868d]">
+                      Submitted from (UTC)
+                    </span>
+                    <input
+                      aria-label="Submitted from"
+                      type="date"
+                      className={`${inputClass} h-10`}
+                      value={dateFrom}
+                      onChange={(e) => setFrom(e.target.value)}
+                    />
+                  </label>
+                  <label className="grid min-w-0 gap-2">
+                    <span className="block text-[12px] uppercase tracking-wide text-[#73868d]">
+                      Submitted through (UTC)
+                    </span>
+                    <input
+                      aria-label="Submitted through"
+                      type="date"
+                      className={`${inputClass} h-10`}
+                      value={dateTo}
+                      onChange={(e) => setTo(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4 text-xs text-[#73868d]">
+                  <span>
+                    Filter actual results by submission date. Indicator targets
+                    stay unchanged.
+                  </span>
+                  {(dateFrom || dateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFrom("");
+                        setTo("");
+                      }}
+                      className="border-0 bg-transparent p-0 font-medium text-[#0c8593]"
+                    >
+                      Clear dates
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
             <nav
               aria-label="Indicator project"
               className="flex overflow-x-auto border-t border-[#e7edef] px-4"
@@ -458,7 +546,8 @@ export function IndicatorWorkspacePage() {
                 <button
                   key={id}
                   onClick={() => tab(id)}
-                  className={`flex shrink-0 items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-3 text-xs ${view === id ? "border-[#0c8593] font-semibold text-[#0c7180]" : "border-transparent text-[#73868d]"}`}
+                  aria-current={view === id ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3.5 text-sm transition-colors ${view === id ? "border-[#0c8593] bg-[#f0f8f9] font-semibold text-[#0c7180]" : "border-transparent bg-transparent text-[#73868d] hover:bg-[#f7fafb]"}`}
                 >
                   <Symbol size={15} />
                   {label}
@@ -582,21 +671,17 @@ export function IndicatorWorkspacePage() {
                               </Button>
                             </div>
                             <div className="flex border-t border-[#e7edef] px-4">
-                              {[
-                                "details",
-                                "summary",
-                                "sources",
-                              ].map((id) => (
+                              {["details", "summary", "sources"].map((id) => (
                                 <button
                                   key={id}
                                   onClick={() => setDetailsTab(id)}
                                   className={`border-0 border-b-2 bg-transparent px-4 py-3 text-xs capitalize ${detailsTab === id ? "border-[#0c8593] text-[#0c7180]" : "border-transparent text-[#73868d]"}`}
                                 >
                                   {id === "summary"
-                                      ? "Results summary"
-                                      : id === "sources"
-                                        ? "Mapping & sources"
-                                        : "Indicator details"}
+                                    ? "Results summary"
+                                    : id === "sources"
+                                      ? "Mapping & sources"
+                                      : "Indicator details"}
                                 </button>
                               ))}
                             </div>
@@ -733,13 +818,27 @@ export function IndicatorWorkspacePage() {
                         ],
                       ].map(([label, value]) => (
                         <Panel key={label}>
-                          <div className="p-4">
-                            <span className="text-[12px] uppercase tracking-wide text-[#73868d]">
-                              {label}
+                          <div className="flex items-center justify-between gap-4 p-5">
+                            <div>
+                              <span className="text-xs font-medium text-[#73868d]">
+                                {label}
+                              </span>
+                              <strong className="mt-1.5 block text-[28px] font-semibold leading-tight tabular-nums text-[#24434c]">
+                                {value}
+                              </strong>
+                            </div>
+                            <span
+                              className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]"
+                              aria-hidden="true"
+                            >
+                              {label === "Indicators" ? (
+                                <BarChart3 size={21} />
+                              ) : label === "With source mappings" ? (
+                                <Link2 size={21} />
+                              ) : (
+                                <Target size={21} />
+                              )}
                             </span>
-                            <strong className="mt-2 block text-2xl font-semibold">
-                              {value}
-                            </strong>
                           </div>
                         </Panel>
                       ))}
@@ -757,11 +856,19 @@ export function IndicatorWorkspacePage() {
                         </Empty>
                       ) : (
                         <div className="overflow-x-auto">
-                          <table className="w-full min-w-[940px] border-collapse text-left text-xs">
-                            <thead className="bg-[#f8fbfb] text-[12px] font-medium uppercase tracking-wide text-[#73868d]">
+                          <table className="w-full min-w-[1120px] table-fixed border-collapse text-left text-xs text-[#24434c]">
+                            <colgroup>
+                              <col className="w-[28%]" />
+                              <col className="w-[19%]" />
+                              <col className="w-[9%]" />
+                              <col className="w-[14%]" />
+                              <col className="w-[16%]" />
+                              <col className="w-[14%]" />
+                            </colgroup>
+                            <thead className="bg-[#f7f8fa] text-[10px] font-medium uppercase tracking-wide text-[#87939d]">
                               <tr>
                                 {[
-                                  "Indicator",
+                                  "Name",
                                   "Actual vs target",
                                   "Format",
                                   "Collection frequency",
@@ -777,143 +884,206 @@ export function IndicatorWorkspacePage() {
                                 ))}
                               </tr>
                             </thead>
-                            {groups.map((group) => (
-                              <tbody key={group.id ?? "ungrouped"}>
-                                <tr
-                                  onDragOver={(event) => event.preventDefault()}
-                                  onDrop={(event) => {
-                                    event.preventDefault();
-                                    const id =
-                                      event.dataTransfer.getData("text/plain");
-                                    if (items.some((item) => item.id === id))
-                                      regroup.mutate({ id, group: group.id });
-                                  }}
-                                  className="border-y border-[#e7edef]"
-                                  style={{
-                                    backgroundColor: group.type
-                                      ? `${accents[group.type]}12`
-                                      : "#f6f8f8",
-                                  }}
-                                >
-                                  <th
-                                    colSpan={6}
-                                    className="px-4 py-2.5 font-semibold"
-                                  >
-                                    <span
-                                      className="border-l-[3px] pl-3"
-                                      style={{
-                                        borderColor: group.type
-                                          ? accents[group.type]
-                                          : "#9aaeb5",
-                                        marginLeft: group.depth * 12,
-                                      }}
-                                    >
-                                      {group.type
-                                        ? `${group.type[0].toUpperCase() + group.type.slice(1)} · `
-                                        : ""}
-                                      {group.title}
-                                      <span className="ml-3 text-[12px] font-normal text-[#73868d]">
-                                        {
-                                          items.filter(
-                                            (item) =>
-                                              item.framework_node_id ===
-                                              group.id,
-                                          ).length
-                                        }
-                                      </span>
-                                    </span>
-                                  </th>
-                                </tr>
-                                {items
-                                  .filter(
-                                    (item) =>
-                                      item.framework_node_id === group.id,
-                                  )
-                                  .map((item) => (
-                                    <tr
-                                      key={item.id}
-                                      draggable={!regroup.isPending}
-                                      onDragStart={(event) =>
-                                        event.dataTransfer.setData(
+                            {groups
+                              .filter((group) =>
+                                visibleItems.some(
+                                  (item) => item.framework_node_id === group.id,
+                                ),
+                              )
+                              .map((group) => (
+                                <tbody key={group.id ?? "ungrouped"}>
+                                  <tr
+                                    onDragOver={(event) =>
+                                      event.preventDefault()
+                                    }
+                                    onDrop={(event) => {
+                                      event.preventDefault();
+                                      const id =
+                                        event.dataTransfer.getData(
                                           "text/plain",
-                                          item.id,
-                                        )
-                                      }
-                                      className="border-b border-[#edf1f2]"
-                                    >
-                                      <td className="max-w-[290px] px-4 py-4">
-                                        <button
-                                          onClick={() => showResult(item)}
-                                          className="border-0 bg-transparent p-0 text-left font-medium leading-5 text-[#146578]"
-                                        >
-                                          {item.name}
-                                        </button>
-                                        <small className="mt-1 block text-[12px] text-[#8a9ba1]">
-                                          {item.code}
-                                        </small>
-                                      </td>
-                                      <td className="min-w-[230px] px-4 py-3">
-                                        {item.unit === "text" ? (
-                                          <span className="text-[#73868d]">
-                                            {item.qualitative_value ??
-                                              "Not reported"}
-                                          </span>
-                                        ) : (
-                                          <Progress indicator={item} />
+                                        );
+                                      if (items.some((item) => item.id === id))
+                                        regroup.mutate({ id, group: group.id });
+                                    }}
+                                    className="border-y border-[#e7edef]"
+                                    style={{
+                                      backgroundColor: group.type
+                                        ? registerGroups[group.type].background
+                                        : "#f4f7f8",
+                                    }}
+                                  >
+                                    <th colSpan={6} className="p-0 text-left">
+                                      <button
+                                        type="button"
+                                        aria-expanded={Boolean(
+                                          sourceFilter !== "all" ||
+                                            !collapsedGroups.has(
+                                              group.id ?? "ungrouped",
+                                            ),
                                         )}
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        {units[item.unit]}
-                                      </td>
-                                      <td className="px-4 py-4">
-                                        {frequency(item.reporting_frequency)}
-                                      </td>
-                                      <td className="px-4 py-4">
-                                        <Status item={item} />
-                                      </td>
-                                      <td className="px-4 py-4">
-                                        <div className="flex justify-end gap-2">
-                                          <Icon
-                                            label={`View results for ${item.name}`}
-                                            onClick={() => showResult(item)}
-                                          >
-                                            <BarChart3 size={15} />
-                                          </Icon>
-                                          <Icon
-                                            label={`Map source for ${item.name}`}
-                                            disabled={map.isPending || unmap.isPending}
-                                            onClick={() => editMap(item)}
-                                          >
-                                            <Link2 size={15} />
-                                          </Icon>
-                                          <Icon
-                                            label={`Edit ${item.name}`}
-                                            onClick={() => editItem(item)}
-                                          >
-                                            <Pencil size={15} />
-                                          </Icon>
-                                          <Icon
-                                            label={`Delete ${item.name}`}
-                                            destructive
-                                            disabled={remove.isPending}
-                                            onClick={() => {
-                                              if (
-                                                window.confirm(
-                                                  `Delete indicator “${item.name}” and its saved targets?`,
-                                                )
-                                              )
-                                                remove.mutate(item.id);
-                                            }}
-                                          >
-                                            <Trash2 size={15} />
-                                          </Icon>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            ))}
+                                        aria-label={`${collapsedGroups.has(group.id ?? "ungrouped") && sourceFilter === "all" ? "Expand" : "Collapse"} ${group.title}`}
+                                        onClick={() =>
+                                          setCollapsedGroups((previous) => {
+                                            const next = new Set(previous);
+                                            const key = group.id ?? "ungrouped";
+                                            if (next.has(key)) next.delete(key);
+                                            else next.add(key);
+                                            return next;
+                                          })
+                                        }
+                                        className="flex w-full items-center gap-2 border-0 border-l-[3px] bg-transparent px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-[#566970]"
+                                        style={{
+                                          borderLeftColor: group.type
+                                            ? registerGroups[group.type].border
+                                            : "#9aaeb5",
+                                          paddingLeft: 12 + group.depth * 12,
+                                        }}
+                                      >
+                                        <span>
+                                          {group.type ? `${group.type}: ` : ""}
+                                          {group.title}
+                                        </span>
+                                        <span className="rounded-full bg-black/5 px-1.5 py-0.5 text-[10px] tabular-nums">
+                                          {
+                                            visibleItems.filter(
+                                              (item) =>
+                                                item.framework_node_id ===
+                                                group.id,
+                                            ).length
+                                          }
+                                        </span>
+                                        <ChevronDown
+                                          size={13}
+                                          aria-hidden="true"
+                                          className={`ml-auto shrink-0 transition-transform ${collapsedGroups.has(group.id ?? "ungrouped") && sourceFilter === "all" ? "-rotate-90" : ""}`}
+                                        />
+                                      </button>
+                                    </th>
+                                  </tr>
+                                  {(sourceFilter !== "all" ||
+                                    !collapsedGroups.has(
+                                      group.id ?? "ungrouped",
+                                    )) &&
+                                    visibleItems
+                                      .filter(
+                                        (item) =>
+                                          item.framework_node_id === group.id,
+                                      )
+                                      .map((item) => (
+                                        <tr
+                                          key={item.id}
+                                          draggable={!regroup.isPending}
+                                          onDragStart={(event) =>
+                                            event.dataTransfer.setData(
+                                              "text/plain",
+                                              item.id,
+                                            )
+                                          }
+                                          className="border-b border-[#edf1f2] transition-colors last:border-b-0 hover:bg-[#f8fbfc]"
+                                        >
+                                          <td className="px-4 py-2.5 align-middle">
+                                            <button
+                                              title={item.name}
+                                              onClick={() => showResult(item)}
+                                              className="flex min-h-7 w-full min-w-0 items-center border-0 bg-transparent p-0 text-left font-medium leading-5 text-[#146578] hover:underline"
+                                            >
+                                              <span className="block truncate">
+                                                {item.name}
+                                              </span>
+                                            </button>
+                                          </td>
+                                          <td className="px-4 py-2.5 align-middle">
+                                            {item.unit === "text" ? (
+                                              <span className="text-[#73868d]">
+                                                {item.qualitative_value ??
+                                                  "Not reported"}
+                                              </span>
+                                            ) : (
+                                              <Progress indicator={item} />
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 align-middle">
+                                            {units[item.unit]}
+                                          </td>
+                                          <td className="px-4 py-2.5 align-middle">
+                                            {frequency(
+                                              item.reporting_frequency,
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 align-middle">
+                                            <Status item={item} />
+                                          </td>
+                                          <td className="px-4 py-2.5 align-middle">
+                                            <div className="flex justify-end gap-1">
+                                              <Icon
+                                                label={`View results for ${item.name}`}
+                                                onClick={() => showResult(item)}
+                                              >
+                                                <BarChart3 size={15} />
+                                              </Icon>
+                                              <Icon
+                                                label={`Map source for ${item.name}`}
+                                                disabled={
+                                                  map.isPending ||
+                                                  unmap.isPending
+                                                }
+                                                onClick={() => editMap(item)}
+                                              >
+                                                <Link2 size={15} />
+                                              </Icon>
+                                              <Icon
+                                                label={`Edit ${item.name}`}
+                                                onClick={() => editItem(item)}
+                                              >
+                                                <Pencil size={15} />
+                                              </Icon>
+                                              <Icon
+                                                label={`Delete ${item.name}`}
+                                                destructive
+                                                disabled={remove.isPending}
+                                                onClick={() => {
+                                                  if (
+                                                    window.confirm(
+                                                      `Delete indicator “${item.name}” and its saved targets?`,
+                                                    )
+                                                  )
+                                                    remove.mutate(item.id);
+                                                }}
+                                              >
+                                                <Trash2 size={15} />
+                                              </Icon>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                </tbody>
+                              ))}
                           </table>
+                          {!visibleItems.length && (
+                            <div className="p-10 text-center">
+                              <p className="m-0 text-sm font-medium text-[#24434c]">
+                                No indicators match these filters.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSourceFilter("all");
+                                }}
+                                className="mt-3 border-0 bg-transparent text-xs font-medium text-[#0c8593]"
+                              >
+                                Clear filters
+                              </button>
+                            </div>
+                          )}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7edef] bg-[#fafcfd] px-5 py-3 text-xs text-[#73868d]">
+                            <span aria-live="polite">
+                              Showing {visibleItems.length} of {items.length}{" "}
+                              indicators
+                            </span>
+                            <span>
+                              Use the link icon to map a survey question.
+                            </span>
+                          </div>
                         </div>
                       )}
                     </Panel>
@@ -1067,8 +1237,13 @@ function Status({ item }: { item: Indicator }) {
             }[item.schedule_status];
   return (
     <span
-      className={`inline-block rounded px-2 py-1 text-[12px] ${item.target_achieved ? "bg-[#e6f5ec] text-[#207554]" : item.schedule_status === "overdue" ? "bg-[#fff1e8] text-[#a9592c]" : "bg-[#eef4f5] text-[#55737c]"}`}
+      title="Calculated from the indicator's source mapping, results and target."
+      className="inline-flex w-full items-center gap-2 rounded border border-[#e6ebee] bg-white px-2.5 py-1.5 text-[11px] leading-4 text-[#557078]"
     >
+      <span
+        aria-hidden="true"
+        className={`size-1.5 shrink-0 rounded-full ${item.target_achieved ? "bg-[#38977a]" : item.schedule_status === "overdue" || item.mapping_health !== "healthy" ? "bg-[#d5ac28]" : "bg-[#6599a5]"}`}
+      />
       {label}
     </span>
   );
@@ -1087,9 +1262,9 @@ function Progress({ indicator }: { indicator: Indicator }) {
       </div>
       {indicator.progress_percent !== null && (
         <>
-          <div className="h-2 overflow-hidden bg-[#e3edf0]">
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#e3edf0]">
             <div
-              className="h-full bg-[#20a8bd]"
+              className="h-full rounded-full bg-[#20a8bd]"
               style={{
                 width: `${Math.max(0, Math.min(100, indicator.progress_percent))}%`,
               }}
