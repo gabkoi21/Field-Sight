@@ -936,13 +936,19 @@ function Widget({
       version,
       from,
       through,
-      revision,
     ],
     queryFn: () =>
       apiClient.dashboardWidgetResult(dashboardId, widget.id, from, through),
     enabled: widget.kind !== "text",
     retry: false,
   });
+  const previousRevision = useRef(revision);
+  const { refetch } = response;
+  useEffect(() => {
+    if (previousRevision.current === revision) return;
+    previousRevision.current = revision;
+    if (revision && widget.kind !== "text") void refetch();
+  }, [revision, widget.kind, refetch]);
   const result = {
     data:
       response.data?.kind === "analysis" ? response.data.analysis : undefined,

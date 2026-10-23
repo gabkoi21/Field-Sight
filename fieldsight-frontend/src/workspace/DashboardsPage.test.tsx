@@ -296,8 +296,13 @@ describe("existing saved dashboard builder", () => {
     stored[0].widgets = [
       { ...note("a", "Attendance"), kind: "indicator", source_id: "source" },
     ];
+    let finishRefresh!: (value: Awaited<ReturnType<typeof apiClient.dashboardWidgetResult>>) => void;
+    const refreshed = new Promise<Awaited<ReturnType<typeof apiClient.dashboardWidgetResult>>>((resolve) => {
+      finishRefresh = resolve;
+    });
     vi.mocked(apiClient.dashboardWidgetResult)
       .mockResolvedValueOnce({ kind: "indicator", indicator: indicator(20) })
+      .mockReturnValueOnce(refreshed)
       .mockResolvedValue({ kind: "indicator", indicator: indicator(55) });
     const { cache } = setup();
     expect(await screen.findByText("20%")).toBeTruthy();
@@ -308,6 +313,11 @@ describe("existing saved dashboard builder", () => {
         interval_minutes: 1,
         last_successful_sync: "2026-10-23T10:01:00Z",
       });
+    });
+    await waitFor(() => expect(apiClient.dashboardWidgetResult).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("20%")).toBeTruthy();
+    await act(async () => {
+      finishRefresh({ kind: "indicator", indicator: indicator(55) });
     });
     expect(await screen.findByText("55%")).toBeTruthy();
     expect(apiClient.dashboardWidgetResult).toHaveBeenCalledWith(
