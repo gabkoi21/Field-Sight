@@ -130,17 +130,27 @@ export interface DashboardWidget {
   source_id: string | null;
   text: string;
   width: 1 | 2;
+  height?: number;
 }
 export interface WorkspaceDashboardInput {
   title: string;
   description: string;
   project_id: string;
   widgets: DashboardWidget[];
+  date_from?: string | null;
+  date_to?: string | null;
+  version?: number;
 }
 export interface WorkspaceDashboard extends WorkspaceDashboardInput {
   id: string;
   created_at: string;
 }
+function dashboardPayload(input: WorkspaceDashboardInput): WorkspaceDashboardInput {
+  return { title: input.title, description: input.description, project_id: input.project_id,
+    widgets: input.widgets, date_from: input.date_from ?? null, date_to: input.date_to ?? null,
+    version: input.version };
+}
+
 export interface Membership {
   organization_id: string;
   organization_name?: string;
@@ -945,15 +955,23 @@ export const apiClient = {
       method: "DELETE",
     }),
   dashboards: () => request<WorkspaceDashboard[]>("/dashboards"),
+  dashboard: (id: string) => request<WorkspaceDashboard>(`/dashboards/${id}`),
+  dashboardWidgetResult: (id: string, widget: string, from = "", through = "") => {
+    const params = new URLSearchParams({ use_saved_filters: "false" });
+    if (from) params.set("date_from", from);
+    if (through) params.set("date_to", through);
+    return request<
+      { kind: "indicator"; indicator: Indicator } |
+      { kind: "analysis"; analysis: AnalysisResult; chart: SavedAnalysis["chart"] }
+    >(`/dashboards/${id}/widgets/${widget}/results?${params}`);
+  },
   createDashboard: (input: WorkspaceDashboardInput) =>
     request<WorkspaceDashboard>("/dashboards", {
-      method: "POST",
-      body: JSON.stringify(input),
+      method: "POST", body: JSON.stringify(dashboardPayload(input)),
     }),
   saveDashboard: (id: string, input: WorkspaceDashboardInput) =>
     request<WorkspaceDashboard>(`/dashboards/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(input),
+      method: "PUT", body: JSON.stringify(dashboardPayload(input)),
     }),
   deleteDashboard: (id: string) =>
     request<void>(`/dashboards/${id}`, { method: "DELETE" }),

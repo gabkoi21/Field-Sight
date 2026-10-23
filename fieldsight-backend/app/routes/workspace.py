@@ -5,11 +5,13 @@ import hashlib
 import io
 import secrets
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from datetime import UTC, date, datetime, timedelta
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
@@ -507,7 +509,9 @@ def dashboards(user: CurrentUser, db: Database) -> Sequence[AnalyticalDashboard]
     ).all()
 
 
-def _validate_widgets(payload: DashboardInput, user: User, db: Session) -> Project:
+def _validate_widgets(
+    payload: DashboardInput, user: User, db: Session, existing: AnalyticalDashboard | None = None
+) -> Project:
     project = _project(payload.project_id, user, db)
     if len({widget.id for widget in payload.widgets}) != len(payload.widgets):
         raise HTTPException(422, "Widget IDs must be unique.")
@@ -521,8 +525,22 @@ def _validate_widgets(payload: DashboardInput, user: User, db: Session) -> Proje
                 if widget.kind == "indicator"
                 else db.get(SavedAnalysis, widget.source_id)
             )
+        # Permit layout edits/removal when an existing source has since been deleted.
+        if (
+            source is None
+            and existing
+            and any(
+                str(old.get("id")) == str(widget.id)
+                and old.get("kind") == widget.kind
+                and str(old.get("source_id")) == str(widget.source_id)
+                for old in existing.widgets
+            )
+        ):
+            continue
         if source is None or source.project_id != project.id or source.organization_id != project.organization_id:
             raise HTTPException(422, "Every widget must reference an accessible item in this workspace.")
+        if isinstance(source, SavedAnalysis) and str(source.query_json.get("project_id")) != str(project.id):
+            raise HTTPException(422, "The saved analysis does not belong to this workspace.")
     return project
 
 
@@ -530,7 +548,11 @@ def _validate_widgets(payload: DashboardInput, user: User, db: Session) -> Proje
 def create_dashboard(payload: DashboardInput, user: CurrentUser, db: Database) -> AnalyticalDashboard:
     project = _validate_widgets(payload, user, db)
     item = AnalyticalDashboard(
-        organization_id=project.organization_id, created_by_id=user.id, **payload.model_dump(mode="json")
+        organization_id=project.organization_id,
+        created_by_id=user.id,
+        **payload.model_dump(mode="json", exclude={"version", "date_from", "date_to"}),
+        date_from=payload.date_from,
+        date_to=payload.date_to,
     )
     # SQLModel UUID fields need native UUID values when instantiated from JSON dictionaries.
     item.project_id = project.id
@@ -543,13 +565,91 @@ def create_dashboard(payload: DashboardInput, user: CurrentUser, db: Database) -
 @router.put("/dashboards/{dashboard_id}")
 def save_dashboard(dashboard_id: UUID, payload: DashboardInput, user: CurrentUser, db: Database) -> AnalyticalDashboard:
     item = _dashboard(dashboard_id, user, db)
-    project = _validate_widgets(payload, user, db)
-    item.title, item.description, item.project_id = payload.title, payload.description, project.id
-    item.widgets = [widget.model_dump(mode="json") for widget in payload.widgets]
-    db.add(item)
+    if payload.project_id != item.project_id:
+        raise HTTPException(422, "A dashboard cannot be moved to another project. Create a new dashboard there.")
+    _validate_widgets(payload, user, db, item)
+    version = payload.version if payload.version is not None else item.version
+    result = cast(
+        CursorResult,
+        db.execute(
+            update(AnalyticalDashboard)
+            .where(
+                col(AnalyticalDashboard.id) == item.id,
+                col(AnalyticalDashboard.version) == version,
+            )
+            .values(
+                title=payload.title,
+                description=payload.description,
+                widgets=[widget.model_dump(mode="json") for widget in payload.widgets],
+                date_from=payload.date_from,
+                date_to=payload.date_to,
+                version=version + 1,
+            )
+        ),
+    )
+    if result.rowcount != 1:
+        db.rollback()
+        raise HTTPException(409, "This dashboard changed in another session. Reload it before saving again.")
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.get("/dashboards/{dashboard_id}")
+def get_dashboard(dashboard_id: UUID, user: CurrentUser, db: Database) -> AnalyticalDashboard:
+    return _dashboard(dashboard_id, user, db)
+
+
+@router.get("/dashboards/{dashboard_id}/widgets/{widget_id}/results")
+def dashboard_widget_result(
+    dashboard_id: UUID,
+    widget_id: UUID,
+    user: CurrentUser,
+    db: Database,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    use_saved_filters: bool = True,
+) -> dict[str, object]:
+    from app.routes.analysis import _execute
+    from app.routes.indicators import _read
+    from app.schemas.analysis import AnalysisQuery
+
+    dashboard = _dashboard(dashboard_id, user, db)
+    start = date_from if date_from is not None else dashboard.date_from if use_saved_filters else None
+    end = date_to if date_to is not None else dashboard.date_to if use_saved_filters else None
+    if start and end and start > end:
+        raise HTTPException(422, "Start date must be on or before end date.")
+    widget = next((w for w in dashboard.widgets if str(w.get("id")) == str(widget_id)), None)
+    if widget is None:
+        raise HTTPException(404, "Widget was not found.")
+    if widget["kind"] == "text":
+        return {"kind": "text", "text": widget.get("text", "")}
+    source: Indicator | SavedAnalysis | None = (
+        db.get(Indicator, UUID(widget["source_id"]))
+        if widget["kind"] == "indicator"
+        else db.get(SavedAnalysis, UUID(widget["source_id"]))
+    )
+    if (
+        source is None
+        or source.organization_id != dashboard.organization_id
+        or source.project_id != dashboard.project_id
+    ):
+        raise HTTPException(404, "This widget's source is no longer available in this project.")
+    if isinstance(source, Indicator):
+        return {"kind": "indicator", "indicator": _read(source, db, start, end)}
+    if str(source.query_json.get("project_id")) != str(dashboard.project_id):
+        raise HTTPException(422, "The saved analysis does not belong to this workspace.")
+    try:
+        query = AnalysisQuery.model_validate(source.query_json)
+        filters = query.filters.model_dump()
+        if start is not None:
+            filters["date_from"] = start
+        if end is not None:
+            filters["date_to"] = end
+        validated = AnalysisQuery.model_validate({**query.model_dump(), "filters": filters})
+    except ValueError as exc:
+        raise HTTPException(422, "The dashboard dates conflict with the saved visualization filters.") from exc
+    return {"kind": "analysis", "analysis": _execute(validated, user, db), "chart": source.chart}
 
 
 @router.delete("/dashboards/{dashboard_id}", status_code=204)

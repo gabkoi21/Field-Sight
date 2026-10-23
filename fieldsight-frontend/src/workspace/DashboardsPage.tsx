@@ -1,4 +1,9 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -8,6 +13,8 @@ import {
   Copy,
   LayoutDashboard,
   Maximize2,
+  GripVertical,
+  RefreshCw,
   Pencil,
   Plus,
   Printer,
@@ -52,39 +59,76 @@ const value = (n: number | null | undefined) =>
     ? "Not reported"
     : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 export function DashboardsPage() {
-  const { projectId, project } = useWorkspace();
+  const { projectId, project, projects, selectProject, organizationId } =
+    useWorkspace();
   const cache = useQueryClient();
   const [selected, setSelected] = useState("");
   const [editor, setEditor] = useState<"new" | WorkspaceDashboard | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [editingWidget, setEditingWidget] = useState<string | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [sizing, setSizing] = useState<{
+    id: string;
+    width: 1 | 2;
+    height: number;
+  } | null>(null);
+  const pointerCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => pointerCleanup.current?.(), []);
   const [widgetEditor, setWidgetEditor] = useState(false);
   const [kind, setKind] = useState<DashboardWidget["kind"]>("indicator");
   const [source, setSource] = useState("");
   const [widgetTitle, setWidgetTitle] = useState("");
   const [text, setText] = useState("");
+  const [filterDashboard, setFilterDashboard] = useState("");
   const [from, setFrom] = useState("");
   const [through, setThrough] = useState("");
   const dashboards = useQuery({
-    queryKey: ["dashboards"],
+    queryKey: ["dashboards", organizationId],
     queryFn: apiClient.dashboards,
   });
   const available =
     dashboards.data?.filter((d) => d.project_id === projectId) ?? [];
   const dashboard = available.find((d) => d.id === selected) ?? available[0];
+  const syncStatus = useQuery({
+    queryKey: ["sync-settings", projectId],
+    queryFn: () => apiClient.syncSettings(projectId),
+    enabled: Boolean(projectId),
+    refetchInterval: 5000,
+  });
+  useEffect(() => {
+    pointerCleanup.current?.();
+    setSelected("");
+    setEditor(null);
+    setWidgetEditor(false);
+    setEditingWidget(null);
+  }, [projectId]);
+  useEffect(() => {
+    setFrom(dashboard?.date_from ?? "");
+    setThrough(dashboard?.date_to ?? "");
+    setFilterDashboard(dashboard?.id ?? "");
+  }, [dashboard?.id, dashboard?.date_from, dashboard?.date_to]);
   const indicators = useQuery({
     queryKey: ["indicators", projectId, "", ""],
     queryFn: () => apiClient.indicators(projectId),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId && widgetEditor && kind === "indicator"),
   });
   const analyses = useQuery({
     queryKey: ["saved-analysis", projectId],
     queryFn: () => apiClient.savedAnalyses(projectId),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId && widgetEditor && kind === "analysis"),
   });
   async function refresh(data?: WorkspaceDashboard) {
+    if (data) {
+      cache.setQueryData<WorkspaceDashboard[]>(
+        ["dashboards", organizationId],
+        (old) =>
+          old ? [...old.filter((item) => item.id !== data.id), data] : [data],
+      );
+      setSelected(data.id);
+    }
     await cache.invalidateQueries({ queryKey: ["dashboards"] });
-    if (data) setSelected(data.id);
   }
   const create = useMutation({
     mutationFn: (input: WorkspaceDashboardInput) =>
@@ -124,13 +168,118 @@ export function DashboardsPage() {
     save.reset();
   }
   function reorder(index: number, direction: number) {
-    if (!dashboard) return;
+    if (
+      !dashboard ||
+      save.isPending ||
+      index + direction < 0 ||
+      index + direction >= dashboard.widgets.length
+    )
+      return;
     const widgets = [...dashboard.widgets];
     [widgets[index], widgets[index + direction]] = [
       widgets[index + direction],
       widgets[index],
     ];
     persist(widgets);
+  }
+  function openWidget(widget?: DashboardWidget) {
+    setWidgetEditor(true);
+    setEditingWidget(widget?.id ?? null);
+    setKind(widget?.kind ?? "indicator");
+    setSource(widget?.source_id ?? "");
+    setWidgetTitle(widget?.title ?? "");
+    setText(widget?.text ?? "");
+    save.reset();
+  }
+  function startPointer(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    widget: DashboardWidget,
+    resize = false,
+  ) {
+    if (event.button !== 0 || save.isPending || !dashboard) return;
+    event.preventDefault();
+    pointerCleanup.current?.();
+    const origin = {
+      x: event.clientX,
+      y: event.clientY,
+      height: widget.height ?? 360,
+    };
+    const card = event.currentTarget.closest<HTMLElement>("[data-widget-id]");
+    const columnWidth =
+      (card?.parentElement?.getBoundingClientRect().width || 800) / 2;
+    let target: string | null = null;
+    let size = { id: widget.id, width: widget.width, height: origin.height };
+    if (!resize) setDragging(widget.id);
+    function move(e: PointerEvent) {
+      if (resize) {
+        size = {
+          id: widget.id,
+          width: Math.max(
+            1,
+            Math.min(
+              2,
+              widget.width + Math.round((e.clientX - origin.x) / columnWidth),
+            ),
+          ) as 1 | 2,
+          height: Math.max(
+            240,
+            Math.min(900, Math.round(origin.height + e.clientY - origin.y)),
+          ),
+        };
+        setSizing(size);
+      } else {
+        target =
+          document
+            .elementFromPoint(e.clientX, e.clientY)
+            ?.closest<HTMLElement>("[data-widget-id]")?.dataset.widgetId ??
+          null;
+        setDropTarget(target);
+      }
+    }
+    function clear() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", keyboardCancel);
+      pointerCleanup.current = null;
+      setDragging(null);
+      setDropTarget(null);
+      setSizing(null);
+    }
+    function finish() {
+      clear();
+      if (resize)
+        persist(
+          dashboard!.widgets.map((w) =>
+            w.id === widget.id
+              ? { ...w, width: size.width, height: size.height }
+              : w,
+          ),
+        );
+      else if (target && target !== widget.id) {
+        const widgets = [...dashboard!.widgets];
+        const start = widgets.findIndex((w) => w.id === widget.id),
+          end = widgets.findIndex((w) => w.id === target);
+        if (start >= 0 && end >= 0) {
+          const [moving] = widgets.splice(start, 1);
+          widgets.splice(end, 0, moving);
+          persist(widgets);
+        }
+      }
+    }
+    function cancel() {
+      clear();
+    }
+    function keyboardCancel(e: KeyboardEvent) {
+      if (e.key === "Escape") cancel();
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", keyboardCancel);
+    pointerCleanup.current = clear;
   }
   const invalid = Boolean(from && through && from > through);
   return (
@@ -139,7 +288,10 @@ export function DashboardsPage() {
       title="Dashboards"
       description="Build a shared view of your project's results and evidence."
       actions={
-        <Button onClick={() => edit("new")}>
+        <Button
+          disabled={!projectId || save.isPending}
+          onClick={() => edit("new")}
+        >
           <Plus size={14} />
           Create dashboard
         </Button>
@@ -147,6 +299,23 @@ export function DashboardsPage() {
     >
       <WorkspaceGate>
         <WorkspaceTabs />
+        <Panel className="flex items-end gap-3 p-4">
+          {" "}
+          <Field label="Project">
+            <select
+              className={fieldClass}
+              value={projectId}
+              disabled={save.isPending}
+              onChange={(event) => selectProject(event.target.value)}
+            >
+              {projects.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Panel>
         {[dashboards.error, create.error, save.error, remove.error]
           .filter(Boolean)
           .map((e, i) => (
@@ -154,7 +323,24 @@ export function DashboardsPage() {
               {e?.message}
             </Notice>
           ))}
-        {dashboards.isLoading ? (
+        {save.error && (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              save.reset();
+              dashboards.refetch();
+            }}
+          >
+            Reload saved dashboard
+          </Button>
+        )}
+        {dashboards.error ? (
+          <Panel className="p-5">
+            <Button variant="secondary" onClick={() => dashboards.refetch()}>
+              Retry loading dashboards
+            </Button>
+          </Panel>
+        ) : dashboards.isLoading ? (
           <LoadingState />
         ) : !dashboard ? (
           <Panel className="grid justify-items-center p-12 text-center">
@@ -181,7 +367,11 @@ export function DashboardsPage() {
                     id="dashboard-picker"
                     className="max-w-full border-0 bg-transparent text-base font-semibold"
                     value={dashboard.id}
-                    onChange={(e) => setSelected(e.target.value)}
+                    disabled={save.isPending}
+                    onChange={(e) => {
+                      setSelected(e.target.value);
+                      setWidgetEditor(false);
+                    }}
                   >
                     {available.map((d) => (
                       <option key={d.id} value={d.id}>
@@ -209,6 +399,8 @@ export function DashboardsPage() {
                         title: `${dashboard.title} copy`.slice(0, 200),
                         description: dashboard.description,
                         project_id: projectId,
+                        date_from: dashboard.date_from,
+                        date_to: dashboard.date_to,
                         widgets: dashboard.widgets.map((w) => ({
                           ...w,
                           id: crypto.randomUUID(),
@@ -237,14 +429,8 @@ export function DashboardsPage() {
                     <Trash2 size={14} />
                   </Tool>
                   <Button
-                    onClick={() => {
-                      setWidgetEditor(true);
-                      setKind("indicator");
-                      setSource("");
-                      setWidgetTitle("");
-                      setText("");
-                      save.reset();
-                    }}
+                    disabled={save.isPending}
+                    onClick={() => openWidget()}
                   >
                     <Plus size={14} />
                     Add widget
@@ -277,81 +463,211 @@ export function DashboardsPage() {
                 >
                   Clear filters
                 </button>
+                <Button
+                  variant="secondary"
+                  disabled={invalid || save.isPending}
+                  onClick={() =>
+                    save.mutate({
+                      id: dashboard.id,
+                      input: {
+                        ...dashboard,
+                        date_from: from || null,
+                        date_to: through || null,
+                      },
+                    })
+                  }
+                >
+                  Save filters
+                </Button>
+                <Tool
+                  title="Refresh dashboard data"
+                  onClick={() =>
+                    cache.invalidateQueries({ queryKey: ["dashboard-widget"] })
+                  }
+                >
+                  <RefreshCw size={14} />
+                </Tool>
                 <span className="mb-2 ml-auto text-[12px] text-[#87969d]">
                   Saved within {project?.name}
                 </span>
               </div>
+              <p className="m-0 px-5 pb-4 text-xs leading-5 text-[#87969d]">
+                Dates filter results, not overall indicator targets. Dashboard
+                dates override each saved chart's date bounds; unset bounds keep
+                that chart's saved dates. Other chart filters stay unchanged.
+                Changes preview immediately; Save filters keeps them after
+                reload.
+              </p>
             </Panel>
+            {save.isPending && (
+              <p role="status" className="text-xs text-[#73868d]">
+                Saving dashboard…
+              </p>
+            )}
+            {syncStatus.error && (
+              <p role="status" className="text-xs text-[#87969d]">
+                Automatic refresh status is unavailable. Use Refresh dashboard
+                data to load current results.
+              </p>
+            )}
+            <p className="text-xs text-[#87969d]">
+              Drag a widget by its grip to reorder. Drag its lower-right handle
+              to resize, or use the move and width buttons.
+            </p>
             {invalid ? (
               <Notice error>Start date must be on or before end date.</Notice>
+            ) : filterDashboard !== dashboard.id ? (
+              <LoadingState />
             ) : (
               <div className="grid grid-cols-2 items-start gap-5 max-lg:grid-cols-1">
                 {dashboard.widgets.map((widget, index) => (
-                  <Panel
+                  <div
                     key={widget.id}
-                    className={
-                      widget.width === 2 ? "col-span-2 max-lg:col-span-1" : ""
-                    }
+                    data-widget-id={widget.id}
+                    className={`print:!h-auto ${(sizing?.id === widget.id ? sizing.width : widget.width) === 2 ? "col-span-2 max-lg:col-span-1" : ""} ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[#168596]" : ""}`}
+                    style={{
+                      height:
+                        sizing?.id === widget.id
+                          ? sizing.height
+                          : (widget.height ?? 360),
+                    }}
                   >
-                    <header className="flex items-center justify-between gap-2 border-b border-[#edf0f2] px-5 py-4">
-                      <h2 className="m-0 text-sm font-medium">
-                        {widget.title}
-                      </h2>
-                      <div className="flex shrink-0 gap-1 print:hidden">
-                        <Tool
-                          title={`Move ${widget.title} up`}
-                          disabled={index === 0 || save.isPending}
-                          onClick={() => reorder(index, -1)}
-                        >
-                          <ArrowUp size={12} />
-                        </Tool>
-                        <Tool
-                          title={`Move ${widget.title} down`}
-                          disabled={
-                            index === dashboard.widgets.length - 1 ||
-                            save.isPending
-                          }
-                          onClick={() => reorder(index, 1)}
-                        >
-                          <ArrowDown size={12} />
-                        </Tool>
-                        <Tool
-                          title={`Resize ${widget.title}`}
+                    <Panel className="flex h-full flex-col overflow-hidden print:overflow-visible">
+                      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[#edf0f2] px-5 py-4">
+                        <button
+                          type="button"
+                          aria-label={`Drag ${widget.title}`}
                           disabled={save.isPending}
-                          onClick={() =>
-                            persist(
-                              dashboard.widgets.map((w) =>
-                                w.id === widget.id
-                                  ? { ...w, width: w.width === 1 ? 2 : 1 }
-                                  : w,
-                              ),
-                            )
-                          }
+                          className="touch-none cursor-grab border-0 print:hidden bg-transparent p-1 text-[#78939c] active:cursor-grabbing"
+                          onPointerDown={(event) => startPointer(event, widget)}
                         >
-                          <Maximize2 size={12} />
-                        </Tool>
-                        <Tool
-                          title={`Remove ${widget.title}`}
-                          disabled={save.isPending}
-                          onClick={() =>
-                            persist(
-                              dashboard.widgets.filter(
-                                (w) => w.id !== widget.id,
-                              ),
-                            )
+                          <GripVertical size={16} />
+                        </button>
+                        <h2 className="m-0 flex-1 text-sm font-medium">
+                          {widget.title}
+                        </h2>
+                        <div className="flex shrink-0 gap-1 print:hidden">
+                          <Tool
+                            title={`Move ${widget.title} up`}
+                            disabled={index === 0 || save.isPending}
+                            onClick={() => reorder(index, -1)}
+                          >
+                            <ArrowUp size={12} />
+                          </Tool>
+                          <Tool
+                            title={`Move ${widget.title} down`}
+                            disabled={
+                              index === dashboard.widgets.length - 1 ||
+                              save.isPending
+                            }
+                            onClick={() => reorder(index, 1)}
+                          >
+                            <ArrowDown size={12} />
+                          </Tool>
+                          <Tool
+                            title={`Resize ${widget.title}`}
+                            disabled={save.isPending}
+                            onClick={() =>
+                              persist(
+                                dashboard.widgets.map((w) =>
+                                  w.id === widget.id
+                                    ? { ...w, width: w.width === 1 ? 2 : 1 }
+                                    : w,
+                                ),
+                              )
+                            }
+                          >
+                            <Maximize2 size={12} />
+                          </Tool>
+                          <Tool
+                            title={`Edit ${widget.title}`}
+                            disabled={save.isPending}
+                            onClick={() => openWidget(widget)}
+                          >
+                            <Pencil size={12} />
+                          </Tool>
+                          <Tool
+                            title={`Remove ${widget.title}`}
+                            disabled={save.isPending}
+                            onClick={() =>
+                              persist(
+                                dashboard.widgets.filter(
+                                  (w) => w.id !== widget.id,
+                                ),
+                              )
+                            }
+                          >
+                            <Trash2 size={12} />
+                          </Tool>
+                        </div>
+                      </header>
+                      <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
+                        <Widget
+                          widget={
+                            sizing?.id === widget.id
+                              ? { ...widget, height: sizing.height }
+                              : widget
                           }
-                        >
-                          <Trash2 size={12} />
-                        </Tool>
+                          project={projectId}
+                          dashboardId={dashboard.id}
+                          version={dashboard.version}
+                          revision={syncStatus.data?.last_successful_sync}
+                          from={from}
+                          through={through}
+                        />
                       </div>
-                    </header>
-                    <Widget
-                      widget={widget}
-                      project={projectId}
-                      from={from}
-                      through={through}
-                    />
-                  </Panel>
+                      <div className="mt-auto flex items-center justify-end gap-2 px-3 pb-2 print:hidden">
+                        <label className="text-[11px] text-[#87969d]">
+                          Height{" "}
+                          <select
+                            aria-label={`Height of ${widget.title}`}
+                            disabled={save.isPending}
+                            value={widget.height ?? 360}
+                            onChange={(event) =>
+                              persist(
+                                dashboard.widgets.map((w) =>
+                                  w.id === widget.id
+                                    ? {
+                                        ...w,
+                                        height: Number(event.target.value),
+                                      }
+                                    : w,
+                                ),
+                              )
+                            }
+                          >
+                            {[
+                              ...new Set([
+                                240,
+                                360,
+                                480,
+                                600,
+                                900,
+                                widget.height ?? 360,
+                              ]),
+                            ]
+                              .sort((a, b) => a - b)
+                              .map((height) => (
+                                <option key={height} value={height}>
+                                  {height}px
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          aria-label={`Drag to resize ${widget.title}`}
+                          disabled={save.isPending}
+                          className="touch-none cursor-se-resize rounded border border-[#e2e9ec] bg-white p-1 text-[#78939c]"
+                          onPointerDown={(event) =>
+                            startPointer(event, widget, true)
+                          }
+                        >
+                          <Maximize2 size={13} />
+                        </button>
+                      </div>
+                    </Panel>
+                  </div>
                 ))}
               </div>
             )}
@@ -382,6 +698,9 @@ export function DashboardsPage() {
                 description,
                 project_id: projectId,
                 widgets: editor === "new" ? [] : editor.widgets,
+                version: editor === "new" ? undefined : editor.version,
+                date_from: editor === "new" ? null : editor.date_from,
+                date_to: editor === "new" ? null : editor.date_to,
               };
               if (editor === "new") create.mutate(input);
               else save.mutate({ id: editor.id, input });
@@ -420,7 +739,9 @@ export function DashboardsPage() {
       )}
       {widgetEditor && dashboard && (
         <Dialog
-          title="Add dashboard widget"
+          title={
+            editingWidget ? "Edit dashboard widget" : "Add dashboard widget"
+          }
           onClose={() => setWidgetEditor(false)}
           error={
             save.error?.message ??
@@ -432,17 +753,25 @@ export function DashboardsPage() {
             className="grid gap-4"
             onSubmit={(e) => {
               e.preventDefault();
-              persist([
-                ...dashboard.widgets,
-                {
-                  id: crypto.randomUUID(),
-                  title: widgetTitle,
-                  kind,
-                  source_id: kind === "text" ? null : source,
-                  text,
-                  width: 1,
-                },
-              ]);
+              const original = dashboard.widgets.find(
+                (w) => w.id === editingWidget,
+              );
+              const updated: DashboardWidget = {
+                id: editingWidget ?? crypto.randomUUID(),
+                title: widgetTitle,
+                kind,
+                source_id: kind === "text" ? null : source,
+                text,
+                width: original?.width ?? 1,
+                height: original?.height ?? 360,
+              };
+              persist(
+                editingWidget
+                  ? dashboard.widgets.map((w) =>
+                      w.id === editingWidget ? updated : w,
+                    )
+                  : [...dashboard.widgets, updated],
+              );
             }}
           >
             <Field label="Widget type">
@@ -491,6 +820,15 @@ export function DashboardsPage() {
                   onChange={(e) => setSource(e.target.value)}
                 >
                   <option value="">Choose a source</option>
+                  {editingWidget &&
+                    source &&
+                    !(
+                      kind === "indicator" ? indicators.data : analyses.data
+                    )?.some((item) => item.id === source) && (
+                      <option value={source}>
+                        Existing source (unavailable)
+                      </option>
+                    )}
                   {(kind === "indicator"
                     ? (indicators.data ?? [])
                     : (analyses.data ?? [])
@@ -502,6 +840,27 @@ export function DashboardsPage() {
                 </select>
               </Field>
             )}
+            {kind !== "text" &&
+              (kind === "indicator"
+                ? indicators.isLoading
+                : analyses.isLoading) && (
+                <p className="text-xs text-[#87969d]">
+                  Loading widget sources…
+                </p>
+              )}
+            {kind !== "text" &&
+              !(kind === "indicator"
+                ? indicators.isLoading
+                : analyses.isLoading) &&
+              !(kind === "indicator" ? indicators.data : analyses.data)
+                ?.length && (
+                <p className="text-xs text-[#87969d]">
+                  No{" "}
+                  {kind === "indicator" ? "indicators" : "saved visualizations"}{" "}
+                  are available in this project. Create a source before adding
+                  this widget.
+                </p>
+              )}
             {kind === "analysis" && (
               <p className="text-xs text-[#87969d]">
                 Save a visualization in{" "}
@@ -512,8 +871,15 @@ export function DashboardsPage() {
                 date filters; other filters are preserved.
               </p>
             )}
-            <Button type="submit" disabled={save.isPending}>
-              Add widget
+            <Button
+              type="submit"
+              disabled={
+                save.isPending ||
+                !widgetTitle.trim() ||
+                (kind !== "text" && !source)
+              }
+            >
+              {editingWidget ? "Save widget" : "Add widget"}
             </Button>
           </form>
         </Dialog>
@@ -549,37 +915,43 @@ function Widget({
   project,
   from,
   through,
+  dashboardId,
+  version,
+  revision,
 }: {
+  dashboardId: string;
+  version?: number;
+  revision?: string | null;
   widget: DashboardWidget;
   project: string;
   from: string;
   through: string;
 }) {
-  const indicators = useQuery({
-    queryKey: ["indicators", project, from, through],
-    queryFn: () => apiClient.indicators(project, from, through),
-    enabled: widget.kind === "indicator",
-  });
-  const analyses = useQuery({
-    queryKey: ["saved-analysis", project],
-    queryFn: () => apiClient.savedAnalyses(project),
-    enabled: widget.kind === "analysis",
-  });
-  const saved = analyses.data?.find((item) => item.id === widget.source_id);
-  const result = useQuery({
-    queryKey: ["dashboard-analysis", saved?.id, from, through, saved?.query],
+  const response = useQuery({
+    queryKey: [
+      "dashboard-widget",
+      project,
+      dashboardId,
+      widget.id,
+      version,
+      from,
+      through,
+      revision,
+    ],
     queryFn: () =>
-      apiClient.queryAnalysis({
-        ...saved!.query,
-        filters: {
-          ...saved!.query.filters,
-          date_from: from || saved!.query.filters.date_from,
-          date_to: through || saved!.query.filters.date_to,
-        },
-      }),
-    enabled: widget.kind === "analysis" && Boolean(saved),
+      apiClient.dashboardWidgetResult(dashboardId, widget.id, from, through),
+    enabled: widget.kind !== "text",
+    retry: false,
   });
-  const error = indicators.error ?? analyses.error ?? result.error;
+  const result = {
+    data:
+      response.data?.kind === "analysis" ? response.data.analysis : undefined,
+  };
+  const saved =
+    response.data?.kind === "analysis"
+      ? { chart: response.data.chart }
+      : undefined;
+  const error = response.error;
   if (widget.kind === "text")
     return (
       <p className="m-0 whitespace-pre-wrap p-5 text-sm leading-7 text-[#73868d]">
@@ -590,12 +962,15 @@ function Widget({
     return (
       <div className="p-5">
         <Notice error>{error.message}</Notice>
+        <Button variant="secondary" onClick={() => response.refetch()}>
+          Retry widget
+        </Button>
       </div>
     );
-  if (indicators.isLoading || analyses.isLoading || result.isLoading)
-    return <LoadingState />;
+  if (response.isLoading) return <LoadingState />;
   if (widget.kind === "indicator") {
-    const item = indicators.data?.find((i) => i.id === widget.source_id);
+    const item =
+      response.data?.kind === "indicator" ? response.data.indicator : undefined;
     if (!item)
       return (
         <p className="p-5 text-sm text-[#87969d]">
@@ -605,16 +980,27 @@ function Widget({
     return (
       <div className="p-5">
         <p className="mb-1 text-xs text-[#87969d]">{item.name}</p>
+        {item.result_source === "unconfigured" ||
+        !["healthy", "unmapped"].includes(item.mapping_health) ? (
+          <p className="text-xs text-amber-700">
+            Source unavailable or not configured:{" "}
+            {item.mapping_health.replaceAll("_", " ")}. Check the indicator
+            mapping.
+          </p>
+        ) : null}
         <strong className="block text-3xl font-semibold text-[#168596]">
           {item.unit === "text"
             ? (item.qualitative_value ?? "Not reported")
             : value(item.current_value) +
-              (item.unit === "percentage" ? "%" : "")}
+              (item.current_value != null && item.unit === "percentage"
+                ? "%"
+                : "")}
         </strong>
         {item.unit !== "text" && (
           <>
             <p className="text-xs text-[#87969d]">
               Overall target: {value(item.target_value)}
+              {from || through ? " (unchanged by date filters)" : ""}
             </p>
             {item.progress_percent !== null && (
               <div className="h-2 overflow-hidden rounded bg-[#edf2f4]">
@@ -652,7 +1038,12 @@ function Widget({
         The saved visualization is no longer available.
       </p>
     );
-  if (!result.data) return null;
+  if (!result.data)
+    return (
+      <p className="p-5 text-sm text-[#87969d]">
+        Visualization data is unavailable.
+      </p>
+    );
   if (!result.data.series.length)
     return (
       <p className="p-5 text-sm text-[#87969d]">
@@ -665,7 +1056,7 @@ function Widget({
   }));
   return (
     <div className="p-5">
-      <div className="h-[250px]">
+      <div style={{ height: Math.max(160, (widget.height ?? 420) - 170) }}>
         {saved.chart === "table" ? (
           <div className="max-h-[250px] overflow-auto">
             <table className="w-full text-left text-xs">

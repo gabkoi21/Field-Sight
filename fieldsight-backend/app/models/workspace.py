@@ -51,6 +51,9 @@ class AnalyticalDashboard(SQLModel, table=True):
     project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False))
     title: str
     description: str = ""
+    date_from: date | None = None
+    date_to: date | None = None
+    version: int = 1
     created_by_id: UUID = Field(foreign_key="users.id")
     widgets: list[dict] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))

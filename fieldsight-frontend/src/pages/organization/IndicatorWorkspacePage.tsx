@@ -29,7 +29,6 @@ import {
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
-import { CollectedDataPanel } from "../../workspace/CollectedDataPanel";
 import { Button, LoadingState } from "../../components/ui";
 import {
   apiClient,
@@ -269,12 +268,14 @@ export function IndicatorWorkspacePage() {
                   <div className="flex gap-2">
                     <Icon
                       label={`Edit ${node.title}`}
+                      tone="amber"
                       onClick={() => addNode(node)}
                     >
                       <Pencil size={12} />
                     </Icon>
                     <Icon
                       label={`Delete ${node.title}`}
+                      destructive
                       disabled={removeNode.isPending}
                       onClick={() => {
                         if (
@@ -584,7 +585,6 @@ export function IndicatorWorkspacePage() {
                             <div className="flex border-t border-[#e7edef] px-4">
                               {[
                                 "details",
-                                "collected",
                                 "summary",
                                 "sources",
                               ].map((id) => (
@@ -593,9 +593,7 @@ export function IndicatorWorkspacePage() {
                                   onClick={() => setDetailsTab(id)}
                                   className={`border-0 border-b-2 bg-transparent px-4 py-3 text-xs capitalize ${detailsTab === id ? "border-[#0c8593] text-[#0c7180]" : "border-transparent text-[#73868d]"}`}
                                 >
-                                  {id === "collected"
-                                    ? "Collected data"
-                                    : id === "summary"
+                                  {id === "summary"
                                       ? "Results summary"
                                       : id === "sources"
                                         ? "Mapping & sources"
@@ -604,12 +602,7 @@ export function IndicatorWorkspacePage() {
                               ))}
                             </div>
                           </Panel>
-                          {detailsTab === "collected" ? (
-                            <CollectedDataPanel
-                              indicator={selected}
-                              onMap={() => editMap(selected)}
-                            />
-                          ) : detailsTab === "details" ? (
+                          {detailsTab === "details" ? (
                             <Panel>
                               <div className="grid grid-cols-2 gap-5 p-5 text-xs max-[600px]:grid-cols-1">
                                 <Detail
@@ -778,7 +771,7 @@ export function IndicatorWorkspacePage() {
                                 ].map((label) => (
                                   <th
                                     key={label}
-                                    className="px-4 py-3 font-medium"
+                                    className={`px-4 py-3 font-medium ${label === "Actions" ? "text-right" : ""}`}
                                   >
                                     {label}
                                   </th>
@@ -880,30 +873,31 @@ export function IndicatorWorkspacePage() {
                                         <Status item={item} />
                                       </td>
                                       <td className="px-4 py-4">
-                                        <div className="flex gap-2">
+                                        <div className="flex justify-end gap-2">
                                           <Icon
                                             label={`View results for ${item.name}`}
+                                            tone="blue"
                                             onClick={() => showResult(item)}
                                           >
                                             <BarChart3 size={15} />
                                           </Icon>
                                           <Icon
-                                            label={`Collected data for ${item.name}`}
-                                            onClick={() => {
-                                              showResult(item);
-                                              setDetailsTab("collected");
-                                            }}
+                                            label={`Map source for ${item.name}`}
+                                            disabled={map.isPending || unmap.isPending}
+                                            onClick={() => editMap(item)}
                                           >
                                             <Link2 size={15} />
                                           </Icon>
                                           <Icon
                                             label={`Edit ${item.name}`}
+                                            tone="amber"
                                             onClick={() => editItem(item)}
                                           >
                                             <Pencil size={15} />
                                           </Icon>
                                           <Icon
                                             label={`Delete ${item.name}`}
+                                            destructive
                                             disabled={remove.isPending}
                                             onClick={() => {
                                               if (
@@ -1026,19 +1020,29 @@ function Icon({
   children,
   onClick,
   disabled = false,
+  destructive = false,
+  tone = "teal",
 }: {
   label: string;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  destructive?: boolean;
+  tone?: "blue" | "teal" | "slate" | "amber";
 }) {
+  const colors = {
+    blue: "border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700",
+    teal: "border-teal-200 text-teal-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700",
+    slate: "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
+    amber: "border-amber-200 text-amber-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700",
+  };
   return (
     <button
       aria-label={label}
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid size-7 place-items-center border border-[#dce5e8] bg-white text-[#3f7a86] disabled:opacity-40"
+      className={`grid size-7 place-items-center border bg-white transition-colors disabled:opacity-40 ${destructive ? "border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700" : colors[tone]}`}
     >
       {children}
     </button>
@@ -1130,7 +1134,7 @@ function IndicatorResults({
           </h2>
           <p className="whitespace-pre-wrap text-sm leading-7 text-[#637d86]">
             {indicator.qualitative_value ??
-              "No narrative recorded in this reporting window. Add a dated narrative under Collected data."}
+              "No narrative recorded in this reporting window."}
           </p>
           <p className="text-xs text-[#87969d]">
             {indicator.manual_result_count} manual results ·{" "}

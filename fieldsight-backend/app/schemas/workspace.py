@@ -60,16 +60,37 @@ class CollectedResultInput(BaseModel):
 
 
 class DashboardWidget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     id: UUID
     title: str = Field(min_length=1, max_length=200)
     kind: Literal["indicator", "analysis", "text"]
     source_id: UUID | None = None
     text: str = Field(default="", max_length=4000)
     width: Literal[1, 2] = 1
+    height: int = Field(default=360, ge=240, le=900)
+
+    @model_validator(mode="after")
+    def valid_source(self) -> "DashboardWidget":
+        if self.kind == "text" and self.source_id is not None:
+            raise ValueError("Text widgets cannot reference a data source.")
+        if self.kind != "text" and self.source_id is None:
+            raise ValueError("Choose a source for this widget.")
+        return self
 
 
 class DashboardInput(BaseModel):
+    # Older clients submit read-only fields back with a full dashboard PUT.
+    model_config = ConfigDict(extra="ignore")
     title: str = Field(min_length=2, max_length=200)
     description: str = Field(default="", max_length=1000)
     project_id: UUID
     widgets: list[DashboardWidget] = Field(default_factory=list, max_length=30)
+    date_from: date | None = None
+    date_to: date | None = None
+    version: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def ordered_dates(self) -> "DashboardInput":
+        if self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError("Start date must be on or before end date.")
+        return self

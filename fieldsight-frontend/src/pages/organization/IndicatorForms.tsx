@@ -472,7 +472,7 @@ export function IndicatorMappingForm({
   return (
     <Dialog
       title="Map indicator to survey data"
-      description="Select a form, question and calculation explicitly. Only ready submissions contribute to results."
+      description={`${indicator.name}: Select a form, question and calculation explicitly. Only ready submissions contribute to results.`}
       error={error || catalogue.error?.message || fields.error?.message}
       onClose={onClose}
     >
@@ -539,7 +539,9 @@ export function IndicatorMappingForm({
             </option>
             {catalogue.data?.forms.map((id) => (
               <option key={id} value={id}>
-                {id}
+                {id === catalogue.data.form_id
+                  ? catalogue.data.form_name?.trim() || id
+                  : id}
               </option>
             ))}
           </select>
