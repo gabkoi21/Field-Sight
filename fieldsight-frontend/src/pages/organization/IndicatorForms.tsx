@@ -5,7 +5,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Plus, Trash2, X } from "lucide-react";
 import { Button, LoadingState } from "../../components/ui";
@@ -62,6 +62,7 @@ export function FormField({
 export function Dialog({
   title,
   compact = false,
+  presentation = false,
   description,
   error,
   onClose,
@@ -69,12 +70,19 @@ export function Dialog({
 }: {
   title: string;
   compact?: boolean;
+  presentation?: boolean;
   description?: string;
   error?: string;
   onClose: () => void;
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!presentation) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [presentation]);
   useEffect(() => {
     const previous = document.activeElement;
     if (!dialog.current?.contains(previous)) {
@@ -120,9 +128,9 @@ export function Dialog({
       className="fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"
     >
       <section
-        className={`max-h-[90vh] w-full ${compact ? "max-w-[520px]" : "max-w-[680px]"} overflow-y-auto rounded-lg bg-white p-6 shadow-xl`}
+        className={`w-full ${presentation ? "h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] max-w-[1920px] p-8 max-sm:p-4" : compact ? "max-h-[90vh] max-w-[520px] p-6" : "max-h-[90vh] max-w-[680px] p-6"} overflow-y-auto rounded-lg bg-white shadow-xl`}
       >
-        <header className="mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4">
+        <header className={`mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4 ${presentation ? "sticky -top-8 z-10 mx-auto max-w-[1800px] bg-white pt-2 max-sm:-top-4" : ""}`}>
           <div>
             <h2 className="m-0 text-lg font-semibold text-[#24434c]">
               {title}
@@ -453,15 +461,31 @@ export function IndicatorMappingForm({
     indicator.mapping?.calculation ?? "",
   );
   const [match, setMatch] = useState(indicator.mapping?.match_value ?? "");
+  const cache = useQueryClient();
   const catalogue = useQuery({
     queryKey: ["survey-fields", projectId, formState],
-    queryFn: () => apiClient.surveyFields(projectId, formState),
+    queryFn: async () => {
+      const stored = await apiClient.surveyFields(projectId, formState);
+      if (!stored.form_id || stored.fields.length) return stored;
+      try {
+        return await apiClient.surveyFields(projectId, stored.form_id, true);
+      } catch (failure) {
+        return { ...stored, warning: failure instanceof Error ? failure.message : "Unable to load Kobo questions. Try refreshing." };
+      }
+    },
   });
   const formId = formState ?? catalogue.data?.form_id ?? null;
   const fields = useQuery({
     queryKey: ["indicator-fields", projectId, formId],
     queryFn: () => apiClient.indicatorFields(projectId, formId),
     enabled: catalogue.isSuccess,
+  });
+  const refreshQuestions = useMutation({
+    mutationFn: () => apiClient.surveyFields(projectId, formId, true),
+    onSuccess: async (data) => {
+      cache.setQueryData(["survey-fields", projectId, formState], data);
+      await cache.invalidateQueries({ queryKey: ["indicator-fields", projectId, formId] });
+    },
   });
   const field = fields.data?.find((item) => item.source_field === fieldState);
   const matching =
@@ -473,7 +497,7 @@ export function IndicatorMappingForm({
     <Dialog
       title="Map indicator to survey data"
       description={`${indicator.name}: Select a form, question and calculation explicitly. Only ready submissions contribute to results.`}
-      error={error || catalogue.error?.message || fields.error?.message}
+      error={error || catalogue.error?.message || fields.error?.message || refreshQuestions.error?.message}
       onClose={onClose}
     >
       <form
@@ -551,7 +575,7 @@ export function IndicatorMappingForm({
             required
             className={inputClass}
             value={fieldState}
-            disabled={fields.isLoading}
+            disabled={catalogue.isLoading || fields.isLoading || refreshQuestions.isPending}
             onChange={(e) => {
               setField(e.target.value);
               setOperation("");
@@ -559,7 +583,7 @@ export function IndicatorMappingForm({
             }}
           >
             <option value="">
-              {fields.isLoading ? "Loading questions…" : "Select a question"}
+              {catalogue.isLoading || fields.isLoading || refreshQuestions.isPending ? "Loading questions…" : "Select a question"}
             </option>
             {fields.data?.map((item) => (
               <option
@@ -573,6 +597,14 @@ export function IndicatorMappingForm({
             ))}
           </select>
         </FormField>
+        <button
+          type="button"
+          disabled={!formId || refreshQuestions.isPending || catalogue.isLoading}
+          onClick={() => refreshQuestions.mutate()}
+          className="justify-self-start rounded border border-[#dce5e8] bg-white px-3 py-2 text-xs text-[#3f7a86] disabled:opacity-50"
+        >
+          {refreshQuestions.isPending ? "Refreshing questions…" : "Refresh Kobo questions"}
+        </button>
         <FormField label="Calculation">
           <select
             required

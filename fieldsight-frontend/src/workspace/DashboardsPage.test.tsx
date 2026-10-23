@@ -8,6 +8,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -189,23 +190,12 @@ describe("existing saved dashboard builder", () => {
     await waitFor(() => expect(stored).toHaveLength(1));
   });
 
-  it("persists keyboard ordering, width and height across a reload", async () => {
+  it("persists keyboard ordering and height across a reload", async () => {
     setup();
     fireEvent.click(
       await screen.findByRole("button", { name: "Move Alpha down" }),
     );
     await waitFor(() => expect(stored[0].widgets[0].id).toBe("b"));
-    await waitFor(() =>
-      expect(
-        (
-          screen.getByRole("button", {
-            name: "Resize Alpha",
-          }) as HTMLButtonElement
-        ).disabled,
-      ).toBe(false),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Resize Alpha" }));
-    await waitFor(() => expect(stored[0].widgets[1].width).toBe(2));
     await waitFor(() =>
       expect(
         (screen.getByLabelText("Height of Alpha") as HTMLSelectElement)
@@ -246,17 +236,18 @@ describe("existing saved dashboard builder", () => {
     );
   });
 
-  it("persists pointer resizing once the handle is released", async () => {
+  it("keeps legacy full-width widgets side by side without width resize controls", async () => {
+    stored[0].widgets[1].width = 2;
     setup();
-    const handle = await screen.findByRole("button", {
-      name: "Drag to resize Alpha",
-    });
-    fireEvent.pointerDown(handle, { button: 0, clientX: 10, clientY: 10 });
-    fireEvent.pointerMove(window, { clientX: 460, clientY: 110 });
+    await screen.findByText("Beta content");
+    for (const id of ["a", "b"]) {
+      const card = document.querySelector(`[data-widget-id="${id}"]`)!;
+      expect(card.className).not.toContain("col-span-2");
+    }
+    expect(screen.queryByRole("button", { name: "Resize Alpha" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Drag to resize Alpha" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand Alpha" })).toBeTruthy();
     expect(apiClient.saveDashboard).not.toHaveBeenCalled();
-    fireEvent.pointerUp(window);
-    await waitFor(() => expect(stored[0].widgets[0].height).toBe(460));
-    expect(stored[0].widgets[0].width).toBe(2);
   });
 
   it("previews date filters, saves them and restores them on reload", async () => {
@@ -290,6 +281,43 @@ describe("existing saved dashboard builder", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+  });
+
+  it("presents all dashboard widgets together and closes without saving", async () => {
+    stored[0].widgets = [note("a", "Boys attendance"), note("b", "Girls attendance")];
+    setup();
+    const expand = await screen.findByRole("button", { name: "Expand dashboard" });
+    expand.focus();
+    fireEvent.click(expand);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Boys attendance" })).toBeTruthy();
+    expect(within(dialog).getByRole("heading", { name: "Girls attendance" })).toBeTruthy();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(expand);
+    fireEvent.click(expand);
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(apiClient.saveDashboard).not.toHaveBeenCalled();
+  });
+
+  it("expands a widget for presentation and closes without saving its layout", async () => {
+    stored[0].widgets = [note("a", "Attendance")];
+    setup();
+    const expand = await screen.findByRole("button", { name: "Expand Attendance" });
+    expand.focus();
+    fireEvent.click(expand);
+    let dialog = await screen.findByRole("dialog", { name: "Attendance" });
+    expect(document.body.style.overflow).toBe("hidden");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(expand);
+    expect(document.body.style.overflow).not.toBe("hidden");
+    fireEvent.click(expand);
+    dialog = await screen.findByRole("dialog", { name: "Attendance" });
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(apiClient.saveDashboard).not.toHaveBeenCalled();
   });
 
   it("refreshes existing widget results after a successful background sync", async () => {

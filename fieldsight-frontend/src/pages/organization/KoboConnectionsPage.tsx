@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ExternalLink, FileText, Plus, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, FileText, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { Button, PageHeader, Ring } from "../../components/ui";
-import { apiClient, ApiError } from "../../services/apiClient";
+import { apiClient, ApiError, type KoboConnection } from "../../services/apiClient";
+import { Dialog } from "./IndicatorForms";
 
 export function KoboConnectionsPage() {
   const queryClient = useQueryClient();
@@ -11,6 +12,14 @@ export function KoboConnectionsPage() {
   const [serverUrl, setServerUrl] = useState("https://kf.kobotoolbox.org");
   const [apiToken, setApiToken] = useState("");
   const [formError, setFormError] = useState("");
+  const [deleting, setDeleting] = useState<KoboConnection | null>(null);
+  const deleteMutation = useMutation({
+    mutationFn: apiClient.deleteKoboConnection,
+    onSuccess: async () => {
+      setDeleting(null);
+      await queryClient.invalidateQueries({ queryKey: ["kobo-connections"] });
+    },
+  });
 
   const connectionsQuery = useQuery({
     queryKey: ["kobo-connections"],
@@ -127,6 +136,16 @@ export function KoboConnectionsPage() {
                 <span className="rounded-full bg-[#e9f8ef] px-2.5 py-1 text-[12px] font-semibold text-[#21834c]">
                   {connection.is_verified ? "Verified" : "Not verified"}
                 </span>
+                <button
+                  type="button"
+                  aria-label={`Delete ${connection.name}`}
+                  title={`Delete ${connection.name}`}
+                  disabled={deleteMutation.isPending}
+                  onClick={() => { deleteMutation.reset(); setDeleting(connection); }}
+                  className="grid size-7 place-items-center rounded border border-[#e2e9ec] bg-white text-red-600 hover:text-red-700 disabled:opacity-40"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
           ))
@@ -139,6 +158,23 @@ export function KoboConnectionsPage() {
         )}
       </section>
 
+      {deleting && (
+        <Dialog title="Delete Kobo connection?" compact error={deleteMutation.error?.message}
+          onClose={() => { if (!deleteMutation.isPending) setDeleting(null); }}>
+          <p className="text-sm leading-6 text-[#637d86]">
+            Delete <strong>{deleting.name}</strong> and its saved API token from FieldSight?
+            Kobo forms, submissions and imported FieldSight data will remain.
+            Projects must use another connection before this one can be deleted.
+          </p>
+          <div className="mt-5 flex justify-end gap-3 border-t border-[#e8edf4] pt-4">
+            <Button variant="secondary" disabled={deleteMutation.isPending} onClick={() => setDeleting(null)}>Cancel</Button>
+            <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(deleting.id)}
+              className="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+              {deleteMutation.isPending ? "Deleting…" : "Delete connection"}
+            </button>
+          </div>
+        </Dialog>
+      )}
       {showConnectionForm && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeConnectionForm}>
           <form className="w-full max-w-[520px] overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]" onClick={(event) => event.stopPropagation()} onSubmit={saveConnection}>

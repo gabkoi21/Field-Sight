@@ -17,6 +17,7 @@ import {
   type SurveyCatalogue,
 } from "../../services/apiClient";
 import { IndicatorWorkspacePage } from "./IndicatorWorkspacePage";
+import { IndicatorMappingForm } from "./IndicatorForms";
 
 vi.mock("../../auth/AuthContext", () => ({
   useAuth: () => ({
@@ -153,4 +154,40 @@ it("opens source mapping from the selected table row and saves that indicator", 
     }),
   );
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+function renderMapping() {
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter><IndicatorMappingForm projectId="project" indicator={{ id: "indicator", name: "Attendance", mapping: null } as Indicator}
+      saving={false} error="" onClose={vi.fn()} onSave={vi.fn()} onRemove={vi.fn()} /></MemoryRouter>
+  </QueryClientProvider>);
+}
+const emptyCatalogue = { project_id: "project", form_id: "attendance", form_name: "School Attendance", forms: ["attendance"], fields: [], warning: null } as unknown as SurveyCatalogue;
+it("fetches Kobo metadata for a new form with no stored questions or submissions", async () => {
+  let refreshed = false;
+  const field = { source_field: "boys", label: "Boys present", type: "number" as const, supported: true, choices: [], form_id: "attendance", source: "kobo" as const };
+  vi.mocked(apiClient.surveyFields).mockImplementation(async (_project, _form, refresh) => {
+    if (refresh) refreshed = true;
+    return { ...emptyCatalogue, fields: refreshed ? [field] : [] } as SurveyCatalogue;
+  });
+  vi.mocked(apiClient.indicatorFields).mockImplementation(async () => refreshed ? [field] : []);
+  renderMapping();
+  expect(await screen.findByRole("option", { name: "Boys present · number" })).toBeTruthy();
+  expect(apiClient.surveyFields).toHaveBeenCalledWith("project", "attendance", true);
+
+});
+it("keeps the form selected after metadata failure and lets the user retry", async () => {
+  let fail = true;
+  vi.mocked(apiClient.surveyFields).mockImplementation(async (_project, _form, refresh) => {
+    if (refresh && fail) throw new Error("Kobo questions unavailable. Try again.");
+    return emptyCatalogue;
+  });
+  vi.mocked(apiClient.indicatorFields).mockResolvedValue([]);
+  renderMapping();
+  expect(await screen.findByText(/Kobo questions unavailable/)).toBeTruthy();
+  expect((screen.getByLabelText("Source form") as HTMLSelectElement).value).toBe("attendance");
+  fail = false;
+  vi.mocked(apiClient.indicatorFields).mockResolvedValue([{ source_field: "girls", label: "Girls present", type: "number", supported: true, choices: [], form_id: "attendance" }]);
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Kobo questions" }));
+  expect(await screen.findByRole("option", { name: "Girls present · number" })).toBeTruthy();
 });

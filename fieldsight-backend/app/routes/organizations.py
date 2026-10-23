@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, update
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token, delete_kobo_form
@@ -22,17 +22,22 @@ from app.models.operations import (
     FieldMapping,
     Indicator,
     IndicatorMapping,
+    IndicatorPeriodTarget,
     KoboConnection,
     Location,
     OrganizationSettings,
     Project,
     ProjectTarget,
+    ResultFrameworkNode,
+    SavedAnalysis,
     Submission,
+    SurveySchema,
     SyncJob,
     SyncRun,
     SyncSchedule,
     SyncSettingsChange,
 )
+from app.models.workspace import AnalyticalDashboard, CollectedResult
 from app.routes.auth import get_current_user
 from app.schemas.crud import AssignmentUpdate, EnumeratorUpdate, LocationUpdate, ProjectUpdate
 from app.schemas.enumerators import EnumeratorCreate, EnumeratorRead
@@ -464,18 +469,26 @@ def delete_project(
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
 
-    db.execute(update(Project).where(Project.id == project.id).values(updated_at=Project.updated_at))
+    db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
     db.refresh(project)
-    if project.kobo_form_id:
-        if not project.kobo_connection_id:
-            raise HTTPException(
-                status_code=409, detail="The project has a Kobo form but no connection. It was not deleted."
-            )
+    connection: KoboConnection | None = None
+    if project.kobo_form_id and project.kobo_connection_id:
         connection = db.get(KoboConnection, project.kobo_connection_id)
         if connection is None or connection.organization_id != org_id:
             raise HTTPException(
                 status_code=409, detail="The Kobo connection is unavailable. The project was not deleted."
             )
+        shared = db.exec(
+            select(Project)
+            .join(KoboConnection, col(Project.kobo_connection_id) == col(KoboConnection.id))
+            .where(
+                Project.id != project.id,
+                Project.kobo_form_id == project.kobo_form_id,
+                KoboConnection.server_url == connection.server_url,
+            )
+        ).first()
+        if shared:
+            raise HTTPException(409, "Another project uses this Kobo form. Unlink the shared form before deleting.")
         try:
             token = decrypt_kobo_token(connection.token_encrypted, settings)
             delete_kobo_form(connection.server_url, token, project.kobo_form_id)
@@ -483,23 +496,46 @@ def delete_project(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     try:
-        db.exec(delete(FieldAssignment).where(FieldAssignment.project_id == project.id))
-        db.exec(delete(ProjectTarget).where(ProjectTarget.project_id == project.id))
-        db.exec(delete(IndicatorMapping).where(IndicatorMapping.project_id == project.id))
-        db.exec(delete(Indicator).where(Indicator.project_id == project.id))
-        db.exec(delete(FieldMapping).where(FieldMapping.project_id == project.id))
-        db.exec(delete(Submission).where(Submission.project_id == project.id))
-        db.exec(delete(SyncJob).where(SyncJob.project_id == project.id))
-        db.exec(delete(SyncSchedule).where(SyncSchedule.project_id == project.id))
-        db.exec(delete(SyncSettingsChange).where(SyncSettingsChange.project_id == project.id))
-        db.exec(delete(SyncRun).where(SyncRun.project_id == project.id))
-        db.exec(delete(Project).where(Project.id == project.id))
+        if project.kobo_form_id and connection is not None:
+            db.execute(
+                update(KoboConnection)
+                .where(
+                    col(KoboConnection.organization_id) == org_id,
+                    col(KoboConnection.server_url) == connection.server_url,
+                    col(KoboConnection.selected_form_id) == project.kobo_form_id,
+                )
+                .values(selected_form_id=None, selected_form_name=None)
+            )
+        indicator_ids = select(Indicator.id).where(col(Indicator.project_id) == project.id)
+        db.exec(delete(AnalyticalDashboard).where(col(AnalyticalDashboard.project_id) == project.id))
+        db.exec(delete(SavedAnalysis).where(col(SavedAnalysis.project_id) == project.id))
+        db.exec(delete(SurveySchema).where(col(SurveySchema.project_id) == project.id))
+        db.exec(delete(CollectedResult).where(col(CollectedResult.indicator_id).in_(indicator_ids)))
+        db.exec(delete(IndicatorPeriodTarget).where(col(IndicatorPeriodTarget.indicator_id).in_(indicator_ids)))
+        db.exec(delete(FieldAssignment).where(col(FieldAssignment.project_id) == project.id))
+        db.exec(delete(ProjectTarget).where(col(ProjectTarget.project_id) == project.id))
+        db.exec(delete(IndicatorMapping).where(col(IndicatorMapping.project_id) == project.id))
+        db.exec(delete(Indicator).where(col(Indicator.project_id) == project.id))
+        db.execute(
+            update(ResultFrameworkNode).where(col(ResultFrameworkNode.project_id) == project.id).values(parent_id=None)
+        )
+        db.exec(delete(ResultFrameworkNode).where(col(ResultFrameworkNode.project_id) == project.id))
+        db.exec(delete(FieldMapping).where(col(FieldMapping.project_id) == project.id))
+        db.exec(delete(Submission).where(col(Submission.project_id) == project.id))
+        db.exec(delete(SyncJob).where(col(SyncJob.project_id) == project.id))
+        db.exec(delete(SyncSchedule).where(col(SyncSchedule.project_id) == project.id))
+        db.exec(delete(SyncSettingsChange).where(col(SyncSettingsChange.project_id) == project.id))
+        db.exec(delete(SyncRun).where(col(SyncRun.project_id) == project.id))
+        db.exec(delete(Project).where(col(Project.id) == project.id))
         db.commit()
     except Exception as exc:
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail="The Kobo form was deleted, but local project cleanup failed. Retry deletion to finish cleanup.",
+            detail=(
+                "Project data cleanup failed. Local changes were rolled back. "
+                "If the linked Kobo form was deleted, retry to finish local cleanup."
+            ),
         ) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

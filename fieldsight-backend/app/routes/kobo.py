@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
 from app.core.kobo import (
@@ -20,7 +20,7 @@ from app.core.kobo import (
 )
 from app.db.session import get_session
 from app.models.identity import OrganizationMembership, Role, User
-from app.models.operations import KoboConnection, Project
+from app.models.operations import KoboConnection, Project, Submission, SyncRun
 from app.routes.auth import get_current_user
 from app.schemas.kobo import (
     KoboConnectionCreate,
@@ -50,7 +50,7 @@ def _organization_admin_id(user: User, db: Session) -> UUID:
 
 def _connection(connection_id: UUID, organization_id: UUID, db: Session) -> KoboConnection:
     connection = db.get(KoboConnection, connection_id)
-    if connection is None or connection.organization_id != organization_id:
+    if connection is None or connection.organization_id != organization_id or connection.is_deleted:
         raise HTTPException(status_code=404, detail="Kobo connection was not found.")
     if not connection.is_verified:
         raise HTTPException(status_code=422, detail="Kobo connection must be verified first.")
@@ -75,7 +75,7 @@ def list_kobo_connections(user: CurrentUser, db: Database) -> list[KoboConnectio
     organization_id = _organization_admin_id(user, db)
     connections = db.exec(
         select(KoboConnection)
-        .where(KoboConnection.organization_id == organization_id)
+        .where(KoboConnection.organization_id == organization_id, col(KoboConnection.is_deleted).is_(False))
         .order_by(KoboConnection.created_at.desc())
     ).all()
     return [_read(connection) for connection in connections]
@@ -113,6 +113,38 @@ def create_kobo_connection(
         raise HTTPException(status_code=409, detail="A Kobo connection with this name already exists.") from exc
     db.refresh(connection)
     return _read(connection)
+
+
+@router.delete("/{connection_id}", status_code=204, tags=["Kobo connections"])
+def delete_kobo_connection(connection_id: UUID, user: CurrentUser, db: Database) -> Response:
+    organization_id = _organization_admin_id(user, db)
+    connection = db.get(KoboConnection, connection_id)
+    if connection is None or connection.organization_id != organization_id:
+        raise HTTPException(404, "Kobo connection was not found.")
+    if connection.is_deleted:
+        return Response(status_code=204)
+    if db.exec(select(Project).where(Project.kobo_connection_id == connection_id)).first():
+        raise HTTPException(409, "This connection is used by a project. Reassign its Kobo connection before deleting.")
+    has_history = (
+        db.exec(select(Submission.id).where(Submission.kobo_connection_id == connection_id)).first() is not None
+        or db.exec(select(SyncRun.id).where(SyncRun.kobo_connection_id == connection_id)).first() is not None
+    )
+    if has_history:
+        connection.is_deleted = True
+        connection.is_verified = False
+        connection.token_encrypted = ""
+        connection.selected_form_id = None
+        connection.selected_form_name = None
+        connection.name = f"{connection.name[:60]} (deleted {connection.id})"
+        db.add(connection)
+    else:
+        db.delete(connection)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "This connection is still in use. Reassign linked projects before deleting.") from exc
+    return Response(status_code=204)
 
 
 @router.get("/{connection_id}/forms", response_model=list[KoboFormRead], tags=["Kobo forms"])

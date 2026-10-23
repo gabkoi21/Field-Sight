@@ -67,13 +67,10 @@ export function DashboardsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [editingWidget, setEditingWidget] = useState<string | null>(null);
+  const [expandedWidget, setExpandedWidget] = useState<string | null>(null);
+  const [presentedDashboard, setPresentedDashboard] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const [sizing, setSizing] = useState<{
-    id: string;
-    width: 1 | 2;
-    height: number;
-  } | null>(null);
   const pointerCleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => pointerCleanup.current?.(), []);
   const [widgetEditor, setWidgetEditor] = useState(false);
@@ -91,6 +88,7 @@ export function DashboardsPage() {
   const available =
     dashboards.data?.filter((d) => d.project_id === projectId) ?? [];
   const dashboard = available.find((d) => d.id === selected) ?? available[0];
+  const expanded = dashboard?.widgets.find((w) => w.id === expandedWidget);
   const syncStatus = useQuery({
     queryKey: ["sync-settings", projectId],
     queryFn: () => apiClient.syncSettings(projectId),
@@ -105,6 +103,8 @@ export function DashboardsPage() {
     setEditingWidget(null);
   }, [projectId]);
   useEffect(() => {
+    setExpandedWidget(null);
+    setPresentedDashboard(null);
     setFrom(dashboard?.date_from ?? "");
     setThrough(dashboard?.date_to ?? "");
     setFilterDashboard(dashboard?.id ?? "");
@@ -194,47 +194,16 @@ export function DashboardsPage() {
   function startPointer(
     event: ReactPointerEvent<HTMLButtonElement>,
     widget: DashboardWidget,
-    resize = false,
   ) {
     if (event.button !== 0 || save.isPending || !dashboard) return;
     event.preventDefault();
     pointerCleanup.current?.();
-    const origin = {
-      x: event.clientX,
-      y: event.clientY,
-      height: widget.height ?? 360,
-    };
-    const card = event.currentTarget.closest<HTMLElement>("[data-widget-id]");
-    const columnWidth =
-      (card?.parentElement?.getBoundingClientRect().width || 800) / 2;
     let target: string | null = null;
-    let size = { id: widget.id, width: widget.width, height: origin.height };
-    if (!resize) setDragging(widget.id);
+    setDragging(widget.id);
     function move(e: PointerEvent) {
-      if (resize) {
-        size = {
-          id: widget.id,
-          width: Math.max(
-            1,
-            Math.min(
-              2,
-              widget.width + Math.round((e.clientX - origin.x) / columnWidth),
-            ),
-          ) as 1 | 2,
-          height: Math.max(
-            240,
-            Math.min(900, Math.round(origin.height + e.clientY - origin.y)),
-          ),
-        };
-        setSizing(size);
-      } else {
-        target =
-          document
-            .elementFromPoint(e.clientX, e.clientY)
-            ?.closest<HTMLElement>("[data-widget-id]")?.dataset.widgetId ??
-          null;
-        setDropTarget(target);
-      }
+      target = document.elementFromPoint(e.clientX, e.clientY)
+        ?.closest<HTMLElement>("[data-widget-id]")?.dataset.widgetId ?? null;
+      setDropTarget(target);
     }
     function clear() {
       window.removeEventListener("pointermove", move);
@@ -245,19 +214,10 @@ export function DashboardsPage() {
       pointerCleanup.current = null;
       setDragging(null);
       setDropTarget(null);
-      setSizing(null);
     }
     function finish() {
       clear();
-      if (resize)
-        persist(
-          dashboard!.widgets.map((w) =>
-            w.id === widget.id
-              ? { ...w, width: size.width, height: size.height }
-              : w,
-          ),
-        );
-      else if (target && target !== widget.id) {
+      if (target && target !== widget.id) {
         const widgets = [...dashboard!.widgets];
         const start = widgets.findIndex((w) => w.id === widget.id),
           end = widgets.findIndex((w) => w.id === target);
@@ -415,7 +375,14 @@ export function DashboardsPage() {
                     <Printer size={14} />
                   </Tool>
                   <Tool
+                    title="Expand dashboard"
+                    onClick={() => setPresentedDashboard(dashboard.id)}
+                  >
+                    <Maximize2 size={14} />
+                  </Tool>
+                  <Tool
                     title="Delete dashboard"
+                    destructive
                     onClick={() => {
                       if (
                         window.confirm(
@@ -511,8 +478,7 @@ export function DashboardsPage() {
               </p>
             )}
             <p className="text-xs text-[#87969d]">
-              Drag a widget by its grip to reorder. Drag its lower-right handle
-              to resize, or use the move and width buttons.
+              Charts appear side by side. Drag a widget by its grip or use the move buttons to reorder.
             </p>
             {invalid ? (
               <Notice error>Start date must be on or before end date.</Notice>
@@ -524,12 +490,9 @@ export function DashboardsPage() {
                   <div
                     key={widget.id}
                     data-widget-id={widget.id}
-                    className={`print:!h-auto ${(sizing?.id === widget.id ? sizing.width : widget.width) === 2 ? "col-span-2 max-lg:col-span-1" : ""} ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[#168596]" : ""}`}
+                    className={`print:!h-auto min-w-0 ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[#168596]" : ""}`}
                     style={{
-                      height:
-                        sizing?.id === widget.id
-                          ? sizing.height
-                          : (widget.height ?? 360),
+                      height: widget.height ?? 360,
                     }}
                   >
                     <Panel className="flex h-full flex-col overflow-hidden print:overflow-visible">
@@ -548,6 +511,12 @@ export function DashboardsPage() {
                         </h2>
                         <div className="flex shrink-0 gap-1 print:hidden">
                           <Tool
+                            title={`Expand ${widget.title}`}
+                            onClick={() => setExpandedWidget(widget.id)}
+                          >
+                            <Maximize2 size={12} />
+                          </Tool>
+                          <Tool
                             title={`Move ${widget.title} up`}
                             disabled={index === 0 || save.isPending}
                             onClick={() => reorder(index, -1)}
@@ -565,21 +534,6 @@ export function DashboardsPage() {
                             <ArrowDown size={12} />
                           </Tool>
                           <Tool
-                            title={`Resize ${widget.title}`}
-                            disabled={save.isPending}
-                            onClick={() =>
-                              persist(
-                                dashboard.widgets.map((w) =>
-                                  w.id === widget.id
-                                    ? { ...w, width: w.width === 1 ? 2 : 1 }
-                                    : w,
-                                ),
-                              )
-                            }
-                          >
-                            <Maximize2 size={12} />
-                          </Tool>
-                          <Tool
                             title={`Edit ${widget.title}`}
                             disabled={save.isPending}
                             onClick={() => openWidget(widget)}
@@ -588,6 +542,7 @@ export function DashboardsPage() {
                           </Tool>
                           <Tool
                             title={`Remove ${widget.title}`}
+                            destructive
                             disabled={save.isPending}
                             onClick={() =>
                               persist(
@@ -603,11 +558,7 @@ export function DashboardsPage() {
                       </header>
                       <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
                         <Widget
-                          widget={
-                            sizing?.id === widget.id
-                              ? { ...widget, height: sizing.height }
-                              : widget
-                          }
+                          widget={widget}
                           project={projectId}
                           dashboardId={dashboard.id}
                           version={dashboard.version}
@@ -654,17 +605,6 @@ export function DashboardsPage() {
                               ))}
                           </select>
                         </label>
-                        <button
-                          type="button"
-                          aria-label={`Drag to resize ${widget.title}`}
-                          disabled={save.isPending}
-                          className="touch-none cursor-se-resize rounded border border-[#e2e9ec] bg-white p-1 text-[#78939c]"
-                          onPointerDown={(event) =>
-                            startPointer(event, widget, true)
-                          }
-                        >
-                          <Maximize2 size={13} />
-                        </button>
                       </div>
                     </Panel>
                   </div>
@@ -683,6 +623,64 @@ export function DashboardsPage() {
           </>
         )}
       </WorkspaceGate>
+      {dashboard && presentedDashboard === dashboard.id && (
+        <Dialog
+          title={dashboard.title}
+          description={dashboard.description || undefined}
+          presentation
+          onClose={() => setPresentedDashboard(null)}
+        >
+          {from || through ? (
+            <p className="mb-4 text-sm text-[#73868d]">
+              Results: {from || "All dates"} – {through || "Present"}
+            </p>
+          ) : null}
+          <div className="mx-auto grid w-full max-w-[1800px] grid-cols-2 items-stretch gap-6 max-lg:grid-cols-1">
+            {dashboard.widgets.map((widget) => (
+              <Panel
+                key={widget.id}
+                className="flex min-w-0 flex-col overflow-hidden"
+              >
+                <h2 className="m-0 flex min-h-16 items-center border-b border-[#edf0f2] px-6 py-4 text-base font-medium">
+                  {widget.title}
+                </h2>
+                <Widget
+                  widget={widget}
+                  presentation
+                  compactPresentation={dashboard.widgets.length > 2}
+                  project={projectId}
+                  dashboardId={dashboard.id}
+                  version={dashboard.version}
+                  revision={syncStatus.data?.last_successful_sync}
+                  from={from}
+                  through={through}
+                />
+              </Panel>
+            ))}
+          </div>
+          {!dashboard.widgets.length && (
+            <p className="text-sm text-[#73868d]">Add widgets to present this dashboard.</p>
+          )}
+        </Dialog>
+      )}
+      {expanded && dashboard && (
+        <Dialog
+          title={expanded.title}
+          presentation
+          onClose={() => setExpandedWidget(null)}
+        >
+          <Widget
+            widget={expanded}
+            presentation
+            project={projectId}
+            dashboardId={dashboard.id}
+            version={dashboard.version}
+            revision={syncStatus.data?.last_successful_sync}
+            from={from}
+            through={through}
+          />
+        </Dialog>
+      )}
       {editor && (
         <Dialog
           title={editor === "new" ? "Create dashboard" : "Edit dashboard"}
@@ -892,11 +890,13 @@ function Tool({
   onClick,
   children,
   disabled = false,
+  destructive = false,
 }: {
   title: string;
   onClick: () => void;
   children: React.ReactNode;
   disabled?: boolean;
+  destructive?: boolean;
 }) {
   return (
     <button
@@ -904,13 +904,15 @@ function Tool({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className="grid size-7 place-items-center rounded border border-[#e2e9ec] bg-white text-[#78939c] hover:bg-[#f1f7f8] disabled:opacity-30"
+      className={`grid size-7 place-items-center rounded border border-[#e2e9ec] bg-white hover:bg-[#f1f7f8] disabled:opacity-30 ${destructive ? "text-red-600 hover:text-red-700" : "text-[#78939c]"}`}
     >
       {children}
     </button>
   );
 }
 function Widget({
+  presentation = false,
+  compactPresentation = false,
   widget,
   project,
   from,
@@ -919,6 +921,8 @@ function Widget({
   version,
   revision,
 }: {
+  presentation?: boolean;
+  compactPresentation?: boolean;
   dashboardId: string;
   version?: number;
   revision?: string | null;
@@ -1061,10 +1065,10 @@ function Widget({
     name: p.group ? `${p.name} · ${p.group}` : p.name,
   }));
   return (
-    <div className="p-5">
-      <div style={{ height: Math.max(160, (widget.height ?? 420) - 170) }}>
+    <div className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "p-5"}>
+      <div style={{ height: presentation ? compactPresentation ? "clamp(250px, 36dvh, 380px)" : "clamp(280px, calc(100dvh - 400px), 540px)" : Math.max(160, (widget.height ?? 420) - 170) }}>
         {saved.chart === "table" ? (
-          <div className="max-h-[250px] overflow-auto">
+          <div className={`overflow-auto ${presentation ? "h-full" : "max-h-[250px]"}`}>
             <table className="w-full text-left text-xs">
               <thead>
                 <tr>
@@ -1092,8 +1096,8 @@ function Widget({
                   data={data}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={48}
-                  outerRadius={85}
+                  innerRadius={presentation ? "40%" : 48}
+                  outerRadius={presentation ? "70%" : 85}
                 >
                   {data.map((_, i) => (
                     <Cell
@@ -1110,7 +1114,7 @@ function Widget({
                 <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             ) : saved.chart === "line" ? (
-              <LineChart data={data}>
+              <LineChart data={data} margin={{ top: 12, right: 16, bottom: 12, left: 0 }}>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -1118,12 +1122,12 @@ function Widget({
                 <Line dataKey="value" stroke="#25a6b4" strokeWidth={2} />
               </LineChart>
             ) : (
-              <BarChart data={data}>
+              <BarChart data={data} margin={{ top: 12, right: 16, bottom: 12, left: 0 }}>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#25a6b4" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="value" fill="#25a6b4" maxBarSize={presentation ? 80 : undefined} radius={[3, 3, 0, 0]} />
               </BarChart>
             )}
           </ResponsiveContainer>

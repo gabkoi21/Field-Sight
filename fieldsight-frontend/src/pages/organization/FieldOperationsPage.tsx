@@ -19,10 +19,8 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-  const [projectId, setProjectId] = useState("");
-  useEffect(() => {
-    if (projectEmbedded) setProjectId(workspace.projectId);
-  }, [projectEmbedded, workspace.projectId]);
+  const [projectFilter, setProjectId] = useState("");
+  const projectId = projectEmbedded ? workspace.projectId : projectFilter;
   const [exportPeriod, setExportPeriod] = useState<"daily" | "weekly" | "biweekly" | "monthly">("daily");
   const [showCreate, setShowCreate] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -46,14 +44,14 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
   const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState("");
   const [actionError, setActionError] = useState("");
   const manageFieldClass = `${adminInputClass} min-h-[36px] border-[#edf1f5] bg-[#f5f7fa] px-2.5 text-[14px] text-[#526177]`;
-  const enumeratorsQuery = useQuery({
-    queryKey: ["organization-enumerators"],
-    queryFn: apiClient.enumerators,
-    enabled: isOrganizationAdmin,
-  });
   const organizationId = user?.memberships.find(
     (membership) => membership.role === "organization_admin",
   )?.organization_id;
+  const enumeratorsQuery = useQuery({
+    queryKey: ["organization-enumerators", organizationId],
+    queryFn: apiClient.enumerators,
+    enabled: isOrganizationAdmin,
+  });
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
@@ -83,11 +81,14 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       emergency_contact_phone?: string;
     }) => apiClient.createEnumerator(input),
     onSuccess: async (createdEnumerator) => {
-      queryClient.setQueryData<ApiEnumerator[]>(["organization-enumerators"], (current = []) => [
+      queryClient.setQueryData<ApiEnumerator[]>(["organization-enumerators", organizationId], (current = []) => [
         createdEnumerator,
         ...current.filter((enumerator) => enumerator.membership_id !== createdEnumerator.membership_id),
       ]);
-      await queryClient.invalidateQueries({ queryKey: ["organization-enumerators"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["organization-enumerators"] }),
+        queryClient.invalidateQueries({ queryKey: ["organization-assignments", organizationId] }),
+      ]);
     },
   });
   const deleteMutation = useMutation({
@@ -124,6 +125,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
 
     (assignmentsQuery.data ?? []).forEach((assignment) => {
       if (!assignment.is_enabled) return;
+      if (projectId && assignment.project_id !== projectId) return;
       const projectName = projectsById.get(assignment.project_id);
       if (!projectName) return;
       const names = namesByMembershipId.get(assignment.membership_id) ?? [];
@@ -132,10 +134,14 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
     });
 
     return namesByMembershipId;
-  }, [assignmentsQuery.data, projects]);
+  }, [assignmentsQuery.data, projects, projectId]);
+  const projectEnumerators = useMemo(
+    () => enumerators.filter((enumerator) => !assignedMembershipIds || assignedMembershipIds.has(enumerator.membership_id)),
+    [enumerators, assignedMembershipIds],
+  );
   const filteredEnumerators = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return enumerators.filter((enumerator) => {
+    return projectEnumerators.filter((enumerator) => {
       const identities = [enumerator.full_name, enumerator.username, enumerator.email]
         .filter(Boolean)
         .map((value) => value!.trim().toLowerCase());
@@ -143,7 +149,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       const matchesProject = !assignedMembershipIds || assignedMembershipIds.has(enumerator.membership_id);
       return matchesSearch && matchesProject;
     });
-  }, [assignedMembershipIds, enumerators, query]);
+  }, [assignedMembershipIds, projectEnumerators, query]);
   useEffect(() => { setPage(1); }, [query, projectId, pageSize]);
   const pageCount = Math.max(1, Math.ceil(filteredEnumerators.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -185,13 +191,13 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
     link.remove();
     URL.revokeObjectURL(url);
   };
-  const activeCount = enumerators.filter((enumerator) => enumerator.is_active).length;
+  const activeCount = projectEnumerators.filter((enumerator) => enumerator.is_active).length;
   const loadError =
     enumeratorsQuery.error instanceof ApiError
       ? enumeratorsQuery.error.message
       : enumeratorsQuery.error
         ? "Unable to load enumerators."
-        : "";
+        : assignmentsQuery.error ? "Unable to load project team assignments. Try refreshing the page." : "";
 
   const selectedEnumerator =
     enumeratorQuery.data ?? enumerators.find((enumerator) => enumerator.membership_id === selectedMembershipId);
@@ -219,7 +225,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
         full_name: fullName.trim(),
         email: email.trim(),
         username: username.trim(),
-        project_id: assignedProjectId,
+        project_id: projectEmbedded ? workspace.projectId : assignedProjectId,
         phone_number: phoneNumber.trim() || undefined,
         gender: gender.trim() || undefined,
         date_of_birth: dateOfBirth || undefined,
@@ -316,7 +322,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           </p>
           <h1 className="!m-0 !font-sans !text-[28px] !font-semibold !leading-tight !tracking-tight">Field team</h1>
           <p className="!m-0 text-[0.875rem] text-[#75849a]">
-            Create and manage enumerator accounts for your organization.
+            {projectEmbedded ? "Create and manage enumerators assigned to this project." : "Create and manage enumerator accounts for your organization."}
           </p>
         </div>
         <Button onClick={() => { setFormError(""); if (projectEmbedded) setAssignedProjectId(workspace.projectId); setShowCreate(true); }}>
@@ -331,11 +337,11 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <Users size={19} />
           </span>
-          <span className="text-[12px] font-medium text-[#6f7d8a]">All enumerators</span>
+          <span className="text-[12px] font-medium text-[#6f7d8a]">{projectId ? "Project enumerators" : "All enumerators"}</span>
           <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
-            {enumerators.length.toLocaleString()}
+            {projectEnumerators.length.toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Organization membership accounts</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">{projectId ? "Assigned to the selected project" : "Organization membership accounts"}</small>
         </Card>
         <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
@@ -351,7 +357,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           </span>
           <span className="text-[12px] font-medium text-[#6f7d8a]">Inactive</span>
           <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
-            {(enumerators.length - activeCount).toLocaleString()}
+            {(projectEnumerators.length - activeCount).toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Access has been disabled</small>
         </Card>
@@ -369,9 +375,10 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
         <select
           className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[12px] text-[#69798e]"
           value={projectId}
+          disabled={projectEmbedded}
           onChange={(event) => setProjectId(event.target.value)}
         >
-          <option value="">All projects</option>
+          {!projectEmbedded && <option value="">All projects</option>}
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
               {project.name}
@@ -496,8 +503,8 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
               ))}
             </tbody>
           </table>
-          {!enumeratorsQuery.isLoading && filteredEnumerators.length === 0 && (
-            <p className="m-0 p-10 text-center text-xs text-[#8793a2]">No enumerators match your search.</p>
+          {!enumeratorsQuery.isLoading && !assignmentsQuery.isLoading && !loadError && filteredEnumerators.length === 0 && (
+            <p className="m-0 p-10 text-center text-xs text-[#8793a2]">{query.trim() ? "No enumerators match your search." : projectId ? "No enumerators are assigned to this project yet." : "No enumerators have been created yet."}</p>
           )}
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e1e7eb] px-5 py-3 text-xs text-[#87969d]">
@@ -752,6 +759,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
                 <select
                   className={adminInputClass}
                   value={assignedProjectId}
+                  disabled={projectEmbedded}
                   onChange={(event) => setAssignedProjectId(event.target.value)}
                   required
                 >

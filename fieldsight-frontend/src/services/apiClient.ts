@@ -303,6 +303,7 @@ export interface WorkspaceDetails {
   health_status: "" | "red" | "amber" | "green";
 }
 export interface ApiProject {
+  created_at?: string;
   updated_at?: string;
   country?: string | null;
   workspace_details?: Partial<WorkspaceDetails>;
@@ -1092,6 +1093,7 @@ export const apiClient = {
   ready: () => request<ReadinessStatus>("/health/ready"),
   status: () => request<ApiStatus>("/status"),
   koboConnections: () => request<KoboConnection[]>("/kobo/connections"),
+  deleteKoboConnection: (id: string) => request<void>(`/kobo/connections/${id}`, { method: "DELETE" }),
   createKoboConnection: (input: KoboConnectionInput) =>
     request<KoboConnection>("/kobo/connections", {
       method: "POST",

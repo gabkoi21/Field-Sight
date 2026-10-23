@@ -10,6 +10,7 @@ import {
   FolderKanban,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import { LoadingState } from "../components/ui";
 import { apiClient } from "../services/apiClient";
@@ -23,10 +24,15 @@ export function WorkspacesPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("workspace");
   const [sort, setSort] = useState<{
-    key: "name" | "id" | "start_date" | "end_date" | "status";
+    key: "name" | "id" | "start_date" | "end_date" | "created_at" | "status";
     ascending: boolean;
-  }>({ key: "name", ascending: true });
+  }>({ key: "created_at", ascending: false });
   const [actionProject, setActionProject] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteName, setDeleteName] = useState("");
+  const deletingProject = workspace.projects.find(
+    (p) => p.id === actionProject,
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -73,7 +79,18 @@ export function WorkspacesPage() {
       setActionProject(null);
     },
   });
-  const saving = create.isPending || update.isPending;
+  const remove = useMutation({
+    mutationFn: () =>
+      apiClient.deleteProject(workspace.organizationId, actionProject!),
+    onSuccess: async () => {
+      setConfirmDelete(false);
+      setActionProject(null);
+      // Discard project data retained by inactive workspace queries, too.
+      cache.removeQueries({ predicate: (query) => !query.isActive() });
+      await cache.invalidateQueries();
+    },
+  });
+  const saving = create.isPending || update.isPending || remove.isPending;
   function closeForm() {
     if (!saving) {
       setAdding(false);
@@ -140,9 +157,7 @@ export function WorkspacesPage() {
           >
             {!filtered.some((p) => p.id === workspace.projectId) && (
               <option value="">
-                {filtered.length
-                  ? "Select a project"
-                  : "No matching projects"}
+                {filtered.length ? "Select a project" : "No matching projects"}
               </option>
             )}
             {filtered.map((project) => (
@@ -256,8 +271,9 @@ export function WorkspacesPage() {
                     { label: "Project ID code", key: "id" },
                     { label: "Stage", key: null },
                     { label: "Group", key: null },
-                    { label: "Start date", key: "start_date" },
-                    { label: "End date", key: "end_date" },
+                    { label: "Start date", key: null },
+                    { label: "End date", key: null },
+                    { label: "Created At", key: null },
                     { label: "Status", key: "status" },
                   ].map((column) => (
                     <th
@@ -347,7 +363,7 @@ export function WorkspacesPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-4 text-[#49515c]">
-                        <span title={`Project ID: ${project.id}`}>
+                        <span className="font-medium text-green-700" title={`Project ID: ${project.id}`}>
                           {project.workspace_details?.code ||
                             project.id.slice(0, 8).toUpperCase()}
                         </span>
@@ -363,6 +379,9 @@ export function WorkspacesPage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
                         {displayDate(project.end_date)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
+                        {displayCreatedAt(project.created_at)}
                       </td>
                       <td className="px-4 py-4">
                         <span
@@ -466,8 +485,7 @@ export function WorkspacesPage() {
               </table>
             ) : (
               <p className="p-6 text-sm text-[#87969d]">
-                No site locations are recorded in this project's responses
-                yet.
+                No site locations are recorded in this project's responses yet.
               </p>
             )}
           </Panel>
@@ -485,7 +503,7 @@ export function WorkspacesPage() {
           </Panel>
         )}
       </div>
-      {(adding || actionProject) && (
+      {(adding || actionProject) && !confirmDelete && (
         <Dialog
           title={actionProject ? "Update Project" : "Add new project"}
           compact
@@ -546,6 +564,20 @@ export function WorkspacesPage() {
                 </Notice>
               )}
             <div className="mt-4 flex justify-end gap-3 border-t border-[#e8e8ee] pt-4">
+              {actionProject && workspace.isAdmin && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    remove.reset();
+                    setDeleteName("");
+                    setConfirmDelete(true);
+                  }}
+                  className="mr-auto inline-flex items-center gap-2 rounded border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
               <button
                 type="button"
                 disabled={saving}
@@ -569,6 +601,65 @@ export function WorkspacesPage() {
           </form>
         </Dialog>
       )}
+      {confirmDelete && deletingProject && (
+        <Dialog
+          title="Delete project?"
+          compact
+          error={remove.error?.message}
+          onClose={() => {
+            if (!remove.isPending) setConfirmDelete(false);
+          }}
+        >
+          <p className="text-sm leading-6 text-[#637d86]">
+            Permanently delete <strong>{deletingProject.name}</strong> and all
+            its dashboards, widgets, indicators, targets, results, saved
+            visualizations, imported submissions, form metadata, team
+            assignments and synchronization history?
+          </p>
+          {deletingProject.kobo_form_id && (
+            <p className="rounded border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
+              {deletingProject.kobo_connection_id ? (
+                <>The linked Kobo form {deletingProject.kobo_form_name || deletingProject.kobo_form_id}
+                {" "}and its submissions will also be permanently deleted from KoboToolbox.</>
+              ) : (
+                <>This project has no Kobo connection. Its saved form reference and all FieldSight data
+                will be deleted. Any form or submissions on KoboToolbox will remain.</>
+              )}
+            </p>
+          )}
+          <p className="text-sm font-semibold text-red-700">
+            This cannot be undone.
+          </p>
+          <Field label="Type the project name to confirm">
+            <input
+              className={fieldClass}
+              value={deleteName}
+              onBlur={() => setDeleteName((value) => value.trim())}
+              disabled={remove.isPending}
+              onChange={(e) => setDeleteName(e.target.value)}
+              autoComplete="off"
+            />
+          </Field>
+          <div className="mt-5 flex justify-end gap-3 border-t border-[#e8e8ee] pt-4">
+            <button
+              type="button"
+              disabled={remove.isPending}
+              onClick={() => setConfirmDelete(false)}
+              className="rounded border border-[#dce5e8] bg-white px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={remove.isPending || deleteName.trim() !== deletingProject.name.trim()}
+              onClick={() => remove.mutate()}
+              className="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {remove.isPending ? "Deleting…" : "Delete project"}
+            </button>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -577,4 +668,12 @@ function displayDate(value: string | null) {
   if (!value) return "—";
   const [year, month, day] = value.split("-");
   return `${day}.${month}.${year}`;
+}
+
+function displayCreatedAt(value?: string) {
+  if (!value) return "—";
+  // SQLite can return UTC timestamps without an explicit offset.
+  const timestamp = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`);
+  if (Number.isNaN(timestamp.getTime())) return "—";
+  return timestamp.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }

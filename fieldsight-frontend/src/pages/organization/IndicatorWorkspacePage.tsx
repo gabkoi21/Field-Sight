@@ -268,7 +268,6 @@ export function IndicatorWorkspacePage() {
                   <div className="flex gap-2">
                     <Icon
                       label={`Edit ${node.title}`}
-                      tone="amber"
                       onClick={() => addNode(node)}
                     >
                       <Pencil size={12} />
@@ -876,7 +875,6 @@ export function IndicatorWorkspacePage() {
                                         <div className="flex justify-end gap-2">
                                           <Icon
                                             label={`View results for ${item.name}`}
-                                            tone="blue"
                                             onClick={() => showResult(item)}
                                           >
                                             <BarChart3 size={15} />
@@ -890,7 +888,6 @@ export function IndicatorWorkspacePage() {
                                           </Icon>
                                           <Icon
                                             label={`Edit ${item.name}`}
-                                            tone="amber"
                                             onClick={() => editItem(item)}
                                           >
                                             <Pencil size={15} />
@@ -1021,28 +1018,20 @@ function Icon({
   onClick,
   disabled = false,
   destructive = false,
-  tone = "teal",
 }: {
   label: string;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
   destructive?: boolean;
-  tone?: "blue" | "teal" | "slate" | "amber";
 }) {
-  const colors = {
-    blue: "border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700",
-    teal: "border-teal-200 text-teal-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700",
-    slate: "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700",
-    amber: "border-amber-200 text-amber-600 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700",
-  };
   return (
     <button
       aria-label={label}
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`grid size-7 place-items-center border bg-white transition-colors disabled:opacity-40 ${destructive ? "border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700" : colors[tone]}`}
+      className={`grid size-7 place-items-center rounded border border-[#dce5e8] bg-white p-0 shadow-none transition-colors hover:border-[#b7c7cd] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73868d] disabled:opacity-40 ${destructive ? "text-red-600 hover:text-red-700" : "text-[#73868d] hover:text-[#24434c]"}`}
     >
       {children}
     </button>
