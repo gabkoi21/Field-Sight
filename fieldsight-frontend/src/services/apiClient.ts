@@ -440,6 +440,9 @@ export interface ApiSyncResult {
 }
 
 export interface ApiSyncRun {
+  failed: number;
+  attempt: number;
+  trigger: string;
   id: string;
   project_id: string;
   status: string;
@@ -1130,6 +1133,10 @@ export const apiClient = {
     ),
   syncProjectKoboForm: (projectId: string) =>
     request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
+  syncSettings: (id: string) => request<{mode: "manual" | "scheduled"; interval_minutes: number; interval_seconds?: number; last_successful_sync: string | null; pending: boolean; queued_at?: string | null; attempts?: number; next_attempt_at?: string | null}>(`/projects/${id}/sync-settings`),
+  updateSyncSettings: (id: string, mode: "manual" | "scheduled", interval_seconds: number) =>
+    request(`/projects/${id}/sync-settings`, { method: "PUT", body: JSON.stringify({ mode, interval_seconds }) }),
+  queueSync: (id: string) => request(`/projects/${id}/sync-jobs`, { method: "POST" }),
   syncRuns: () => request<ApiSyncRun[]>("/sync-runs"),
   pendingKoboSync: () => request<ApiPendingKoboSync>("/sync/pending"),
   fieldMappings: (projectId: string) =>

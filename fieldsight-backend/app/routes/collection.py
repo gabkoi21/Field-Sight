@@ -4,20 +4,28 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from math import ceil
 from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import case, func
-from sqlalchemy.exc import SQLAlchemyError
+from pydantic import BaseModel, Field
+from sqlalchemy import case, func, update
 from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token, list_kobo_submissions
 from app.db.session import get_session
 from app.models.identity import User
-from app.models.operations import KoboConnection, Project, Submission, SyncRun
+from app.models.operations import (
+    KoboConnection,
+    Project,
+    Submission,
+    SyncJob,
+    SyncRun,
+    SyncSchedule,
+    SyncSettingsChange,
+)
 from app.routes.auth import get_current_user
 from app.routes.kobo import _organization_admin_id
 
@@ -64,12 +72,21 @@ def _read_submission(submission: Submission, project: Project) -> dict[str, obje
 
 @router.post("/projects/{project_id}/sync", tags=["Kobo synchronization"])
 def sync_project_kobo_form(
+    project_id: UUID, user: CurrentUser, db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, object]:
+    return execute_project_sync(project_id, user, db, settings)
+
+
+def execute_project_sync(
     project_id: UUID,
     user: CurrentUser,
     db: Database,
     settings: Annotated[Settings, Depends(get_settings)],
+    worker_organization_id: UUID | None = None,
+    trigger: str = "manual", attempt: int = 1,
 ) -> dict[str, object]:
-    organization_id = _organization_admin_id(user, db)
+    organization_id = worker_organization_id or _organization_admin_id(user, db)
     project = db.get(Project, project_id)
     if project is None or project.organization_id != organization_id:
         raise HTTPException(status_code=404, detail="Project was not found.")
@@ -84,11 +101,22 @@ def sync_project_kobo_form(
         project_id=project.id,
         kobo_connection_id=connection.id,
         kobo_form_id=project.kobo_form_id,
-        status="running",
+        status="running", trigger=trigger, attempt=attempt,
     )
+    # Hold the project write lock until submissions and history commit together.
+    db.execute(update(Project).where(Project.id == project.id).values(updated_at=Project.updated_at))
+    run.requested_by_id = user.id if trigger == "manual" else None
     db.add(run)
-    db.commit()
+    if worker_organization_id is None:
+        db.commit()
+    else:
+        db.flush()
+    db.execute(update(Project).where(Project.id == project.id).values(updated_at=Project.updated_at))
+    storage = db.begin_nested() if worker_organization_id is not None else None
     try:
+        db.refresh(project)
+        if project.kobo_form_id != run.kobo_form_id or project.kobo_connection_id != run.kobo_connection_id:
+            raise ValueError("The assigned Kobo form changed. Retry synchronization.")
         token = decrypt_kobo_token(connection.token_encrypted, settings)
         payloads = list_kobo_submissions(connection.server_url, token, project.kobo_form_id)
         created = 0
@@ -135,15 +163,22 @@ def sync_project_kobo_form(
         run.updated_count = updated
         run.completed_at = datetime.now(UTC)
         db.add(run)
-        db.commit()
-    except (ValueError, SQLAlchemyError) as exc:
-        db.rollback()
+        db.commit() if worker_organization_id is None else db.flush()
+        if storage is not None:
+            storage.commit()
+    except Exception as exc:
+        if storage is not None:
+            storage.rollback()
+        else:
+            db.rollback()
+        run.received_count = run.created_count = run.updated_count = 0
+        run.failed_count = len(payloads) if "payloads" in locals() else 0
         run.status = "failed"
         message = str(exc) if isinstance(exc, ValueError) else "Submission storage failed. Retry the full import."
         run.error_message = message
         run.completed_at = datetime.now(UTC)
         db.add(run)
-        db.commit()
+        db.commit() if worker_organization_id is None else db.flush()
         raise HTTPException(status_code=422, detail=message) from exc
     return {
         "sync_run_id": str(run.id),
@@ -153,6 +188,92 @@ def sync_project_kobo_form(
         "updated": run.updated_count,
         "skipped": run.received_count - run.created_count - run.updated_count,
     }
+
+
+class SyncSettingsUpdate(BaseModel):
+    mode: str = Field(pattern="^(manual|scheduled)$")
+    interval_minutes: int = Field(default=60, ge=1, le=10080)
+    interval_seconds: float | None = Field(default=None, ge=1.6, le=604800, allow_inf_nan=False)
+
+
+def _sync_project(project_id: UUID, user: User, db: Session) -> Project:
+    organization_id = _organization_admin_id(user, db)
+    project = db.get(Project, project_id)
+    if project is None or project.organization_id != organization_id:
+        raise HTTPException(404, "Project was not found.")
+    return project
+
+
+@router.get("/projects/{project_id}/sync-settings", tags=["Kobo synchronization"])
+def get_sync_settings(project_id: UUID, user: CurrentUser, db: Database) -> dict[str, object]:
+    _sync_project(project_id, user, db)
+    schedule = db.get(SyncSchedule, project_id)
+    success = db.exec(select(SyncRun).where(
+        SyncRun.project_id == project_id, SyncRun.status.in_(["completed", "unchanged"]),
+    ).order_by(SyncRun.completed_at.desc())).first()
+    job = db.get(SyncJob, project_id)
+
+    def utc_timestamp(value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+    return {
+        "mode": schedule.mode if schedule else "manual",
+        "interval_minutes": schedule.interval_minutes if schedule else 60,
+        "interval_seconds": (schedule.interval_seconds or schedule.interval_minutes * 60) if schedule else 3600,
+        "last_successful_sync": utc_timestamp(success.completed_at) if success else None,
+        "pending": job is not None,
+        "queued_at": utc_timestamp(job.created_at) if job else None,
+        "attempts": job.attempts if job else 0,
+        "next_attempt_at": utc_timestamp(job.due_at) if job else None,
+    }
+
+
+@router.put("/projects/{project_id}/sync-settings", tags=["Kobo synchronization"])
+def update_sync_settings(
+    project_id: UUID, body: SyncSettingsUpdate, user: CurrentUser, db: Database,
+) -> dict[str, object]:
+    project = _sync_project(project_id, user, db)
+    if body.mode == "scheduled":
+        connection = db.get(KoboConnection, project.kobo_connection_id) if project.kobo_connection_id else None
+        if (not project.kobo_form_id or connection is None
+                or connection.organization_id != project.organization_id or not connection.is_verified):
+            raise HTTPException(422, "Assign a form from a verified Kobo connection before enabling automatic sync.")
+    db.execute(update(Project).where(Project.id == project_id).values(updated_at=Project.updated_at))
+    schedule = db.get(SyncSchedule, project_id) or SyncSchedule(project_id=project_id)
+    schedule.mode = body.mode
+    schedule.interval_minutes = (
+        ceil(body.interval_seconds / 60) if body.interval_seconds is not None else body.interval_minutes
+    )
+    schedule.interval_seconds = (
+        body.interval_seconds if body.interval_seconds is not None else body.interval_minutes * 60
+    )
+    schedule.next_due_at = datetime.now(UTC)
+    schedule.updated_by_id = user.id
+    schedule.updated_at = datetime.now(UTC)
+    db.add(schedule)
+    db.add(SyncSettingsChange(project_id=project_id, changed_by_id=user.id,
+                             mode=body.mode, interval_minutes=schedule.interval_minutes,
+                             interval_seconds=schedule.interval_seconds))
+    if body.mode == "manual":
+        job = db.get(SyncJob, project_id)
+        if job and job.trigger == "scheduled":
+            db.delete(job)
+    db.commit()
+    return get_sync_settings(project_id, user, db)
+
+
+@router.post("/projects/{project_id}/sync-jobs", status_code=202, tags=["Kobo synchronization"])
+def enqueue_sync(project_id: UUID, user: CurrentUser, db: Database) -> dict[str, object]:
+    project = _sync_project(project_id, user, db)
+    if not project.kobo_form_id or not project.kobo_connection_id:
+        raise HTTPException(422, "Assign a Kobo form before syncing.")
+    db.execute(update(Project).where(Project.id == project_id).values(updated_at=Project.updated_at))
+    if db.get(SyncJob, project_id) is None:
+        db.add(SyncJob(project_id=project_id, requested_by_id=user.id))
+    db.commit()
+    return {"status": "queued", "project_id": str(project_id)}
 
 
 @router.get("/submissions", tags=["Submissions"])
@@ -189,6 +310,10 @@ def list_sync_runs(user: CurrentUser, db: Database) -> list[dict[str, object]]:
             "created": run.created_count,
             "updated": run.updated_count,
             "skipped": run.received_count - run.created_count - run.updated_count,
+            "failed": run.failed_count,
+            "trigger": run.trigger,
+            "attempt": run.attempt,
+            "requested_by_id": str(run.requested_by_id) if run.requested_by_id else None,
             "error_message": run.error_message,
             "started_at": run.started_at,
             "completed_at": run.completed_at,
@@ -378,7 +503,6 @@ def analytics_overview(
     if project_id:
         run_conditions.append(SyncRun.project_id == project_id)
     scoped_runs = db.exec(select(SyncRun).where(*run_conditions).order_by(SyncRun.started_at.desc())).all()
-    latest_run = scoped_runs[0] if scoped_runs else None
     latest_by_project: dict[UUID, SyncRun] = {}
     for run in scoped_runs:
         latest_by_project.setdefault(run.project_id, run)
@@ -387,7 +511,7 @@ def analytics_overview(
         project
         for project in connected_projects
         if project.id not in latest_by_project
-        or latest_by_project[project.id].status != "completed"
+        or latest_by_project[project.id].status not in {"completed", "unchanged"}
         or (
             latest_by_project[project.id].completed_at
             and as_utc(latest_by_project[project.id].completed_at) < now - timedelta(hours=12)
@@ -451,7 +575,9 @@ def analytics_overview(
         "blocked_records": needs_review + invalid,
         "submission_change_percent": change_percent,
         "active_projects": sum(project.status.value == "active" for project in project_scope),
-        "last_synced_at": latest_run.completed_at if latest_run else None,
+        "last_synced_at": next(
+            (run.completed_at for run in scoped_runs if run.status in {"completed", "unchanged"}), None
+        ),
         "available_locations": available_locations,
         "trend": [
             {

@@ -89,6 +89,38 @@ class Project(SQLModel, table=True):
     kobo_form_name: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
 
 
+class SyncSchedule(SQLModel, table=True):
+    __tablename__ = "sync_schedules"
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), primary_key=True))
+    mode: str = "manual"
+    interval_minutes: int = 60
+    interval_seconds: float | None = None
+    next_due_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_by_id: UUID | None = Field(default=None, foreign_key="users.id")
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class SyncSettingsChange(SQLModel, table=True):
+    __tablename__ = "sync_settings_changes"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    project_id: UUID = Field(foreign_key="projects.id", index=True)
+    changed_by_id: UUID = Field(foreign_key="users.id")
+    mode: str
+    interval_minutes: int
+    interval_seconds: float | None = None
+    changed_at: datetime = Field(default_factory=utc_now)
+
+
+class SyncJob(SQLModel, table=True):
+    __tablename__ = "sync_jobs"
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), primary_key=True))
+    trigger: str = "manual"
+    requested_by_id: UUID | None = Field(default=None, foreign_key="users.id")
+    attempts: int = 0
+    due_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class Location(SQLModel, table=True):
     __tablename__ = "locations"
     __table_args__ = (UniqueConstraint("organization_id", "code", name="uq_location_org_code"),)
@@ -128,6 +160,10 @@ class SyncRun(SQLModel, table=True):
     kobo_connection_id: UUID = Field(sa_column=Column(ForeignKey("kobo_connections.id"), nullable=False))
     kobo_form_id: str = Field(sa_column=Column(String(255), nullable=False))
     status: str = Field(default="completed", sa_column=Column(String(32), nullable=False))
+    trigger: str = "manual"
+    requested_by_id: UUID | None = Field(default=None, foreign_key="users.id")
+    attempt: int = 1
+    failed_count: int = 0
     received_count: int = 0
     created_count: int = 0
     updated_count: int = 0

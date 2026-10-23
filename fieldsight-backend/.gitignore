@@ -12,4 +12,5 @@ __pycache__/
 *.sqlite3
 coverage.xml
 htmlcov/
+outputs/sync-worker.*.log
 

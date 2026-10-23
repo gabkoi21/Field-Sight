@@ -12,8 +12,19 @@ python -m pip install -e ".[dev]"
 $env:FIELDSIGHT_ENVIRONMENT = "development"
 $env:FIELDSIGHT_CORS_ORIGINS = "http://localhost:5173"
 alembic upgrade head
-uvicorn app.main:app --reload
+python -m scripts.start_local
 ```
+
+The local launcher starts **both the API and Kobo synchronization worker** and
+stops both if either exits. Restart it after editing backend code. Starting only
+Uvicorn leaves queued synchronizations waiting indefinitely. Do not launch the
+combined command while another API is already listening on port 8000.
+
+For API hot reload, use two terminals instead: run `uvicorn app.main:app --reload`
+in one and `python -m app.core.sync_worker` in the other, both from this directory
+with the same virtual environment and configuration. Restart the worker after
+editing its backend code. Production continues to use separately supervised
+services; see [automatic synchronization](../docs/AUTOMATIC_KOBO_SYNC.md).
 
 For the local demo organization, run `python -m scripts.create_demo_organization`
 and enter the desired demo password at the prompt. This creates or updates

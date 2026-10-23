@@ -9,7 +9,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlmodel import Session, select
 
 from app.core.config import Settings, get_settings
@@ -28,7 +28,10 @@ from app.models.operations import (
     Project,
     ProjectTarget,
     Submission,
+    SyncJob,
     SyncRun,
+    SyncSchedule,
+    SyncSettingsChange,
 )
 from app.routes.auth import get_current_user
 from app.schemas.crud import AssignmentUpdate, EnumeratorUpdate, LocationUpdate, ProjectUpdate
@@ -461,6 +464,8 @@ def delete_project(
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
 
+    db.execute(update(Project).where(Project.id == project.id).values(updated_at=Project.updated_at))
+    db.refresh(project)
     if project.kobo_form_id:
         if not project.kobo_connection_id:
             raise HTTPException(
@@ -484,6 +489,9 @@ def delete_project(
         db.exec(delete(Indicator).where(Indicator.project_id == project.id))
         db.exec(delete(FieldMapping).where(FieldMapping.project_id == project.id))
         db.exec(delete(Submission).where(Submission.project_id == project.id))
+        db.exec(delete(SyncJob).where(SyncJob.project_id == project.id))
+        db.exec(delete(SyncSchedule).where(SyncSchedule.project_id == project.id))
+        db.exec(delete(SyncSettingsChange).where(SyncSettingsChange.project_id == project.id))
         db.exec(delete(SyncRun).where(SyncRun.project_id == project.id))
         db.exec(delete(Project).where(Project.id == project.id))
         db.commit()

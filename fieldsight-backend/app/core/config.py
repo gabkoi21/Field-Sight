@@ -17,6 +17,10 @@ class Settings(BaseSettings):
         env_file=".env", env_prefix="FIELDSIGHT_", extra="ignore", hide_input_in_errors=True
     )
 
+    sync_poll_seconds: float = Field(default=0.1, ge=0.05, le=300)
+    sync_max_attempts: int = Field(default=3, ge=1, le=10)
+    sync_retry_seconds: int = Field(default=30, ge=1, le=3600)
+
     app_name: str = "FieldSight API"
     environment: str = "development"
     database_url: str = Field(
