@@ -83,7 +83,7 @@ def test_complete_deletion_preserves_other_project(sync_client):
     ):
         response = client.delete(f"/organizations/{org}/projects/{project_id}", headers=headers)
     assert response.status_code == 204, response.text
-    remote.assert_called_once()
+    remote.assert_not_called()
     with Session(engine) as db:
         assert db.get(Project, UUID(project_id)) is None
         assert db.get(Project, other) is not None
@@ -113,11 +113,12 @@ def test_permission_and_remote_failure_preserve_project(sync_client):
         membership.role = Role.ORGANIZATION_ADMIN
         db.add(membership)
         db.commit()
+    assert client.patch(path, headers=headers, json={"status": "archived"}).status_code == 200
     with (
         patch("app.routes.organizations.decrypt_kobo_token", return_value="token"),
         patch("app.routes.organizations.delete_kobo_form", side_effect=ValueError("Kobo unavailable. Try again.")),
     ):
-        response = client.delete(path, headers=headers)
+        response = client.post(path + "/delete-kobo-form?confirmation=DELETE%20KOBO%20form-1", headers=headers)
     assert response.status_code == 422
     assert "Kobo unavailable" in response.text
     with Session(engine) as db:
@@ -135,8 +136,12 @@ def test_shared_form_cannot_be_deleted(sync_client):
         shared.kobo_connection_id = original.kobo_connection_id
         db.add(shared)
         db.commit()
+    client.patch(f"/organizations/{org}/projects/{project_id}", headers=headers, json={"status": "archived"})
     with patch("app.routes.organizations.delete_kobo_form") as remote:
-        response = client.delete(f"/organizations/{org}/projects/{project_id}", headers=headers)
+        response = client.post(
+            f"/organizations/{org}/projects/{project_id}/delete-kobo-form?confirmation=DELETE%20KOBO%20form-1",
+            headers=headers,
+        )
     assert response.status_code == 409
     remote.assert_not_called()
 

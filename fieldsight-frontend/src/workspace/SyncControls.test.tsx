@@ -10,8 +10,8 @@ vi.mock("../services/apiClient", () => ({ apiClient: {
   syncSettings: vi.fn(), syncRuns: vi.fn(), updateSyncSettings: vi.fn(), queueSync: vi.fn(),
 } }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
-function setup(pending = false, connected = true) {
-  vi.mocked(apiClient.syncSettings).mockResolvedValue({ mode: "manual", interval_minutes: 60, last_successful_sync: null, pending });
+function setup(pending = false, connected = true, overrides: Partial<Awaited<ReturnType<typeof apiClient.syncSettings>>> = {}) {
+  vi.mocked(apiClient.syncSettings).mockResolvedValue({ mode: "manual", interval_minutes: 60, last_successful_sync: null, pending, ...overrides });
   vi.mocked(apiClient.syncRuns).mockResolvedValue([]);
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={cache}><SyncControls projectId="project-1" connected={connected} /></QueryClientProvider>);
@@ -87,4 +87,17 @@ describe("synchronization controls", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     await waitFor(() => expect(apiClient.updateSyncSettings).toHaveBeenCalledWith("project-1", "manual", 3600));
   });
+});
+
+it("shows running only with fresh execution evidence", async () => {
+  setup(true, true, { execution_state: "running", worker_available: true, execution_started_at: "2026-10-24T12:00:00Z" });
+  const button = await screen.findByRole("button", { name: "Sync running…" });
+  expect((button as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(/Worker: Available/)).toBeTruthy();
+});
+it("reports heartbeat loss without claiming the queued job is running", async () => {
+  setup(true, true, { execution_state: "unconfirmed", worker_available: false });
+  expect(await screen.findByText(/outcome is unconfirmed/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Sync running…" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Sync pending…" })).toBeTruthy();
 });

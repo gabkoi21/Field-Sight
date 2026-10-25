@@ -217,6 +217,8 @@ def aggregate(query: AnalysisQuery, records: list[Submission], fields: list[Surv
     filtered = []
     for record in records:
         filters = query.filters
+        if record.review_required or record.review_status == "needs_review":
+            continue
         if filters.review_status != "all" and record.review_status != filters.review_status:
             continue
         if filters.location is not None and record.location != filters.location:

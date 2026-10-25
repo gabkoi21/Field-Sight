@@ -1,11 +1,13 @@
 """Deterministic M&E calculations over quality-approved stored submissions."""
 
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
 
+from app.core.review_evidence import eligible as review_eligible
 from app.core.survey import categories, flatten_answers, missing, number
 from app.models.operations import Indicator, IndicatorMapping, Submission
 from app.schemas.analysis import SurveyField
@@ -15,7 +17,7 @@ from app.schemas.indicators import IndicatorLocationResult, IndicatorRead, Indic
 class Calculation(BaseModel):
     value: float | None = None
     numerator: float | None = None
-    denominator: int = 0
+    denominator: int | float = 0
     eligible_records: int = 0
     mapped_records: int = 0
     missing_records: int = 0
@@ -23,8 +25,10 @@ class Calculation(BaseModel):
     quality_excluded_records: int = 0
 
 
-def calculate(mapping: IndicatorMapping | None, records: list[Submission], field: SurveyField | None) -> Calculation:
-    eligible = [record for record in records if record.review_status == "ready"]
+def calculate(
+    mapping: IndicatorMapping | None, records: list[Submission], field: SurveyField | None, unit: str | None = None
+) -> Calculation:
+    eligible = [record for record in records if review_eligible(record)]
     result = Calculation(eligible_records=len(eligible), quality_excluded_records=len(records) - len(eligible))
     if mapping is None or field is None or not field.supported:
         return result
@@ -38,7 +42,7 @@ def calculate(mapping: IndicatorMapping | None, records: list[Submission], field
             continue
         if numeric:
             value = number(answer)
-            if value is None:
+            if value is None or (unit == "percentage" and not 0 <= value <= 100):
                 result.invalid_answers += 1
                 continue
             numbers.append(value)
@@ -102,7 +106,15 @@ def read_result(
     date_to: date | None = None,
     today: date | None = None,
     period_targets: dict[str, float] | None = None,
+    calculator: Callable[[IndicatorMapping | None, list[Submission], SurveyField | None], Calculation] = calculate,
 ) -> IndicatorRead:
+    if calculator is calculate and indicator.reliability_policy:
+
+        def calculator(
+            mapping: IndicatorMapping | None, records: list[Submission], field: SurveyField | None
+        ) -> Calculation:
+            return calculate(mapping, records, field, unit=indicator.unit)
+
     filtered = []
     for record in records:
         timestamp = record.submitted_at
@@ -114,7 +126,7 @@ def read_result(
             continue
         filtered.append(record)
     usable_field = field if health == "healthy" else None
-    result = calculate(mapping, filtered, usable_field)
+    result = calculator(mapping, filtered, usable_field)
     current = result.value
     achieved = (
         None
@@ -174,7 +186,7 @@ def read_result(
     }
     for period in sorted(set(periods) | set(targets)):
         items = periods.get(period, [])
-        point = calculate(mapping, items, usable_field)
+        point = calculator(mapping, items, usable_field)
         period_target = targets.get(period)
         history.append(
             IndicatorResultPoint(
@@ -196,7 +208,7 @@ def read_result(
         )
     breakdown = []
     for location, items in sorted(locations.items()):
-        point = calculate(mapping, items, usable_field)
+        point = calculator(mapping, items, usable_field)
         breakdown.append(
             IndicatorLocationResult(
                 location=location,
@@ -213,7 +225,7 @@ def read_result(
         **result.model_dump(exclude={"value"}),
         mapping=mapping,
         source_form_id=source_form_id,
-        undated_records=sum(item.review_status == "ready" and item.submitted_at is None for item in filtered),
+        undated_records=sum(review_eligible(item) and item.submitted_at is None for item in filtered),
         mapping_health=health,
         date_from=date_from,
         date_to=date_to,

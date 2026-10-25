@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { skipLogin } from "../auth/developmentAccess";
 import {
@@ -5,7 +6,7 @@ import {
   RequireSuperAdmin,
 } from "../auth/RouteGuards";
 import { WorkspaceShell } from "../workspace/WorkspaceShell";
-import { SurveyQuestionExplorer } from "../pages/organization/SurveyQuestionExplorer";
+const SurveyQuestionExplorer = lazy(() => import("../pages/organization/SurveyQuestionExplorer").then(module => ({ default: module.SurveyQuestionExplorer })));
 import { LoginPage } from "../pages/auth/LoginPage";
 import { OrganizationDashboardPage } from "../pages/dashboard/OrganizationDashboardPage";
 import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
@@ -16,15 +17,15 @@ import { QuickStartPage } from "../workspace/QuickStartPage";
 import { WorkspaceTeamPage } from "../workspace/WorkspaceTeamPage";
 import { DataTablesPage } from "../workspace/DataTablesPage";
 import { WorkspaceFormsPage } from "../workspace/WorkspaceFormsPage";
-import { DashboardsPage } from "../workspace/DashboardsPage";
+const DashboardsPage = lazy(() => import("../workspace/DashboardsPage").then(module => ({ default: module.DashboardsPage })));
 import {
   ProfilePage,
   AcceptInvitationPage,
   AccountHelpPage,
 } from "../workspace/ProfilePage";
 import { OrganizationSettingsPage } from "../workspace/OrganizationSettingsPage";
-import { ProjectIndicatorsPage } from "../pages/organization/ProjectIndicatorsPage";
-import { QualityCenterPage } from "../pages/organization/QualityCenterPage";
+const ProjectIndicatorsPage = lazy(() => import("../pages/organization/ProjectIndicatorsPage").then(module => ({ default: module.ProjectIndicatorsPage })));
+const QualityCenterPage = lazy(() => import("../pages/organization/QualityCenterPage").then(module => ({ default: module.QualityCenterPage })));
 import { WorkspaceReportsPage as ReportsPage } from "../workspace/WorkspaceReportsPage";
 import { SubmissionsPage } from "../pages/organization/SubmissionsPage";
 import {
@@ -41,6 +42,7 @@ import {
 
 export function App() {
   return (
+    <Suspense fallback={<p role="status" className="p-6">Loading page…</p>}>
     <Routes>
       <Route
         path="/login"
@@ -103,5 +105,6 @@ export function App() {
       </Route>
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
+    </Suspense>
   );
 }

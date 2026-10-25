@@ -110,10 +110,9 @@ export function WorkspaceTabs() {
       {[
         ["Details", `/projects/${projectId}`],
         ["Field Team", `/projects/${projectId}/team`],
-        ["Indicators", `/projects/${projectId}/indicators`],
         ["Forms", `/forms?project_id=${projectId}`],
         ["Data tables", `/data-tables?project_id=${projectId}`],
-        ["Analysis", `/analytics?project_id=${projectId}`],
+        ["Indicators", `/projects/${projectId}/indicators`],
         ["Dashboards", `/dashboards?project_id=${projectId}`],
       ].map(([label, to]) => (
         <NavLink

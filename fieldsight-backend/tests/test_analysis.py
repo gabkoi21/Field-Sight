@@ -191,7 +191,8 @@ def test_filters_utc_date_boundaries_review_location_enumerator_and_categories(a
     assert result["series"][0]["name"] == "Female"
     result = query(analysis_client, "services", filters={"categories": ["a"]})
     assert result["eligible_records"] == result["answered_records"] == 2
-    assert query(analysis_client, filters={"review_status": "all"})["eligible_records"] == 6
+    assert query(analysis_client, filters={"review_status": "all"})["eligible_records"] == 5
+    assert query(analysis_client, filters={"review_status": "needs_review"})["eligible_records"] == 0
     assert query(analysis_client, filters={"review_status": "invalid"})["answered_records"] == 1
 
 

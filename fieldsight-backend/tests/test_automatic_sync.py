@@ -195,6 +195,14 @@ def test_indicator_engine_reads_latest_successfully_stored_answers(sync_client):
         ):
             process_one(db)
         with Session(engine) as db:
+            records = list(db.exec(select(Submission)).all())
+            if score == 12:
+                assert records[0].review_status == "needs_review"
+                assert calculate(mapping, records, field).value is None
+            identifier = records[0].id
+        # Changed worker imports become eligible only after an explicit new review.
+        client.patch(f"/submissions/{identifier}/review-status", headers=headers, json={"status": "ready"})
+        with Session(engine) as db:
             assert calculate(mapping, list(db.exec(select(Submission)).all()), field).value == score
     client.post(f"/projects/{project}/sync-jobs", headers=headers)
     # One changed record followed by an invalid record must roll back the whole attempt.

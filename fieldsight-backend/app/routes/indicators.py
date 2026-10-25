@@ -1,18 +1,26 @@
 """Authorized indicator definitions, explicit source mappings and result frameworks."""
 
 from datetime import UTC, date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
+from app.core.indicator_policy import LINKED_METHODS, MANUAL_METHODS, incompatibility
 from app.core.indicator_results import read_result
 from app.core.survey import flatten_answers, number
 from app.db.session import get_session
 from app.models.identity import User
-from app.models.operations import Indicator, IndicatorMapping, IndicatorPeriodTarget, Project, ResultFrameworkNode
+from app.models.operations import (
+    Indicator,
+    IndicatorDefinitionVersion,
+    IndicatorMapping,
+    IndicatorPeriodTarget,
+    Project,
+    ResultFrameworkNode,
+)
 from app.models.workspace import CollectedResult
 from app.routes.analysis import _catalogue
 from app.routes.auth import get_current_user
@@ -56,7 +64,7 @@ def _mapping(indicator: Indicator, db: Session) -> IndicatorMapping | None:
     return db.exec(select(IndicatorMapping).where(IndicatorMapping.indicator_id == indicator.id)).first()
 
 
-def _read(
+def _read_raw(
     indicator: Indicator, db: Session, date_from: date | None = None, date_to: date | None = None
 ) -> IndicatorRead:
     if date_from and date_to and date_from > date_to:
@@ -64,6 +72,25 @@ def _read(
     mapping = _mapping(indicator, db)
     project = db.get(Project, indicator.project_id)
     assert project is not None
+    targets = {
+        item.period: item.target_value
+        for item in db.exec(
+            select(IndicatorPeriodTarget).where(
+                IndicatorPeriodTarget.indicator_id == indicator.id,
+            )
+        ).all()
+    }
+    manual = db.exec(
+        select(CollectedResult)
+        .where(CollectedResult.indicator_id == indicator.id)
+        .order_by(col(CollectedResult.result_date), col(CollectedResult.created_at))
+    ).all()
+    if mapping is None and manual:
+        from app.core.collected_results import manual_result
+
+        return manual_result(indicator, manual, targets, date_from, date_to)
+    if mapping is None:
+        return read_result(indicator, None, [], None, None, "unmapped", date_from, date_to)
     # Legacy mappings without provenance are usable only when the project has
     # a single known form. Never silently switch an existing mapping to a new form.
     try:
@@ -84,23 +111,6 @@ def _read(
             health = "unsupported"
         elif mapping.calculation in {"sum", "average"} and field.type != "number" and field.source != "inferred":
             health = "type_mismatch"
-    targets = {
-        item.period: item.target_value
-        for item in db.exec(
-            select(IndicatorPeriodTarget).where(
-                IndicatorPeriodTarget.indicator_id == indicator.id,
-            )
-        ).all()
-    }
-    manual = db.exec(
-        select(CollectedResult)
-        .where(CollectedResult.indicator_id == indicator.id)
-        .order_by(col(CollectedResult.result_date), col(CollectedResult.created_at))
-    ).all()
-    if mapping is None and manual:
-        from app.core.collected_results import manual_result
-
-        return manual_result(indicator, manual, targets, date_from, date_to)
     result = read_result(
         indicator,
         mapping,
@@ -114,6 +124,343 @@ def _read(
     )
     result.result_source = "table" if mapping else "unconfigured"
     return result
+
+
+def _read(
+    indicator: Indicator, db: Session, date_from: date | None = None, date_to: date | None = None
+) -> IndicatorRead:
+    result = _read_raw(indicator, db, date_from, date_to)
+    mapping = _mapping(indicator, db)
+    warning = incompatibility(indicator.unit, mapping.calculation) if mapping else None
+    result.legacy_definition = indicator.reliability_policy == 0 or bool(warning)
+    if warning:
+        result.definition_warnings.append("Legacy definition retained: " + warning)
+    if indicator.reliability_policy == 0:
+        result.definition_warnings.append("Legacy definition; original selection and approval are unknown.")
+    result.setup_complete = bool(
+        mapping
+        and not warning
+        and result.mapping_health == "healthy"
+        or not mapping
+        and indicator.manual_aggregation in MANUAL_METHODS[indicator.unit]
+    )
+    if mapping:
+        result.result_source = "table"
+    if not mapping:
+        result.result_source = (
+            "manual" if indicator.manual_aggregation != "legacy" or result.manual_result_count else "unconfigured"
+        )
+    if indicator.baseline_value is not None and indicator.target_value is not None:
+        delta = indicator.target_value - indicator.baseline_value
+        if delta == 0 or (delta > 0) != (indicator.direction == "increase"):
+            result.definition_warnings.append(
+                "Baseline, target and desired direction conflict; "
+                "explain any deliberate exception in the change reason."
+            )
+    if indicator.definition_version:
+        result.calculation_note += (
+            f" Current data recalculated under definition v{indicator.definition_version}. "
+            "Retained definitions are not frozen source-data snapshots."
+        )
+    return result
+
+
+DEFINITION_FIELDS = {
+    "unit",
+    "manual_aggregation",
+    "manual_rate_multiplier",
+    "baseline_value",
+    "target_value",
+    "target_date",
+    "direction",
+    "reporting_frequency",
+    "is_active",
+}
+CONTROL_FIELDS = {"change_reason", "confirm_change", "expected_version"}
+
+
+def _definition(indicator: Indicator, db: Session) -> dict:
+    from fastapi.encoders import jsonable_encoder
+
+    mapping = _mapping(indicator, db)
+    return cast(
+        dict,
+        jsonable_encoder(
+            {
+                **{key: getattr(indicator, key) for key in DEFINITION_FIELDS},
+                "period_targets": {row.period: row.target_value for row in db.exec(select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)).all()},
+            "mapping": mapping.model_dump(exclude={"id", "created_at", "updated_at"}) if mapping else None,
+            }
+        ),
+    )
+
+
+def _change_preview(indicator: Indicator, changes: dict, db: Session) -> dict:
+    before = _read(indicator, db)
+    candidate = Indicator.model_validate(indicator.model_dump())
+    for key, value in changes.items():
+        if key in DEFINITION_FIELDS:
+            setattr(candidate, key, value)
+    after = _read(candidate, db)
+    return {
+        "expected_version": indicator.definition_version,
+        "affected_periods": [point.period for point in before.history],
+        "before": before.model_dump(mode="json"),
+        "after": after.model_dump(mode="json"),
+        "notice": "Current data recalculated under each definition; this is not a frozen historical data snapshot.",
+        "effective_scope": "current_definition_all_periods",
+    }
+
+
+def _record_change(
+    indicator: Indicator, user: User, db: Session, previous: dict, controls: dict, preview: dict
+) -> None:
+    if previous == _definition(indicator, db):
+        return
+    if controls.get("expected_version") is not None and controls["expected_version"] != indicator.definition_version:
+        raise HTTPException(409, "Definition changed since preview. Refresh the preview before saving.")
+    has_results = bool(
+        preview["before"]["history"]
+        or preview["before"]["eligible_records"]
+        or preview["before"]["manual_result_count"]
+        or preview["before"]["quality_excluded_records"]
+    )
+    if has_results and (
+        not controls.get("confirm_change")
+        or not (controls.get("change_reason") or "").strip()
+        or controls.get("expected_version") != indicator.definition_version
+    ):
+        raise HTTPException(409, "Preview this definition change, then confirm with a reason and expected_version.")
+    indicator.definition_version += 1
+    db.add(
+        IndicatorDefinitionVersion(
+            indicator_id=indicator.id,
+            organization_id=indicator.organization_id,
+            actor_id=user.id,
+            version=indicator.definition_version,
+            previous_definition=previous,
+            new_definition=_definition(indicator, db),
+            reason=controls.get("change_reason") or "Initial configuration without results",
+            preview=preview,
+        )
+    )
+
+
+@router.get("/indicator-calculation-policy")
+def calculation_policy(user: CurrentUser, db: Database) -> dict:
+    _organization_admin_id(user, db)
+    return {"linked": LINKED_METHODS, "manual": MANUAL_METHODS}
+
+
+@router.post("/indicators/{indicator_id}/definition-preview")
+def definition_preview(indicator_id: UUID, payload: IndicatorUpdate, user: CurrentUser, db: Database) -> dict:
+    return _change_preview(_indicator(indicator_id, user, db), payload.model_dump(exclude_unset=True), db)
+
+
+@router.post("/indicators/{indicator_id}/mapping-preview")
+def mapping_preview(indicator_id: UUID, payload: IndicatorMappingWrite, user: CurrentUser, db: Database) -> dict:
+    indicator = _indicator(indicator_id, user, db)
+    if error := incompatibility(indicator.unit, payload.calculation):
+        raise HTTPException(422, error)
+    project = db.get(Project, indicator.project_id)
+    assert project is not None
+    values = _validate_mapping(project, payload, db)
+    preview = _change_preview(indicator, {}, db)
+    with db.begin_nested() as transaction:
+        mapping = _mapping(indicator, db)
+        if mapping:
+            for key, value in values.items():
+                setattr(mapping, key, value)
+        else:
+            mapping = IndicatorMapping(
+                organization_id=indicator.organization_id,
+                project_id=indicator.project_id,
+                indicator_id=indicator.id,
+                **values,
+            )
+        db.add(mapping)
+        db.flush()
+        preview["after"] = _read(indicator, db).model_dump(mode="json")
+        transaction.rollback()
+    return preview
+
+
+@router.get("/indicators/{indicator_id}/versions")
+def definition_versions(
+    indicator_id: UUID, user: CurrentUser, db: Database, offset: int = 0, limit: int = 25
+) -> list[IndicatorDefinitionVersion]:
+    indicator = _indicator(indicator_id, user, db)
+    return list(
+        db.exec(
+            select(IndicatorDefinitionVersion)
+            .where(
+                IndicatorDefinitionVersion.indicator_id == indicator.id,
+                IndicatorDefinitionVersion.organization_id == indicator.organization_id,
+            )
+            .order_by(col(IndicatorDefinitionVersion.version).desc())
+            .offset(max(0, offset))
+            .limit(max(1, min(limit, 100)))
+        ).all()
+    )
+
+
+@router.get("/indicators/{indicator_id}/evidence")
+def indicator_evidence(
+    indicator_id: UUID,
+    user: CurrentUser,
+    db: Database,
+    offset: int = 0,
+    limit: int = 25,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict:
+    from sqlalchemy import func
+
+    from app.core.indicator_results import calculate
+    from app.core.review_evidence import eligible
+    from app.core.survey import build_catalogue
+    from app.models.operations import FieldMapping, Submission, SurveySchema
+    from app.schemas.analysis import SurveyField
+
+    indicator = _indicator(indicator_id, user, db)
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(422, "Start date must be on or before end date.")
+    mapping = _mapping(indicator, db)
+    limit, offset = max(1, min(limit, 100)), max(0, offset)
+    if mapping:
+        project = db.get(Project, indicator.project_id)
+        assert project is not None
+        form_id = mapping.source_form_id or project.kobo_form_id
+        # Never guess a legacy mapping's provenance when multiple forms exist.
+        forms = list(
+            db.exec(
+                select(Submission.kobo_form_id)
+                .where(
+                    Submission.project_id == indicator.project_id,
+                    Submission.organization_id == indicator.organization_id,
+                )
+                .distinct()
+            ).all()
+        )
+        if (
+            not mapping.source_form_id
+            and len(set(forms) | ({project.kobo_form_id} if project.kobo_form_id else set())) > 1
+        ):
+            return {"source": "table", "health": "broken_mapping", "items": [], "total": 0}
+        form_id = form_id or (forms[0] if len(forms) == 1 else None)
+        filters: list[Any] = [
+            Submission.organization_id == indicator.organization_id,
+            Submission.project_id == indicator.project_id,
+            Submission.kobo_form_id == form_id,
+        ]
+        if date_from:
+            filters.append(col(Submission.submitted_at) >= datetime.combine(date_from, datetime.min.time()))
+        if date_to:
+            from datetime import timedelta
+
+            filters.append(
+                col(Submission.submitted_at) < datetime.combine(date_to + timedelta(days=1), datetime.min.time())
+            )
+        total = db.exec(select(func.count()).select_from(Submission).where(*filters)).one()
+        rows = list(
+            db.exec(
+                select(Submission)
+                .where(*filters)
+                .order_by(
+                    col(Submission.submitted_at).desc(), col(Submission.created_at).desc(), col(Submission.id).desc()
+                )
+                .offset(offset)
+                .limit(limit)
+            ).all()
+        )
+        cache = db.exec(
+            select(SurveySchema).where(
+                SurveySchema.project_id == indicator.project_id,
+                SurveySchema.organization_id == indicator.organization_id,
+                SurveySchema.form_id == form_id,
+            )
+        ).first()
+        mappings = list(
+            db.exec(
+                select(FieldMapping).where(
+                    FieldMapping.project_id == indicator.project_id,
+                    FieldMapping.organization_id == indicator.organization_id,
+                )
+            ).all()
+        )
+        fields = build_catalogue(
+            rows, mappings, [SurveyField.model_validate(f) for f in cache.fields_json] if cache else []
+        )
+        field = next((f for f in fields if f.source_field == mapping.source_field), None)
+        items = []
+        for row in rows:
+            result = calculate(mapping, [row], field, unit=indicator.unit if indicator.reliability_policy else None)
+            reason = (
+                "quality_excluded"
+                if not eligible(row)
+                else "broken_mapping"
+                if not field
+                else "missing_answer"
+                if result.missing_records
+                else "invalid_answer"
+                if result.invalid_answers
+                else None
+            )
+            included = (
+                eligible(row) and field is not None and (mapping.calculation == "count_records" or reason is None)
+            )
+            items.append(
+                {
+                    "id": str(row.id),
+                    "date": row.submitted_at,
+                    "updated_at": row.updated_at,
+                    "author": row.enumerator,
+                    "location": row.location,
+                    "answer": flatten_answers(row.raw_answers).get(mapping.source_field),
+                    "included": included,
+                    "reason": None if included else reason,
+                }
+            )
+        source = "table"
+    else:
+        filters = [
+            CollectedResult.indicator_id == indicator.id,
+            CollectedResult.organization_id == indicator.organization_id,
+        ]
+        if date_from:
+            filters.append(CollectedResult.result_date >= date_from)
+        if date_to:
+            filters.append(CollectedResult.result_date <= date_to)
+        total = db.exec(select(func.count()).select_from(CollectedResult).where(*filters)).one()
+        manual_rows = list(
+            db.exec(
+                select(CollectedResult)
+                .where(*filters)
+                .order_by(
+                    col(CollectedResult.result_date).desc(),
+                    col(CollectedResult.created_at).desc(),
+                    col(CollectedResult.id).desc(),
+                )
+                .offset(offset)
+                .limit(limit)
+            ).all()
+        )
+        items = [{**row.model_dump(mode="json"), "included": True, "reason": None} for row in manual_rows]
+        source = "manual" if total or indicator.manual_aggregation != "legacy" else "unconfigured"
+    return {
+        "source": source,
+        "method": mapping.calculation if mapping else indicator.manual_aggregation,
+        "form": mapping.source_form_id if mapping else None,
+        "question": mapping.source_field if mapping else None,
+        "definition_version": indicator.definition_version,
+        "date_from": date_from,
+        "date_to": date_to,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "items": items,
+        "notice": "Live evidence under the current definition; definition history does not freeze source data.",
+    }
 
 
 def _validate_mapping(project: Project, payload: IndicatorMappingWrite, db: Session) -> dict:
@@ -134,7 +481,7 @@ def _validate_mapping(project: Project, payload: IndicatorMappingWrite, db: Sess
     if payload.calculation in {"count_matching", "percentage_matching"} and field.choices:
         if (payload.match_value or "").casefold() not in {choice.value.casefold() for choice in field.choices}:
             raise HTTPException(status_code=422, detail="Choose an expected answer code from this question's choices.")
-    return {**payload.model_dump(), "source_form_id": catalogue.form_id}
+    return {**payload.model_dump(exclude=CONTROL_FIELDS), "source_form_id": catalogue.form_id}
 
 
 def _validate_definition(unit: str, baseline: float | None, target: float | None) -> None:
@@ -191,13 +538,20 @@ def create_indicator(project_id: UUID, payload: IndicatorCreate, user: CurrentUs
     if payload.framework_node_id:
         _node(payload.framework_node_id, project, db)
     _validate_definition(payload.unit, payload.baseline_value, payload.target_value)
+    if payload.manual_aggregation != "legacy" and payload.manual_aggregation not in MANUAL_METHODS[payload.unit]:
+        raise HTTPException(422, "Choose a manual method compatible with the indicator unit.")
     mapping_values = _validate_mapping(project, payload.mapping, db) if payload.mapping else None
+    if mapping_values and (error := incompatibility(payload.unit, mapping_values["calculation"])):
+        raise HTTPException(422, error)
+    if payload.is_active and not mapping_values and payload.manual_aggregation == "legacy":
+        raise HTTPException(422, "Choose an explicit manual aggregation before activation.")
     if payload.unit == "text" and mapping_values:
         raise HTTPException(422, "Use manual narratives for qualitative indicators.")
     indicator = Indicator(
         organization_id=project.organization_id,
         project_id=project.id,
         created_by_id=user.id,
+        reliability_policy=1,
         **payload.model_dump(exclude={"mapping"}),
     )
     db.add(indicator)
@@ -236,12 +590,19 @@ def get_indicator(
 @router.patch("/indicators/{indicator_id}", response_model=IndicatorRead)
 def update_indicator(indicator_id: UUID, payload: IndicatorUpdate, user: CurrentUser, db: Database) -> IndicatorRead:
     indicator = _indicator(indicator_id, user, db)
-    changes = payload.model_dump(exclude_unset=True)
-    if changes.get("unit", indicator.unit) != indicator.unit:
-        if db.exec(select(CollectedResult).where(CollectedResult.indicator_id == indicator.id)).first():
-            raise HTTPException(409, "Remove manual results before changing the indicator unit.")
-        if changes["unit"] == "text" and _mapping(indicator, db):
-            raise HTTPException(409, "Remove the table mapping before changing to a qualitative indicator.")
+    controls = payload.model_dump()
+    changes = payload.model_dump(exclude_unset=True, exclude=CONTROL_FIELDS)
+    previous = _definition(indicator, db)
+    preview = _change_preview(indicator, changes, db)
+    method = changes.get("manual_aggregation", indicator.manual_aggregation)
+    unit = changes.get("unit", indicator.unit)
+    if method != "legacy" and method not in MANUAL_METHODS[unit]:
+        raise HTTPException(422, "Choose a manual method compatible with the indicator unit.")
+    mapping = _mapping(indicator, db)
+    if mapping and unit != indicator.unit and (error := incompatibility(unit, mapping.calculation)):
+        raise HTTPException(422, error)
+    if changes.get("is_active") and indicator.reliability_policy and not mapping and method == "legacy":
+        raise HTTPException(422, "Choose an explicit manual aggregation before activation.")
     period_targets = db.exec(
         select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)
     ).all()
@@ -264,6 +625,8 @@ def update_indicator(indicator_id: UUID, payload: IndicatorUpdate, user: Current
     )
     for key, value in changes.items():
         setattr(indicator, key, value)
+    with db.no_autoflush:
+        _record_change(indicator, user, db, previous, controls, preview)
     indicator.updated_at = datetime.now(UTC)
     db.add(indicator)
     try:
@@ -283,10 +646,13 @@ def upsert_mapping(
     indicator = _indicator(indicator_id, user, db)
     if indicator.unit == "text":
         raise HTTPException(422, "Use manual narratives for qualitative indicators.")
-    if db.exec(select(CollectedResult).where(CollectedResult.indicator_id == indicator.id)).first():
-        raise HTTPException(409, "Remove manual results before switching this indicator to a linked table source.")
+    if error := incompatibility(indicator.unit, payload.calculation):
+        raise HTTPException(422, error)
+    previous = _definition(indicator, db)
+    preview = _change_preview(indicator, {}, db)
     project = db.get(Project, indicator.project_id)
     assert project
+    assert project is not None
     values = _validate_mapping(project, payload, db)
     mapping = _mapping(indicator, db)
     if mapping is None:
@@ -301,15 +667,40 @@ def upsert_mapping(
             setattr(mapping, key, value)
         mapping.updated_at = datetime.now(UTC)
     db.add(mapping)
+    db.flush()
+    preview["after"] = _read(indicator, db).model_dump(mode="json")
+    _record_change(indicator, user, db, previous, payload.model_dump(), preview)
+    db.add(indicator)
     db.commit()
     return IndicatorMappingRead.model_validate(mapping, from_attributes=True)
 
 
 @router.delete("/indicators/{indicator_id}/mapping", status_code=204)
-def delete_mapping(indicator_id: UUID, user: CurrentUser, db: Database) -> Response:
-    mapping = _mapping(_indicator(indicator_id, user, db), db)
+def delete_mapping(
+    indicator_id: UUID,
+    user: CurrentUser,
+    db: Database,
+    confirm_change: bool = False,
+    change_reason: str | None = None,
+    expected_version: int | None = None,
+) -> Response:
+    indicator = _indicator(indicator_id, user, db)
+    mapping = _mapping(indicator, db)
     if mapping:
+        previous = _definition(indicator, db)
+        preview = _change_preview(indicator, {}, db)
         db.delete(mapping)
+        db.flush()
+        preview["after"] = _read(indicator, db).model_dump(mode="json")
+        _record_change(
+            indicator,
+            user,
+            db,
+            previous,
+            {"confirm_change": confirm_change, "change_reason": change_reason, "expected_version": expected_version},
+            preview,
+        )
+        db.add(indicator)
         db.commit()
     return Response(status_code=204)
 
@@ -318,6 +709,8 @@ def delete_mapping(indicator_id: UUID, user: CurrentUser, db: Database) -> Respo
 def delete_indicator(indicator_id: UUID, user: CurrentUser, db: Database) -> Response:
     indicator = _indicator(indicator_id, user, db)
     mapping = _mapping(indicator, db)
+    for version in db.exec(select(IndicatorDefinitionVersion).where(IndicatorDefinitionVersion.indicator_id == indicator.id)).all():
+        db.delete(version)
     for target in db.exec(
         select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)
     ).all():
@@ -343,12 +736,27 @@ def get_period_targets(indicator_id: UUID, user: CurrentUser, db: Database) -> l
     return [IndicatorPeriodTargetInput(period=row.period, target_value=row.target_value) for row in rows]
 
 
+@router.post("/indicators/{indicator_id}/period-targets-preview")
+def period_targets_preview(indicator_id: UUID, payload: list[IndicatorPeriodTargetInput],
+                           user: CurrentUser, db: Database) -> dict:
+    indicator = _indicator(indicator_id, user, db)
+    preview = _change_preview(indicator, {}, db)
+    with db.begin_nested() as transaction:
+        replace_period_targets(indicator_id, payload, user, db, True, "Preview only", indicator.definition_version,
+                               _commit=False)
+        preview["after"] = _read(indicator, db).model_dump(mode="json")
+        transaction.rollback()
+    return preview
+
+
 @router.put("/indicators/{indicator_id}/period-targets", response_model=list[IndicatorPeriodTargetInput])
 def replace_period_targets(
     indicator_id: UUID,
     payload: list[IndicatorPeriodTargetInput],
     user: CurrentUser,
     db: Database,
+    confirm_change: bool = False, change_reason: str | None = None, expected_version: int | None = None,
+    _commit: bool = True,
 ) -> list[IndicatorPeriodTargetInput]:
     import re
 
@@ -371,6 +779,8 @@ def replace_period_targets(
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail="The ISO reporting week is invalid.") from exc
         _validate_definition(indicator.unit, None, item.target_value)
+    previous = _definition(indicator, db)
+    preview = _change_preview(indicator, {}, db)
     for stored_target in db.exec(
         select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)
     ).all():
@@ -378,7 +788,13 @@ def replace_period_targets(
     db.flush()
     for item in payload:
         db.add(IndicatorPeriodTarget(indicator_id=indicator.id, **item.model_dump()))
-    db.commit()
+    db.flush()
+    preview["after"] = _read(indicator, db).model_dump(mode="json")
+    _record_change(indicator, user, db, previous, {"confirm_change": confirm_change,
+        "change_reason": change_reason, "expected_version": expected_version}, preview)
+    db.add(indicator)
+    if _commit:
+        db.commit()
     return sorted(payload, key=lambda item: item.period)
 
 

@@ -471,6 +471,7 @@ export function DashboardsPage() {
                 Saving dashboard…
               </p>
             )}
+            <p className="text-xs text-[#637580]">Project: {project?.name}. Active dates: {from || "All dates"} through {through || "Present"} (UTC). Last successful sync: {syncStatus.data?.last_successful_sync ? new Date(syncStatus.data.last_successful_sync).toLocaleString() : "Not recorded"}. Values use current saved data; review exclusions are shown on each indicator.</p>
             {syncStatus.error && (
               <p role="status" className="text-xs text-[#87969d]">
                 Automatic refresh status is unavailable. Use Refresh dashboard
@@ -1039,6 +1040,7 @@ function Widget({
         >
           Open indicator results →
         </Link>
+        <p className="text-xs text-[#637580]">Missing: {item.missing_records}; invalid answers: {item.invalid_answers}; excluded by review: {item.quality_excluded_records}. {item.calculation_note}</p>
       </div>
     );
   }

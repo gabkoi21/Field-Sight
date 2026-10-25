@@ -76,7 +76,7 @@ def list_kobo_connections(user: CurrentUser, db: Database) -> list[KoboConnectio
     connections = db.exec(
         select(KoboConnection)
         .where(KoboConnection.organization_id == organization_id, col(KoboConnection.is_deleted).is_(False))
-        .order_by(KoboConnection.created_at.desc())
+        .order_by(col(KoboConnection.created_at).desc())
     ).all()
     return [_read(connection) for connection in connections]
 
@@ -158,7 +158,7 @@ def get_kobo_forms(
     connection = _connection(connection_id, organization_id, db)
     try:
         token = decrypt_kobo_token(connection.token_encrypted, settings)
-        return [KoboFormRead(**form) for form in list_kobo_forms(connection.server_url, token)]
+        return [KoboFormRead.model_validate(form) for form in list_kobo_forms(connection.server_url, token)]
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

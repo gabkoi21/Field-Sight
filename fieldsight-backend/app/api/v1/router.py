@@ -13,6 +13,8 @@ from app.routes.kobo import router as kobo_router
 from app.routes.onboarding import router as onboarding_router
 from app.routes.organizations import enumerator_router
 from app.routes.organizations import router as organizations_router
+from app.routes.quality import router as quality_router
+from app.routes.reports import router as reports_router
 from app.routes.sectors import router as sectors_router
 from app.routes.workspace import router as workspace_router
 
@@ -26,6 +28,8 @@ api_router.include_router(organizations_router)
 api_router.include_router(enumerator_router)
 api_router.include_router(kobo_router)
 api_router.include_router(collection_router)
+api_router.include_router(quality_router)
+api_router.include_router(reports_router)
 api_router.include_router(intelligence_router)
 api_router.include_router(indicators_router)
 api_router.include_router(analysis_router)

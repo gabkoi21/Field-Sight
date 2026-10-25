@@ -20,6 +20,7 @@ dependencies = [
   "python-dotenv>=1.0",
   "PyJWT>=2.10",
   "sqlmodel>=0.0.22",
+  "reportlab>=4.4,<5",
   "uvicorn[standard]>=0.34",
 ]
 
@@ -28,6 +29,7 @@ dev = [
   "httpx>=0.28",
   "mypy>=1.14",
   "pytest>=8.3",
+  "pypdf>=5",
   "pytest-asyncio>=0.25",
   "ruff>=0.9",
 ]
@@ -57,4 +59,8 @@ disallow_untyped_defs = true
 no_implicit_optional = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["reportlab", "reportlab.*"]
+ignore_missing_imports = true
 

@@ -81,7 +81,7 @@ export function WorkspacesPage() {
   });
   const remove = useMutation({
     mutationFn: () =>
-      apiClient.deleteProject(workspace.organizationId, actionProject!),
+      apiClient.updateProject(workspace.organizationId, actionProject!, { status: deletingProject?.status === "archived" ? "active" : "archived" }),
     onSuccess: async () => {
       setConfirmDelete(false);
       setActionProject(null);
@@ -575,7 +575,7 @@ export function WorkspacesPage() {
                   }}
                   className="mr-auto inline-flex items-center gap-2 rounded border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
                 >
-                  <Trash2 size={14} /> Delete
+                  <Trash2 size={14} /> {deletingProject?.status === "archived" ? "Restore" : "Archive"}
                 </button>
               )}
               <button
@@ -603,7 +603,7 @@ export function WorkspacesPage() {
       )}
       {confirmDelete && deletingProject && (
         <Dialog
-          title="Delete project?"
+          title={deletingProject.status === "archived" ? "Restore project?" : "Archive project?"}
           compact
           error={remove.error?.message}
           onClose={() => {
@@ -611,24 +611,9 @@ export function WorkspacesPage() {
           }}
         >
           <p className="text-sm leading-6 text-[#637d86]">
-            Permanently delete <strong>{deletingProject.name}</strong> and all
-            its dashboards, widgets, indicators, targets, results, saved
-            visualizations, imported submissions, form metadata, team
-            assignments and synchronization history?
-          </p>
-          {deletingProject.kobo_form_id && (
-            <p className="rounded border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
-              {deletingProject.kobo_connection_id ? (
-                <>The linked Kobo form {deletingProject.kobo_form_name || deletingProject.kobo_form_id}
-                {" "}and its submissions will also be permanently deleted from KoboToolbox.</>
-              ) : (
-                <>This project has no Kobo connection. Its saved form reference and all FieldSight data
-                will be deleted. Any form or submissions on KoboToolbox will remain.</>
-              )}
-            </p>
-          )}
-          <p className="text-sm font-semibold text-red-700">
-            This cannot be undone.
+            {deletingProject.status === "archived" ? "Restore" : "Archive"} <strong>{deletingProject.name}</strong>?
+            All FieldSight records and Kobo assets are retained. Archiving stops queued and scheduled synchronization.
+            Restoration keeps synchronization manual until you enable it again.
           </p>
           <Field label="Type the project name to confirm">
             <input
@@ -655,7 +640,7 @@ export function WorkspacesPage() {
               onClick={() => remove.mutate()}
               className="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {remove.isPending ? "Deleting…" : "Delete project"}
+              {remove.isPending ? "Saving…" : deletingProject.status === "archived" ? "Restore project" : "Archive project"}
             </button>
           </div>
         </Dialog>

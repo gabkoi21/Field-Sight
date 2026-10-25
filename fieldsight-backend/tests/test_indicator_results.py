@@ -111,12 +111,38 @@ def test_target_dates_direction_and_missing_deadline(analysis_client: Client) ->
     assert result["progress_percent"] == 83.33
     assert result["target_achieved"] is False
     assert result["schedule_status"] == "not_due"
-    result = api.patch(f"/indicators/{result['id']}", headers=headers, json={"target_date": "2000-01-01"}).json()
+    result = api.patch(
+        f"/indicators/{result['id']}",
+        headers=headers,
+        json={
+            "target_date": "2000-01-01",
+            "confirm_change": True,
+            "change_reason": "Review deadline",
+            "expected_version": result["definition_version"],
+        },
+    ).json()
     assert result["status"] == "needs_attention" and result["schedule_status"] == "overdue"
-    result = api.patch(f"/indicators/{result['id']}", headers=headers, json={"target_value": 6}).json()
+    result = api.patch(
+        f"/indicators/{result['id']}",
+        headers=headers,
+        json={
+            "target_value": 6,
+            "confirm_change": True,
+            "change_reason": "Review target",
+            "expected_version": result["definition_version"],
+        },
+    ).json()
     assert result["target_achieved"] is True and result["schedule_status"] == "achieved"
     result = api.patch(
-        f"/indicators/{result['id']}", headers=headers, json={"target_value": 2, "target_date": None}
+        f"/indicators/{result['id']}",
+        headers=headers,
+        json={
+            "target_value": 2,
+            "target_date": None,
+            "confirm_change": True,
+            "change_reason": "Review deadline",
+            "expected_version": result["definition_version"],
+        },
     ).json()
     assert result["status"] == "in_progress" and result["schedule_status"] == "no_deadline"
 
@@ -163,7 +189,7 @@ def test_period_targets_are_explicit_and_missing_period_actuals_remain_null(anal
     api, _, _, headers = analysis_client
     item = create_indicator(analysis_client)
     response = api.put(
-        f"/indicators/{item['id']}/period-targets",
+        f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=0",
         headers=headers,
         json=[
             {"period": "2026-10", "target_value": 40},
@@ -180,12 +206,30 @@ def test_period_targets_are_explicit_and_missing_period_actuals_remain_null(anal
     assert len(filtered["history"]) == 1
     assert len(api.get(f"/indicators/{item['id']}/period-targets", headers=headers).json()) == 2
     assert (
-        api.patch(f"/indicators/{item['id']}", headers=headers, json={"reporting_frequency": "quarterly"}).status_code
+        api.patch(
+            f"/indicators/{item['id']}",
+            headers=headers,
+            json={
+                "reporting_frequency": "quarterly",
+                "confirm_change": True,
+                "change_reason": "Review frequency",
+                "expected_version": api.get(f"/indicators/{item['id']}", headers=headers).json()["definition_version"],
+            },
+        ).status_code
         == 409
     )
-    assert api.put(f"/indicators/{item['id']}/period-targets", headers=headers, json=[]).status_code == 200
+    assert api.put(f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=1", headers=headers, json=[]).status_code == 200
     assert (
-        api.patch(f"/indicators/{item['id']}", headers=headers, json={"reporting_frequency": "quarterly"}).status_code
+        api.patch(
+            f"/indicators/{item['id']}",
+            headers=headers,
+            json={
+                "reporting_frequency": "quarterly",
+                "confirm_change": True,
+                "change_reason": "Review frequency",
+                "expected_version": api.get(f"/indicators/{item['id']}", headers=headers).json()["definition_version"],
+            },
+        ).status_code
         == 200
     )
 
@@ -303,10 +347,12 @@ def test_legacy_schema_upgrade_preserves_mapping_identity(
         command.upgrade(config, "head")
         result = api.get(f"/indicators/{item['id']}", headers=headers)
         assert result.status_code == 200, result.text
-        assert result.json()["current_value"] == 66.67
+        assert result.json()["current_value"] is None
         assert result.json()["mapping"]["source_form_id"] == "form-1"
         with Session(engine) as db:
-            assert len(db.exec(select(Submission)).all()) == 6
+            records = db.exec(select(Submission)).all()
+            assert len(records) == 6
+            assert all(record.review_required for record in records)
     finally:
         get_settings.cache_clear()
 
@@ -379,7 +425,7 @@ def test_cross_tenant_and_role_checks_cover_frameworks_mappings_and_targets(anal
         db.commit()
     assert api.get(f"/projects/{project_id}/results-framework", headers=headers).status_code == 404
     assert api.get(f"/indicators/{item['id']}/period-targets", headers=headers).status_code == 404
-    assert api.put(f"/indicators/{item['id']}/period-targets", headers=headers, json=[]).status_code == 404
+    assert api.put(f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=1", headers=headers, json=[]).status_code == 404
     assert (
         api.put(
             f"/indicators/{item['id']}/mapping",

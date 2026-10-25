@@ -1,0 +1,9 @@
+from pathlib import Path
+p=Path('fieldsight-backend/app/core/collected_results.py');s=p.read_text().replace('result.calculation_note = "Latest observation ordered by result date, creation timestamp, then record UUID. Periods are independent; manual results only."','result.calculation_note = ("Latest observation ordered by result date, creation timestamp, then record UUID. "\n                                   "Periods are independent; manual results only.")');p.write_text(s)
+p=Path('fieldsight-backend/app/routes/indicators.py');s=p.read_text().replace('"Baseline, target and desired direction conflict; explain any deliberate exception in the change reason."','"Baseline, target and desired direction conflict; "\n                "explain any deliberate exception in the change reason."');p.write_text(s)
+p=Path('fieldsight-frontend/src/pages/organization/IndicatorWorkspacePage.tsx');s=p.read_text(encoding='utf-8').replace('{editing && (','{editing && !review && (').replace('{mapping && (','{mapping && !review && (');p.write_text(s,encoding='utf-8')
+p=Path('fieldsight-frontend/src/workspace/CollectedDataPanel.tsx');s=p.read_text(encoding='utf-8');s=s.replace('    await Promise.all([','    await Promise.all([\n      cache.invalidateQueries({ queryKey: ["indicator-evidence", indicator.id] }),\n      cache.invalidateQueries({ queryKey: ["dashboard-widget"] }),\n      cache.invalidateQueries({ queryKey: ["dashboard"] }),',1)
+# eliminate independent pooled formula display
+start='`${row.numerator} / ${row.denominator} = ${(row.numerator / row.denominator * (indicator.unit === "percentage" ? 100 : indicator.unit === "rate" ? indicator.manual_rate_multiplier ?? 1 : 1)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`'
+s=s.replace(start,'`${row.numerator} / ${row.denominator} = ${row.value?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? "—"}`')
+p.write_text(s,encoding='utf-8')

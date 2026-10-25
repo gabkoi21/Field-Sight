@@ -48,13 +48,17 @@ class CollectedResultInput(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     result_date: date
     value: float | None = None
+    numerator: float | None = Field(default=None, ge=0, le=1e15)
+    denominator: float | None = Field(default=None, gt=0, le=1e15)
     narrative: str | None = Field(default=None, min_length=1, max_length=4000)
     location: str | None = Field(default=None, max_length=200)
     notes: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")
     def result_required(self) -> "CollectedResultInput":
-        if self.value is None and not (self.narrative or "").strip():
+        if (self.numerator is None) != (self.denominator is None):
+            raise ValueError("Enter both numerator and denominator.")
+        if self.value is None and self.numerator is None and not (self.narrative or "").strip():
             raise ValueError("Enter a numeric result or a qualitative narrative.")
         return self
 

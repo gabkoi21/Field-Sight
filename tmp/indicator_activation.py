@@ -1,0 +1,12 @@
+from pathlib import Path
+p=Path('fieldsight-backend/app/routes/indicators.py');s=p.read_text().replace('    "reporting_frequency",\n}', '    "reporting_frequency",\n    "is_active",\n}',1)
+s=s.replace('    if not mapping:\n        result.result_source = (','    if mapping:\n        result.result_source = "table"\n    if not mapping:\n        result.result_source = (',1)
+s=s.replace('    return result\n\n\nDEFINITION_FIELDS', '    if indicator.definition_version:\n        result.calculation_note += (\n            f" Current data recalculated under definition v{indicator.definition_version}. "\n            "Retained definitions are not frozen source-data snapshots."\n        )\n    return result\n\n\nDEFINITION_FIELDS',1)
+# explicit suitable method check also after old records migrated or changed units
+p.write_text(s)
+p=Path('fieldsight-frontend/src/services/apiClient.ts');s=p.read_text(encoding='utf-8').replace('  | "framework_node_id"\n>;','  | "framework_node_id"\n> & { is_active?: boolean };',1);p.write_text(s,encoding='utf-8')
+p=Path('fieldsight-frontend/src/pages/organization/IndicatorForms.tsx');s=p.read_text(encoding='utf-8').replace('          manual_mean_confirmed: indicator.manual_mean_confirmed', '          is_active: indicator.is_active,\n          manual_mean_confirmed: indicator.manual_mean_confirmed',1).replace('          manual_mean_confirmed: false,','          is_active: false,\n          manual_mean_confirmed: false,',1)
+s=s.replace('      <form\n        onSubmit={(event) => {','      <p className="mb-4 text-xs leading-5">Definition → result source → calculation → baseline/targets → preview. {indicator?.setup_complete ? "Saved calculation is configured." : "Draft: complete the calculation before activation."}</p>\n      <form\n        onSubmit={(event) => {',1)
+s=s.replace('        <Actions onClose={onClose} saving={saving} />','        {indicator && <label className="flex gap-2 text-xs"><input type="checkbox" checked={form.is_active ?? false} onChange={event => update("is_active", event.target.checked)} />Active for reporting (review the calculation preview before saving)</label>}\n        <Actions onClose={onClose} saving={saving} />',1)
+p.write_text(s,encoding='utf-8')
+p=Path('fieldsight-frontend/src/pages/organization/IndicatorWorkspacePage.tsx');s=p.read_text(encoding='utf-8').replace('  const label =\n    item.unit', '  const label =\n    item.is_active === false ? "Draft" : item.unit',1);p.write_text(s,encoding='utf-8')

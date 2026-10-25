@@ -104,6 +104,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
         </div>
       }
     >
+      <Notice>FieldSight administrators manage organization access. Kobo enumerators collect in Kobo; invitations here create FieldSight access only, never a Kobo account. Revoking an invitation blocks acceptance. Removing a project assignment removes project access; disabling membership removes organization access.</Notice>
       {workspaceOnly && <WorkspaceTabs />}
       {adminOnly && <Link to="/settings" className="text-sm text-[#0b51b7]">← Back to organization settings</Link>}
       {!adminOnly && <Panel>

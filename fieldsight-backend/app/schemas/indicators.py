@@ -30,12 +30,16 @@ class IndicatorCreate(BaseModel):
     code: str = Field(min_length=2, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
     description: str | None = Field(default=None, max_length=1000)
     unit: IndicatorUnitValue = "number"
+    manual_mean_confirmed: bool = False
+    manual_aggregation: Literal["legacy", "unweighted_mean", "pooled", "sum", "latest"] = "legacy"
+    manual_rate_multiplier: float = Field(default=1, gt=0, le=1e6)
     direction: IndicatorDirectionValue = "increase"
     baseline_value: float | None = None
     target_value: float | None = None
     target_date: date | None = None
     reporting_frequency: ReportingFrequency = "monthly"
     framework_node_id: UUID | None = None
+    is_active: bool = False
     mapping: "IndicatorMappingWrite | None" = None
 
     @model_validator(mode="after")
@@ -51,6 +55,12 @@ class IndicatorUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=2, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
     description: str | None = Field(default=None, max_length=1000)
     unit: IndicatorUnitValue | None = None
+    change_reason: str | None = Field(default=None, min_length=3, max_length=1000)
+    confirm_change: bool = False
+    expected_version: int | None = None
+    manual_mean_confirmed: bool | None = None
+    manual_aggregation: Literal["legacy", "unweighted_mean", "pooled", "sum", "latest"] | None = None
+    manual_rate_multiplier: float | None = Field(default=None, gt=0, le=1e6)
     direction: IndicatorDirectionValue | None = None
     baseline_value: float | None = None
     target_value: float | None = None
@@ -61,13 +71,23 @@ class IndicatorUpdate(BaseModel):
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "IndicatorUpdate":
-        for key in {"name", "code", "unit", "direction", "reporting_frequency", "is_active"} & self.model_fields_set:
+        required = {"name", "code", "unit", "direction", "reporting_frequency", "is_active", "manual_mean_confirmed"}
+        required |= {"manual_aggregation", "manual_rate_multiplier"}
+        for key in required & self.model_fields_set:
             if getattr(self, key) is None:
                 raise ValueError(f"{key} cannot be null.")
         return self
 
 
 class IndicatorRead(BaseModel):
+    definition_version: int = 0
+    reliability_policy: int = 0
+    legacy_definition: bool = False
+    setup_complete: bool = False
+    definition_warnings: list[str] = Field(default_factory=list)
+    manual_aggregation: Literal["legacy", "unweighted_mean", "pooled", "sum", "latest"] = "legacy"
+    manual_rate_multiplier: float = 1
+    manual_mean_confirmed: bool = False
     result_source: Literal["table", "manual", "unconfigured"] = "unconfigured"
     qualitative_value: str | None = None
     manual_result_count: int = 0
@@ -90,7 +110,7 @@ class IndicatorRead(BaseModel):
     eligible_records: int = 0
     mapped_records: int = 0
     numerator: float | None = None
-    denominator: int = 0
+    denominator: int | float = 0
     missing_records: int = 0
     invalid_answers: int = 0
     quality_excluded_records: int = 0
@@ -113,6 +133,9 @@ class IndicatorRead(BaseModel):
 
 class IndicatorMappingWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    change_reason: str | None = Field(default=None, min_length=3, max_length=1000)
+    confirm_change: bool = False
+    expected_version: int | None = None
     source_field: str = Field(min_length=1, max_length=255)
     source_form_id: str | None = Field(default=None, max_length=255)
     calculation: IndicatorCalculationValue
@@ -136,7 +159,7 @@ class IndicatorResultPoint(BaseModel):
     eligible_records: int
     mapped_records: int
     numerator: float | None = None
-    denominator: int = 0
+    denominator: int | float = 0
     missing_records: int = 0
     invalid_answers: int = 0
     target_value: float | None = None
@@ -149,7 +172,7 @@ class IndicatorLocationResult(BaseModel):
     eligible_records: int
     mapped_records: int
     numerator: float | None = None
-    denominator: int = 0
+    denominator: int | float = 0
 
 
 FrameworkType = Literal["goal", "objective", "outcome", "output", "activity"]

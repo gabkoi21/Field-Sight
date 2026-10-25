@@ -10,7 +10,7 @@ from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import update
+from sqlalchemy import func, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
@@ -293,9 +293,11 @@ def remove_project_member(project_id: UUID, assignment_id: UUID, user: CurrentUs
 @router.get("/projects/{project_id}/tables")
 def tables(project_id: UUID, user: CurrentUser, db: Database) -> list[dict[str, object]]:
     project = _project(project_id, user, db)
-    records = db.exec(select(Submission).where(Submission.project_id == project.id)).all()
+    counts = dict(db.exec(select(Submission.kobo_form_id, func.count()).where(
+        Submission.project_id == project.id, Submission.organization_id == project.organization_id,
+    ).group_by(Submission.kobo_form_id)).all())
     schemas = db.exec(select(SurveySchema).where(SurveySchema.project_id == project.id)).all()
-    forms = sorted({r.kobo_form_id for r in records} | {s.form_id for s in schemas})
+    forms = sorted(set(counts) | {s.form_id for s in schemas})
     return [
         dict(
             id=form,
@@ -308,7 +310,7 @@ def tables(project_id: UUID, user: CurrentUser, db: Database) -> list[dict[str, 
                 project.kobo_form_name if project.kobo_form_id == form else form,
             ),
             source="CSV upload" if form.startswith("csv-") else "Demo sample" if form.startswith("demo-") else "Kobo",
-            records=sum(r.kobo_form_id == form for r in records),
+            records=counts.get(form, 0),
         )
         for form in forms
     ]
@@ -326,12 +328,27 @@ def table_rows(
     project = _project(project_id, user, db)
     from app.routes.analysis import _catalogue
 
-    catalogue, records, _ = _catalogue(project, form_id, db)
-    records = sorted(records, key=lambda item: (str(item.submitted_at or ""), str(item.id)), reverse=True)
-    fields = [field.model_dump() for field in catalogue.fields]
+    statement = select(Submission).where(
+        Submission.project_id == project.id, Submission.organization_id == project.organization_id,
+        Submission.kobo_form_id == form_id,
+    )
+    schema = db.exec(select(SurveySchema).where(
+        SurveySchema.project_id == project.id, SurveySchema.organization_id == project.organization_id,
+        SurveySchema.form_id == form_id,
+    )).first()
+    if schema is not None:
+        fields = schema.fields_json
+    else:
+        # Legacy forms without cached metadata still need complete inference.
+        # Keep their catalogue accurate rather than silently sampling questions.
+        catalogue, _, _ = _catalogue(project, form_id, db)
+        fields = [field.model_dump() for field in catalogue.fields]
+    total = db.exec(select(func.count()).select_from(statement.subquery())).one()
+    records = db.exec(statement.order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc())
+                      .offset(offset).limit(limit)).all()
     return dict(
         fields=fields,
-        total=len(records),
+        total=total,
         offset=offset,
         rows=[
             dict(
@@ -340,7 +357,7 @@ def table_rows(
                 submitted_at=r.submitted_at,
                 answers=flatten_answers(r.raw_answers),
             )
-            for r in records[offset : offset + limit]
+            for r in records
         ],
     )
 
@@ -461,10 +478,29 @@ def add_collected_result(
         raise HTTPException(
             409, "This indicator uses linked table results. Remove its mapping before entering manual results."
         )
+    if indicator.reliability_policy and indicator.manual_aggregation == "legacy":
+        raise HTTPException(422, "Select an explicit suitable manual aggregation before entering results.")
+    values = payload.model_dump()
+    if indicator.manual_aggregation == "pooled":
+        if (indicator.unit not in {"percentage", "rate", "ratio"} or payload.numerator is None
+                or payload.denominator is None or payload.value is not None or payload.narrative):
+            raise HTTPException(422, "Pooled results require numerator and denominator, without a separate value.")
+        if indicator.unit == "percentage" and payload.numerator > payload.denominator:
+            raise HTTPException(422, "Percentage numerator cannot exceed its denominator.")
+        multiplier = 100 if indicator.unit == "percentage" else indicator.manual_rate_multiplier
+        if indicator.unit == "ratio":
+            multiplier = 1
+        from math import isfinite
+        computed = payload.numerator / payload.denominator * multiplier
+        if not isfinite(computed):
+            raise HTTPException(422, "The fraction exceeds the supported numeric range.")
+        values["value"] = round(computed, 2)
+    elif payload.numerator is not None or payload.denominator is not None:
+        raise HTTPException(422, "Select pooled aggregation in indicator settings before entering fractions.")
     if indicator.unit == "text":
         if not (payload.narrative or "").strip() or payload.value is not None:
             raise HTTPException(422, "Qualitative indicators require a narrative and no numeric value.")
-    elif payload.value is None or payload.narrative:
+    elif (values["value"] is None or payload.narrative):
         raise HTTPException(422, "Numeric indicators require a numeric result; use notes for context.")
     if indicator.unit == "percentage" and payload.value is not None and not 0 <= payload.value <= 100:
         raise HTTPException(422, "Percentage results must be between 0 and 100.")
@@ -472,7 +508,7 @@ def add_collected_result(
         indicator_id=indicator.id,
         organization_id=indicator.organization_id,
         created_by_id=user.id,
-        **payload.model_dump(),
+        **values,
     )
     db.add(item)
     db.commit()
@@ -642,6 +678,8 @@ def dashboard_widget_result(
     try:
         query = AnalysisQuery.model_validate(source.query_json)
         filters = query.filters.model_dump()
+        # Diagnostic review-status filters must not enter published dashboard results.
+        filters["review_status"] = "ready"
         if start is not None:
             filters["date_from"] = start
         if end is not None:

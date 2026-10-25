@@ -3,3 +3,5 @@ fieldsight-backend/fieldsight.db
 fieldsight-backend/fieldsight.db-shm
 fieldsight-backend/fieldsight.db-wal
 sqlite-merge-backup-*/
+# Generated PDF inspection renders.
+/tmp/pdfs/

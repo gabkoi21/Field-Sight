@@ -37,6 +37,8 @@ class CollectedResult(SQLModel, table=True):
     organization_id: UUID = Field(foreign_key="organizations.id")
     result_date: date
     value: float | None = None
+    numerator: float | None = None
+    denominator: float | None = None
     narrative: str | None = None
     location: str | None = None
     notes: str | None = None

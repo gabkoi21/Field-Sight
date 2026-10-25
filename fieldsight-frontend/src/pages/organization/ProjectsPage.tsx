@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
@@ -27,6 +27,12 @@ export function AssignFormModal({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const modal = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement;
+    modal.current?.querySelector<HTMLElement>("button")?.focus();
+    return () => { if (previous instanceof HTMLElement && previous.isConnected) previous.focus(); };
+  }, []);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [pendingFormId, setPendingFormId] = useState<string | null>(null);
 
@@ -85,6 +91,18 @@ export function AssignFormModal({
       onClick={() => !pendingFormId && onClose()}
     >
       <section
+        ref={modal}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select a Kobo form"
+        onKeyDown={event => {
+          if (event.key === "Escape" && !pendingFormId) { event.preventDefault(); onClose(); }
+          if (event.key !== "Tab") return;
+          const items = Array.from(modal.current?.querySelectorAll<HTMLElement>("button:not([disabled]),select:not([disabled]),a[href]") ?? []);
+          const first = items[0], last = items[items.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}
         className="w-full max-w-[520px] overflow-hidden rounded-[3px] border border-[#e8ebf3] bg-white shadow-[0_14px_30px_rgba(16,42,67,.16)]"
         onClick={(e) => e.stopPropagation()}
       >

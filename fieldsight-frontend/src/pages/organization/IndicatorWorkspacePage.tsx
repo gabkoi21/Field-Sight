@@ -41,6 +41,7 @@ import {
   type IndicatorMappingInput,
 } from "../../services/apiClient";
 import {
+  Dialog,
   calculations,
   FrameworkForm,
   IndicatorDefinitionForm,
@@ -94,6 +95,28 @@ export function IndicatorWorkspacePage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
+  const [review, setReview] = useState<{ kind: "definition" | "mapping" | "targets"; input: IndicatorInput | IndicatorMappingInput | Array<{period: string; target_value: number}>; preview: Awaited<ReturnType<typeof apiClient.indicatorPreview>> } | null>(null);
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  async function reviewDefinition(input: IndicatorInput) {
+    if (editing === "new") { definition.mutate(input); return; }
+    try {
+      const preview = await apiClient.indicatorPreview((editing as Indicator).id, input);
+      setReason(""); setConfirmed(false); setReview({kind: "definition", input, preview});
+    } catch (cause) { setError((cause as Error).message); }
+  }
+  async function reviewMapping(input: IndicatorMappingInput) {
+    try {
+      const preview = await apiClient.indicatorMappingPreview(mapping!.id, input);
+      setReason(""); setConfirmed(false); setReview({kind: "mapping", input, preview});
+    } catch (cause) { setError((cause as Error).message); }
+  }
+  async function reviewTargets(input: Array<{period: string; target_value: number}>) {
+    try {
+      const preview = await apiClient.indicatorTargetsPreview(periodTargets!.id, input);
+      setReason(""); setConfirmed(false); setReview({kind: "targets", input, preview});
+    } catch (cause) { setError((cause as Error).message); }
+  }
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Indicator | "new" | null>(null);
   const [mapping, setMapping] = useState<Indicator | null>(null);
@@ -138,8 +161,8 @@ export function IndicatorWorkspacePage() {
   const visibleItems = items.filter((item) => {
     const matchesSource =
       sourceFilter === "all" ||
-      (sourceFilter === "mapped" && item.mapping_health === "healthy") ||
-      (sourceFilter === "unmapped" && item.mapping_health !== "healthy") ||
+      (sourceFilter === "mapped" && item.result_source === "table") ||
+      (sourceFilter === "unmapped" && item.result_source !== "table") ||
       (sourceFilter === "achieved" && item.target_achieved === true);
     return matchesSource;
   });
@@ -149,6 +172,10 @@ export function IndicatorWorkspacePage() {
       cache.invalidateQueries({ queryKey: ["indicators", projectId] }),
       cache.invalidateQueries({ queryKey: ["results-framework", projectId] }),
       cache.invalidateQueries({ queryKey: ["indicator-period-targets"] }),
+      cache.invalidateQueries({ queryKey: ["indicator-evidence"] }),
+      cache.invalidateQueries({ queryKey: ["indicator-versions"] }),
+      cache.invalidateQueries({ queryKey: ["dashboard"] }),
+      cache.invalidateQueries({ queryKey: ["dashboard-widget"] }),
     ]);
   }
   function tab(value: string) {
@@ -225,8 +252,8 @@ export function IndicatorWorkspacePage() {
     onError: (cause: Error) => setError(cause.message),
   });
   const targets = useMutation({
-    mutationFn: (input: Array<{ period: string; target_value: number }>) =>
-      apiClient.saveIndicatorPeriodTargets(periodTargets!.id, input),
+    mutationFn: (input: {rows: Array<{ period: string; target_value: number }>; controls: {confirm_change: boolean; change_reason: string; expected_version: number}}) =>
+      apiClient.saveIndicatorPeriodTargets(periodTargets!.id, input.rows, input.controls),
     onSuccess: async () => {
       await refresh();
       setPeriodTargets(null);
@@ -671,7 +698,7 @@ export function IndicatorWorkspacePage() {
                               </Button>
                             </div>
                             <div className="flex border-t border-[#e7edef] px-4">
-                              {["details", "summary", "sources"].map((id) => (
+                              {["details", "summary", "sources", "evidence"].map((id) => (
                                 <button
                                   key={id}
                                   onClick={() => setDetailsTab(id)}
@@ -681,12 +708,12 @@ export function IndicatorWorkspacePage() {
                                     ? "Results summary"
                                     : id === "sources"
                                       ? "Mapping & sources"
-                                      : "Indicator details"}
+                                      : id === "evidence" ? "Evidence & versions" : "Indicator details"}
                                 </button>
                               ))}
                             </div>
                           </Panel>
-                          {detailsTab === "details" ? (
+                          {detailsTab === "evidence" ? <IndicatorEvidence indicator={selected} from={dateFrom} to={dateTo} /> : detailsTab === "details" ? (
                             <Panel>
                               <div className="grid grid-cols-2 gap-5 p-5 text-xs max-[600px]:grid-cols-1">
                                 <Detail
@@ -855,15 +882,15 @@ export function IndicatorWorkspacePage() {
                           </Button>
                         </Empty>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[1120px] table-fixed border-collapse text-left text-xs text-[#24434c]">
+                        <div className="indicator-register-container" role="region" aria-label="Scrollable indicator list" tabIndex={0}>
+                          <table className="indicator-register w-full table-auto border-collapse text-left text-xs text-[#24434c]">
                             <colgroup>
-                              <col className="w-[28%]" />
-                              <col className="w-[19%]" />
-                              <col className="w-[9%]" />
+                              <col className="w-[24%]" />
+                              <col className="w-[22%]" />
+                              <col className="w-[10%]" />
+                              <col className="w-[14%]" />
                               <col className="w-[14%]" />
                               <col className="w-[16%]" />
-                              <col className="w-[14%]" />
                             </colgroup>
                             <thead className="bg-[#f7f8fa] text-[10px] font-medium uppercase tracking-wide text-[#87939d]">
                               <tr>
@@ -981,18 +1008,18 @@ export function IndicatorWorkspacePage() {
                                           }
                                           className="border-b border-[#edf1f2] transition-colors last:border-b-0 hover:bg-[#f8fbfc]"
                                         >
-                                          <td className="px-4 py-2.5 align-middle">
+                                          <td data-label="Name" className="px-4 py-2.5 align-middle">
                                             <button
                                               title={item.name}
                                               onClick={() => showResult(item)}
                                               className="flex min-h-7 w-full min-w-0 items-center border-0 bg-transparent p-0 text-left font-medium leading-5 text-[#146578] hover:underline"
                                             >
-                                              <span className="block truncate">
+                                              <span className="block break-words">
                                                 {item.name}
                                               </span>
                                             </button>
                                           </td>
-                                          <td className="px-4 py-2.5 align-middle">
+                                          <td data-label="Actual vs target" className="px-4 py-2.5 align-middle">
                                             {item.unit === "text" ? (
                                               <span className="text-[#73868d]">
                                                 {item.qualitative_value ??
@@ -1002,19 +1029,19 @@ export function IndicatorWorkspacePage() {
                                               <Progress indicator={item} />
                                             )}
                                           </td>
-                                          <td className="px-4 py-2.5 align-middle">
+                                          <td data-label="Format" className="px-4 py-2.5 align-middle">
                                             {units[item.unit]}
                                           </td>
-                                          <td className="px-4 py-2.5 align-middle">
+                                          <td data-label="Collection frequency" className="px-4 py-2.5 align-middle">
                                             {frequency(
                                               item.reporting_frequency,
                                             )}
                                           </td>
-                                          <td className="px-4 py-2.5 align-middle">
+                                          <td data-label="Status" className="px-4 py-2.5 align-middle">
                                             <Status item={item} />
                                           </td>
-                                          <td className="px-4 py-2.5 align-middle">
-                                            <div className="flex justify-end gap-1">
+                                          <td data-label="Actions" className="px-4 py-2.5 align-middle">
+                                            <div className="flex flex-nowrap justify-end gap-1 [&>button]:shrink-0">
                                               <Icon
                                                 label={`View results for ${item.name}`}
                                                 onClick={() => showResult(item)}
@@ -1094,24 +1121,39 @@ export function IndicatorWorkspacePage() {
           )}
         </>
       )}
-      {editing && (
+      {review && <Dialog title="Review definition change" onClose={() => setReview(null)} error={error}>
+        <p className="text-xs">{review.preview.notice}</p>
+        <p className="text-xs">Affected periods: {review.preview.affected_periods.join(", ") || "No dated results"}</p>
+        <p>Actual: {amount(review.preview.before.current_value, review.preview.before.unit)} → {amount(review.preview.after.current_value, review.preview.after.unit)}</p>
+        <p className="text-xs">Included: {review.preview.after.mapped_records}; missing: {review.preview.after.missing_records}; invalid: {review.preview.after.invalid_answers}; quality excluded: {review.preview.after.quality_excluded_records}; numerator / denominator: {review.preview.after.numerator ?? "—"} / {review.preview.after.denominator}</p>
+        <label className="grid gap-2 text-xs">Reason / explanation for target exceptions<textarea className={inputClass} value={reason} onChange={e => setReason(e.target.value)} /></label>
+        <label className="my-4 flex gap-2 text-xs"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />Apply the new definition to current calculations for all reporting periods. Retain the previous definition in history.</label>
+        <Button disabled={!confirmed || reason.trim().length < 3 || definition.isPending || map.isPending} onClick={() => {
+          const controls = { change_reason: reason.trim(), confirm_change: true, expected_version: review.preview.expected_version };
+          if (review.kind === "definition") definition.mutate({ ...review.input as IndicatorInput, ...controls } as IndicatorInput);
+          else if (review.kind === "mapping") map.mutate({ ...review.input as IndicatorMappingInput, ...controls });
+          else targets.mutate({ rows: review.input as Array<{period: string; target_value: number}>, controls });
+          setReview(null);
+        }}>Confirm change</Button>
+      </Dialog>}
+      {editing && !review && (
         <IndicatorDefinitionForm
           indicator={editing === "new" ? null : editing}
           nodes={nodes}
           error={error}
           saving={definition.isPending}
           onClose={() => setEditing(null)}
-          onSave={(input) => definition.mutate(input)}
+          onSave={reviewDefinition}
         />
       )}
-      {mapping && (
+      {mapping && !review && (
         <IndicatorMappingForm
           indicator={mapping}
           projectId={projectId}
           error={error}
           saving={map.isPending || unmap.isPending}
           onClose={() => setMapping(null)}
-          onSave={(input) => map.mutate(input)}
+          onSave={reviewMapping}
           onRemove={() => unmap.mutate()}
         />
       )}
@@ -1126,13 +1168,13 @@ export function IndicatorWorkspacePage() {
           onSave={(input) => saveNode.mutate(input)}
         />
       )}
-      {periodTargets && (
+      {periodTargets && !review && (
         <PeriodTargetsForm
           indicator={periodTargets}
           error={error}
           saving={targets.isPending}
           onClose={() => setPeriodTargets(null)}
-          onSave={(input) => targets.mutate(input)}
+          onSave={reviewTargets}
         />
       )}
     </div>
@@ -1219,12 +1261,12 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 function Status({ item }: { item: Indicator }) {
   const label =
-    item.unit === "text" && item.qualitative_value
+    item.is_active === false ? "Draft" : item.unit === "text" && item.qualitative_value
       ? "Result recorded"
-      : item.mapping_health !== "healthy"
-        ? item.mapping_health === "unmapped"
-          ? "Not mapped"
-          : "Check source"
+      : item.result_source === "unconfigured"
+        ? "Not configured"
+        : item.result_source === "table" && item.mapping_health !== "healthy"
+          ? "Broken mapping"
         : item.target_achieved
           ? "Target achieved"
           : {
@@ -1491,4 +1533,27 @@ function IndicatorResults({
       </Panel>
     </div>
   );
+}
+
+
+function IndicatorEvidence({ indicator, from, to }: { indicator: Indicator; from: string; to: string }) {
+  const [offset, setOffset] = useState(0);
+  useEffect(() => setOffset(0), [indicator.id, from, to]);
+  const evidence = useQuery({queryKey: ["indicator-evidence", indicator.id, offset, from, to], queryFn: () => apiClient.indicatorEvidence(indicator.id, offset, from, to)});
+  const versions = useQuery({queryKey: ["indicator-versions", indicator.id], queryFn: () => apiClient.indicatorVersions(indicator.id)});
+  return <section className="grid gap-3 rounded-lg border bg-white p-5 text-xs">
+    <p>Definition v{indicator.definition_version ?? 0} · {indicator.legacy_definition ? "Legacy definition; original approval unknown" : indicator.setup_complete ? "Calculation configured" : "Draft — setup incomplete"}</p>
+    {indicator.definition_warnings?.map(warning => <p key={warning} role="status">{warning}</p>)}
+    <p>Definition → result source → calculation → baseline/targets → preview. Date filters affect actuals; targets are unchanged. Period results are independent aggregates.</p>
+    <p>{evidence.data?.source === "table" ? indicator.mapping_health === "healthy" ? "Linked table" : "Broken mapping" : evidence.data?.source === "manual" ? "Manual results" : "Not configured"} · {evidence.data?.method}</p>
+    <p>{evidence.data?.notice}</p>
+    {(evidence.error || versions.error) && <p role="alert">{evidence.error?.message || versions.error?.message}</p>}
+    {evidence.data?.items.map(item => <article className="rounded border p-3" key={String(item.id)}>
+      {Object.entries(item).map(([key, value]) => <div className="break-words" key={key}><strong>{key.replaceAll("_", " ")}: </strong>{typeof value === "object" ? JSON.stringify(value) : String(value ?? "—")}</div>)}
+    </article>)}
+    <div className="flex gap-3"><Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 25))}>Previous</Button><span>{offset + 1}–{Math.min(offset + 25, evidence.data?.total ?? 0)} of {evidence.data?.total ?? 0}</span><Button variant="secondary" disabled={offset + 25 >= (evidence.data?.total ?? 0)} onClick={() => setOffset(offset + 25)}>Next</Button></div>
+    <h3>Observed definition changes</h3>
+    {versions.data?.map(version => <p key={version.version}>v{version.version} · {version.occurred_at} · {version.reason} · {version.effective_scope}</p>)}
+    {!versions.data?.length && <p>No recorded changes. Legacy history has not been fabricated.</p>}
+  </section>;
 }

@@ -31,15 +31,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     enabled: Boolean(organizationId),
   });
   const projects = query.data ?? [];
-  useEffect(() => {
-    if (location.pathname === "/projects" || location.pathname === "/workspaces") {
-      setSelected("");
-    }
-  }, [location.pathname]);
   const routeId = location.pathname.match(/^\/projects\/([^/]+)/)?.[1];
   const queryId = new URLSearchParams(location.search).get("project_id");
-  const explicitId = routeId ?? queryId ?? selected;
-  const hasSelectedProject = projects.some((p) => p.id === explicitId);
   useEffect(() => {
     const id = routeId ?? queryId;
     if (id && projects.some((p) => p.id === id)) setSelected(id);
@@ -51,13 +44,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       : projects.some((p) => p.id === selected)
         ? selected
         : (projects[0]?.id ?? ""));
+  const hasSelectedProject = projects.some((p) => p.id === projectId);
   function selectProject(id: string) {
     setSelected(id);
     if (routeId)
       navigate(location.pathname.replace(routeId, id) + location.search);
-    else if (queryId) {
+    else {
       const params = new URLSearchParams(location.search);
       params.set("project_id", id);
+      params.delete("page");
+      params.delete("offset");
       navigate(`${location.pathname}?${params}`);
     }
   }

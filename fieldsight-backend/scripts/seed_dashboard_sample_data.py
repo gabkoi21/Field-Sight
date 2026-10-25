@@ -14,7 +14,6 @@ from app.db.session import get_engine
 from app.models.identity import Organization, OrganizationMembership, Role, User
 from app.models.operations import FieldAssignment, KoboConnection, Project, Submission
 
-
 TOTAL_SUBMISSIONS = 20
 ENUMERATORS = (
     ("Amara Field", "amara.field@example.com", "test_seed_amara", "TEST-SEED-001", 8),
@@ -107,7 +106,9 @@ def seed() -> None:
 
     with Session(get_engine()) as session:
         organization = first_or_fail(
-            session.exec(select(Organization).where(Organization.is_active == True).order_by(Organization.created_at)).all(),
+            session.exec(
+                select(Organization).where(Organization.is_active).order_by(Organization.created_at)
+            ).all(),
             "active organization",
         )
         project = first_or_fail(
@@ -191,7 +192,10 @@ def seed() -> None:
 
         session.commit()
 
-    print(f"Dashboard sample seed complete: {created} created, {reused} reused, {TOTAL_SUBMISSIONS} total sample submissions.")
+    print(
+        f"Dashboard sample seed complete: {created} created, {reused} reused, "
+        f"{TOTAL_SUBMISSIONS} total sample submissions."
+    )
 
 
 if __name__ == "__main__":

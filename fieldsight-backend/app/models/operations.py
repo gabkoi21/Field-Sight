@@ -89,6 +89,22 @@ class Project(SQLModel, table=True):
     kobo_form_name: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
 
 
+class OrganizationAdminEvent(SQLModel, table=True):
+    __tablename__ = "organization_admin_events"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    actor_id: UUID = Field(foreign_key="users.id")
+    action: str
+    resource_id: str
+    occurred_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class SyncWorkerHeartbeat(SQLModel, table=True):
+    __tablename__ = "sync_worker_heartbeats"
+    worker_id: str = Field(primary_key=True)
+    last_seen_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
 class SyncSchedule(SQLModel, table=True):
     __tablename__ = "sync_schedules"
     project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), primary_key=True))
@@ -192,9 +208,45 @@ class Submission(SQLModel, table=True):
     enumerator: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     location: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     review_status: str = Field(default="ready", sa_column=Column(String(32), nullable=False))
+    evidence_fingerprint: str | None = None
+    decision_fingerprint: str | None = None
+    decision_status: str | None = None
+    review_required: bool = False
+    validation_status: str | None = None
+    reviewer_id: UUID | None = Field(default=None, foreign_key="users.id")
     raw_answers: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class QualityFinding(SQLModel, table=True):
+    __tablename__ = "quality_findings"
+    id: str = Field(primary_key=True)
+    submission_id: UUID = Field(sa_column=Column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True))
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id", ondelete="CASCADE"), index=True))
+    severity: str = Field(index=True)
+    rule: str
+    detail: str
+    field: str | None = None
+    detected_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class SubmissionReviewEvent(SQLModel, table=True):
+    __tablename__ = "submission_review_events"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    submission_id: UUID = Field(sa_column=Column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True))
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    actor_id: UUID | None = Field(default=None, foreign_key="users.id")
+    source: str = "administrator"
+    evidence_fingerprint: str | None = None
+    previous_evidence_fingerprint: str | None = None
+    action: str
+    previous_status: str | None = None
+    status: str | None = None
+    reviewer_id: UUID | None = Field(default=None, foreign_key="users.id")
+    note: str | None = None
+    occurred_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
 class FieldMapping(SQLModel, table=True):
@@ -295,6 +347,11 @@ class Indicator(SQLModel, table=True):
         sa_column=Column(String(32), nullable=False),
     )
     baseline_value: float | None = None
+    manual_mean_confirmed: bool = False
+    definition_version: int = 0
+    reliability_policy: int = 0
+    manual_aggregation: str = "legacy"
+    manual_rate_multiplier: float = 1.0
     target_value: float | None = None
     target_date: date | None = None
     reporting_frequency: str = Field(default="monthly", sa_column=Column(String(32), nullable=False))
@@ -351,3 +408,19 @@ class FieldAssignment(SQLModel, table=True):
     effective_to: date | None = None
     is_enabled: bool = True
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class IndicatorDefinitionVersion(SQLModel, table=True):
+    """Observed changes only; definition history is not an immutable data snapshot."""
+    __tablename__ = "indicator_definition_versions"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    indicator_id: UUID = Field(sa_column=Column(ForeignKey("indicators.id", ondelete="CASCADE"), index=True))
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    actor_id: UUID = Field(foreign_key="users.id")
+    version: int
+    occurred_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    reason: str
+    effective_scope: str = "current_definition_all_periods"
+    previous_definition: dict = Field(sa_column=Column(JSON, nullable=False))
+    new_definition: dict = Field(sa_column=Column(JSON, nullable=False))
+    preview: dict = Field(sa_column=Column(JSON, nullable=False))

@@ -2,29 +2,42 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from collections import defaultdict
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from math import ceil
 from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import case, func, update
+from sqlalchemy import case, delete, func, update
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Session, col, select
+from sqlmodel.sql.expression import Select
 
 from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token, list_kobo_submissions
+from app.core.review_evidence import canonical_json, evidence_fingerprint
+from app.core.sync_telemetry import evidence
 from app.db.session import get_session
 from app.models.identity import User
 from app.models.operations import (
     KoboConnection,
+    OrganizationAdminEvent,
     Project,
+    ProjectStatus,
+    QualityFinding,
     Submission,
+    SubmissionReviewEvent,
     SyncJob,
     SyncRun,
     SyncSchedule,
     SyncSettingsChange,
+    SyncWorkerHeartbeat,
 )
 from app.routes.auth import get_current_user
 from app.routes.kobo import _organization_admin_id
@@ -67,6 +80,9 @@ def _read_submission(submission: Submission, project: Project) -> dict[str, obje
         "location": submission.location,
         "review_status": submission.review_status,
         "raw_answers": submission.raw_answers,
+        "evidence_fingerprint": evidence_fingerprint(submission.raw_answers),
+        "validation_status": submission.validation_status,
+        "review_required": submission.review_required,
     }
 
 
@@ -90,6 +106,8 @@ def execute_project_sync(
     project = db.get(Project, project_id)
     if project is None or project.organization_id != organization_id:
         raise HTTPException(status_code=404, detail="Project was not found.")
+    if project.status == ProjectStatus.ARCHIVED:
+        raise HTTPException(409, "Restore this archived project before synchronizing.")
     if not project.kobo_connection_id or not project.kobo_form_id:
         raise HTTPException(status_code=422, detail="Assign a Kobo form to this project before syncing.")
     connection = db.get(KoboConnection, project.kobo_connection_id)
@@ -104,14 +122,17 @@ def execute_project_sync(
         status="running", trigger=trigger, attempt=attempt,
     )
     # Hold the project write lock until submissions and history commit together.
-    db.execute(update(Project).where(Project.id == project.id).values(updated_at=Project.updated_at))
+    db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
+    db.refresh(project)
+    if project.status == ProjectStatus.ARCHIVED:
+        raise HTTPException(409, "Restore this archived project before synchronizing.")
     run.requested_by_id = user.id if trigger == "manual" else None
     db.add(run)
     if worker_organization_id is None:
         db.commit()
     else:
         db.flush()
-    db.execute(update(Project).where(Project.id == project.id).values(updated_at=Project.updated_at))
+    db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
     storage = db.begin_nested() if worker_organization_id is not None else None
     try:
         db.refresh(project)
@@ -144,14 +165,40 @@ def execute_project_sync(
                         enumerator=str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None,
                         location=str(payload.get("location")) if payload.get("location") else None,
                         raw_answers=payload,
+                        evidence_fingerprint=evidence_fingerprint(payload),
                     )
                 )
                 created += 1
             else:
-                if existing.raw_answers == payload:
+                if canonical_json(existing.raw_answers) == canonical_json(payload):
                     continue
+                old_fingerprint = existing.evidence_fingerprint or evidence_fingerprint(existing.raw_answers)
+                new_fingerprint = evidence_fingerprint(payload)
+                if old_fingerprint != new_fingerprint:
+                    previous = existing.review_status
+                    existing.review_status = "needs_review"
+                    existing.review_required = True
+                    existing.validation_status = None
+                    db.add(SubmissionReviewEvent(
+                        submission_id=existing.id, organization_id=organization_id,
+                        action="evidence_changed", source="kobo_sync", previous_status=previous,
+                        status="needs_review", previous_evidence_fingerprint=old_fingerprint,
+                        evidence_fingerprint=new_fingerprint,
+                        note="Quality-relevant evidence changed; review the new evidence before reporting.",
+                    ))
+                    db.exec(delete(QualityFinding).where(col(QualityFinding.submission_id) == existing.id))
+                    db.add(QualityFinding(
+                        id=f"{existing.id}:review-required", submission_id=existing.id,
+                        organization_id=organization_id, project_id=project.id, severity="Medium",
+                        rule="Evidence changed",
+                        detail="Previously reviewed evidence changed during Kobo synchronization.",
+                    ))
+                existing.evidence_fingerprint = new_fingerprint
                 existing.raw_answers = payload
-                existing.submitted_at = _submission_time(payload.get("_submission_time")) or existing.submitted_at
+                # SQLAlchemy's JSON equality also considers 0 == False; persist
+                # the typed change already established by canonical comparison.
+                flag_modified(existing, "raw_answers")
+                existing.submitted_at = _submission_time(payload.get("_submission_time"))
                 existing.enumerator = str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None
                 existing.location = str(payload.get("location")) if payload.get("location") else None
                 existing.updated_at = datetime.now(UTC)
@@ -205,13 +252,20 @@ def _sync_project(project_id: UUID, user: User, db: Session) -> Project:
 
 
 @router.get("/projects/{project_id}/sync-settings", tags=["Kobo synchronization"])
-def get_sync_settings(project_id: UUID, user: CurrentUser, db: Database) -> dict[str, object]:
+def get_sync_settings(
+    project_id: UUID, user: CurrentUser, db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, object]:
     _sync_project(project_id, user, db)
     schedule = db.get(SyncSchedule, project_id)
     success = db.exec(select(SyncRun).where(
-        SyncRun.project_id == project_id, SyncRun.status.in_(["completed", "unchanged"]),
-    ).order_by(SyncRun.completed_at.desc())).first()
+        SyncRun.project_id == project_id, col(SyncRun.status).in_(["completed", "unchanged"]),
+    ).order_by(col(SyncRun.completed_at).desc())).first()
     job = db.get(SyncJob, project_id)
+    heartbeat = db.exec(select(SyncWorkerHeartbeat).order_by(col(SyncWorkerHeartbeat.last_seen_at).desc())).first()
+    latest = db.exec(
+        select(SyncRun).where(SyncRun.project_id == project_id).order_by(col(SyncRun.started_at).desc())
+    ).first()
 
     def utc_timestamp(value: datetime | None) -> datetime | None:
         if value is None:
@@ -220,10 +274,17 @@ def get_sync_settings(project_id: UUID, user: CurrentUser, db: Database) -> dict
 
     return {
         "mode": schedule.mode if schedule else "manual",
+        **evidence(settings, project_id, job.created_at if job else None),
         "interval_minutes": schedule.interval_minutes if schedule else 60,
         "interval_seconds": (schedule.interval_seconds or schedule.interval_minutes * 60) if schedule else 3600,
         "last_successful_sync": utc_timestamp(success.completed_at) if success else None,
         "pending": job is not None,
+        "worker_last_seen_at": utc_timestamp(heartbeat.last_seen_at) if heartbeat else None,
+        "latest_status": latest.status if latest else None,
+        "latest_error": latest.error_message if latest else None,
+        "received": latest.received_count if latest else 0,
+        "created": latest.created_count if latest else 0,
+        "updated": latest.updated_count if latest else 0,
         "queued_at": utc_timestamp(job.created_at) if job else None,
         "attempts": job.attempts if job else 0,
         "next_attempt_at": utc_timestamp(job.due_at) if job else None,
@@ -233,14 +294,20 @@ def get_sync_settings(project_id: UUID, user: CurrentUser, db: Database) -> dict
 @router.put("/projects/{project_id}/sync-settings", tags=["Kobo synchronization"])
 def update_sync_settings(
     project_id: UUID, body: SyncSettingsUpdate, user: CurrentUser, db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, object]:
     project = _sync_project(project_id, user, db)
+    if project.status == ProjectStatus.ARCHIVED and body.mode == "scheduled":
+        raise HTTPException(409, "Restore this archived project before enabling synchronization.")
     if body.mode == "scheduled":
         connection = db.get(KoboConnection, project.kobo_connection_id) if project.kobo_connection_id else None
         if (not project.kobo_form_id or connection is None
                 or connection.organization_id != project.organization_id or not connection.is_verified):
             raise HTTPException(422, "Assign a form from a verified Kobo connection before enabling automatic sync.")
-    db.execute(update(Project).where(Project.id == project_id).values(updated_at=Project.updated_at))
+    db.execute(update(Project).where(col(Project.id) == project_id).values(updated_at=Project.updated_at))
+    db.refresh(project)
+    if project.status == ProjectStatus.ARCHIVED and body.mode == "scheduled":
+        raise HTTPException(409, "Restore this archived project before enabling synchronization.")
     schedule = db.get(SyncSchedule, project_id) or SyncSchedule(project_id=project_id)
     schedule.mode = body.mode
     schedule.interval_minutes = (
@@ -261,15 +328,20 @@ def update_sync_settings(
         if job and job.trigger == "scheduled":
             db.delete(job)
     db.commit()
-    return get_sync_settings(project_id, user, db)
+    return get_sync_settings(project_id, user, db, settings)
 
 
 @router.post("/projects/{project_id}/sync-jobs", status_code=202, tags=["Kobo synchronization"])
 def enqueue_sync(project_id: UUID, user: CurrentUser, db: Database) -> dict[str, object]:
     project = _sync_project(project_id, user, db)
+    if project.status == ProjectStatus.ARCHIVED:
+        raise HTTPException(409, "Restore this archived project before synchronizing.")
     if not project.kobo_form_id or not project.kobo_connection_id:
         raise HTTPException(422, "Assign a Kobo form before syncing.")
-    db.execute(update(Project).where(Project.id == project_id).values(updated_at=Project.updated_at))
+    db.execute(update(Project).where(col(Project.id) == project_id).values(updated_at=Project.updated_at))
+    db.refresh(project)
+    if project.status == ProjectStatus.ARCHIVED:
+        raise HTTPException(409, "Restore this archived project before synchronizing.")
     if db.get(SyncJob, project_id) is None:
         db.add(SyncJob(project_id=project_id, requested_by_id=user.id))
     db.commit()
@@ -286,20 +358,105 @@ def list_submissions(
     statement = select(Submission).where(Submission.organization_id == organization_id)
     if project_id:
         statement = statement.where(Submission.project_id == project_id)
-    submissions = db.exec(statement.order_by(Submission.submitted_at.desc())).all()
+    submissions = db.exec(statement.order_by(col(Submission.submitted_at).desc())).all()
     projects = {submission.project_id: db.get(Project, submission.project_id) for submission in submissions}
     return [
-        _read_submission(submission, projects[submission.project_id])
+        _read_submission(submission, cast(Project, projects[submission.project_id]))
         for submission in submissions
         if projects[submission.project_id]
     ]
+
+
+def _submission_statement(
+    organization_id: UUID, project_id: UUID | None, review_status: str | None, search: str,
+) -> Select[Submission, Project]:
+    conditions = [col(Submission.organization_id) == organization_id]
+    if project_id:
+        conditions.append(col(Submission.project_id) == project_id)
+    statement = select(Submission, Project).join(Project, col(Project.id) == col(Submission.project_id))
+    if review_status:
+        conditions.append(col(Submission.review_status) == review_status)
+    if search:
+        from sqlalchemy import or_
+        conditions.append(or_(
+            col(Submission.external_id).icontains(search, autoescape=True),
+            col(Submission.enumerator).icontains(search, autoescape=True),
+            col(Submission.location).icontains(search, autoescape=True),
+            col(Project.kobo_form_name).icontains(search, autoescape=True),
+        ))
+    statement = statement.where(*conditions, Project.organization_id == organization_id)
+    return statement
+
+
+@router.get("/submissions/page", tags=["Submissions"])
+def submission_page(
+    user: CurrentUser, db: Database, project_id: UUID | None = None,
+    review_status: str | None = Query(default=None, pattern="^(ready|needs_review|invalid)$"),
+    search: str = Query(default="", max_length=200),
+    offset: int = Query(default=0, ge=0), limit: int = Query(default=10, ge=1, le=100),
+) -> dict[str, object]:
+    organization_id = _organization_admin_id(user, db)
+    conditions = [col(Submission.organization_id) == organization_id]
+    if project_id:
+        conditions.append(col(Submission.project_id) == project_id)
+    counts = dict(db.exec(select(Submission.review_status, func.count()).where(*conditions)
+                         .group_by(Submission.review_status)).all())
+    statement = _submission_statement(organization_id, project_id, review_status, search)
+    total = db.exec(select(func.count()).select_from(statement.subquery())).one()
+    records = db.exec(statement.order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc())
+                      .offset(offset).limit(limit)).all()
+    return {"items": [_read_submission(record, project) for record, project in records],
+            "total": total, "counts": counts, "offset": offset}
+
+
+@router.get("/submissions/export.csv", tags=["Submissions"])
+def export_submissions(
+    user: CurrentUser, db: Database, project_id: UUID | None = None,
+    review_status: str | None = Query(default=None, pattern="^(ready|needs_review|invalid)$"),
+    search: str = Query(default="", max_length=200),
+    date_from: datetime | None = None, date_to: datetime | None = None,
+) -> StreamingResponse:
+    from app.core.sync_telemetry import utc
+    organization_id = _organization_admin_id(user, db)
+    if date_from and date_to and utc(date_from) > utc(date_to):
+        raise HTTPException(422, "Start date must be on or before end date.")
+    statement = _submission_statement(organization_id, project_id, review_status, search)
+    if date_from:
+        statement = statement.where(col(Submission.submitted_at) >= utc(date_from))
+    if date_to:
+        statement = statement.where(col(Submission.submitted_at) <= utc(date_to))
+    statement = statement.order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc())
+    db.add(OrganizationAdminEvent(organization_id=organization_id, actor_id=user.id,
+                                 action="submissions_export", resource_id=str(project_id or organization_id)))
+    db.commit()
+
+    def rows() -> Iterator[str]:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow([
+            "project", "form", "submission_id", "enumerator", "location", "submitted_at_utc", "review_status",
+        ])
+        yield "\ufeff" + buffer.getvalue()
+        for item, project in db.exec(statement.execution_options(yield_per=500)):
+            buffer.seek(0)
+            buffer.truncate(0)
+            values = [project.name, project.kobo_form_name, item.external_id, item.enumerator, item.location,
+                      utc(item.submitted_at).isoformat() if item.submitted_at else None, item.review_status]
+            text = [str(value) if value is not None else "" for value in values]
+            writer.writerow([
+                "'" + value if value.lstrip().startswith(("=", "+", "-", "@")) else value for value in text
+            ])
+            yield buffer.getvalue()
+    return StreamingResponse(rows(), media_type="text/csv", headers={
+        "Content-Disposition": 'attachment; filename="fieldsight-submissions.csv"', "Cache-Control": "no-store",
+    })
 
 
 @router.get("/sync-runs", tags=["Kobo synchronization"])
 def list_sync_runs(user: CurrentUser, db: Database) -> list[dict[str, object]]:
     organization_id = _organization_admin_id(user, db)
     runs = db.exec(
-        select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(SyncRun.started_at.desc())
+        select(SyncRun).where(SyncRun.organization_id == organization_id).order_by(col(SyncRun.started_at).desc())
     ).all()
     return [
         {
@@ -333,8 +490,8 @@ def pending_kobo_submissions(
     projects = db.exec(
         select(Project).where(
             Project.organization_id == organization_id,
-            Project.kobo_connection_id.is_not(None),
-            Project.kobo_form_id.is_not(None),
+            col(Project.kobo_connection_id).is_not(None),
+            col(Project.kobo_form_id).is_not(None),
         )
     ).all()
     sources: list[dict[str, object]] = []
@@ -502,7 +659,7 @@ def analytics_overview(
     run_conditions = [SyncRun.organization_id == organization_id]
     if project_id:
         run_conditions.append(SyncRun.project_id == project_id)
-    scoped_runs = db.exec(select(SyncRun).where(*run_conditions).order_by(SyncRun.started_at.desc())).all()
+    scoped_runs = db.exec(select(SyncRun).where(*run_conditions).order_by(col(SyncRun.started_at).desc())).all()
     latest_by_project: dict[UUID, SyncRun] = {}
     for run in scoped_runs:
         latest_by_project.setdefault(run.project_id, run)
@@ -514,7 +671,7 @@ def analytics_overview(
         or latest_by_project[project.id].status not in {"completed", "unchanged"}
         or (
             latest_by_project[project.id].completed_at
-            and as_utc(latest_by_project[project.id].completed_at) < now - timedelta(hours=12)
+            and as_utc(cast(datetime, latest_by_project[project.id].completed_at)) < now - timedelta(hours=12)
         )
     ]
     healthy_sources = max(0, len(connected_projects) - len(delayed_projects))
@@ -609,6 +766,8 @@ def analytics_overview(
 
 class ReviewStatusUpdate(BaseModel):
     status: str
+    note: str | None = Field(default=None, max_length=2000)
+    evidence_fingerprint: str | None = None
 
 
 def _quality_findings(submissions: list[Submission], projects: dict[UUID, Project]) -> list[dict[str, object]]:
@@ -679,7 +838,7 @@ def _quality_findings(submissions: list[Submission], projects: dict[UUID, Projec
 
         duration = payload.get("_duration", payload.get("duration"))
         try:
-            duration_seconds = float(duration) if duration is not None and duration != "" else None
+            duration_seconds = float(str(duration)) if duration is not None and duration != "" else None
         except (TypeError, ValueError):
             duration_seconds = None
         if duration_seconds is not None and duration_seconds < 60:
@@ -689,7 +848,7 @@ def _quality_findings(submissions: list[Submission], projects: dict[UUID, Projec
                 "High",
                 "Interview duration is unusually short",
                 f"The interview duration is {round(duration_seconds)} seconds; review records below 60 seconds.",
-                "_duration",
+                "_duration" if "_duration" in payload else "duration",
             )
 
         for key, value in payload.items():
@@ -752,34 +911,63 @@ def run_quality_validation(user: CurrentUser, db: Database, project_id: UUID | N
     statement = select(Submission).where(Submission.organization_id == organization_id)
     if project_id:
         statement = statement.where(Submission.project_id == project_id)
+    project_scope = select(Project).where(Project.organization_id == organization_id)
+    if project_id:
+        project_scope = project_scope.where(Project.id == project_id)
+    for scoped_project in db.exec(project_scope.order_by(col(Project.id))).all():
+        db.execute(update(Project).where(col(Project.id) == scoped_project.id).values(updated_at=Project.updated_at))
     submissions = list(db.exec(statement).all())
     projects = {item.project_id: db.get(Project, item.project_id) for item in submissions}
     findings = _quality_findings(submissions, {key: value for key, value in projects.items() if value})
     by_submission: dict[str, list[dict[str, object]]] = defaultdict(list)
     for finding in findings:
         by_submission[str(finding["submission_id"])].append(finding)
+    finding_scope = [col(QualityFinding.organization_id) == organization_id]
+    if project_id:
+        finding_scope.append(col(QualityFinding.project_id) == project_id)
+    db.exec(delete(QualityFinding).where(*finding_scope))
+    for finding in findings:
+        db.add(QualityFinding(
+            id=str(finding["id"]), submission_id=UUID(str(finding["submission_id"])),
+            organization_id=organization_id, project_id=UUID(str(finding["project_id"])),
+            severity=str(finding["severity"]), rule=str(finding["rule"]), detail=str(finding["detail"]),
+            field=str(finding["field"]) if finding["field"] else None,
+        ))
     for submission in submissions:
+        previous = submission.review_status
+        fingerprint = evidence_fingerprint(submission.raw_answers)
+        submission.evidence_fingerprint = fingerprint
         issues = by_submission.get(str(submission.id), [])
-        if any(issue["severity"] == "Blocking" for issue in issues):
-            submission.review_status = "invalid"
-        elif issues:
+        automated = "invalid" if any(issue["severity"] == "Blocking" for issue in issues) else (
+            "needs_review" if issues else "ready"
+        )
+        submission.validation_status = automated
+        if submission.review_required:
             submission.review_status = "needs_review"
+        elif submission.decision_status and submission.decision_fingerprint == fingerprint:
+            submission.review_status = submission.decision_status
         else:
-            submission.review_status = "ready"
+            submission.review_status = automated
+        if submission.review_status != "ready" and not issues:
+            db.add(QualityFinding(
+                id=f"{submission.id}:review-required", submission_id=submission.id,
+                organization_id=organization_id, project_id=submission.project_id, severity="Medium",
+                rule="Administrator review required", detail="Review the current evidence and saved history.",
+            ))
+        if previous != submission.review_status:
+            db.add(SubmissionReviewEvent(
+                submission_id=submission.id, organization_id=organization_id,
+                action="validation", source="validation", previous_status=previous,
+                status=submission.review_status, evidence_fingerprint=fingerprint,
+                note=f"Automated validation result: {automated}.",
+            ))
         db.add(submission)
     db.commit()
     return {
         "checked": len(submissions),
-        "ready": sum(not by_submission.get(str(item.id)) for item in submissions),
-        "needs_review": sum(
-            bool(by_submission.get(str(item.id)))
-            and not any(issue["severity"] == "Blocking" for issue in by_submission[str(item.id)])
-            for item in submissions
-        ),
-        "invalid": sum(
-            any(issue["severity"] == "Blocking" for issue in by_submission.get(str(item.id), []))
-            for item in submissions
-        ),
+        "ready": sum(item.review_status == "ready" for item in submissions),
+        "needs_review": sum(item.review_status == "needs_review" for item in submissions),
+        "invalid": sum(item.review_status == "invalid" for item in submissions),
         "issues": findings,
     }
 
@@ -797,8 +985,29 @@ def update_submission_review_status(
     submission = db.get(Submission, submission_id)
     if submission is None or submission.organization_id != organization_id:
         raise HTTPException(status_code=404, detail="Submission was not found.")
+    db.execute(update(Project).where(col(Project.id) == submission.project_id).values(updated_at=Project.updated_at))
+    db.refresh(submission)
+    fingerprint = evidence_fingerprint(submission.raw_answers)
+    if payload.evidence_fingerprint is not None and payload.evidence_fingerprint != fingerprint:
+        raise HTTPException(409, "Submission evidence changed. Reload the record before reviewing.")
+    db.add(SubmissionReviewEvent(submission_id=submission.id, organization_id=organization_id,
+        evidence_fingerprint=fingerprint, actor_id=user.id, action="status", previous_status=submission.review_status,
+        status=payload.status, note=payload.note))
+    if payload.status != "ready" and db.exec(select(QualityFinding).where(
+        QualityFinding.submission_id == submission.id,
+    )).first() is None:
+        db.add(QualityFinding(id=f"{submission.id}:manual", submission_id=submission.id,
+            organization_id=organization_id, project_id=submission.project_id, severity="Medium",
+            rule="Administrator review",
+            detail=payload.note or "This record was marked for review by an administrator."))
+    submission.evidence_fingerprint = fingerprint
+    submission.decision_fingerprint = fingerprint
+    submission.decision_status = payload.status
+    submission.review_required = False
     submission.review_status = payload.status
     submission.updated_at = datetime.now(UTC)
     db.add(submission)
+    db.add(OrganizationAdminEvent(organization_id=organization_id, actor_id=user.id,
+                                 action=f"submission_review:{payload.status}", resource_id=str(submission.id)))
     db.commit()
     return {"id": str(submission.id), "review_status": submission.review_status}

@@ -113,6 +113,8 @@ export interface WorkspaceTableRows {
   }>;
 }
 export interface CollectedResultInput {
+  numerator?: number | null;
+  denominator?: number | null;
   result_date: string;
   value: number | null;
   narrative: string | null;
@@ -372,6 +374,15 @@ export interface ApiSubmission {
   location: string | null;
   review_status: string;
   raw_answers: Record<string, unknown>;
+  evidence_fingerprint?: string;
+}
+
+export interface SubmissionReviewDetail {
+  fields?: SurveyField[];
+  submission: ApiSubmission;
+  reviewer_id: string | null;
+  reviewers: { id: string; name: string }[];
+  events: { id: string; action: string; actor: string; previous_status: string | null; status: string | null; reviewer_id: string | null; note: string | null; occurred_at: string }[];
 }
 
 export interface ApiAnalyticsOverview {
@@ -575,6 +586,9 @@ export interface IndicatorMapping {
 }
 
 export interface IndicatorMappingInput {
+  change_reason?: string;
+  confirm_change?: boolean;
+  expected_version?: number;
   source_field: string;
   source_form_id?: string | null;
   calculation: IndicatorCalculation;
@@ -613,6 +627,13 @@ export interface IndicatorLocationResult {
 }
 
 export interface Indicator {
+  definition_version?: number;
+  legacy_definition?: boolean;
+  setup_complete?: boolean;
+  definition_warnings?: string[];
+  manual_mean_confirmed?: boolean;
+  manual_aggregation?: "legacy" | "unweighted_mean" | "pooled" | "sum" | "latest";
+  manual_rate_multiplier?: number;
   result_source: "table" | "manual" | "unconfigured";
   qualitative_value: string | null;
   manual_result_count: number;
@@ -677,8 +698,11 @@ export type IndicatorInput = Pick<
   | "target_value"
   | "target_date"
   | "reporting_frequency"
+  | "manual_mean_confirmed"
+  | "manual_aggregation"
+  | "manual_rate_multiplier"
   | "framework_node_id"
->;
+> & { is_active?: boolean };
 export interface FrameworkNode {
   id: string;
   project_id: string;
@@ -694,6 +718,9 @@ export type FrameworkNodeInput = Pick<
 >;
 export type IndicatorUpdateInput = Partial<IndicatorInput> & {
   is_active?: boolean;
+  change_reason?: string;
+  confirm_change?: boolean;
+  expected_version?: number;
 };
 export type IndicatorCreateInput = IndicatorInput & {
   mapping?: IndicatorMappingInput | null;
@@ -826,6 +853,7 @@ async function request<T>(
   }
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
+  if (response.headers.get("Content-Type")?.includes("application/pdf")) return response.arrayBuffer() as Promise<T>;
   if (response.headers.get("Content-Type")?.includes("text/csv"))
     return response.text() as Promise<T>;
   return response.json() as Promise<T>;
@@ -955,6 +983,7 @@ export const apiClient = {
     request<void>(`/indicators/${id}/collected-results/${result}`, {
       method: "DELETE",
     }),
+  adminEvents: (org: string) => request<{ id: string; action: string; actor_id: string; resource_id: string; occurred_at: string }[]>(`/organizations/${org}/admin-events`),
   dashboards: () => request<WorkspaceDashboard[]>("/dashboards"),
   dashboard: (id: string) => request<WorkspaceDashboard>(`/dashboards/${id}`),
   dashboardWidgetResult: (id: string, widget: string, from = "", through = "") => {
@@ -1106,6 +1135,13 @@ export const apiClient = {
       method: "PUT",
       body: JSON.stringify({ form_id: form.id, form_name: form.name }),
     }),
+  projectReportPdf: (id: string, from: string, through: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set("date_from", from); if (through) params.set("date_to", through);
+    return request<ArrayBuffer>(`/projects/${id}/report.pdf?${params}`);
+  },
+  exportSubmissionsCsv: (params: URLSearchParams) => request<string>(`/submissions/export.csv?${params}`),
+  submissionPage: (params: URLSearchParams) => request<{ items: ApiSubmission[]; total: number; counts: Record<string, number> }>(`/submissions/page?${params}`),
   submissions: () => request<ApiSubmission[]>("/submissions"),
   analyticsOverview: (
     filters: { projectId?: string; location?: string; period?: string } = {},
@@ -1131,6 +1167,10 @@ export const apiClient = {
       `/dashboard/overview${query ? `?${query}` : ""}`,
     );
   },
+  qualityQueue: (params: URLSearchParams) => request<{ items: ApiQualityIssue[]; total: number; counts: Record<string, number>; snapshot_note: string }>(`/quality/queue?${params}`),
+  submissionReview: (id: string) => request<SubmissionReviewDetail>(`/submissions/${id}/review`),
+  assignReviewer: (id: string, reviewerId: string | null) => request(`/submissions/${id}/reviewer`, { method: "PATCH", body: JSON.stringify({ reviewer_id: reviewerId }) }),
+  addReviewNote: (id: string, note: string) => request(`/submissions/${id}/review-notes`, { method: "POST", body: JSON.stringify({ note }) }),
   qualityIssues: (projectId?: string) =>
     request<ApiQualityIssue[]>(
       `/quality/issues${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
@@ -1143,17 +1183,19 @@ export const apiClient = {
   updateSubmissionReviewStatus: (
     submissionId: string,
     status: "ready" | "needs_review" | "invalid",
+    note?: string | null,
+    evidenceFingerprint?: string,
   ) =>
     request<{ id: string; review_status: string }>(
       `/submissions/${submissionId}/review-status`,
       {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, note, evidence_fingerprint: evidenceFingerprint }),
       },
     ),
   syncProjectKoboForm: (projectId: string) =>
     request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
-  syncSettings: (id: string) => request<{mode: "manual" | "scheduled"; interval_minutes: number; interval_seconds?: number; last_successful_sync: string | null; pending: boolean; queued_at?: string | null; attempts?: number; next_attempt_at?: string | null}>(`/projects/${id}/sync-settings`),
+  syncSettings: (id: string) => request<{mode: "manual" | "scheduled"; interval_minutes: number; interval_seconds?: number; last_successful_sync: string | null; pending: boolean; queued_at?: string | null; attempts?: number; next_attempt_at?: string | null; worker_last_seen_at?: string | null; worker_available?: boolean | null; worker_heartbeat_at?: string | null; execution_state?: "running" | "unconfirmed" | null; execution_started_at?: string | null; latest_status?: string | null; latest_error?: string | null; received?: number; created?: number; updated?: number}>(`/projects/${id}/sync-settings`),
   updateSyncSettings: (id: string, mode: "manual" | "scheduled", interval_seconds: number) =>
     request(`/projects/${id}/sync-settings`, { method: "PUT", body: JSON.stringify({ mode, interval_seconds }) }),
   queueSync: (id: string) => request(`/projects/${id}/sync-jobs`, { method: "POST" }),
@@ -1214,15 +1256,22 @@ export const apiClient = {
   saveIndicatorPeriodTargets: (
     id: string,
     targets: Array<{ period: string; target_value: number }>,
+    controls?: {confirm_change: boolean; change_reason: string; expected_version: number},
   ) =>
     request<Array<{ period: string; target_value: number }>>(
-      `/indicators/${id}/period-targets`,
+      `/indicators/${id}/period-targets${controls ? `?confirm_change=true&change_reason=${encodeURIComponent(controls.change_reason)}&expected_version=${controls.expected_version}` : ""}`,
       { method: "PUT", body: JSON.stringify(targets) },
     ),
   indicatorPeriodTargets: (id: string) =>
     request<Array<{ period: string; target_value: number }>>(
       `/indicators/${id}/period-targets`,
     ),
+  indicatorPolicy: () => request<{ linked: Record<IndicatorUnit, string[]>; manual: Record<IndicatorUnit, string[]> }>("/indicator-calculation-policy"),
+  indicatorTargetsPreview: (id: string, input: Array<{period: string; target_value: number}>) => request<{ expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/period-targets-preview`, { method: "POST", body: JSON.stringify(input) }),
+  indicatorMappingPreview: (id: string, input: IndicatorMappingInput) => request<{ expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/mapping-preview`, { method: "POST", body: JSON.stringify(input) }),
+  indicatorPreview: (id: string, input: IndicatorUpdateInput) => request<{ expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/definition-preview`, { method: "POST", body: JSON.stringify(input) }),
+  indicatorEvidence: (id: string, offset = 0, from = "", to = "") => request<{ source: string; method: string; definition_version: number; total: number; items: Array<Record<string, unknown>>; notice: string }>(`/indicators/${id}/evidence?offset=${offset}&limit=25${from ? `&date_from=${from}` : ""}${to ? `&date_to=${to}` : ""}`),
+  indicatorVersions: (id: string) => request<Array<{ version: number; reason: string; occurred_at: string; effective_scope: string }>>(`/indicators/${id}/versions`),
   createIndicator: (projectId: string, input: IndicatorCreateInput) =>
     request<Indicator>(`/projects/${projectId}/indicators`, {
       method: "POST",

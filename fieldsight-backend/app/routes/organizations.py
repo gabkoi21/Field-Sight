@@ -25,8 +25,10 @@ from app.models.operations import (
     IndicatorPeriodTarget,
     KoboConnection,
     Location,
+    OrganizationAdminEvent,
     OrganizationSettings,
     Project,
+    ProjectStatus,
     ProjectTarget,
     ResultFrameworkNode,
     SavedAnalysis,
@@ -148,7 +150,7 @@ def update_organization(org_id: UUID, payload: OrganizationUpdate, user: Current
     db.add(settings)
     if sector_ids is not None:
         unique_ids = set(sector_ids)
-        sectors = db.exec(select(Sector).where(Sector.id.in_(unique_ids), Sector.is_active)).all()
+        sectors = db.exec(select(Sector).where(col(Sector.id).in_(unique_ids), Sector.is_active)).all()
         if len(sectors) != len(unique_ids):
             raise HTTPException(status_code=422, detail="One or more sectors are invalid or inactive.")
         existing = db.exec(select(OrganizationSector).where(OrganizationSector.organization_id == org_id)).all()
@@ -392,7 +394,7 @@ def replace_organization_sectors(
 ) -> list[OrganizationSector]:
     _authorize(org_id, user, db, admin=True)
     unique_ids = set(payload.sector_ids)
-    sectors = db.exec(select(Sector).where(Sector.id.in_(unique_ids), Sector.is_active)).all()
+    sectors = db.exec(select(Sector).where(col(Sector.id).in_(unique_ids), Sector.is_active)).all()
     if len(sectors) != len(unique_ids):
         raise HTTPException(status_code=422, detail="One or more sectors are invalid or inactive.")
     existing = db.exec(select(OrganizationSector).where(OrganizationSector.organization_id == org_id)).all()
@@ -414,7 +416,9 @@ def replace_organization_sectors(
 @router.get("/{org_id}/projects", tags=["projects"])
 def list_projects(org_id: UUID, user: CurrentUser, db: Database) -> list[Project]:
     _authorize(org_id, user, db)
-    return list(db.exec(select(Project).where(Project.organization_id == org_id).order_by(Project.created_at.desc())))
+    return list(db.exec(
+        select(Project).where(Project.organization_id == org_id).order_by(col(Project.created_at).desc())
+    ))
 
 
 @router.post("/{org_id}/projects", status_code=status.HTTP_201_CREATED, tags=["projects"])
@@ -443,6 +447,9 @@ def update_project(org_id: UUID, project_id: UUID, payload: ProjectUpdate, user:
     _authorize(org_id, user, db, admin=True)
     project = _project(org_id, project_id, db)
     changes = payload.model_dump(exclude_unset=True)
+    db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
+    db.refresh(project)
+    previous_status = project.status
     if "workspace_details" in changes and changes["workspace_details"] is None:
         raise HTTPException(status_code=422, detail="Workspace details cannot be null.")
     start_date = changes.get("start_date", project.start_date)
@@ -451,7 +458,16 @@ def update_project(org_id: UUID, project_id: UUID, payload: ProjectUpdate, user:
         raise HTTPException(status_code=422, detail="End date cannot be before start date.")
     for field, value in changes.items():
         setattr(project, field, value)
+    if project.status == ProjectStatus.ARCHIVED:
+        db.exec(delete(SyncJob).where(col(SyncJob.project_id) == project.id))
+        schedule = db.get(SyncSchedule, project.id)
+        if schedule:
+            schedule.mode = "manual"
+            db.add(schedule)
     project.updated_at = datetime.now(UTC)
+    if project.status != previous_status:
+        db.add(OrganizationAdminEvent(organization_id=org_id, actor_id=user.id,
+                                     action=f"project_status:{project.status}", resource_id=str(project.id)))
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -471,41 +487,8 @@ def delete_project(
 
     db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
     db.refresh(project)
-    connection: KoboConnection | None = None
-    if project.kobo_form_id and project.kobo_connection_id:
-        connection = db.get(KoboConnection, project.kobo_connection_id)
-        if connection is None or connection.organization_id != org_id:
-            raise HTTPException(
-                status_code=409, detail="The Kobo connection is unavailable. The project was not deleted."
-            )
-        shared = db.exec(
-            select(Project)
-            .join(KoboConnection, col(Project.kobo_connection_id) == col(KoboConnection.id))
-            .where(
-                Project.id != project.id,
-                Project.kobo_form_id == project.kobo_form_id,
-                KoboConnection.server_url == connection.server_url,
-            )
-        ).first()
-        if shared:
-            raise HTTPException(409, "Another project uses this Kobo form. Unlink the shared form before deleting.")
-        try:
-            token = decrypt_kobo_token(connection.token_encrypted, settings)
-            delete_kobo_form(connection.server_url, token, project.kobo_form_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-
+    # Local cleanup and provider deletion are independent retryable operations.
     try:
-        if project.kobo_form_id and connection is not None:
-            db.execute(
-                update(KoboConnection)
-                .where(
-                    col(KoboConnection.organization_id) == org_id,
-                    col(KoboConnection.server_url) == connection.server_url,
-                    col(KoboConnection.selected_form_id) == project.kobo_form_id,
-                )
-                .values(selected_form_id=None, selected_form_name=None)
-            )
         indicator_ids = select(Indicator.id).where(col(Indicator.project_id) == project.id)
         db.exec(delete(AnalyticalDashboard).where(col(AnalyticalDashboard.project_id) == project.id))
         db.exec(delete(SavedAnalysis).where(col(SavedAnalysis.project_id) == project.id))
@@ -534,10 +517,62 @@ def delete_project(
             status_code=500,
             detail=(
                 "Project data cleanup failed. Local changes were rolled back. "
-                "If the linked Kobo form was deleted, retry to finish local cleanup."
+                "Retry to finish local cleanup. Kobo assets were not changed."
             ),
         ) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{org_id}/projects/{project_id}/delete-kobo-form", tags=["projects"])
+def delete_project_kobo_form(
+    org_id: UUID, project_id: UUID, user: CurrentUser, db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
+    confirmation: str,
+) -> dict[str, str]:
+    _authorize(org_id, user, db, admin=True)
+    project = _project(org_id, project_id, db)
+    db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
+    db.refresh(project)
+    if project.status != ProjectStatus.ARCHIVED:
+        raise HTTPException(409, "Archive the project before permanently deleting its Kobo form.")
+    if not project.kobo_form_id or confirmation != f"DELETE KOBO {project.kobo_form_id}":
+        raise HTTPException(422, "Explicit confirmation must name the Kobo form ID: DELETE KOBO <form ID>.")
+    if project.kobo_form_id and project.kobo_connection_id:
+        connection = db.get(KoboConnection, project.kobo_connection_id)
+        if connection is None or connection.organization_id != org_id:
+            raise HTTPException(
+                status_code=409, detail="The Kobo connection is unavailable. The project was not deleted."
+            )
+        shared = db.exec(
+            select(Project)
+            .join(KoboConnection, col(Project.kobo_connection_id) == col(KoboConnection.id))
+            .where(
+                Project.id != project.id,
+                Project.kobo_form_id == project.kobo_form_id,
+                KoboConnection.server_url == connection.server_url,
+            )
+        ).first()
+        if shared:
+            raise HTTPException(409, "Another project uses this Kobo form. Unlink the shared form before deleting.")
+        try:
+            token = decrypt_kobo_token(connection.token_encrypted, settings)
+            delete_kobo_form(connection.server_url, token, project.kobo_form_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    else:
+        raise HTTPException(409, "No Kobo connection is available for provider deletion.")
+    db.add(OrganizationAdminEvent(organization_id=org_id, actor_id=user.id,
+                                 action="kobo_form_deleted", resource_id=str(project.kobo_form_id)))
+    db.commit()
+    return {"status": "deleted", "message": "Kobo form deleted. Retained FieldSight records are unchanged."}
+
+
+@router.get("/{org_id}/admin-events", tags=["organization administration"])
+def admin_events(org_id: UUID, user: CurrentUser, db: Database) -> list[OrganizationAdminEvent]:
+    _authorize(org_id, user, db, admin=True)
+    return list(db.exec(select(OrganizationAdminEvent).where(OrganizationAdminEvent.organization_id == org_id)
+                        .order_by(col(OrganizationAdminEvent.occurred_at).desc()).limit(100)).all())
 
 
 # Locations: List → Create → Read → Update → Delete (deactivate)

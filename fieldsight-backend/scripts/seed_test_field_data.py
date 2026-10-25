@@ -15,7 +15,6 @@ from app.db.session import get_engine
 from app.models.identity import Organization, OrganizationMembership, Role, User
 from app.models.operations import FieldAssignment, KoboConnection, Project, Submission
 
-
 ORGANIZATION_NAME = "Community Health Initiative"
 ENUMERATOR_PASSWORD = "FieldSightTest2026!"
 SEED_SPECS = (
@@ -40,7 +39,9 @@ SEED_SPECS = (
 )
 
 
-def get_or_create_enumerator(session: Session, organization: Organization, spec: dict[str, object]) -> OrganizationMembership:
+def get_or_create_enumerator(
+    session: Session, organization: Organization, spec: dict[str, object],
+) -> OrganizationMembership:
     username = str(spec["username"])
     user = session.exec(select(User).where(User.username == username)).first()
     if user is None:
@@ -168,7 +169,10 @@ def seed() -> None:
 
     print(f"Seed complete: {created_submissions} new submissions created.")
     for project_name, enumerator_name, requested, existing in results:
-        print(f"- {project_name}: {requested} total seed submissions for {enumerator_name} ({existing} already existed)")
+        print(
+            f"- {project_name}: {requested} total seed submissions for "
+            f"{enumerator_name} ({existing} already existed)"
+        )
     print(f"Test account password: {ENUMERATOR_PASSWORD}")
 
 

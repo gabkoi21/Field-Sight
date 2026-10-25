@@ -7,6 +7,7 @@ import {
   type WorkspaceDetails,
 } from "../services/apiClient";
 import { useWorkspace } from "./WorkspaceContext";
+import { ProjectSetupChecklist } from "./ProjectSetupChecklist";
 import {
   Notice,
   Page,
@@ -105,6 +106,7 @@ export function WorkspaceDetailsPage() {
     >
       <WorkspaceGate>
         <WorkspaceTabs />
+        <ProjectSetupChecklist />
         {message && <Notice>{message}</Notice>}
         {save.error && <Notice error>{save.error.message}</Notice>}
         <Panel>

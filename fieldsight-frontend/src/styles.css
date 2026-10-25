@@ -41,7 +41,59 @@ button.fieldsight-avatar {
   border-radius: 50% !important;
 }
 
+.indicator-register-container {
+  min-width: 0;
+  max-height: 65vh;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
+.indicator-register-container:focus-visible {
+  outline: 2px solid #0b51b7;
+  outline-offset: -2px;
+}
+
+.indicator-register thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f8fa;
+}
+
+.indicator-register th,
+.indicator-register td {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.indicator-register td[data-label="Actual vs target"] {
+  min-width: 240px;
+}
+
+.indicator-register td[data-label="Status"] > span {
+  width: auto;
+}
+
+.indicator-register {
+  min-width: 1000px;
+}
+
 @media print {
+  .indicator-register {
+    min-width: 0;
+  }
+  .indicator-register th,
+  .indicator-register td {
+    white-space: normal;
+  }
+  .indicator-register-container {
+    max-height: none;
+    overflow: visible;
+  }
+  .indicator-register thead th {
+    position: static;
+  }
   .fieldsight-workspace > aside,
   .fieldsight-workspace main > header,
   .fieldsight-workspace button,
@@ -50,6 +102,7 @@ button.fieldsight-avatar {
   }
   .fieldsight-workspace main {
     margin-left: 0 !important;
+    padding-top: 0 !important;
   }
   .fieldsight-workspace {
     background: white !important;
@@ -63,4 +116,8 @@ button.fieldsight-avatar {
   .fieldsight-workspace tr {
     break-inside: avoid;
   }
+  @page { size: landscape; margin: 12mm; }
+  .fieldsight-workspace table { width: 100%; font-size: 9pt; }
+  .fieldsight-workspace th, .fieldsight-workspace td { overflow-wrap: anywhere; }
+  .fieldsight-workspace h2, .fieldsight-workspace h3 { break-after: avoid; }
 }

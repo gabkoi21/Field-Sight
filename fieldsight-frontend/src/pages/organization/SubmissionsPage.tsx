@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -12,8 +12,8 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
@@ -67,52 +67,50 @@ const selectClass =
   "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[12px] font-normal leading-normal text-[#69798e]";
 
 export function SubmissionsPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["submissions"],
-    queryFn: apiClient.submissions,
-    enabled: !authLoading,
-  });
   const organizationId = user?.memberships[0]?.organization_id;
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId!),
     enabled: Boolean(!authLoading && organizationId),
   });
-  const [query, setQuery] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [review, setReview] = useState(
-    searchParams.get("review") === "needs_review" ? "Needs review" : searchParams.get("review") === "invalid" ? "Invalid" : "All records",
-  );
+  const query = searchParams.get("search") ?? "";
+  const setQuery = (value: string) => { const params = new URLSearchParams(searchParams); if (value) params.set("search", value); else params.delete("search"); setSearchParams(params, { replace: true }); };
+  const projectId = searchParams.get("project_id") ?? "";
+  const setProjectId = (id: string) => { const params = new URLSearchParams(searchParams); if (id) params.set("project_id", id); else params.delete("project_id"); setSearchParams(params); };
+  const reviewValue = searchParams.get("review");
+  const review = reviewValue === "ready" ? "Ready" : reviewValue === "needs_review" ? "Needs review" : reviewValue === "invalid" ? "Invalid" : "All records";
+  const setReview = (value: string) => { const params = new URLSearchParams(searchParams); if (value === "All records") params.delete("review"); else params.set("review", value === "Ready" ? "ready" : value === "Invalid" ? "invalid" : "needs_review"); setSearchParams(params); };
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("daily");
   const [selected, setSelected] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const rows: Row[] = data.map(toRow);
+  const scope = JSON.stringify([organizationId, projectId, query, review]);
+  const [pagination, setPagination] = useState({ scope, page: 1 });
+  const currentPage = pagination.scope === scope ? pagination.page : 1;
+  const setCurrentPage = (value: number | ((page: number) => number)) => setPagination(previous => ({ scope, page: typeof value === "function" ? value(previous.scope === scope ? previous.page : 1) : value }));
+  useEffect(() => { setSelected(null); setPagination(previous => previous.scope === scope ? previous : { scope, page: 1 }); }, [scope]);
+  const pageSize = 10;
+  const params = new URLSearchParams({ offset: String((currentPage - 1) * pageSize), limit: String(pageSize), search: query });
+  if (projectId) params.set("project_id", projectId);
+  if (review !== "All records") params.set("review_status", review === "Ready" ? "ready" : review === "Invalid" ? "invalid" : "needs_review");
+  const { data, isLoading, error } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading });
+  const rows: Row[] = (data?.items ?? []).map(toRow);
+  const total = data?.total ?? 0;
+  const counts = data?.counts ?? {};
+
   const projects = useMemo(
     () => [...(projectsQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [projectsQuery.data],
   );
   const selectedProjectName = projects.find((item) => item.id === projectId)?.name ?? "All projects";
-  const projectRows = useMemo(
-    () => (projectId ? rows.filter((row) => row.projectId === projectId) : rows),
-    [rows, projectId],
-  );
-  const visible = useMemo(
-    () =>
-      projectRows.filter((row) => {
-        const text = `${row.id} ${row.enumerator} ${row.location} ${row.form}`.toLowerCase();
-        return text.includes(query.toLowerCase()) && (review === "All records" || row.review === review);
-      }),
-    [projectRows, query, review],
-  );
-  const pageSize = 10;
-  const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
-  const activePage = Math.min(currentPage, totalPages);
-  const paginatedRows = useMemo(
-    () => visible.slice((activePage - 1) * pageSize, activePage * pageSize),
-    [activePage, visible],
-  );
+  const visible = rows;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const outOfRange = Boolean(data && currentPage > totalPages);
+  useEffect(() => {
+    if (outOfRange) { setCurrentPage(totalPages); setSelected(null); }
+  }, [outOfRange, totalPages, scope]);
+  const activePage = currentPage;
+  const paginatedRows = rows;
   const pageNumbers: Array<number | string> = useMemo(() => {
     if (totalPages <= 7) {
       return Array.from({ length: totalPages }, (_, index) => index + 1);
@@ -126,48 +124,29 @@ export function SubmissionsPage() {
     return [1, "...", activePage - 1, activePage, activePage + 1, "...", totalPages];
   }, [totalPages, activePage]);
   const firstVisibleRow = visible.length ? (activePage - 1) * pageSize + 1 : 0;
-  const lastVisibleRow = Math.min(activePage * pageSize, visible.length);
+  const lastVisibleRow = Math.min(activePage * pageSize, total);
   const record = rows.find((row) => row.id === selected) ?? null;
-  const exportRows = useMemo(() => {
-    const periodDays: Record<ExportPeriod, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
-    const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - (periodDays[exportPeriod] - 1));
-    return visible.filter((row) => row.submittedAt && new Date(row.submittedAt).getTime() >= cutoff.getTime());
-  }, [visible, exportPeriod]);
-  const exportCsv = () => {
-    const columns: Array<[string, keyof Row]> = [
-      ["Submission ID", "id"],
-      ["Project", "project"],
-      ["Form", "form"],
-      ["Enumerator Collector", "enumerator"],
-      ["Location", "location"],
-      ["Received", "submitted"],
-      ["Device", "device"],
-      ["Sync", "sync"],
-      ["Review", "review"],
-    ];
-    const escapeCsv = (value: string) => `"${value.replaceAll('"', '""')}"`;
-    const csv = [
-      columns.map(([label]) => escapeCsv(label)).join(","),
-      ...exportRows.map((row) => columns.map(([, key]) => escapeCsv(String(row[key]))).join(",")),
-    ].join("\r\n");
-    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const projectName = projectId ? selectedProjectName : "all-projects";
-    link.href = url;
-    link.download = `${projectName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")}-${exportPeriod}-submissions.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
+  const csvExport = useMutation({
+    mutationFn: () => {
+      const exportParams = new URLSearchParams(params);
+      exportParams.delete("offset"); exportParams.delete("limit");
+      const periodDays: Record<ExportPeriod, number> = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 };
+      const now = new Date();
+      const cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - periodDays[exportPeriod] + 1));
+      exportParams.set("date_from", cutoff.toISOString());
+      exportParams.set("date_to", now.toISOString());
+      return apiClient.exportSubmissionsCsv(exportParams);
+    },
+    onSuccess: csv => {
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = `fieldsight-${exportPeriod}-submissions.csv`;
+      link.click(); URL.revokeObjectURL(url);
+    },
+  });
+  const exportCsv = () => csvExport.mutate();
 
-  if (isLoading) {
+  if (isLoading || outOfRange) {
     return (
       <div className="rounded-[10px] bg-white p-[60px] text-center text-[#758092]">Loading submission records…</div>
     );
@@ -175,6 +154,9 @@ export function SubmissionsPage() {
 
   return (
     <div className="text-[#25324a]">
+      {error && <p role="alert">Unable to load submissions: {error.message}</p>}
+      {csvExport.error && <p role="alert">Unable to export: {csvExport.error.message}</p>}
+      <p className="text-xs">Exports include every matching submission across all pages, filtered by the selected project, review status, search and UTC period.</p>
       <div className="mb-[19px]">
         <div>
           <p className={eyebrowClass}>DATA COLLECTION</p>
@@ -192,7 +174,7 @@ export function SubmissionsPage() {
           </span>
           <span className="block text-[12px] font-medium text-[#6f7d8a]">All submissions</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {projectRows.length.toLocaleString()}
+            {Object.values(counts).reduce((sum, n) => sum + n, 0).toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">
             {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
@@ -204,7 +186,7 @@ export function SubmissionsPage() {
           </span>
           <span className="block text-[12px] font-medium text-[#6f7d8a]">Ready for analysis</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {projectRows.filter((row) => row.review === "Ready").length.toLocaleString()}
+            {(counts.ready ?? 0).toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Validated and export-ready records</small>
         </article>
@@ -214,7 +196,7 @@ export function SubmissionsPage() {
           </span>
           <span className="block text-[12px] font-medium text-[#6f7d8a]">Needs review</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {projectRows.filter((row) => row.review === "Needs review").length.toLocaleString()}
+            {(counts.needs_review ?? 0).toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Records waiting for quality review</small>
         </article>
@@ -224,7 +206,7 @@ export function SubmissionsPage() {
           </span>
           <span className="block text-[12px] font-medium text-[#6f7d8a]">Invalid records</span>
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {projectRows.filter((row) => row.review === "Invalid").length.toLocaleString()}
+            {(counts.invalid ?? 0).toLocaleString()}
           </strong>
           <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Blocked from export until resolved</small>
         </article>
@@ -269,14 +251,17 @@ export function SubmissionsPage() {
           <option value="biweekly">Biweekly</option>
           <option value="monthly">Monthly</option>
         </select>
+        <select aria-label="Review status filter" className={selectClass} value={review} onChange={event => { setReview(event.target.value); setCurrentPage(1); }}>
+          <option>All records</option><option>Ready</option><option>Needs review</option><option>Invalid</option>
+        </select>
         <button
           type="button"
           onClick={exportCsv}
-          disabled={!exportRows.length}
+          disabled={!total || csvExport.isPending}
           className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[14px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download size={16} />
-          Export data
+          {csvExport.isPending ? "Exporting…" : "Export all filtered data"}
         </button>
       </div>
 
@@ -300,7 +285,7 @@ export function SubmissionsPage() {
             </thead>
             <tbody>
               {paginatedRows.map((row) => (
-                <tr key={row.id} className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]">
+                <tr key={`${row.projectId}:${row.id}`} className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]">
                   <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#536177]">
                     <span className="block text-left text-[14px] font-semibold leading-normal text-[#0b51b7]">
                       {row.id}
@@ -349,12 +334,9 @@ export function SubmissionsPage() {
                     className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <button
-                      className="cursor-pointer border-0 bg-transparent p-0 text-[#9ca3af] transition-colors hover:text-[#6b7280]"
-                      aria-label={`Actions for ${row.id}`}
-                    >
+                    <Link className="text-[#0b51b7]" aria-label={`Review project quality for ${row.id}`} to={`/quality?project_id=${row.projectId}`}>
                       <MoreHorizontal size={18} />
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -380,7 +362,7 @@ export function SubmissionsPage() {
             <strong className="font-semibold text-[#1e293b]">
               {firstVisibleRow}–{lastVisibleRow}
             </strong>{" "}
-            of <strong className="font-semibold text-[#1e293b]">{visible.length.toLocaleString()}</strong> submissions
+            of <strong className="font-semibold text-[#1e293b]">{total.toLocaleString()}</strong> submissions
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -504,7 +486,7 @@ export function SubmissionsPage() {
                       <span className="mr-[3px] grid h-[25px] w-[25px] place-items-center rounded-full bg-[#e8f1fb] text-[8px] font-bold text-[#2866a8]">
                         AJ
                       </span>
-                      <b className="text-[#4d5d72]">Amara Johnson</b> has not reviewed this record yet.
+                      No persisted reviewer history is available for this record.
                       <small className="ml-auto text-[#9ca8b6]">Today</small>
                     </p>
                   </div>

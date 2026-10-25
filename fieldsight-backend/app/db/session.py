@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from functools import lru_cache
+from sqlite3 import Connection
+from typing import cast
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -18,7 +20,7 @@ def configure_sqlite_connection(dbapi_connection: object, connection_record: obj
     del connection_record
     if not dbapi_connection.__class__.__module__.startswith("sqlite3"):
         return
-    cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
+    cursor = cast(Connection, dbapi_connection).cursor()
     cursor.execute("PRAGMA foreign_keys = ON")
     cursor.execute("PRAGMA journal_mode = WAL")
     cursor.execute("PRAGMA busy_timeout = 5000")

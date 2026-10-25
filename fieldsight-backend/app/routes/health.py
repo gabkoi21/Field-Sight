@@ -28,7 +28,7 @@ def live() -> dict[str, str]:
 def ready(session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
     """Return success only when the configured database accepts a query."""
     try:
-        session.exec(text("SELECT 1")).one()
+        session.execute(text("SELECT 1")).one()
     except Exception as exc:  # pragma: no cover - depends on failed external I/O
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

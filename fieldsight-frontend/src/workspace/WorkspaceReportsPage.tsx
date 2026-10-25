@@ -1,5 +1,6 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
 import { Button, LoadingState } from "../components/ui";
 import { apiClient } from "../services/apiClient";
@@ -28,6 +29,11 @@ export function WorkspaceReportsPage() {
     queryFn: () => apiClient.tables(projectId),
     enabled: Boolean(projectId),
   });
+  const pdf = useMutation({ mutationFn: () => apiClient.projectReportPdf(projectId, from, through), onSuccess: data => {
+    const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+    const link = document.createElement("a"); link.href = url; link.download = "fieldsight-project-report.pdf";
+    link.click(); URL.revokeObjectURL(url);
+  } });
   const number = (n: number | null) =>
     n === null
       ? "Not reported"
@@ -35,7 +41,7 @@ export function WorkspaceReportsPage() {
   function exportCsv() {
     const lines: unknown[][] = [
       [
-        "workspace",
+        "project",
         "indicator",
         "code",
         "unit",
@@ -48,6 +54,8 @@ export function WorkspaceReportsPage() {
         "invalid",
         "date_from",
         "date_to",
+        "quality_excluded",
+        "calculation_note",
       ],
     ];
     for (const item of indicators.data ?? [])
@@ -65,6 +73,8 @@ export function WorkspaceReportsPage() {
         item.invalid_answers,
         from,
         through,
+        item.quality_excluded_records,
+        item.calculation_note,
       ]);
     const csv = lines
       .map((row) =>
@@ -82,25 +92,28 @@ export function WorkspaceReportsPage() {
     );
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "fieldsight-workspace-report.csv";
+    anchor.download = "fieldsight-project-report.csv";
     anchor.click();
     URL.revokeObjectURL(url);
   }
   return (
     <Page
       title="Project report"
-      description="A reproducible summary of stored evidence and indicator progress."
+      description="Generated from current saved data; this is not a stored historical snapshot."
       actions={
         <>
           <Button
             variant="secondary"
             onClick={exportCsv}
-            disabled={!indicators.data || invalid}
+            disabled={!indicators.data || indicators.isFetching || indicators.isError || invalid}
           >
             <Download size={14} />
             Export CSV
           </Button>
-          <Button onClick={() => window.print()} disabled={invalid}>
+          <Button variant="secondary" onClick={() => pdf.mutate()} disabled={invalid || pdf.isPending || !projectId}>
+            <Download size={14} />{pdf.isPending ? "Generating PDF…" : "Download PDF"}
+          </Button>
+          <Button onClick={() => window.print()} disabled={invalid || indicators.isFetching || indicators.isError}>
             <Printer size={14} />
             Print / save PDF
           </Button>
@@ -108,6 +121,7 @@ export function WorkspaceReportsPage() {
       }
     >
       <WorkspaceGate>
+        {pdf.error && <Notice error>{pdf.error.message}</Notice>}
         <Panel className="flex flex-wrap items-end gap-4 p-5 print:hidden">
           <Field label="Submitted from (UTC)">
             <input
@@ -147,6 +161,8 @@ export function WorkspaceReportsPage() {
                   Monitoring & evaluation
                 </p>
                 <h2 className="text-xl font-semibold">{project?.name}</h2>
+                <p className="text-xs">Current data report. Values may change after sync or review; no historical snapshot is stored. Results retrieved: {indicators.dataUpdatedAt ? new Date(indicators.dataUpdatedAt).toLocaleString() : "Not yet loaded"}.</p>
+                <Link to={`/projects/${projectId}/indicators`} className="text-sm text-[#0b51b7] underline print:hidden">Inspect indicators and calculation sources</Link>
                 <p className="text-sm leading-7 text-[#73868d]">
                   {project?.description}
                 </p>
@@ -186,7 +202,7 @@ export function WorkspaceReportsPage() {
                     <tbody>
                       {indicators.data?.map((item) => (
                         <tr key={item.id} className="border-t border-[#edf0f2]">
-                          <td className="px-5 py-4 font-medium">{item.name}</td>
+                          <td className="px-5 py-4 font-medium"><Link to={`/projects/${projectId}/indicators?view=results`} className="text-[#0b51b7]">{item.name}</Link></td>
                           <td className="px-5">
                             {item.unit === "text" ? "Qualitative" : item.unit}
                           </td>
@@ -215,6 +231,8 @@ export function WorkspaceReportsPage() {
                               : item.result_source === "table"
                                 ? `${item.eligible_records} ready records`
                                 : "Not configured"}
+                            <p>Missing {item.missing_records}; invalid {item.invalid_answers}; excluded {item.quality_excluded_records}.</p>
+                            <p>{item.calculation_note}</p>
                           </td>
                         </tr>
                       ))}
@@ -242,8 +260,8 @@ export function WorkspaceReportsPage() {
                 <p className="mb-0 text-xs leading-6 text-[#87969d]">
                   Linked calculations use ready records only; missing and
                   invalid answers are excluded from answer-based denominators.
-                  Manual numeric entries are summed; manual percentages, rates
-                  and ratios use an unweighted mean. Qualitative indicators show
+                  Manual numeric entries are summed; percentages, rates
+                  and ratios use their explicitly configured pooling or mean method. Qualitative indicators show
                   the latest dated narrative. Below-target results before their
                   deadline remain in progress. This report is generated from
                   current stored data; it is not a published or scheduled

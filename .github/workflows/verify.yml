@@ -1,0 +1,54 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fieldsight-backend
+    env:
+      FIELDSIGHT_ENVIRONMENT: test
+      FIELDSIGHT_DATABASE_URL: sqlite:////tmp/fieldsight-ci.db
+      FIELDSIGHT_JWT_SECRET: ci-only-synthetic-secret-never-use-in-production-0123456789abcdef
+      FIELDSIGHT_KOBO_TOKEN_ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      FIELDSIGHT_CI_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Reject local configuration
+        run: test ! -f .env && test ! -f ../.env
+      - run: python -m pip install -e '.[dev]'
+      - run: ruff check .
+      - run: mypy app
+      - name: Verify migrations on disposable database
+        run: alembic upgrade head
+      - name: Test including legacy migration and mocked providers
+        run: pytest
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fieldsight-frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fieldsight-frontend/package-lock.json
+      - name: Reject local configuration
+        run: test -z "$(find . -maxdepth 1 -name '.env*' ! -name '*.example' -print)"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

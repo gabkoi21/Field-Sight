@@ -9,11 +9,13 @@ pydantic-settings>=2.7
 python-dotenv>=1.0
 PyJWT>=2.10
 sqlmodel>=0.0.22
+reportlab>=4.4,<5
 uvicorn[standard]>=0.34
 
 # Development and test dependencies
 httpx>=0.28
 mypy>=1.14
 pytest>=8.3
+pypdf>=5
 pytest-asyncio>=0.25
 ruff>=0.9

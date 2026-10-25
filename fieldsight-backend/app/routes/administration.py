@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.security import password_hasher
 from app.db.session import get_session
@@ -36,7 +36,7 @@ def require_super_admin(user: CurrentUser) -> User:
 # Users: platform-wide directory for Super Admin access management.
 @router.get("/users", response_model=list[UserDirectoryItem])
 def list_users(_: Annotated[User, Depends(require_super_admin)], db: Database) -> list[UserDirectoryItem]:
-    users = db.exec(select(User).order_by(User.created_at.desc())).all()
+    users = db.exec(select(User).order_by(col(User.created_at).desc())).all()
     organizations = {row.id: row.name for row in db.exec(select(Organization)).all()}
     memberships = db.exec(select(OrganizationMembership)).all()
     memberships_by_user: dict[UUID, list[OrganizationMembership]] = {}
@@ -114,13 +114,13 @@ def deactivate_sector(sector_id: UUID, _: Annotated[User, Depends(require_super_
 # Organizations: List → Create → Delete (tenant Read/Update are in organizations.py)
 @router.get("/organizations", response_model=list[OrganizationListItem])
 def list_organizations(_: Annotated[User, Depends(require_super_admin)], db: Database) -> list[OrganizationListItem]:
-    organizations = db.exec(select(Organization).order_by(Organization.created_at.desc())).all()
+    organizations = db.exec(select(Organization).order_by(col(Organization.created_at).desc())).all()
     results: list[OrganizationListItem] = []
     for organization in organizations:
         settings = db.get(OrganizationSettings, organization.id)
         owner = db.exec(
             select(User)
-            .join(OrganizationMembership, OrganizationMembership.user_id == User.id)
+            .join(OrganizationMembership, col(OrganizationMembership.user_id) == col(User.id))
             .where(
                 OrganizationMembership.organization_id == organization.id,
                 OrganizationMembership.role == Role.ORGANIZATION_ADMIN,
@@ -163,7 +163,7 @@ def create_organization(
     if payload.owner_username and db.exec(select(User).where(User.username == payload.owner_username)).first():
         raise HTTPException(status_code=409, detail="Owner username already exists.")
     requested_sector_ids = set(payload.sector_ids)
-    sectors = db.exec(select(Sector).where(Sector.id.in_(requested_sector_ids), Sector.is_active)).all()
+    sectors = db.exec(select(Sector).where(col(Sector.id).in_(requested_sector_ids), Sector.is_active)).all()
     if len(sectors) != len(requested_sector_ids):
         raise HTTPException(status_code=422, detail="One or more sectors are invalid.")
     organization = Organization(name=payload.name, slug=payload.slug)

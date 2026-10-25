@@ -8,6 +8,24 @@ services:
     environment:
       FIELDSIGHT_ENVIRONMENT: production
       FIELDSIGHT_DATABASE_URL: sqlite:////data/fieldsight.db
+      FIELDSIGHT_SYNC_TELEMETRY_DIRECTORY: /data/sync-workers
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - fieldsight_sqlite:/data
+
+  worker:
+    build: .
+    command: ["python", "-m", "app.core.sync_worker"]
+    env_file:
+      - .env
+    environment:
+      FIELDSIGHT_ENVIRONMENT: production
+      FIELDSIGHT_DATABASE_URL: sqlite:////data/fieldsight.db
+      FIELDSIGHT_SYNC_TELEMETRY_DIRECTORY: /data/sync-workers
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

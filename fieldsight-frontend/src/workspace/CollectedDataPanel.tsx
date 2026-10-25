@@ -18,6 +18,9 @@ export function CollectedDataPanel({
   const [adding, setAdding] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [value, setValue] = useState("");
+  const [numerator, setNumerator] = useState("");
+  const [denominator, setDenominator] = useState("");
+  const pooled = indicator.manual_aggregation === "pooled";
   const [narrative, setNarrative] = useState("");
   const [location, setLocation] = useState("");
   const [notes, setNotes] = useState("");
@@ -27,6 +30,9 @@ export function CollectedDataPanel({
   });
   async function refresh() {
     await Promise.all([
+      cache.invalidateQueries({ queryKey: ["indicator-evidence", indicator.id] }),
+      cache.invalidateQueries({ queryKey: ["dashboard-widget"] }),
+      cache.invalidateQueries({ queryKey: ["dashboard"] }),
       cache.invalidateQueries({
         queryKey: ["collected-results", indicator.id],
       }),
@@ -39,7 +45,9 @@ export function CollectedDataPanel({
     mutationFn: () =>
       apiClient.addCollectedResult(indicator.id, {
         result_date: date,
-        value: indicator.unit === "text" ? null : Number(value),
+        value: indicator.unit === "text" || pooled ? null : Number(value),
+        numerator: pooled ? Number(numerator) : null,
+        denominator: pooled ? Number(denominator) : null,
         narrative: indicator.unit === "text" ? narrative : null,
         location: location || null,
         notes: notes || null,
@@ -76,10 +84,12 @@ export function CollectedDataPanel({
               Link data table
             </Button>
             <Button
-              disabled={Boolean(indicator.mapping)}
+              disabled={Boolean(indicator.mapping) || indicator.manual_aggregation === "legacy" && !indicator.legacy_definition}
               onClick={() => {
                 setAdding(true);
                 setValue("");
+                setNumerator("");
+                setDenominator("");
                 setNarrative("");
                 setNotes("");
                 setLocation("");
@@ -92,6 +102,7 @@ export function CollectedDataPanel({
           </div>
         </header>
         <div className="px-5 py-4 text-xs leading-6 text-[#73868d]">
+          {indicator.manual_aggregation === "legacy" && !indicator.legacy_definition && <p>Select an explicit aggregation method in indicator settings before adding results.</p>}
           {indicator.mapping ? (
             <>
               <strong>Linked table source</strong> · {indicator.source_form_id}
@@ -108,7 +119,7 @@ export function CollectedDataPanel({
           ) : indicator.unit === "text" ? (
             "Qualitative indicators store dated narratives. The latest result is shown in the indicator summary."
           ) : (
-            "Manual results are kept separate from linked table calculations. Numeric entries are summed; percentage, rate and ratio entries use an unweighted mean. Remove manual entries before switching to a linked table."
+            indicator.calculation_note || "Manual results are separate from linked table calculations. Select the aggregation method in indicator settings before entering pooled values."
           )}
         </div>
       </Panel>
@@ -125,7 +136,7 @@ export function CollectedDataPanel({
             {indicator.missing_records} missing answers ·{" "}
             {indicator.invalid_answers} invalid answers
           </span>
-          <Link className="ml-auto text-[#168596]" to="/data-tables">
+          <Link className="ml-auto text-[#168596]" to={`/data-tables?project_id=${indicator.project_id}`}>
             View stored data →
           </Link>
         </Panel>
@@ -152,7 +163,7 @@ export function CollectedDataPanel({
                       {row.result_date}
                     </td>
                     <td className="max-w-[380px] whitespace-pre-wrap px-5 py-4 leading-6">
-                      {row.narrative ?? row.value?.toLocaleString() ?? "—"}
+                      {pooled && row.numerator != null && row.denominator ? `${row.numerator} / ${row.denominator} = ${row.value?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? "—"}` : row.narrative ?? row.value?.toLocaleString() ?? "—"}
                       {indicator.unit === "percentage" ? "%" : ""}
                     </td>
                     <td className="px-5">{row.location ?? "Not reported"}</td>
@@ -212,7 +223,11 @@ export function CollectedDataPanel({
                 onChange={(e) => setDate(e.target.value)}
               />
             </Field>
-            {indicator.unit === "text" ? (
+            {pooled ? <>
+              <Field label="Numerator"><input required type="number" min={0} max={1e15} step="any" className={fieldClass} value={numerator} onChange={event => setNumerator(event.target.value)} /></Field>
+              <Field label="Denominator"><input required type="number" min={0.000001} max={1e15} step="any" className={fieldClass} value={denominator} onChange={event => setDenominator(event.target.value)} /></Field>
+              <p className="text-xs">Results pool the underlying counts for each period and location. A zero numerator is valid; denominator must be greater than zero.</p>
+            </> : indicator.unit === "text" ? (
               <Field label="Qualitative result">
                 <textarea
                   required

@@ -8,8 +8,9 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
+from app.core.review_evidence import eligible
 from app.db.session import get_session
 from app.models.identity import User
 from app.models.operations import FieldMapping, Project, ProjectTarget, Submission
@@ -105,7 +106,7 @@ def replace_field_mappings(
 def list_targets(project_id: UUID, user: CurrentUser, db: Database) -> list[ProjectTargetRead]:
     project = _project(project_id, user, db)
     targets = db.exec(
-        select(ProjectTarget).where(ProjectTarget.project_id == project.id).order_by(ProjectTarget.created_at)
+        select(ProjectTarget).where(ProjectTarget.project_id == project.id).order_by(col(ProjectTarget.created_at))
     ).all()
     return [_target_read(item) for item in targets]
 
@@ -170,7 +171,7 @@ def _numbers(values: list[object]) -> list[float]:
     numbers: list[float] = []
     for value in values:
         try:
-            if value not in (None, ""):
+            if isinstance(value, (str, int, float)) and value != "":
                 numbers.append(float(value))
         except (TypeError, ValueError):
             continue
@@ -183,14 +184,15 @@ def project_intelligence(project_id: UUID, user: CurrentUser, db: Database) -> d
     submissions = db.exec(select(Submission).where(Submission.project_id == project.id)).all()
     mappings = db.exec(select(FieldMapping).where(FieldMapping.project_id == project.id)).all()
     targets = db.exec(select(ProjectTarget).where(ProjectTarget.project_id == project.id)).all()
-    ready = sum(item.review_status == "ready" for item in submissions)
+    ready_submissions = [item for item in submissions if eligible(item)]
+    ready = len(ready_submissions)
     blocked = len(submissions) - ready
     indicators: list[dict[str, object]] = []
     mapping_by_id = {item.id: item for item in mappings}
     for mapping in mappings:
         values = [
             item.raw_answers.get(mapping.source_field)
-            for item in submissions
+            for item in ready_submissions
             if item.raw_answers.get(mapping.source_field) not in (None, "")
         ]
         if mapping.data_type == "number":
@@ -223,16 +225,16 @@ def project_intelligence(project_id: UUID, user: CurrentUser, db: Database) -> d
             )
     target_results: list[dict[str, object]] = []
     for target in targets:
-        mapping = mapping_by_id.get(target.field_mapping_id) if target.field_mapping_id else None
-        if mapping:
-            values = [item.raw_answers.get(mapping.source_field) for item in submissions]
+        target_mapping = mapping_by_id.get(target.field_mapping_id) if target.field_mapping_id else None
+        if target_mapping:
+            values = [item.raw_answers.get(target_mapping.source_field) for item in ready_submissions]
             actual = (
                 sum(_numbers(values))
-                if mapping.data_type == "number"
+                if target_mapping.data_type == "number"
                 else sum(value not in (None, "") for value in values)
             )
         else:
-            actual = len(submissions)
+            actual = ready
         progress = min(100.0, actual / target.target_value * 100) if target.target_value else 0.0
         on_track = actual <= target.target_value if target.direction == "at_most" else actual >= target.target_value
         target_results.append(
@@ -248,9 +250,9 @@ def project_intelligence(project_id: UUID, user: CurrentUser, db: Database) -> d
             }
         )
     overall = (
-        round(sum(item["progress"] for item in target_results) / len(target_results), 1)
+        round(sum(float(str(item["progress"])) for item in target_results) / len(target_results), 1)
         if target_results
-        else (round(len(submissions) / project.target_sample_size * 100, 1) if project.target_sample_size else 0)
+        else (round(ready / project.target_sample_size * 100, 1) if project.target_sample_size else 0)
     )
     pulse = [
         {

@@ -10,7 +10,12 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+backups/
 coverage.xml
 htmlcov/
 outputs/sync-worker.*.log
 
+
+# Advisory worker heartbeat files (no queue authority).
+*.sync-workers/
+outputs/followup-*/
