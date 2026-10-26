@@ -11,7 +11,7 @@ import {
   Plus,
   RefreshCw,
 } from "lucide-react";
-import { Button, LoadingState } from "../components/ui";
+import { Button, LoadingSkeleton, LoadingState } from "../components/ui";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { apiClient } from "../services/apiClient";
 import { useWorkspace } from "./WorkspaceContext";
@@ -148,10 +148,11 @@ export function DataTablesPage() {
           </Notice>
         )}
         {(tables.error || rows.error) && (
-          <Notice error>{tables.error?.message ?? rows.error?.message}</Notice>
+          <Notice error>{tables.error?.message ?? rows.error?.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => { if (tables.error) void tables.refetch(); if (rows.error) void rows.refetch(); }}>Retry data tables</button></Notice>
         )}
+        {((tables.isFetching && tables.data) || (rows.isFetching && rows.data)) && <LoadingState variant="inline" label="Updating table data…" />}
         {tables.isLoading ? (
-          <LoadingState />
+          <LoadingSkeleton label="Loading data tables…" />
         ) : form ? (
           <Panel>
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e1e7eb] p-4">
@@ -179,12 +180,12 @@ export function DataTablesPage() {
               </Link>
             </header>
             {rows.isLoading ? (
-              <LoadingState />
+              <LoadingSkeleton label="Loading table records…" />
             ) : (
               rows.data && (
                 <>
                   <div className="max-h-[520px] overflow-auto">
-                    <table className="w-full border-collapse whitespace-nowrap text-left text-xs">
+                    <table aria-busy={rows.isFetching} className="w-full border-collapse whitespace-nowrap text-left text-xs">
                       <thead className="sticky top-0 bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
                         <tr>
                           <th className="px-4 py-3 font-medium">
@@ -284,7 +285,7 @@ export function DataTablesPage() {
               </Panel>
             ))}
           </div>
-        ) : (
+        ) : tables.error ? null : (
           <Panel className="p-12 text-center">
             <Database className="mx-auto text-[#8aadb5]" size={30} />
             <h2 className="text-lg">Bring your evidence into FieldSight</h2>

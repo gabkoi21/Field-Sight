@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import { Button, PageHeader, Ring } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, PageHeader, Ring } from "../../components/ui";
 import {
   AdminMetric,
   AdminPanel,
@@ -43,12 +43,14 @@ interface OrganizationRow {
 }
 
 export function OrganizationsPage() {
-  const [showNavigationLoader, setShowNavigationLoader] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const {
     data: apiOrganizations = [],
     isLoading,
+    isFetching,
+    refetch,
+    dataUpdatedAt,
     error: loadError,
   } = useQuery({
     queryKey: ["platform-organizations"],
@@ -150,10 +152,7 @@ export function OrganizationsPage() {
     );
   }, [organizations, query, status]);
 
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setShowNavigationLoader(false), 350);
-    return () => window.clearTimeout(timeout);
-  }, []);
+
   function openCreate() {
     setDrawerClosing(false);
     setDrawerVisible(false);
@@ -259,16 +258,10 @@ export function OrganizationsPage() {
       );
     }
   }
+  if (isLoading) return <div className="space-y-6"><PageHeader eyebrow="Platform administration" title="Organizations" description="Loading organizations from FieldSight…" /><LoadingSkeleton layout="table-page" metricCount={4} label="Loading organizations…" /></div>;
+  if (loadError && !(dataUpdatedAt > 0)) return <div className="space-y-6"><PageHeader eyebrow="Platform administration" title="Organizations" description="Manage platform organizations." /><div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800">Unable to load organizations. <Button variant="secondary" onClick={() => void refetch()}>Retry organizations</Button></div></div>;
   return (
     <>
-      {showNavigationLoader && (
-        <div className="fixed bottom-0 left-[258px] right-0 top-[74px] z-40 grid place-items-center bg-white/70 backdrop-blur-[1px] max-[1440px]:left-[232px] max-[1050px]:left-0 max-[1050px]:top-16 max-[560px]:top-[58px]" role="status">
-          <span className="inline-flex items-center gap-3 rounded-lg border border-[#e5e9ed] bg-white px-5 py-4 text-sm text-[#526274] shadow-lg">
-            <Ring className="size-5 text-brand" aria-hidden="true" />
-            Loading organizations…
-          </span>
-        </div>
-      )}
       <PageHeader
         eyebrow="Tenant administration"
         title="Organizations"
@@ -279,9 +272,10 @@ export function OrganizationsPage() {
         </Button>
       </PageHeader>
 
+      {isFetching && <LoadingState variant="inline" label="Updating organizations…" />}
       {loadError && (
         <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
-          Unable to load organizations from the API.
+          Unable to update organizations. Showing the last loaded data. <button className="min-h-11 px-3 font-semibold underline" onClick={() => void refetch()}>Retry organizations</button>
         </p>
       )}
       <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[620px]:grid-cols-1">
@@ -348,7 +342,7 @@ export function OrganizationsPage() {
           </label>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[1050px]">
+          <table aria-busy={isFetching} className="min-w-[1050px]">
             <thead>
               <tr>
                 <th>Organization</th>

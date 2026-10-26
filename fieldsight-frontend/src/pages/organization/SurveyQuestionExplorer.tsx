@@ -35,10 +35,11 @@ import {
   type AnalysisResult,
   type SavedAnalysis,
 } from "../../services/apiClient";
-import { Button, LoadingState } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../../components/ui";
 
-const control =
-  "w-full min-w-0 rounded-md border border-[#dce5e8] bg-white px-3 py-2 text-xs text-[#24434c] outline-none focus:border-[#0c8593]";
+import { controlClass } from "../../components/ui/controlStyles";
+
+const control = controlClass;
 const initialFilters: AnalysisQuery["filters"] = {
   date_from: null,
   date_to: null,
@@ -241,23 +242,11 @@ export function SurveyQuestionExplorer() {
     setNotice(`Viewing ${view.title}`);
   }
 
-  if (loading || projects.isLoading) return <LoadingState />;
+  if (loading || projects.isLoading) return <LoadingState variant="panel" label="Loading analysis sources…" />;
   return (
     <div className="space-y-5 text-[#213e47]">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="mb-1 mt-0 text-[12px] font-bold uppercase tracking-[.16em] text-[#0c8593]">
-            FieldSight / Evidence project
-          </p>
-          <h1 className="m-0 text-[28px] font-semibold tracking-tight">
-            Explore & analyze
-          </h1>
-          <p className="mb-0 mt-1 text-[14px] text-[#73868d]">
-            Ask a question of your field data. See the evidence behind every
-            result.
-          </p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader eyebrow={`FieldSight / ${workspace.project?.name ?? "Project"}`} title="Explore & analyze" description="Ask a question of your field data. See the evidence behind every result.">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
             disabled={
@@ -286,14 +275,14 @@ export function SurveyQuestionExplorer() {
             Save visualization
           </Button>
         </div>
-      </header>
+      </PageHeader>
       {workspace.projectId && <WorkspaceTabs />}
       {!org ? (
         <Panel>
           <div className="p-12 text-center">
             <Database className="mx-auto text-[#0c8593]" size={30} />
             <h2 className="text-lg">Connect to your project data</h2>
-            <p className="text-sm text-[#73868d]">
+            <p className="text-sm text-[var(--fs-muted)]">
               Sign in with an organization administrator account to explore
               synchronized survey answers.
             </p>
@@ -312,7 +301,7 @@ export function SurveyQuestionExplorer() {
             <Panel>
               <div className="p-10 text-center">
                 <h2 className="text-lg">Your analysis starts with a project</h2>
-                <p className="text-sm text-[#73868d]">
+                <p className="text-sm text-[var(--fs-muted)]">
                   Create a project, assign a Kobo form, and sync its
                   submissions.
                 </p>
@@ -329,24 +318,6 @@ export function SurveyQuestionExplorer() {
             <>
               <Panel>
                 <div className="flex flex-wrap items-end gap-4 p-4">
-                  <Field label="Project">
-                    <select
-                      className={control}
-                      value={projectId}
-                      onChange={(event) => {
-                        setProject(event.target.value);
-                        setForm(null);
-                        selectField("");
-                        setFilters(initialFilters);
-                      }}
-                    >
-                      {projects.data?.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
                   <Field label="Survey form">
                     <select
                       className={control}
@@ -389,7 +360,7 @@ export function SurveyQuestionExplorer() {
                     <button
                       key={value}
                       onClick={() => setTab(value)}
-                      className={`flex items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-3 text-xs ${tab === value ? "border-[#0c8593] font-semibold text-[#0c7180]" : "border-transparent text-[#73868d]"}`}
+                      className={`flex items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-3 text-xs ${tab === value ? "border-[#0c8593] font-semibold text-[#0c7180]" : "border-transparent text-[var(--fs-muted)]"}`}
                     >
                       <Bookmark size={14} />
                       {value === "explore"
@@ -419,11 +390,11 @@ export function SurveyQuestionExplorer() {
                     Saved visualizations
                   </h2>
                   {saved.isLoading ? (
-                    <LoadingState />
+                    <LoadingState variant="panel" label="Loading analysis sources…" />
                   ) : saved.error ? (
                     <Message error>{saved.error.message}</Message>
                   ) : !saved.data?.length ? (
-                    <p className="p-10 text-center text-sm text-[#73868d]">
+                    <p className="p-10 text-center text-sm text-[var(--fs-muted)]">
                       Save a question's chart, calculation and filters to reopen
                       them here.
                     </p>
@@ -441,7 +412,7 @@ export function SurveyQuestionExplorer() {
                             <strong className="block text-sm text-[#24434c]">
                               {view.title}
                             </strong>
-                            <span className="text-xs text-[#73868d]">
+                            <span className="text-xs text-[var(--fs-muted)]">
                               {view.chart} · {view.query.source_field}
                             </span>
                           </button>
@@ -456,7 +427,7 @@ export function SurveyQuestionExplorer() {
                               )
                                 remove.mutate(view.id);
                             }}
-                            className="border-0 bg-transparent p-2 text-[#73868d]"
+                            className="border-0 bg-transparent p-2 text-[var(--fs-muted)]"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -466,7 +437,7 @@ export function SurveyQuestionExplorer() {
                   )}
                 </Panel>
               ) : catalogue.isLoading ? (
-                <LoadingState />
+                <LoadingState variant="panel" label="Loading analysis sources…" />
               ) : (
                 <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-4 max-[1000px]:grid-cols-1">
                   <Panel>
@@ -517,7 +488,7 @@ export function SurveyQuestionExplorer() {
                           </button>
                         ))}
                       {!fields.length && (
-                        <p className="px-3 text-xs leading-5 text-[#73868d]">
+                        <p className="px-3 text-xs leading-5 text-[var(--fs-muted)]">
                           No questions yet. Refresh the Kobo fields or sync
                           submissions to begin.
                         </p>
@@ -531,7 +502,7 @@ export function SurveyQuestionExplorer() {
                           <h2 className="m-0 text-sm font-semibold">
                             {field?.label ?? "Choose a question"}
                           </h2>
-                          <p className="mb-0 mt-1 text-[12px] text-[#73868d]">
+                          <p className="mb-0 mt-1 text-[12px] text-[var(--fs-muted)]">
                             {field?.source_field ?? ""}
                           </p>
                         </div>
@@ -725,10 +696,11 @@ export function SurveyQuestionExplorer() {
                       </Message>
                     )}
                     {results.error && (
-                      <Message error>{results.error.message}</Message>
+                      <Message error>{results.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void results.refetch()}>Retry results</button></Message>
                     )}
-                    {results.isFetching ? (
-                      <LoadingState label="Calculating survey results…" />
+                    {results.isFetching && result && <LoadingState variant="inline" label="Updating results…" />}
+                    {results.isLoading ? (
+                      <LoadingSkeleton layout="chart" label="Calculating survey results…" />
                     ) : result && !invalidDates ? (
                       <>
                         <div className="grid grid-cols-4 gap-3 max-[700px]:grid-cols-2">
@@ -740,7 +712,7 @@ export function SurveyQuestionExplorer() {
                           ].map(([label, value]) => (
                             <Panel key={label}>
                               <div className="p-4">
-                                <small className="text-[12px] uppercase tracking-wide text-[#73868d]">
+                                <small className="text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
                                   {label}
                                 </small>
                                 <strong className="mt-2 block text-2xl font-semibold">
@@ -758,7 +730,7 @@ export function SurveyQuestionExplorer() {
                                   ? `${result.measure}: ${format(result.value)}`
                                   : "Response distribution"}
                               </h3>
-                              <small className="text-[12px] text-[#73868d]">
+                              <small className="text-[12px] text-[var(--fs-muted)]">
                                 {result.total_records.toLocaleString()} source
                                 records · Review status:{" "}
                                 {filters.review_status.replaceAll("_", " ")}
@@ -774,7 +746,7 @@ export function SurveyQuestionExplorer() {
                                   key={type}
                                   aria-pressed={chart === type}
                                   onClick={() => setChart(type)}
-                                  className={`border px-2 py-1.5 text-[12px] capitalize ${chart === type ? "border-[#0c8593] bg-[#e8f5f3] text-[#08717c]" : "border-[#e0e8eb] bg-white text-[#73868d]"}`}
+                                  className={`border px-2 py-1.5 text-[12px] capitalize ${chart === type ? "border-[#0c8593] bg-[#e8f5f3] text-[#08717c]" : "border-[#e0e8eb] bg-white text-[var(--fs-muted)]"}`}
                                 >
                                   {type}
                                 </button>
@@ -790,7 +762,7 @@ export function SurveyQuestionExplorer() {
                               <h3 className="text-sm">
                                 No usable answers in this selection
                               </h3>
-                              <p className="text-xs text-[#73868d]">
+                              <p className="text-xs text-[var(--fs-muted)]">
                                 Adjust filters, select another question, or sync
                                 project data. Missing responses are never
                                 treated as zero.
@@ -799,11 +771,11 @@ export function SurveyQuestionExplorer() {
                           ) : chart === "table" ? (
                             <ResultsTable result={result} />
                           ) : (
-                            <div className="h-[330px] px-3 py-6">
+                            <div aria-busy={results.isFetching} className="h-[330px] px-3 py-6">
                               <ResultChart result={result} chart={chart} />
                             </div>
                           )}
-                          <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-3 text-[12px] leading-5 text-[#73868d]">
+                          <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-3 text-[12px] leading-5 text-[var(--fs-muted)]">
                             <strong className="text-[#3d5962]">
                               Denominator: {result.denominator.toLocaleString()}{" "}
                               answered submissions.
@@ -831,7 +803,7 @@ export function SurveyQuestionExplorer() {
                       !results.error &&
                       !invalidDates && (
                         <Panel>
-                          <p className="p-8 text-center text-sm text-[#73868d]">
+                          <p className="p-8 text-center text-sm text-[var(--fs-muted)]">
                             Select a question to see its results.
                           </p>
                         </Panel>
@@ -872,7 +844,7 @@ export function SurveyQuestionExplorer() {
                 onChange={(event) => setTitle(event.target.value)}
               />
             </Field>
-            <p className="text-xs leading-5 text-[#73868d]">
+            <p className="text-xs leading-5 text-[var(--fs-muted)]">
               Your question, filters and chart are saved for this project.
               Reopening uses the latest synchronized data.
             </p>
@@ -902,7 +874,7 @@ function Panel({ children }: { children: ReactNode }) {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block min-w-0 flex-1">
-      <span className="mb-1.5 block text-[12px] font-medium uppercase tracking-wide text-[#73868d]">
+      <span className="mb-1.5 block text-[12px] font-medium uppercase tracking-wide text-[var(--fs-muted)]">
         {label}
       </span>
       {children}
@@ -929,7 +901,7 @@ function ResultsTable({ result }: { result: AnalysisResult }) {
   return (
     <div className="max-h-[420px] overflow-auto">
       <table className="w-full min-w-[480px] border-collapse text-left text-xs">
-        <thead className="sticky top-0 bg-[#f8fbfb] text-[12px] uppercase tracking-wide text-[#73868d]">
+        <thead className="sticky top-0 bg-[#f8fbfb] text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
           <tr>
             {[
               "Response / period",
@@ -974,7 +946,7 @@ function ResultChart({
   }));
   if (data.length > 60)
     return (
-      <div className="grid h-full place-items-center px-6 text-center text-sm text-[#73868d]">
+      <div className="grid h-full place-items-center px-6 text-center text-sm text-[var(--fs-muted)]">
         This result has {data.length} categories. Use the table or narrow your
         filters to chart up to 60 categories.
       </div>

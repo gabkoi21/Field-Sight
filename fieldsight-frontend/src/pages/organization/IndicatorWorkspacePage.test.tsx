@@ -133,7 +133,7 @@ it("opens source mapping from the selected table row and saves that indicator", 
   await screen.findByRole("button", { name: "Map source for Girls present" });
   expect(screen.queryByRole("combobox", { name: "Project" })).toBeNull();
   expect(
-    screen.getByText("School Feed Program / Monitoring & evaluation"),
+    screen.getByText("FieldSight / School Feed Program / Monitoring & evaluation"),
   ).toBeTruthy();
   expect(apiClient.indicators).toHaveBeenCalledWith("project", "", "");
   expect(

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface PageHeaderProps {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   description: string;
   children?: ReactNode;
@@ -9,13 +9,13 @@ interface PageHeaderProps {
 
 export function PageHeader({ eyebrow, title, description, children }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex items-start justify-between max-[560px]:flex-col max-[560px]:gap-[14px]">
-      <div>
-        <p className="mb-1 text-[12px] font-semibold uppercase leading-[1.4] tracking-[.08em] text-brand">{eyebrow}</p>
-        <h1 className="m-0 text-[2rem] font-bold leading-[1.15] tracking-[-0.05em] text-[#24334a]">{title}</h1>
-        <p className="mt-1.5 max-w-[680px] text-[0.875rem] leading-[1.55] text-[#718096]">{description}</p>
+    <header className="flex min-w-0 flex-col justify-between gap-4 lg:flex-row lg:items-start">
+      <div className="min-w-0 flex-1">
+        {eyebrow && <p className="mb-2 mt-0 text-xs font-semibold leading-5 tracking-wide text-[var(--fs-muted)]">{eyebrow}</p>}
+        <h1 className="m-0 break-words text-[1.75rem] font-semibold leading-tight tracking-tight text-[var(--fs-text)]">{title}</h1>
+        <p className="mb-0 mt-2 max-w-[68ch] text-sm leading-6 text-[var(--fs-muted)]">{description}</p>
       </div>
-      {children && <div className="flex gap-2">{children}</div>}
-    </div>
+      {children && <div className="flex max-w-full flex-wrap items-center gap-2 lg:justify-end">{children}</div>}
+    </header>
   );
 }

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { skipLogin } from "../auth/developmentAccess";
 import {
@@ -6,9 +6,9 @@ import {
   RequireSuperAdmin,
 } from "../auth/RouteGuards";
 import { WorkspaceShell } from "../workspace/WorkspaceShell";
+import { RouteContent } from "../components/layout/RouteContent";
 const SurveyQuestionExplorer = lazy(() => import("../pages/organization/SurveyQuestionExplorer").then(module => ({ default: module.SurveyQuestionExplorer })));
 import { LoginPage } from "../pages/auth/LoginPage";
-import { OrganizationDashboardPage } from "../pages/dashboard/OrganizationDashboardPage";
 import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
 import { KoboConnectionsPage } from "../pages/organization/KoboConnectionsPage";
 import { WorkspacesPage } from "../workspace/WorkspacesPage";
@@ -42,15 +42,17 @@ import {
 
 export function App() {
   return (
-    <Suspense fallback={<p role="status" className="p-6">Loading page…</p>}>
     <Routes>
-      <Route
-        path="/login"
-        element={skipLogin ? <Navigate replace to="/" /> : <LoginPage />}
-      />
-      <Route path="/sign-in" element={<LoginPage />} />
-      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-      <Route path="/account-help" element={<AccountHelpPage />} />
+      {/* Public pages have their own boundary; authenticated shells never suspend here. */}
+      <Route element={<RouteContent />}>
+        <Route
+          path="/login"
+          element={skipLogin ? <Navigate replace to="/" /> : <LoginPage />}
+        />
+        <Route path="/sign-in" element={<LoginPage />} />
+        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+        <Route path="/account-help" element={<AccountHelpPage />} />
+      </Route>
       <Route
         path="/superadmin"
         element={
@@ -75,7 +77,7 @@ export function App() {
           </RequireOrganizationMember>
         }
       >
-        <Route index element={<OrganizationDashboardPage />} />
+        <Route index element={<Navigate replace to="/projects" />} />
         <Route path="projects" element={<WorkspacesPage />} />
         <Route
           path="workspaces"
@@ -105,6 +107,5 @@ export function App() {
       </Route>
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>
-    </Suspense>
   );
 }

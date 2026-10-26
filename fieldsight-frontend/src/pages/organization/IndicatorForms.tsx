@@ -42,9 +42,8 @@ import {
 
 
 
-export const inputClass =
-
-  "w-full min-w-0 rounded-md border border-[#dce5e8] bg-white px-3 py-2 text-xs text-[#24434c] outline-none focus:border-[#0c8593]";
+export { controlClass as inputClass } from "../../components/ui/controlStyles";
+import { controlClass as inputClass } from "../../components/ui/controlStyles";
 
 export const levels: FrameworkNode["node_type"][] = [
 
@@ -1648,7 +1647,6 @@ export function FrameworkForm({
 
         </FormField>
 
-        {indicator && <label className="flex gap-2 text-xs"><input type="checkbox" checked={form.is_active ?? false} onChange={event => update("is_active", event.target.checked)} />Active for reporting (review the calculation preview before saving)</label>}
         <Actions onClose={onClose} saving={saving} />
 
       </form>
@@ -1747,7 +1745,7 @@ export function PeriodTargetsForm({
 
       {targets.isLoading ? (
 
-        <LoadingState />
+        <LoadingState variant="panel" label="Loading indicator targets…" />
 
       ) : (
 

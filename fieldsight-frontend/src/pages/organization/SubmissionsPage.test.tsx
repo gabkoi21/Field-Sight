@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { SubmissionsPage } from "./SubmissionsPage";
@@ -66,4 +66,33 @@ it("recovers when a later page disappears and resets for search and review filte
   fireEvent.change(await screen.findByLabelText("Review status filter"), { target: { value: "Invalid" } });
   await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("review_status")).toBe("invalid"));
   expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("offset")).toBe("0");
+});
+
+it("keeps filters mounted through slow loads and retains rows and focus during background refresh errors", async () => {
+  vi.mocked(apiClient.organizationProjects).mockResolvedValue([{ id: "p", name: "QA" }] as never);
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiClient.submissionPage).mockImplementationOnce(() => new Promise(resolve => { finish = resolve as typeof finish; }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/submissions?project_id=p"]}><SubmissionsPage /></MemoryRouter></QueryClientProvider>);
+  const search = screen.getByLabelText("Search submissions");
+  search.focus();
+  expect(screen.getByRole("status").textContent).toBe("Loading submissions…");
+  const loaded = { items: [{ id: "local-1", external_id: "RECORD-1", project_id: "p", project_name: "QA", review_status: "ready", submitted_at: null }], total: 1, counts: { ready: 1 } };
+  await act(async () => { finish(loaded); });
+  await screen.findByText("RECORD-1");
+  expect(document.activeElement).toBe(search);
+  let rejectRefresh!: (error: Error) => void;
+  vi.mocked(apiClient.submissionPage).mockImplementationOnce(() => new Promise((_, reject) => { rejectRefresh = reject; }));
+  act(() => { void client.invalidateQueries({ queryKey: ["submissions", "page"] }); });
+  await screen.findByText("Updating submissions…");
+  expect(screen.getByText("RECORD-1")).toBeTruthy();
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(document.activeElement).toBe(search);
+  await act(async () => { rejectRefresh(new Error("Refresh unavailable")); });
+  expect(await screen.findByRole("button", { name: "Retry submissions" })).toBeTruthy();
+  expect(screen.getByText("RECORD-1")).toBeTruthy();
+  expect(screen.queryByText("Updating submissions…")).toBeNull();
+  vi.mocked(apiClient.submissionPage).mockResolvedValue({ items: [], total: 0, counts: {} });
+  fireEvent.click(screen.getByRole("button", { name: "Retry submissions" }));
+  expect(await screen.findByText("No submissions match these filters.")).toBeTruthy();
 });

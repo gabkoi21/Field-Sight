@@ -85,7 +85,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
   ].filter(Boolean);
   return (
     <Page
-      breadcrumb={workspaceOnly ? project?.name ?? "Select a project" : "FieldSight / Project"}
+      breadcrumb={workspaceOnly ? project?.name ?? "Select a project" : "FieldSight / Organization"}
       title={adminOnly ? "Administrator accounts" : "Team & invitations"}
       description={adminOnly ? "Manage organization administrators and their invitations." : "Manage field members and project team assignments."}
       actions={
@@ -138,9 +138,11 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
           {error?.message}
         </Notice>
       ))}
+      {((team.isFetching && team.data) || (scope && assignments.isFetching && assignments.data)) && <LoadingState variant="inline" label="Updating team…" />}
+      {(team.error || assignments.error) && <Button variant="secondary" onClick={() => { void team.refetch(); if (scope) void assignments.refetch(); }}>Retry team</Button>}
       {team.isLoading || (scope && assignments.isLoading) ? (
-        <LoadingState />
-      ) : scope ? (
+        <LoadingState variant="panel" label="Loading team members…" />
+      ) : (team.error && !team.data) || (scope && assignments.error && !assignments.data) ? null : scope ? (
         <>
           <Panel>
             <TeamTable

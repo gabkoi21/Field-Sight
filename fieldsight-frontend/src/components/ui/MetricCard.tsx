@@ -29,16 +29,16 @@ export function MetricCard({
   onClick?: () => void;
 }) {
   const content = (
-    <Card className={`h-full p-4 ${onClick ? "transition hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-md" : ""} ${className}`}>
+    <Card className={`h-full p-5 ${onClick ? "transition-colors hover:border-brand/40 hover:bg-blue-50/30" : ""} ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <small className="text-xs font-bold uppercase tracking-wider text-[#64748b]">{label}</small>
-          <strong className="mt-2 block text-[1.85rem] font-bold leading-none tracking-tight text-[#1e293b]">
+          <small className="text-sm font-medium text-[#64748b]">{label}</small>
+          <strong className="mt-2 block text-[2rem] font-semibold leading-tight tracking-tight tabular-nums text-[#1e293b]">
             {typeof value === "number" ? value.toLocaleString() : value}
           </strong>
         </div>
         <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tones[tone]}`}>
-          <Icon size={18} />
+          <Icon size={20} aria-hidden="true" />
         </span>
       </div>
       {context && <div className="mb-0 mt-2 text-xs text-[#64748b]">{context}</div>}

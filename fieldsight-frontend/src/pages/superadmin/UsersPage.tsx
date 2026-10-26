@@ -9,7 +9,7 @@ import {
   Users,
   UserX,
 } from "lucide-react";
-import { PageHeader, Ring } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, PageHeader, Ring } from "../../components/ui";
 import {
   AdminMetric,
   AdminPanel,
@@ -57,7 +57,6 @@ function initials(value: string) {
 }
 
 export function UsersPage() {
-  const [showNavigationLoader, setShowNavigationLoader] = useState(true);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<RoleFilter>("All");
   const usersQuery = useQuery({
@@ -122,29 +121,21 @@ export function UsersPage() {
         ? "Unable to load users from the API."
         : "";
 
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setShowNavigationLoader(false), 350);
-    return () => window.clearTimeout(timeout);
-  }, []);
 
+
+  if (usersQuery.isLoading) return <div className="space-y-6"><PageHeader eyebrow="Platform administration" title="Users & roles" description="Loading users from FieldSight…" /><LoadingSkeleton layout="table-page" metricCount={4} label="Loading users…" /></div>;
+  if (usersQuery.error && !(usersQuery.data !== undefined)) return <div className="space-y-6"><PageHeader eyebrow="Platform administration" title="Users & roles" description="Manage platform users." /><div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800">Unable to load users. <Button variant="secondary" onClick={() => void usersQuery.refetch()}>Retry users</Button></div></div>;
   return (
     <>
-      {showNavigationLoader && (
-        <div className="fixed bottom-0 left-[258px] right-0 top-[74px] z-40 grid place-items-center bg-white/70 backdrop-blur-[1px] max-[1440px]:left-[232px] max-[1050px]:left-0 max-[1050px]:top-16 max-[560px]:top-[58px]" role="status">
-          <span className="inline-flex items-center gap-3 rounded-lg border border-[#e5e9ed] bg-white px-5 py-4 text-sm text-[#526274] shadow-lg">
-            <Ring className="size-5 text-brand" aria-hidden="true" />
-            Loading users…
-          </span>
-        </div>
-      )}
       <PageHeader
         eyebrow="Platform access"
         title="Users & roles"
         description="View platform accounts, organization membership, and assigned roles."
       />
+      {usersQuery.isFetching && <LoadingState variant="inline" label="Updating users…" />}
       {loadError && (
         <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
-          {loadError}
+          {loadError} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void usersQuery.refetch()}>Retry users</button>
         </p>
       )}
 
@@ -209,7 +200,7 @@ export function UsersPage() {
           </label>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[960px] [&_th]:!px-[13px] [&_th]:!py-[10px] [&_td]:!px-[13px] [&_td]:!py-[11px]">
+          <table aria-busy={usersQuery.isFetching} className="min-w-[960px] [&_th]:!px-[13px] [&_th]:!py-[10px] [&_td]:!px-[13px] [&_td]:!py-[11px]">
             <thead>
               <tr>
                 <th>User</th>

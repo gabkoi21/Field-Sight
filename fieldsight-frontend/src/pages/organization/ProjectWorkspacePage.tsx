@@ -118,7 +118,7 @@ export function ProjectWorkspacePage() {
     [submissionsQuery.data, projectId],
   );
 
-  if (authLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState />;
+  if (authLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState variant="page" label="Loading project…" />;
   if (projectQuery.error)
     return (
       <div className="rounded-xl border border-[#f7cfd4] bg-[#fff3f4] p-6 text-sm text-[#b42318]">
@@ -126,7 +126,7 @@ export function ProjectWorkspacePage() {
       </div>
     );
   const project = projectQuery.data;
-  if (!project) return <LoadingState />;
+  if (!project) return <div className="p-6 text-sm">Project unavailable. <button className="min-h-11 px-3 font-semibold underline" onClick={() => void projectQuery.refetch()}>Retry project</button></div>;
   const overview = overviewQuery.data;
   const totalSubmissions = projectSubmissions.length;
   const readyRecords = projectSubmissions.filter((item) => item.review_status === "ready").length;

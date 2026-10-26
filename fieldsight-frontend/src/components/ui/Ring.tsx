@@ -2,24 +2,14 @@ import type { ComponentProps } from "react";
 
 export function Ring({ className, style, ...props }: ComponentProps<"svg">) {
   return (
-    <>
-      <style>{`
-        @keyframes loading-ui-ring-spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
       <svg
         viewBox="0 0 24 24"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={className}
-        style={{
-          animationName: "loading-ui-ring-spin",
-          animationDuration: "var(--duration, 1s)",
-          animationTimingFunction: "linear",
-          animationIterationCount: "infinite",
-          ...style,
-        }}
+        className={`size-4 text-brand motion-safe:animate-spin ${className ?? ""}`}
+        style={style}
+        aria-hidden="true"
+        focusable="false"
         {...props}
       >
         <path
@@ -30,6 +20,5 @@ export function Ring({ className, style, ...props }: ComponentProps<"svg">) {
           strokeLinejoin="round"
         />
       </svg>
-    </>
   );
 }

@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { ClipboardList, FileText, LayoutDashboard, Table2, Target, Users } from "lucide-react";
 import { useWorkspace } from "./WorkspaceContext";
-import { LoadingState } from "../components/ui";
+import { LoadingState, PageHeader } from "../components/ui";
+import { controlClass } from "../components/ui/controlStyles";
 
-export const fieldClass =
-  "w-full rounded-md border border-[#dce4e8] bg-white px-3 py-2.5 text-sm text-[#28434d] outline-none focus:border-[#0b51b7] focus:ring-2 focus:ring-[#0b51b7]/10";
+export const fieldClass = controlClass;
 export function Panel({
   children,
   className = "",
@@ -14,7 +15,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={`rounded-lg border border-[#e1e7eb] bg-white ${className}`}
+      className={`min-w-0 rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] shadow-[0_2px_8px_rgba(23,40,70,.03)] ${className}`}
     >
       {children}
     </section>
@@ -28,7 +29,7 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs font-medium text-[#637580]">
+    <label className="grid min-w-0 gap-1.5 text-sm font-medium text-[var(--fs-muted)]">
       <span>{label}</span>
       {children}
     </label>
@@ -64,32 +65,21 @@ export function Page({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[.16em] text-[#73868d]">
-            {breadcrumb}
-          </p>
-          <h1 className="m-0 text-[27px] font-semibold tracking-tight text-[#193a49]">
-            {title}
-          </h1>
-          <p className="mb-0 mt-2 text-sm text-[#73828b]">{description}</p>
-        </div>
-        <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>
-      </header>
+    <div className="min-w-0 space-y-6">
+      <PageHeader eyebrow={breadcrumb} title={title} description={description}>{actions}</PageHeader>
       {children}
     </div>
   );
 }
 export function WorkspaceGate({ children }: { children: ReactNode }) {
   const state = useWorkspace();
-  if (state.loading) return <LoadingState />;
-  if (state.error) return <Notice error>{state.error.message}</Notice>;
+  if (state.loading) return <LoadingState variant="page" label="Loading project…" />;
+  if (state.error && !state.project) return <Notice error>{state.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={state.reload}>Retry project</button></Notice>;
   if (!state.project)
     return (
       <Panel className="p-10 text-center">
         <h2 className="text-lg">Create your first project</h2>
-        <p className="text-sm text-[#73828b]">
+        <p className="text-sm text-[var(--fs-muted)]">
           A project holds your team, data tables, framework and indicator
           plan.
         </p>
@@ -105,25 +95,26 @@ export function WorkspaceTabs() {
   return (
     <nav
       aria-label="Project sections"
-      className="flex gap-5 overflow-x-auto border-b border-[#e1e7eb] bg-white px-5 text-sm text-[#607882]"
+      className="grid grid-cols-2 gap-1.5 rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] p-1.5 sm:grid-cols-3 xl:grid-cols-6"
     >
       {[
-        ["Details", `/projects/${projectId}`],
-        ["Field Team", `/projects/${projectId}/team`],
-        ["Forms", `/forms?project_id=${projectId}`],
-        ["Data tables", `/data-tables?project_id=${projectId}`],
-        ["Indicators", `/projects/${projectId}/indicators`],
-        ["Dashboards", `/dashboards?project_id=${projectId}`],
-      ].map(([label, to]) => (
+        { label: "Details", to: `/projects/${projectId}`, icon: ClipboardList },
+        { label: "Field Team", to: `/projects/${projectId}/team`, icon: Users },
+        { label: "Forms", to: `/forms?project_id=${projectId}`, icon: FileText },
+        { label: "Data tables", to: `/data-tables?project_id=${projectId}`, icon: Table2 },
+        { label: "Indicators", to: `/projects/${projectId}/indicators`, icon: Target },
+        { label: "Dashboards", to: `/dashboards?project_id=${projectId}`, icon: LayoutDashboard },
+      ].map(({ label, to, icon: Icon }) => (
         <NavLink
           key={label}
           to={to}
-          end={label === "Details"}
+          end
           className={({ isActive }) =>
-            `shrink-0 border-b-2 py-3 no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] ${isActive ? "border-[#0b51b7] font-semibold text-[#0b51b7]" : "border-transparent text-[#607882] hover:border-[#b8ccea] hover:text-[#0b51b7]"}`
+            `flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] ${isActive ? "bg-[var(--fs-primary)] text-white shadow-sm" : "text-[var(--fs-muted)] hover:bg-blue-50 hover:text-[var(--fs-primary)] active:bg-blue-100"}`
           }
         >
-          {label}
+          <Icon size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
+          <span>{label}</span>
         </NavLink>
       ))}
     </nav>

@@ -140,3 +140,18 @@ it("explains that a form without a connection is only removed from FieldSight", 
   expect(within(dialog).getByText(/All FieldSight records and Kobo assets are retained/)).toBeTruthy();
   expect(within(dialog).queryByText(/permanently deleted from KoboToolbox/)).toBeNull();
 });
+
+it("keeps search visible outside the filter panel and supports keyboard tab navigation", async () => {
+  vi.mocked(apiClient.submissions).mockResolvedValue([]);
+  setup();
+  const search = screen.getByRole("searchbox", { name: "Search projects" });
+  fireEvent.change(search, { target: { value: "School" } });
+  fireEvent.click(screen.getByRole("button", { name: "Filter projects" }));
+  expect(screen.getByLabelText("Project status")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Filter projects" }));
+  expect((search as HTMLInputElement).value).toBe("School");
+  expect(screen.queryByLabelText("Project status")).toBeNull();
+  fireEvent.keyDown(screen.getByRole("tab", { name: "Projects" }), { key: "ArrowRight" });
+  expect(screen.getByRole("tab", { name: "Sites" }).getAttribute("aria-selected")).toBe("true");
+  await screen.findByText(/Current project:/);
+});

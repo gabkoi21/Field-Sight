@@ -12,6 +12,8 @@ type WorkspaceState = {
   hasSelectedProject: boolean;
   selectProject: (id: string) => void;
   loading: boolean;
+  refreshing: boolean;
+  reload: () => void;
   error: Error | null;
   isAdmin: boolean;
 };
@@ -47,15 +49,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const hasSelectedProject = projects.some((p) => p.id === projectId);
   function selectProject(id: string) {
     setSelected(id);
-    if (routeId)
-      navigate(location.pathname.replace(routeId, id) + location.search);
-    else {
-      const params = new URLSearchParams(location.search);
-      params.set("project_id", id);
-      params.delete("page");
-      params.delete("offset");
-      navigate(`${location.pathname}?${params}`);
-    }
+    const params = new URLSearchParams(location.search);
+    params.delete("page");
+    params.delete("offset");
+    // Nested project routes carry their scope in the path; avoid stale query IDs.
+    if (routeId) params.delete("project_id");
+    else params.set("project_id", id);
+    const path = routeId ? location.pathname.replace(routeId, id) : location.pathname;
+    navigate(`${path}${params.size ? `?${params}` : ""}`);
   }
   return (
     <WorkspaceContext.Provider
@@ -67,6 +68,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         hasSelectedProject,
         selectProject,
         loading: query.isLoading,
+        refreshing: query.isFetching && !query.isLoading,
+        reload: () => { void query.refetch(); },
         error: query.error,
         isAdmin: membership?.role === "organization_admin",
       }}

@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { controlClass } from "../../components/ui/controlStyles";
+import { LoadingSkeleton, LoadingState } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
@@ -63,8 +66,7 @@ const reviewStyles: Record<Review, string> = {
   "Needs review": "bg-[#fff3e5] text-[#d9841c]",
   Invalid: "bg-[#fff0f2] text-[#d95667]",
 };
-const selectClass =
-  "rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[8px] font-sans text-[12px] font-normal leading-normal text-[#69798e]";
+const selectClass = controlClass + " w-auto max-w-full";
 
 export function SubmissionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -93,7 +95,7 @@ export function SubmissionsPage() {
   const params = new URLSearchParams({ offset: String((currentPage - 1) * pageSize), limit: String(pageSize), search: query });
   if (projectId) params.set("project_id", projectId);
   if (review !== "All records") params.set("review_status", review === "Ready" ? "ready" : review === "Invalid" ? "invalid" : "needs_review");
-  const { data, isLoading, error } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading });
+  const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading });
   const rows: Row[] = (data?.items ?? []).map(toRow);
   const total = data?.total ?? 0;
   const counts = data?.counts ?? {};
@@ -146,29 +148,16 @@ export function SubmissionsPage() {
   });
   const exportCsv = () => csvExport.mutate();
 
-  if (isLoading || outOfRange) {
-    return (
-      <div className="rounded-[10px] bg-white p-[60px] text-center text-[#758092]">Loading submission records…</div>
-    );
-  }
 
   return (
     <div className="text-[#25324a]">
-      {error && <p role="alert">Unable to load submissions: {error.message}</p>}
+      {error && <p role="alert">Unable to load submissions: {error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void refetch()}>Retry submissions</button></p>}
       {csvExport.error && <p role="alert">Unable to export: {csvExport.error.message}</p>}
       <p className="text-xs">Exports include every matching submission across all pages, filtered by the selected project, review status, search and UTC period.</p>
-      <div className="mb-[19px]">
-        <div>
-          <p className={eyebrowClass}>DATA COLLECTION</p>
-          <h1 className="!m-0 !font-sans !text-[28px] !font-bold !leading-[1.2] !tracking-[-.45px]">Submissions</h1>
-          <p className="!m-0 text-[14px] text-[#75849a]">
-            Review every completed form sent from your field teams and connected sources.
-          </p>
-        </div>
-      </div>
+      <div className="mb-6"><PageHeader eyebrow="FieldSight / Data collection" title="Submissions" description="Review every completed form sent from your field teams and connected sources." /></div>
 
-      <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
+      {(isLoading || authLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" metricCount={4} announce={false} label="Loading submission counts…" /></div> : data && <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <Database size={19} />
           </span>
@@ -176,11 +165,11 @@ export function SubmissionsPage() {
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {Object.values(counts).reduce((sum, n) => sum + n, 0).toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">
             {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
           </small>
         </article>
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
             <FileCheck2 size={19} />
           </span>
@@ -188,9 +177,9 @@ export function SubmissionsPage() {
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {(counts.ready ?? 0).toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Validated and export-ready records</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Validated and export-ready records</small>
         </article>
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
             <ShieldAlert size={19} />
           </span>
@@ -198,9 +187,9 @@ export function SubmissionsPage() {
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {(counts.needs_review ?? 0).toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Records waiting for quality review</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Records waiting for quality review</small>
         </article>
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] bg-white p-[17px] text-left">
+        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]">
             <ShieldAlert size={19} />
           </span>
@@ -208,24 +197,26 @@ export function SubmissionsPage() {
           <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
             {(counts.invalid ?? 0).toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Blocked from export until resolved</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Blocked from export until resolved</small>
         </article>
-      </section>
+      </section>}
 
       <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
+        <label className="flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand">
           <Search size={16} />
           <input
-            className="w-full border-0 bg-transparent py-[8px] font-sans text-[14px] font-normal leading-normal text-[#4e5e74] outline-none"
+            className="min-h-11 w-full min-w-0 rounded-lg border-0 bg-transparent py-2 text-base sm:text-sm text-[var(--fs-text)] focus:outline-none"
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
               setCurrentPage(1);
             }}
+            aria-label="Search submissions"
             placeholder="Search ID, enumerator collector, location, or form"
           />
         </label>
         <select
+          aria-label="Submissions project filter"
           className={`${selectClass} w-full`}
           value={projectId}
           onChange={(event) => {
@@ -258,16 +249,17 @@ export function SubmissionsPage() {
           type="button"
           onClick={exportCsv}
           disabled={!total || csvExport.isPending}
-          className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[14px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-11 cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[14px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download size={16} />
           {csvExport.isPending ? "Exporting…" : "Export all filtered data"}
         </button>
       </div>
 
-      <Card className="mt-[16px] rounded-none">
+      {isFetching && data && <div className="my-3"><LoadingState variant="inline" label="Updating submissions…" /></div>}
+      {(isLoading || authLoading || outOfRange) ? <div className="mt-4"><LoadingSkeleton label="Loading submissions…" columns={8} /></div> : <Card className="mt-[16px] rounded-none">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] border-separate border-spacing-0 overflow-hidden text-left">
+          <table aria-busy={isFetching} className="w-full min-w-[1040px] border-separate border-spacing-0 overflow-hidden text-left">
             <thead>
               <tr>
                 {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Sync", "Review"].map(
@@ -340,7 +332,7 @@ export function SubmissionsPage() {
                   </td>
                 </tr>
               ))}
-              {visible.length === 0 && (
+              {!error && visible.length === 0 && (
                 <tr>
                   <td
                     className="whitespace-nowrap border-t border-[#edf1f5] px-4 py-3 text-[12px] leading-[1.45] text-[#536177]"
@@ -414,7 +406,7 @@ export function SubmissionsPage() {
             </button>
           </div>
         </footer>
-      </Card>
+      </Card>}
 
       {record
         ? false && (

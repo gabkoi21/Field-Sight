@@ -7,7 +7,6 @@ import {
   type WorkspaceDetails,
 } from "../services/apiClient";
 import { useWorkspace } from "./WorkspaceContext";
-import { ProjectSetupChecklist } from "./ProjectSetupChecklist";
 import {
   Notice,
   Page,
@@ -16,8 +15,9 @@ import {
   WorkspaceTabs,
 } from "./WorkspaceUI";
 
-const input =
-  "h-9 w-full min-w-0 rounded border border-[#e3e5eb] bg-white px-3 text-xs text-[#49515c] outline-none focus:border-[#0b51b7] focus:ring-1 focus:ring-[#0b51b7]/15";
+import { controlClass } from "../components/ui/controlStyles";
+
+const input = controlClass;
 function metadata(project: ApiProject): WorkspaceDetails {
   const data = project.workspace_details ?? {};
   return {
@@ -106,7 +106,6 @@ export function WorkspaceDetailsPage() {
     >
       <WorkspaceGate>
         <WorkspaceTabs />
-        <ProjectSetupChecklist />
         {message && <Notice>{message}</Notice>}
         {save.error && <Notice error>{save.error.message}</Notice>}
         <Panel>

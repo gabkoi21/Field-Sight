@@ -68,6 +68,9 @@ class RefreshSession(SQLModel, table=True):
     token_hash: str = Field(sa_column=Column(String(64), unique=True, index=True, nullable=False))
     expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False))
     revoked_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    family_id: UUID | None = Field(default=None, index=True)
+    remembered: bool = Field(default=True, nullable=False)
+    rotated_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     replaced_by_id: UUID | None = Field(default=None, nullable=True)
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 

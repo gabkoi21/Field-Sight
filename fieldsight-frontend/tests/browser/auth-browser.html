@@ -1,0 +1,36 @@
+<!doctype html><title>Disposable authentication browser verification</title>
+<h1>Authentication browser verification</h1><p>Synthetic accounts and isolated database only.</p>
+<button id="direct">Reproduce cross-site routing</button>
+<button id="login">Same-origin session login</button><button id="remember">Remembered login</button>
+<button id="restore">Cookie-only restoration</button><button id="renew">Renew session</button>
+<button id="logout">Logout</button><button id="inspect">Inspect diagnostics</button>
+<pre id="result">Ready</pre><pre id="state"></pre>
+<script type="module">
+import {apiClient} from '/src/services/apiClient.ts';
+const result=document.querySelector('#result');
+const state=document.querySelector('#state');
+window.addEventListener('fieldsight-session-state', e=>state.textContent=e.detail);
+const report=async(label)=>{
+ const stats=await fetch('/api/__test/diagnostics').then(r=>r.json());
+ result.textContent=JSON.stringify({label,...stats,httpOnlyHidden:!document.cookie.includes('refresh_token'),persistentToken:!!localStorage.getItem('fieldsight_access_token'),sessionToken:!!sessionStorage.getItem('fieldsight_access_token')},null,2);
+};
+const run=(id,fn)=>document.querySelector(id).onclick=async()=>{try{await fn();}catch(e){result.textContent=e.message;}};
+run('#direct',async()=>{
+ const login=await fetch('http://127.0.0.1:8015/auth/login',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({login:'browser-admin',password:'SyntheticBrowser123!',remember:true})});
+ const refresh=await fetch('http://127.0.0.1:8015/auth/refresh',{method:'POST',credentials:'include'});
+ await report(`Cross-site login ${login.status}; refresh ${refresh.status}`);
+});
+const login=async remember=>{
+ // Accelerate exactly one scheduled 14-minute boundary; production token lifetime remains 15 minutes.
+ const original=window.setTimeout.bind(window);let accelerated=false;
+ window.setTimeout=(fn,delay,...args)=>{if(!accelerated&&delay>800000&&delay<900000){accelerated=true;return original(fn,250,...args);}return original(fn,delay,...args);};
+ await apiClient.login('browser-admin','SyntheticBrowser123!',remember);
+ await new Promise(r=>original(r,700));await report('Same-origin login and scheduled renewal');
+};
+run('#login',()=>login(false));run('#remember',()=>login(true));
+run('#restore',async()=>{localStorage.removeItem('fieldsight_access_token');sessionStorage.removeItem('fieldsight_access_token');location.href='?restore=1';});
+run('#renew',async()=>{await Promise.all([fetch('/api/auth/refresh',{method:'POST',credentials:'include'}),apiClient.me()]);await report('Renewal and continued access');});
+run('#logout',async()=>{await apiClient.logout();await report('Explicit logout');});
+run('#inspect',()=>report('Current diagnostics'));
+if(location.search.includes('restore=1')){const user=await apiClient.restore();await report(user?'Cookie-only startup authenticated':'Signed out');}
+</script>

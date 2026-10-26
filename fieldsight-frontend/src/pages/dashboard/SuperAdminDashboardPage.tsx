@@ -26,7 +26,7 @@ import {
   YAxis,
 } from "recharts";
 import { AdminStatus } from "../../components/superadmin/AdminUi";
-import { EmptyState, LoadingState, MetricCard, Panel } from "../../components/ui";
+import { Button, EmptyState, LoadingSkeleton, LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
 import { apiClient } from "../../services/apiClient";
 
 const palette = ["#0b51b7", "#6d81f5", "#a7b4c8"];
@@ -37,8 +37,9 @@ export function SuperAdminDashboardPage() {
   const usersQuery = useQuery({ queryKey: ["platform-users"], queryFn: apiClient.users });
   const statusQuery = useQuery({ queryKey: ["health", "status"], queryFn: apiClient.status, refetchInterval: 30_000 });
   if (organizationsQuery.isLoading || usersQuery.isLoading)
-    return <LoadingState label="Loading platform operations…" />;
+    return <div className="space-y-6"><PageHeader eyebrow="Platform operations" title="Platform overview" description="Tenant access, account coverage, and service health." /><LoadingSkeleton layout="dashboard" metricCount={4} label="Loading platform operations…" /></div>;
 
+  if ((organizationsQuery.error && !organizationsQuery.data) || (usersQuery.error && !usersQuery.data)) return <section role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800"><h1 className="text-xl font-semibold">Unable to load platform overview</h1><p>Organization or account data could not be loaded.</p><Button variant="secondary" onClick={() => { void organizationsQuery.refetch(); void usersQuery.refetch(); }}>Retry platform overview</Button></section>;
   const organizations = organizationsQuery.data ?? [];
   const users = usersQuery.data ?? [];
   const tenantUsers = users.filter((user) => user.platform_role !== "super_admin");
@@ -94,6 +95,8 @@ export function SuperAdminDashboardPage() {
 
   return (
     <div className="flex flex-col gap-5 text-[#24334a]">
+      {(organizationsQuery.isFetching || usersQuery.isFetching || statusQuery.isFetching) && <LoadingState variant="inline" label="Updating platform overview…" />}
+      {(organizationsQuery.error || usersQuery.error) && <div role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to update platform data. Showing the last loaded values. <button className="min-h-11 px-3 font-semibold underline" onClick={() => { void organizationsQuery.refetch(); void usersQuery.refetch(); }}>Retry platform overview</button></div>}
       <header className="flex items-end justify-between gap-4 max-[700px]:flex-col max-[700px]:items-start">
         <div>
           <p className="mb-1 mt-0 text-[12px] font-bold uppercase tracking-[.12em] text-brand">Platform operations</p>
@@ -136,7 +139,7 @@ export function SuperAdminDashboardPage() {
         </button>
       </section>
 
-      <section className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
+      <section aria-busy={organizationsQuery.isFetching || usersQuery.isFetching} className="grid grid-cols-4 gap-3 max-[1050px]:grid-cols-2 max-[560px]:grid-cols-1">
         <MetricCard
           label="Organizations"
           value={organizations.length}

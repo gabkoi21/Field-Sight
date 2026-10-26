@@ -98,6 +98,7 @@ export function WorkspaceReportsPage() {
   }
   return (
     <Page
+      breadcrumb={`FieldSight / ${project?.name ?? "Project"}`}
       title="Project report"
       description="Generated from current saved data; this is not a stored historical snapshot."
       actions={
@@ -139,7 +140,7 @@ export function WorkspaceReportsPage() {
               onChange={(e) => setThrough(e.target.value)}
             />
           </Field>
-          <p className="m-0 pb-2 text-xs text-[#87969d]">
+          <p className="m-0 pb-2 text-xs text-[var(--fs-muted)]">
             Dates filter actuals. Targets are not prorated.
           </p>
         </Panel>
@@ -151,22 +152,24 @@ export function WorkspaceReportsPage() {
             {e?.message}
           </Notice>
         ))}
+        {indicators.isFetching && indicators.data && <LoadingState variant="inline" label="Updating report…" />}
+        {(indicators.error || tables.error) && <Button variant="secondary" onClick={() => { void indicators.refetch(); void tables.refetch(); }}>Retry report data</Button>}
         {indicators.isLoading ? (
-          <LoadingState />
+          <LoadingState variant="panel" label="Preparing project report…" />
         ) : (
-          !invalid && (
+          !invalid && (!indicators.error || indicators.data) && (
             <>
               <Panel className="p-6">
-                <p className="text-[12px] uppercase tracking-widest text-[#87969d]">
+                <p className="text-[12px] uppercase tracking-widest text-[var(--fs-muted)]">
                   Monitoring & evaluation
                 </p>
                 <h2 className="text-xl font-semibold">{project?.name}</h2>
                 <p className="text-xs">Current data report. Values may change after sync or review; no historical snapshot is stored. Results retrieved: {indicators.dataUpdatedAt ? new Date(indicators.dataUpdatedAt).toLocaleString() : "Not yet loaded"}.</p>
                 <Link to={`/projects/${projectId}/indicators`} className="text-sm text-[#0b51b7] underline print:hidden">Inspect indicators and calculation sources</Link>
-                <p className="text-sm leading-7 text-[#73868d]">
+                <p className="text-sm leading-7 text-[var(--fs-muted)]">
                   {project?.description}
                 </p>
-                <div className="mt-5 flex flex-wrap gap-8 text-xs text-[#73868d]">
+                <div className="mt-5 flex flex-wrap gap-8 text-xs text-[var(--fs-muted)]">
                   <span>
                     Window: {from || "All dates"} — {through || "Present"}
                   </span>
@@ -183,7 +186,7 @@ export function WorkspaceReportsPage() {
                 </h2>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[750px] text-left text-xs">
-                    <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
+                    <thead className="bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                       <tr>
                         {[
                           "Indicator",
@@ -240,7 +243,7 @@ export function WorkspaceReportsPage() {
                   </table>
                 </div>
                 {!indicators.data?.length && (
-                  <p className="p-5 text-sm text-[#87969d]">
+                  <p className="p-5 text-sm text-[var(--fs-muted)]">
                     No indicators have been defined for this project.
                   </p>
                 )}
@@ -249,7 +252,7 @@ export function WorkspaceReportsPage() {
                 <h2 className="mt-0 text-sm font-semibold">
                   Data sources & interpretation
                 </h2>
-                <ul className="space-y-2 pl-4 text-xs leading-6 text-[#73868d]">
+                <ul className="space-y-2 pl-4 text-xs leading-6 text-[var(--fs-muted)]">
                   {tables.data?.map((table) => (
                     <li key={table.id}>
                       {table.title} · {table.source} · {table.records} stored
@@ -257,7 +260,7 @@ export function WorkspaceReportsPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mb-0 text-xs leading-6 text-[#87969d]">
+                <p className="mb-0 text-xs leading-6 text-[var(--fs-muted)]">
                   Linked calculations use ready records only; missing and
                   invalid answers are excluded from answer-based denominators.
                   Manual numeric entries are summed; percentages, rates

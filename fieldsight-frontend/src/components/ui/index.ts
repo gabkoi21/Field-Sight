@@ -4,6 +4,7 @@ export { Card, CardHeader } from "./Card";
 export { EmptyState } from "./EmptyState";
 export { DataTable } from "./DataTable";
 export { LoadingState } from "./LoadingState";
+export { LoadingSkeleton } from "./LoadingSkeleton";
 export { MetricCard } from "./MetricCard";
 export { PageHeader } from "./PageHeader";
 export { Ring } from "./Ring";

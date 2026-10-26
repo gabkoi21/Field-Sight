@@ -490,12 +490,13 @@ describe("existing saved dashboard builder", () => {
     ).toBeTruthy();
   });
 
-  it("uses project selection to choose dashboards rather than changing widget provenance", async () => {
-    setup();
-    fireEvent.change(await screen.findByLabelText("Project"), {
-      target: { value: "p2" },
-    });
-    expect(workspace.selectProject).toHaveBeenCalledWith("p2");
+  it("uses current project context without duplicating the header selector or changing widget provenance", async () => {
+    const { cache, rerender } = setup();
+    await screen.findByText("Health evidence");
+    expect(screen.queryByLabelText("Project")).toBeNull();
+    workspace.projectId = "p2";
+    workspace.project = { id: "p2", name: "Education" };
+    rerender(<QueryClientProvider client={cache}><MemoryRouter><DashboardsPage /></MemoryRouter></QueryClientProvider>);
+    expect(await screen.findByText("Your results, together")).toBeTruthy();
     expect(apiClient.saveDashboard).not.toHaveBeenCalled();
-  });
-});
+  });});

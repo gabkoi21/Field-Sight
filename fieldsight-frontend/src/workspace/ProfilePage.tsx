@@ -61,9 +61,11 @@ export function ProfilePage() {
             {error?.message}
           </Notice>
         ))}
+      {profile.isFetching && profile.data && <LoadingState variant="inline" label="Updating profile…" />}
+      {profile.error && <Button variant="secondary" onClick={() => void profile.refetch()}>Retry profile</Button>}
       {profile.isLoading ? (
-        <LoadingState />
-      ) : (
+        <LoadingState variant="panel" label="Loading profile…" />
+      ) : profile.error && !profile.data ? null : (
         <div className="grid grid-cols-2 items-start gap-5 max-lg:grid-cols-1">
           <Panel className="p-6">
             <h2 className="mb-5 mt-0 text-base font-semibold">

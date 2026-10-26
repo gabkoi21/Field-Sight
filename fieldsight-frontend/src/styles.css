@@ -3,9 +3,24 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --fs-text: #24334a;
+    --fs-muted: #526477;
+    --fs-border: #dfe6ee;
+    --fs-surface: #ffffff;
+    --fs-canvas: #f5f7fb;
+    --fs-primary: #0b51b7;
+    --fs-primary-hover: #084394;
+    --fs-control-border: #8796a8;
+    --fs-danger: #b42318;
+    --fs-success: #166b50;
+    --fs-warning: #945b10;
+  }
+
   html {
     font-family: 'Inter', Arial, sans-serif;
     -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
   }
 
   body {
@@ -22,6 +37,25 @@
   th, td {
     font-variant-numeric: tabular-nums;
   }
+
+  :focus-visible {
+    outline: 2px solid #0b51b7;
+    outline-offset: 3px;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+}
+
+/* Flex/grid children must shrink before contained tables begin scrolling. */
+.fieldsight-workspace main,
+.fieldsight-workspace [role="tabpanel"] {
+  min-width: 0;
+}
+
+.fieldsight-workspace .overflow-x-auto:focus-visible {
+  outline-offset: -2px;
 }
 
 /* Third-party maps and chart tooltips use their own default font stacks. */
@@ -33,12 +67,22 @@
   font-family: 'Inter', Arial, sans-serif;
 }
 
-button {
-  border-radius: 6px !important;
+@media (max-width: 639px) {
+  .fieldsight-workspace input:not([type="checkbox"]):not([type="radio"]),
+  .fieldsight-workspace select,
+  .fieldsight-workspace textarea {
+    font-size: 1rem;
+    min-height: 44px;
+  }
 }
 
-button.fieldsight-avatar {
-  border-radius: 50% !important;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .indicator-register-container {
@@ -120,4 +164,57 @@ button.fieldsight-avatar {
   .fieldsight-workspace table { width: 100%; font-size: 9pt; }
   .fieldsight-workspace th, .fieldsight-workspace td { overflow-wrap: anywhere; }
   .fieldsight-workspace h2, .fieldsight-workspace h3 { break-after: avoid; }
+}
+
+/* Connected results hierarchy, centered on each parent. */
+.results-framework-tree {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.results-framework-branch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 12px 0;
+}
+.results-framework-branch::before,
+.results-framework-branch::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 28px;
+  border-top: 1px solid #1689ab;
+}
+.results-framework-branch::before { right: 50%; }
+.results-framework-branch::after { left: 50%; border-left: 1px solid #1689ab; }
+.results-framework-branch:first-child::before,
+.results-framework-branch:last-child::after { border-top: 0; }
+.results-framework-branch:only-child { padding-top: 0; }
+.results-framework-branch:only-child::before,
+.results-framework-branch:only-child::after { display: none; }
+.results-framework-branch > .results-framework-tree {
+  position: relative;
+  padding-top: 28px;
+}
+.results-framework-branch > .results-framework-tree::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 28px;
+  border-left: 1px solid #1689ab;
+}
+.results-framework-card {
+  position: relative;
+  width: 208px;
+  overflow-wrap: anywhere;
+  border: 1px solid #f0f3f5;
+  border-left: 5px solid;
+  background: white;
 }

@@ -736,7 +736,7 @@ export class ApiError extends Error {
 }
 
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000"
+  import.meta.env.VITE_API_URL ?? "/api"
 ).replace(/\/$/, "");
 const ACCESS_TOKEN_KEY = "fieldsight_access_token";
 const SESSION_EXPIRED_EVENT = "fieldsight-session-expired";
@@ -747,7 +747,65 @@ let accessToken =
   sessionStorage.getItem(ACCESS_TOKEN_KEY);
 let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
 let refreshInFlight: Promise<boolean> | null = null;
-
+let sessionGeneration = localStorage.getItem("fieldsight_logout_generation") ?? "";
+let suspended = false;
+let retryNotBefore = 0;
+const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("fieldsight-session") : null;
+function sessionState(state: "checking" | "unavailable" | "authenticated" | "signed_out" | "forbidden") {
+  suspended = state === "unavailable" || state === "checking" || state === "forbidden";
+  window.dispatchEvent(new CustomEvent("fieldsight-session-state", { detail: state }));
+}
+function expireSession(broadcast = true) {
+  sessionGeneration = crypto.randomUUID();
+  localStorage.setItem("fieldsight_logout_generation", sessionGeneration);
+  localStorage.setItem("fieldsight_signed_out", "true");
+  saveAccessToken(null);
+  sessionState("signed_out");
+  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  if (broadcast) channel?.postMessage({ type: "logout", generation: sessionGeneration });
+}
+channel?.addEventListener("message", ({ data }) => {
+  if (data.type === "logout") {
+    sessionGeneration = data.generation;
+    saveAccessToken(null);
+    sessionState("signed_out");
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  } else if (data.type === "renewed" && data.generation === sessionGeneration) {
+    saveAccessToken(data.token, data.remember);
+    sessionState("authenticated");
+    window.dispatchEvent(new Event("fieldsight-session-renewed"));
+  }
+});
+window.addEventListener("storage", (event) => {
+  if (event.key === "fieldsight_logout_generation" && event.newValue !== sessionGeneration) {
+    sessionGeneration = event.newValue ?? "";
+    saveAccessToken(null);
+    sessionState("signed_out");
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+});
+function expiresSoon(token: string | null, leeway = REFRESH_LEEWAY_MS) {
+  try {
+    const payload = token!.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(payload)).exp * 1000 <= Date.now() + leeway;
+  } catch { return true; }
+}
+async function timedFetch(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 12_000);
+  try { return await fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, controller.signal]) : controller.signal }); }
+  finally { window.clearTimeout(timer); }
+}
+async function withSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+  if (!navigator.locks) throw new ApiError(503, "Session coordination requires a browser with Web Locks support.");
+  return navigator.locks.request("fieldsight-session-refresh", { signal: AbortSignal.timeout(60_000) }, operation);
+}
+async function finishPendingLogout() {
+  if (!localStorage.getItem("fieldsight_logout_pending")) return;
+  const response = await timedFetch(API_BASE_URL + "/auth/logout", { method: "POST", credentials: "include" });
+  if (!response.ok) throw await parseError(response);
+  localStorage.removeItem("fieldsight_logout_pending");
+}
 function scheduleAccessTokenRefresh(token: string) {
   if (refreshTimer) window.clearTimeout(refreshTimer);
   try {
@@ -759,7 +817,7 @@ function scheduleAccessTokenRefresh(token: string) {
     const { exp } = JSON.parse(window.atob(padded)) as { exp?: number };
     if (!exp) return;
     const delay = Math.max(0, exp * 1000 - Date.now() - REFRESH_LEEWAY_MS);
-    refreshTimer = window.setTimeout(() => void refreshAccessToken(), delay);
+    refreshTimer = window.setTimeout(() => { void refreshAccessToken().catch(() => undefined); }, delay);
   } catch {
     // The normal 401 retry remains available if a token cannot be decoded.
   }
@@ -808,25 +866,72 @@ async function parseError(response: Response): Promise<ApiError> {
 
 async function refreshAccessToken(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
-  refreshInFlight = (async () => {
-    const remembered = localStorage.getItem(ACCESS_TOKEN_KEY) !== null;
-    const response = await fetch(API_BASE_URL + "/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      saveAccessToken(null);
-      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
-      return false;
+  const generation = sessionGeneration;
+  if (localStorage.getItem("fieldsight_signed_out")) return false;
+  const previous = accessToken;
+  refreshInFlight = withSessionLock(async () => {
+    if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
+    // A remembered token may have changed while this tab waited for the browser lock.
+    const shared = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (localStorage.getItem("fieldsight_signed_out")) return false;
+    if (shared && shared !== accessToken) saveAccessToken(shared, true);
+    if (accessToken !== previous && !expiresSoon(accessToken)) { sessionState("authenticated"); return true; }
+    retryNotBefore = Math.max(retryNotBefore, Number(localStorage.getItem("fieldsight_auth_retry_at")) || 0);
+    if (Date.now() < retryNotBefore) throw new ApiError(503, "Session service is reconnecting. Please retry shortly.");
+    sessionState("checking");
+    for (let attempt = 0; attempt < 4; attempt++) {
+      let response: Response | undefined;
+      try {
+        response = await timedFetch(API_BASE_URL + "/auth/refresh", { method: "POST", credentials: "include" });
+        if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
+        if (response.ok) {
+          const body = await response.json() as { access_token: string; remember: boolean };
+          if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
+          retryNotBefore = 0;
+          localStorage.removeItem("fieldsight_auth_retry_at");
+          saveAccessToken(body.access_token, body.remember);
+          channel?.postMessage({ type: "renewed", token: body.access_token, remember: body.remember, generation });
+          sessionState("authenticated");
+          return true;
+        }
+        if (response.status === 401) { expireSession(); return false; }
+        if (response.status === 403) { sessionState("forbidden"); throw await parseError(response); }
+        if (![409, 429].includes(response.status) && response.status < 500) throw await parseError(response);
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
+      }
+      sessionState("unavailable");
+      const header = response?.headers.get("Retry-After");
+      const retryAfter = header ? (/^\d+$/.test(header) ? Number(header) * 1000 : Math.max(0, Date.parse(header) - Date.now())) : 0;
+      const delay = Math.max(500 * 2 ** attempt + Math.random() * 500, retryAfter || 0);
+      retryNotBefore = Date.now() + delay;
+      localStorage.setItem("fieldsight_auth_retry_at", String(retryNotBefore));
+      if (attempt === 3 || delay > 30_000) break;
+      await new Promise(resolve => window.setTimeout(resolve, delay));
+      if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
     }
-    const body = (await response.json()) as { access_token: string };
-    saveAccessToken(body.access_token, remembered);
-    return true;
-  })().finally(() => {
-    refreshInFlight = null;
-  });
+    retryNotBefore = Math.max(retryNotBefore, Date.now() + 30_000);
+    localStorage.setItem("fieldsight_auth_retry_at", String(retryNotBefore));
+    throw new ApiError(503, "Unable to reconnect to your session. Retry when the service is available.");
+  }).catch(error => {
+    if (generation === sessionGeneration && !(error instanceof ApiError && error.status === 403)) sessionState("unavailable");
+    throw error;
+  }).finally(() => { refreshInFlight = null; });
   return refreshInFlight;
 }
+
+// Sleeping tabs recheck expiry when they resume. Failures are caught and surfaced as state.
+function resumeSession() {
+  if (localStorage.getItem("fieldsight_logout_pending")) {
+    void withSessionLock(finishPendingLogout).catch(() => undefined);
+    return;
+  }
+  if (accessToken && (suspended || expiresSoon(accessToken))) void refreshAccessToken().catch(() => undefined);
+}
+window.addEventListener("online", resumeSession);
+window.addEventListener("focus", resumeSession);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) resumeSession(); });
 
 if (accessToken) scheduleAccessTokenRefresh(accessToken);
 async function request<T>(
@@ -834,11 +939,19 @@ async function request<T>(
   init: RequestInit = {},
   retry = true,
 ): Promise<T> {
+  const requestGeneration = sessionGeneration;
+  const publicRoute = ["/auth/login", "/auth/logout", "/auth/accept-invitation", "/health/live", "/health/ready", "/status"].includes(path);
+  if (suspended && !["GET", "HEAD"].includes(init.method ?? "GET") && !publicRoute) {
+    throw new ApiError(503, "Session unresolved. Reconnect before submitting this action.");
+  }
+  if (!publicRoute && (suspended || expiresSoon(accessToken))) {
+    if (!await refreshAccessToken()) throw new ApiError(401, "Sign in is required.");
+  }
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await timedFetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
     credentials: "include",
@@ -846,17 +959,20 @@ async function request<T>(
   if (
     response.status === 401 &&
     retry &&
-    !path.startsWith("/auth/login") &&
+    !publicRoute &&
     (await refreshAccessToken())
   ) {
-    return request<T>(path, init, false);
+    if (["GET", "HEAD"].includes(init.method ?? "GET")) return request<T>(path, init, false);
+    throw new ApiError(409, "Session renewed. Review the action and submit it again.");
   }
+  if (requestGeneration !== sessionGeneration) throw new ApiError(401, "Session changed.");
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
-  if (response.headers.get("Content-Type")?.includes("application/pdf")) return response.arrayBuffer() as Promise<T>;
-  if (response.headers.get("Content-Type")?.includes("text/csv"))
-    return response.text() as Promise<T>;
-  return response.json() as Promise<T>;
+  const contentType = response.headers.get("Content-Type") ?? "";
+  const result = contentType.includes("application/pdf") ? await response.arrayBuffer()
+    : contentType.includes("text/csv") ? await response.text() : await response.json();
+  if (requestGeneration !== sessionGeneration) throw new ApiError(401, "Session changed.");
+  return result as T;
 }
 
 export const apiClient = {
@@ -1040,22 +1156,42 @@ export const apiClient = {
     request<void>(`/analysis/saved/${id}`, { method: "DELETE" }),
   hasStoredAccessToken: () => Boolean(accessToken),
   async login(login: string, password: string, remember: boolean) {
-    const result = await request<{ access_token: string }>(
+    expireSession();
+    const loginGeneration = sessionGeneration;
+    const result = await withSessionLock(async () => {
+      await finishPendingLogout();
+      return request<{ access_token: string }>(
       "/auth/login",
       {
         method: "POST",
-        body: JSON.stringify({ login, password }),
+        body: JSON.stringify({ login, password, remember }),
       },
       false,
     );
+    });
+    if (loginGeneration !== sessionGeneration) throw new ApiError(401, "Session changed.");
+    localStorage.removeItem("fieldsight_signed_out");
+    retryNotBefore = 0;
+    localStorage.removeItem("fieldsight_auth_retry_at");
     saveAccessToken(result.access_token, remember);
+    sessionState("authenticated");
+    channel?.postMessage({ type: "renewed", token: result.access_token, remember, generation: sessionGeneration });
+  },
+  restore: async () => {
+    if (localStorage.getItem("fieldsight_signed_out")) {
+      if (localStorage.getItem("fieldsight_logout_pending")) void withSessionLock(finishPendingLogout).catch(() => undefined);
+      return null;
+    }
+    if (suspended || !accessToken || expiresSoon(accessToken)) {
+      if (!await refreshAccessToken()) return null;
+    }
+    return request<CurrentUser>("/auth/me");
   },
   async logout() {
-    try {
-      await request<void>("/auth/logout", { method: "POST" }, false);
-    } finally {
-      saveAccessToken(null);
-    }
+    // Invalidate responses immediately; serialize server logout after any pending rotation.
+    expireSession();
+    localStorage.setItem("fieldsight_logout_pending", "true");
+    await withSessionLock(finishPendingLogout);
   },
   me: () => request<CurrentUser>("/auth/me"),
   users: () => request<ApiUserDirectoryItem[]>("/users"),

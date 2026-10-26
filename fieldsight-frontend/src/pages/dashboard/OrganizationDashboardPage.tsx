@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -25,12 +24,13 @@ import {
   YAxis,
 } from "recharts";
 
-import { LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
+import { LoadingSkeleton, LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
+import { controlClass } from "../../components/ui/controlStyles";
 import { formatLocation } from "../../utils/location";
 
-const periodLabels: Record<string, string> = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days" };
+const periodLabels: Record<string, string> = { today: "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days" };
 function FilterSelect({
   value,
   options,
@@ -43,9 +43,9 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="relative">
+    <div className="relative min-w-0 max-w-full">
       <select
-        className="appearance-none rounded-[6px] border border-[#dce5ef] bg-white py-[7px] pl-3 pr-8 font-sans text-[14px] font-medium text-[#4e5e74] shadow-sm transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 cursor-pointer"
+        className={`${controlClass} appearance-none pr-9`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -67,11 +67,20 @@ function FilterSelect({
 export function OrganizationDashboardPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [projectId, setProjectId] = useState("");
-  const [period, setPeriod] = useState("7d");
-  const [location, setLocation] = useState("");
+  const [filters, setFilters] = useSearchParams();
+  // Overview filters never change the workspace's current project.
+  const projectId = filters.get("overview_project") ?? "";
+  const period = ["today", "7d", "30d"].includes(filters.get("period") ?? "") ? filters.get("period")! : "7d";
+  const location = filters.get("location") ?? "";
+  function setFilter(key: string, value: string) {
+    setFilters((current) => {
+      const next = new URLSearchParams(current);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    });
+  }
 
-  const organizationId = user?.memberships[0]?.organization_id;
+  const organizationId = (user?.memberships.find((item) => item.role === "organization_admin") ?? user?.memberships[0])?.organization_id;
 
   const projectsQuery = useQuery({
     queryKey: ["organization-projects", organizationId],
@@ -103,11 +112,13 @@ export function OrganizationDashboardPage() {
     staleTime: 30_000,
   });
 
-  const isLoading = authLoading || overviewQuery.isLoading;
+  const isLoading = authLoading || (overviewQuery.isLoading && projectsQuery.isLoading);
 
   if (isLoading) {
-    return <LoadingState label="Loading…" />;
+    return <LoadingSkeleton layout="dashboard" label="Preparing overview…" />;
   }
+
+  if (overviewQuery.isError && !overviewQuery.data) return <div className="space-y-6"><PageHeader eyebrow="FieldSight / Organization" title="Overview" description="Track collection progress and data quality across projects." /><div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800"><p>Unable to load overview: {overviewQuery.error.message}</p><button className="min-h-11 rounded-lg px-3 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></div></div>;
 
   const storedOverview = overviewQuery.data;
   const pendingSync = pendingSyncQuery.data;
@@ -140,17 +151,18 @@ export function OrganizationDashboardPage() {
     ? Math.round((overview.ready_records / overview.total_submissions) * 100)
     : 0;
 
-  const totalProjectTarget = projectSummary.reduce((acc, p) => acc + (p.target || 0), 0);
-  const submissionsTrendContext =
-    overview?.submission_change_percent != null
-      ? `${overview.submission_change_percent >= 0 ? "+" : ""}${overview.submission_change_percent}% vs previous period`
-      : totalProjectTarget > 0
-        ? `${totalSubmissionsVal.toLocaleString()} / ${totalProjectTarget.toLocaleString()} target reached`
-        : "+0% vs previous period";
+  const submissionsTrendContext = overview?.submission_change_percent != null
+    ? `${overview.submission_change_percent >= 0 ? "+" : ""}${overview.submission_change_percent}% vs previous period`
+    : "No previous-period comparison available";
 
-  const totalWorkspaceProjects = (projectsQuery.data ?? []).length || projectSummary.length;
-  const activeProjectsWithSubs = projectSummary.filter((p) => p.actual > 0).length;
-  const activeProjectsDisplay = activeProjectsWithSubs > 0 ? activeProjectsWithSubs : totalWorkspaceProjects;
+  const activeProjectsDisplay = overview?.active_projects ?? 0;
+  const scopeLabel = projectId ? (projectsQuery.data?.find((item) => item.id === projectId)?.name ?? "Selected project") : "All organization projects";
+  const locationLabel = location ? formatLocation(location) : "All locations";
+  const updatedAt = overviewQuery.dataUpdatedAt || Date.now();
+  const cutoff = updatedAt - ({ today: 1, "7d": 7, "30d": 30 }[period] ?? 7) * 86400000;
+  const dateLabel = `${new Date(cutoff).toLocaleDateString(undefined, { timeZone: "UTC" })} – ${new Date(updatedAt).toLocaleDateString(undefined, { timeZone: "UTC" })} (UTC)`;
+  const scopedSubmissions = (submissionsQuery.data ?? []).filter((item) => (!projectId || item.project_id === projectId) && (!location || item.location === location));
+  const periodSubmissions = scopedSubmissions.filter((item) => item.submitted_at && new Date(item.submitted_at).getTime() >= cutoff);
   const submissionReportData = (overview?.trend ?? []).map((item) => ({
     label: item.day,
     received: item.submissions,
@@ -158,8 +170,7 @@ export function OrganizationDashboardPage() {
     issues: Math.max(0, item.submissions - item.approved),
   }));
   const regionalBreakdownData = Object.values(
-    (submissionsQuery.data ?? [])
-      .filter((item) => (!projectId || item.project_id === projectId) && (!location || item.location === location))
+    periodSubmissions
       .reduce<Record<string, { region: string; ready: number; review: number; invalid: number }>>((acc, submission) => {
         const region = formatLocation(submission.location || "Unspecified location");
         const current = acc[region] ?? { region, ready: 0, review: 0, invalid: 0 };
@@ -178,12 +189,7 @@ export function OrganizationDashboardPage() {
     .slice(0, 5);
 
   const topEnumerators = Object.values(
-    (submissionsQuery.data ?? [])
-      .filter(
-        (item) =>
-          (!projectId || item.project_id === projectId) &&
-          (!location || item.location === location),
-      )
+    periodSubmissions
       .reduce<
         Record<
           string,
@@ -226,13 +232,13 @@ export function OrganizationDashboardPage() {
     .sort((a, b) => b.total - a.total || b.ready - a.ready || a.name.localeCompare(b.name))
     .slice(0, 3)
     .map((item) => ({ ...item, projectCount: item.projects.size }));
-  const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch()]);
+  const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch(), submissionsQuery.refetch(), projectsQuery.refetch()]);
 
   return (
-    <div className="flex flex-col gap-5 text-[#24334a]">
+    <div className="flex min-w-0 flex-col gap-6 text-[var(--fs-text)]">
       <PageHeader
-        eyebrow="Organization dashboard"
-        title="Field operations"
+        eyebrow="FieldSight / Organization"
+        title="Overview"
         description="Track collection progress, data quality, sync status, and recent activity across projects."
       >
         {showSecondaryLoading && (
@@ -245,27 +251,39 @@ export function OrganizationDashboardPage() {
             type="button"
             onClick={refreshDashboard}
             disabled={overviewQuery.isFetching || pendingSyncQuery.isFetching}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[#dce5ef] bg-white px-2.5 py-2 text-[12px] font-semibold text-brand hover:bg-[#f3f8ff] disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#dce5ef] bg-white px-2.5 py-2 text-[12px] font-semibold text-brand hover:bg-[#f3f8ff] disabled:opacity-50"
           >
             <RefreshCw size={13} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Refresh
           </button>
-          <FilterSelect value={projectId} placeholder="All projects" options={projectOptions} onChange={setProjectId} />
+
         </div>
       </PageHeader>
 
-      <section className="grid grid-cols-3 gap-3 max-[1050px]:grid-cols-3 max-[820px]:grid-cols-1">
-        <MetricCard label="Total Submissions" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
+      <section aria-label="Organization overview filters" className="rounded-xl border border-[var(--fs-border)] bg-white p-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="grid min-w-0 gap-1.5 text-sm font-medium">Overview project filter<FilterSelect value={projectId} placeholder="All organization projects" options={projectOptions} onChange={(id) => setFilter("overview_project", id)} /></label>
+          <label className="grid min-w-0 gap-1.5 text-sm font-medium">Reporting period<FilterSelect value={period} placeholder="Reporting period" options={Object.entries(periodLabels).map(([value, label]) => ({ value, label }))} onChange={(value) => setFilter("period", value)} /></label>
+          <label className="grid min-w-0 gap-1.5 text-sm font-medium">Location<FilterSelect value={location} placeholder="All locations" options={locationOptions} onChange={(value) => setFilter("location", value)} /></label>
+        </div>
+        <p className="mb-0 mt-3 text-xs text-[var(--fs-muted)]">{scopeLabel} · {locationLabel} · {periodLabels[period]} · {dateLabel}. These filters apply to this overview only; the annual report keeps its full-year range.</p>
+      </section>
+      {overviewQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load overview: {overviewQuery.error.message}. Use Refresh to retry.</p>}
+      {submissionsQuery.isLoading && <p role="status" className="text-sm text-[var(--fs-muted)]">Loading chart and ranking data…</p>}
+      {submissionsQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load chart and ranking data. Use Refresh to retry.</p>}
+      {overviewQuery.isLoading ? <LoadingSkeleton layout="dashboard" label="Loading overview for selected filters…" /> : <>
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard label="Submissions in period" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
         <MetricCard
-          label="Quality Check"
+          label="Needs review"
           value={overview?.needs_review ?? 0}
-          context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready overall`}
+          context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready in period`}
           icon={Clock3}
           tone={(overview?.needs_review ?? 0) > 0 || (overview?.invalid_records ?? 0) > 0 ? "warning" : "brand"}
         />
         <MetricCard
-          label="Active Projects"
+          label="Active projects"
           value={activeProjectsDisplay}
-          context={`${totalWorkspaceProjects} projects in project`}
+          context={`${scopeLabel} · Current project status, independent of dates`}
           icon={FolderKanban}
         />
       </section>
@@ -273,18 +291,20 @@ export function OrganizationDashboardPage() {
       <DashboardSnapshotCards
         regionalData={regionalBreakdownData}
         reportData={submissionReportData}
-        allSubmissions={submissionsQuery.data ?? []}
+        allSubmissions={scopedSubmissions}
+        scopeLabel={`${scopeLabel} · ${locationLabel}`}
+        dateLabel={`${periodLabels[period]} · ${dateLabel}`}
         allProjects={projectsQuery.data ?? []}
       />
 
       <section className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] gap-4 max-[1000px]:grid-cols-1">
-        <TopEnumerators enumerators={topEnumerators} loading={submissionsQuery.isLoading} />
+        <TopEnumerators enumerators={topEnumerators} loading={submissionsQuery.isLoading} scopeLabel={`${scopeLabel} · ${locationLabel} · ${periodLabels[period]}`} />
 
         <Panel
           title="Top projects"
-          subtitle="Ranked by total submissions"
+          subtitle={`${scopeLabel} · ${periodLabels[period]} · ${dateLabel}. Period submissions compared with the overall project target.`}
           action={
-            <button className="text-xs font-semibold text-brand" onClick={() => navigate("/projects")}>
+            <button className="min-h-11 rounded-lg px-2 text-sm font-semibold text-brand hover:bg-blue-50" onClick={() => navigate("/projects")}>
               View all <ArrowRight className="inline" size={13} />
             </button>
           }
@@ -302,6 +322,7 @@ export function OrganizationDashboardPage() {
                     <div className="flex items-start justify-between gap-3">
                       <span className="min-w-0 break-words text-sm font-semibold text-slate-800">{project.name}</span>
                     </div>
+                    <p className="mb-0 mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-[var(--fs-muted)]"><span>Actual: {project.actual.toLocaleString()}</span><span>Target: {project.target > 0 ? project.target.toLocaleString() : "Not set"}</span></p>
                     <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
                       <div
                         className="h-full rounded-full bg-blue-500 transition-[width] duration-500"
@@ -315,12 +336,13 @@ export function OrganizationDashboardPage() {
               ))}
             </ol>
           ) : (
-            <div className="flex h-[180px] items-center justify-center text-xs text-[#8491a3]">
+            <div className="flex h-[180px] items-center justify-center text-xs text-[var(--fs-muted)]">
               No projects for the selected filters.
             </div>
           )}
         </Panel>
       </section>
+      </>}
     </div>
   );
 }
@@ -330,8 +352,12 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 function DashboardSnapshotCards({
   regionalData,
   allSubmissions,
+  scopeLabel,
+  dateLabel,
 }: {
   regionalData: Array<{ region: string; ready: number; review: number; invalid: number }>;
+  scopeLabel: string;
+  dateLabel: string;
   reportData?: Array<{ label: string; received: number; ready: number; issues: number }>;
   allSubmissions: Array<{ submitted_at?: string | null; project_id?: string }>;
   allProjects?: Array<{ id: string }>;
@@ -358,17 +384,17 @@ function DashboardSnapshotCards({
   });
 
   return (
-    <section className="grid grid-cols-[minmax(280px,.42fr)_minmax(0,1fr)] gap-4 max-[940px]:grid-cols-1">
-      <article className="min-w-0 rounded-lg border border-[#edf0f4] bg-white px-5 pb-5 pt-5 shadow-[0_4px_14px_rgba(23,40,70,.04)]">
+    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(320px,.7fr)_minmax(0,1fr)]">
+      <article className="min-w-0 rounded-xl border border-[var(--fs-border)] bg-white p-5 shadow-[0_2px_8px_rgba(23,40,70,.03)]">
         <div>
-          <h2 className="m-0 text-base font-semibold text-[#1e293b]">Submissions by location</h2>
-          <p className="m-0 mt-1 text-xs text-[#64748b]">Volume and quality mix by field area</p>
+          <h2 className="m-0 text-lg font-semibold text-[#1e293b]">Submissions by location</h2>
+          <p className="m-0 mt-1 text-xs text-[#64748b]">{scopeLabel} · {dateLabel} · Top five locations</p>
         </div>
         <ChartLegend
           items={[
             { label: "Ready", color: "#0b51b7" },
-            { label: "Review", color: "#f0a640" },
-            { label: "Invalid", color: "#db5b66" },
+            { label: "Review", color: "#a86612" },
+            { label: "Invalid", color: "#ba4055" },
           ]}
         />
         <div className="mt-5 h-[270px]">
@@ -403,23 +429,33 @@ function DashboardSnapshotCards({
                   }}
                 />
                 <Bar dataKey="ready" stackId="quality" fill="#0b51b7" barSize={12} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="review" stackId="quality" fill="#f0a640" barSize={12} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="invalid" stackId="quality" fill="#db5b66" barSize={12} radius={[0, 6, 6, 0]} />
+                <Bar dataKey="review" stackId="quality" fill="#a86612" barSize={12} radius={[0, 0, 0, 0]} />
+                <Bar dataKey="invalid" stackId="quality" fill="#ba4055" barSize={12} radius={[0, 6, 6, 0]} />
               </ComposedChart>
             </ResponsiveContainer>
           ) : (
             <EmptyChartState label="No location submissions yet." />
           )}
         </div>
+        <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
+          <summary className="cursor-pointer py-2 font-medium text-brand">View location data</summary>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Submissions by location and quality status</caption>
+              <thead><tr><th scope="col" className="py-3">Location</th><th scope="col" className="px-2 text-right">Ready</th><th scope="col" className="px-2 text-right">Review</th><th scope="col" className="px-2 text-right">Invalid</th></tr></thead>
+              <tbody>{regionalData.map((row) => <tr key={row.region} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.region}</th><td className="px-2 text-right">{row.ready.toLocaleString()}</td><td className="px-2 text-right">{row.review.toLocaleString()}</td><td className="px-2 text-right">{row.invalid.toLocaleString()}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </details>
       </article>
 
       {/* ── Submission Report card ─────────────────────────────────────────── */}
-      <article className="min-w-0 rounded-lg border border-[#edf0f4] bg-white px-5 pb-5 pt-5 shadow-[0_4px_14px_rgba(23,40,70,.04)]">
+      <article className="min-w-0 rounded-xl border border-[var(--fs-border)] bg-white p-5 shadow-[0_2px_8px_rgba(23,40,70,.03)]">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="m-0 text-base font-semibold text-[#1e293b]">Submission report</h2>
+            <h2 className="m-0 text-lg font-semibold text-[#1e293b]">Submission report</h2>
             <p className="m-0 mt-1 text-xs text-[#64748b]">
-              Monthly submissions & active projects — {currentYear}
+              {scopeLabel} · Jan 1 – Dec 31, {currentYear} · Monthly submissions and projects with submissions; independent of reporting period
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -439,10 +475,20 @@ function DashboardSnapshotCards({
             align="center"
             items={[
               { label: "Total Submissions", color: "#0b51b7" },
-              { label: "Total Projects", color: "#f0a640" },
+              { label: "Projects with submissions", color: "#a86612" },
             ]}
           />
         </div>
+        <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
+          <summary className="cursor-pointer py-2 font-medium text-brand">View monthly data</summary>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Monthly submissions and projects with submissions for {currentYear}</caption>
+              <thead><tr><th scope="col" className="py-3">Month</th><th scope="col" className="px-2 text-right">Submissions</th><th scope="col" className="px-2 text-right">Projects</th></tr></thead>
+              <tbody>{annualData.map((row) => <tr key={row.month} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.month}</th><td className="px-2 text-right">{row.submissions.toLocaleString()}</td><td className="px-2 text-right">{row.projects.toLocaleString()}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </details>
       </article>
     </section>
   );
@@ -461,7 +507,7 @@ function AnnualTooltip({
   if (!active || !payload?.length) return null;
   const meta: Record<string, { color: string; label: string; suffix?: string }> = {
     submissions: { color: "#0b51b7", label: "Total Submissions" },
-    projects: { color: "#f0a640", label: "Total Projects", suffix: "active" },
+    projects: { color: "#a86612", label: "Projects with submissions", suffix: "active" },
   };
   return (
     <div
@@ -519,12 +565,12 @@ function AnnualSubmissionReportChart({
             <stop offset="100%" stopColor="#0b51b7" stopOpacity={0.02} />
           </linearGradient>
           <linearGradient id="gradProjects" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f0a640" stopOpacity={1} />
+            <stop offset="0%" stopColor="#a86612" stopOpacity={1} />
             <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.85} />
           </linearGradient>
           <linearGradient id="gradProjectsFuture" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f0a640" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#f0a640" stopOpacity={0.10} />
+            <stop offset="0%" stopColor="#a86612" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="#a86612" stopOpacity={0.10} />
           </linearGradient>
           <filter id="annualDotGlow" x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="2.5" result="blur" />
@@ -543,6 +589,7 @@ function AnnualSubmissionReportChart({
           tickLine={false}
           tick={{ fontSize: 12, fill: "#64748b", fontWeight: 600 }}
           tickMargin={8}
+          minTickGap={24}
         />
         <YAxis
           yAxisId="subs"
@@ -649,12 +696,13 @@ function ChartLegend({
 }
 
 function EmptyChartState({ label }: { label: string }) {
-  return <div className="grid h-full place-items-center text-center text-xs text-[#8491a3]">{label}</div>;
+  return <div className="grid h-full place-items-center text-center text-xs text-[var(--fs-muted)]">{label}</div>;
 }
 
 function TopEnumerators({
   enumerators,
   loading,
+  scopeLabel,
 }: {
   enumerators: Array<{
     name: string;
@@ -666,11 +714,12 @@ function TopEnumerators({
     projectCount: number;
   }>;
   loading: boolean;
+  scopeLabel: string;
 }) {
   return (
-    <Panel title="Top three enumerators" subtitle="Highest submission volume in this view">
+    <Panel title="Top three enumerators" subtitle={`${scopeLabel} · Ranked by period submissions`}>
       {loading ? (
-        <div className="grid h-[200px] place-items-center text-xs text-[#8491a3]">Loading enumerator rankings...</div>
+        <div className="grid h-[200px] place-items-center text-xs text-[var(--fs-muted)]">Loading enumerator rankings...</div>
       ) : enumerators.length ? (
         <ol className="m-0 list-none divide-y divide-[#edf1f5] p-0">
           {enumerators.map((enumerator, index) => {
@@ -708,7 +757,7 @@ function TopEnumerators({
           })}
         </ol>
       ) : (
-        <div className="grid h-[200px] place-items-center text-center text-xs text-[#8491a3]">
+        <div className="grid h-[200px] place-items-center text-center text-xs text-[var(--fs-muted)]">
           No enumerator activity matches the current filters.
         </div>
       )}

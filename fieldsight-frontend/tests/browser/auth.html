@@ -1,0 +1,40 @@
+<!doctype html><html><head><title>FieldSight disposable authentication verification</title></head>
+<body><h1>Authentication browser verification</h1><p>Disposable synthetic account; 65-second test access tokens.</p>
+<button id="original">Reproduce original cross-site routing</button>
+<button id="login">Sign in session-only through proxy</button>
+<button id="remember">Sign in remembered through proxy</button>
+<button id="restore">Restore cookie-only session</button>
+<button id="renew">Concurrent renewals</button>
+<button id="logout">Sign out</button>
+<button id="check">Check session and cookie delivery</button>
+<pre id="result"></pre><pre id="output">Ready</pre>
+<script type="module">
+import { apiClient } from '/src/services/apiClient.ts';
+const out = document.querySelector('#output');
+const show = text => { out.textContent = (out.textContent + '\n' + text).split('\n').slice(-12).join('\n'); };
+const creds = { login: 'browser@example.com', password: 'SyntheticBrowser123!' };
+function action(id, fn) { document.querySelector('#' + id).onclick = () => fn().catch(e => show('Error: ' + (e.status ?? e.name))); }
+window.addEventListener('fieldsight-session-state', e => show('state: ' + e.detail));
+action('original', async () => {
+  const login = await fetch('http://127.0.0.1:8001/auth/login?legacy=1', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify(creds) });
+  const refresh = await fetch('http://127.0.0.1:8001/auth/refresh?legacy=1', { method:'POST', credentials:'include' });
+  show('Original direct routing: login=' + login.status + ', refresh=' + refresh.status);
+});
+action('login', async () => { await apiClient.login(creds.login, creds.password, false); show('Session-only sign-in succeeded'); });
+action('remember', async () => { await apiClient.login(creds.login, creds.password, true); show('Remembered sign-in succeeded'); });
+action('restore', async () => {
+  localStorage.removeItem('fieldsight_access_token'); sessionStorage.removeItem('fieldsight_access_token');
+  // Reload the module in a new document so memory cannot supply the access token.
+  sessionStorage.setItem('browser-test-restore', 'true'); location.reload();
+});
+action('renew', async () => { await Promise.all([apiClient.me(), apiClient.me(), apiClient.me()]); show('Concurrent authenticated requests succeeded'); });
+action('logout', async () => { await apiClient.logout(); show('Explicit logout completed'); });
+action('check', async () => {
+  const user = await apiClient.me(); const stats = await (await fetch('/api/test-observations')).json();
+  document.querySelector('#result').textContent = JSON.stringify({ authenticated: !!user.id, accessInLocalStorage: !!localStorage.getItem('fieldsight_access_token'), accessInSessionStorage: !!sessionStorage.getItem('fieldsight_access_token'), refreshCookieVisibleToJS: document.cookie.split(';').some(c => c.trim().startsWith('refresh_token=')), ...stats }, null, 2);
+});
+if (sessionStorage.getItem('browser-test-restore')) {
+  sessionStorage.removeItem('browser-test-restore');
+  apiClient.restore().then(user => show('Cookie-only restoration=' + !!user)).catch(e => show('Restoration failed: ' + e.status));
+}
+</script></body></html>

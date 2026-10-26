@@ -35,7 +35,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Button, LoadingState } from "../components/ui";
+import { Button, LoadingSkeleton, LoadingState } from "../components/ui";
 import {
   apiClient,
   type DashboardWidget,
@@ -59,7 +59,7 @@ const value = (n: number | null | undefined) =>
     ? "Not reported"
     : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 export function DashboardsPage() {
-  const { projectId, project, projects, selectProject, organizationId } =
+  const { projectId, project, organizationId } =
     useWorkspace();
   const cache = useQueryClient();
   const [selected, setSelected] = useState("");
@@ -245,7 +245,7 @@ export function DashboardsPage() {
   return (
     <Page
       breadcrumb={project?.name ?? "Select a project"}
-      title="Dashboards"
+      title="Project dashboards"
       description="Build a shared view of your project's results and evidence."
       actions={
         <Button
@@ -259,23 +259,6 @@ export function DashboardsPage() {
     >
       <WorkspaceGate>
         <WorkspaceTabs />
-        <Panel className="flex items-end gap-3 p-4">
-          {" "}
-          <Field label="Project">
-            <select
-              className={fieldClass}
-              value={projectId}
-              disabled={save.isPending}
-              onChange={(event) => selectProject(event.target.value)}
-            >
-              {projects.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </Panel>
         {[dashboards.error, create.error, save.error, remove.error]
           .filter(Boolean)
           .map((e, i) => (
@@ -294,32 +277,34 @@ export function DashboardsPage() {
             Reload saved dashboard
           </Button>
         )}
-        {dashboards.error ? (
+        {dashboards.error && dashboards.data && <Button variant="secondary" onClick={() => void dashboards.refetch()}>Retry loading dashboards</Button>}
+        {dashboards.isFetching && dashboards.data && <LoadingState variant="inline" label="Updating dashboards…" />}
+        {dashboards.error && !dashboards.data ? (
           <Panel className="p-5">
             <Button variant="secondary" onClick={() => dashboards.refetch()}>
               Retry loading dashboards
             </Button>
           </Panel>
         ) : dashboards.isLoading ? (
-          <LoadingState />
+          <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />
         ) : !dashboard ? (
           <Panel className="grid justify-items-center p-12 text-center">
             <LayoutDashboard size={32} className="text-[#7ea9b1]" />
             <h2 className="mb-1 mt-5 text-lg">Your results, together</h2>
-            <p className="max-w-md text-sm leading-6 text-[#87969d]">
+            <p className="max-w-md text-sm leading-6 text-[var(--fs-muted)]">
               Create a dashboard for {project?.name}. Add indicator progress,
               saved survey charts and explanatory notes.
             </p>
             <Button onClick={() => edit("new")}>Create first dashboard</Button>
-            <Link to="/" className="mt-5 text-xs text-[#168596]">
-              Open automatic collection overview →
+            <Link to="/projects" className="mt-5 text-xs text-[#0e7180]">
+              Manage projects →
             </Link>
           </Panel>
         ) : (
           <>
             <Panel>
               <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4ebed] p-4">
-                <div className="min-w-[230px] flex-1">
+                <div className="min-w-0 basis-[230px] flex-1">
                   <label className="sr-only" htmlFor="dashboard-picker">
                     Dashboard
                   </label>
@@ -340,12 +325,12 @@ export function DashboardsPage() {
                     ))}
                   </select>
                   {dashboard.description && (
-                    <p className="mb-0 mt-1 text-xs text-[#87969d]">
+                    <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">
                       {dashboard.description}
                     </p>
                   )}
                 </div>
-                <div className="flex gap-2 print:hidden">
+                <div className="flex flex-wrap gap-2 print:hidden">
                   <Tool
                     title="Rename dashboard"
                     onClick={() => edit(dashboard)}
@@ -426,7 +411,7 @@ export function DashboardsPage() {
                     setFrom("");
                     setThrough("");
                   }}
-                  className="mb-2 border-0 bg-transparent text-xs text-[#168596]"
+                  className="min-h-11 rounded-lg px-3 text-sm font-medium text-brand hover:bg-blue-50"
                 >
                   Clear filters
                 </button>
@@ -454,11 +439,11 @@ export function DashboardsPage() {
                 >
                   <RefreshCw size={14} />
                 </Tool>
-                <span className="mb-2 ml-auto text-[12px] text-[#87969d]">
+                <span className="mb-2 ml-auto text-[12px] text-[var(--fs-muted)]">
                   Saved within {project?.name}
                 </span>
               </div>
-              <p className="m-0 px-5 pb-4 text-xs leading-5 text-[#87969d]">
+              <p className="m-0 px-5 pb-4 text-xs leading-5 text-[var(--fs-muted)]">
                 Dates filter results, not overall indicator targets. Dashboard
                 dates override each saved chart's date bounds; unset bounds keep
                 that chart's saved dates. Other chart filters stay unchanged.
@@ -467,42 +452,42 @@ export function DashboardsPage() {
               </p>
             </Panel>
             {save.isPending && (
-              <p role="status" className="text-xs text-[#73868d]">
+              <p role="status" className="text-xs text-[var(--fs-muted)]">
                 Saving dashboard…
               </p>
             )}
             <p className="text-xs text-[#637580]">Project: {project?.name}. Active dates: {from || "All dates"} through {through || "Present"} (UTC). Last successful sync: {syncStatus.data?.last_successful_sync ? new Date(syncStatus.data.last_successful_sync).toLocaleString() : "Not recorded"}. Values use current saved data; review exclusions are shown on each indicator.</p>
             {syncStatus.error && (
-              <p role="status" className="text-xs text-[#87969d]">
+              <p role="status" className="text-xs text-[var(--fs-muted)]">
                 Automatic refresh status is unavailable. Use Refresh dashboard
                 data to load current results.
               </p>
             )}
-            <p className="text-xs text-[#87969d]">
-              Charts appear side by side. Drag a widget by its grip or use the move buttons to reorder.
+            <p className="text-xs text-[var(--fs-muted)]">
+              Widgets grow to fit on small screens; saved heights apply on larger screens. Drag a widget by its grip or use the move buttons to reorder.
             </p>
             {invalid ? (
               <Notice error>Start date must be on or before end date.</Notice>
             ) : filterDashboard !== dashboard.id ? (
-              <LoadingState />
+              <LoadingState variant="panel" label="Preparing selected dashboard…" />
             ) : (
               <div className="grid grid-cols-2 items-start gap-5 max-lg:grid-cols-1">
                 {dashboard.widgets.map((widget, index) => (
                   <div
                     key={widget.id}
                     data-widget-id={widget.id}
-                    className={`print:!h-auto min-w-0 ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[#168596]" : ""}`}
+                    className={`max-lg:!h-auto print:!h-auto min-w-0 ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[#168596]" : ""}`}
                     style={{
                       height: widget.height ?? 360,
                     }}
                   >
                     <Panel className="flex h-full flex-col overflow-hidden print:overflow-visible">
-                      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-[#edf0f2] px-5 py-4">
+                      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#edf0f2] px-5 py-4">
                         <button
                           type="button"
                           aria-label={`Drag ${widget.title}`}
                           disabled={save.isPending}
-                          className="touch-none cursor-grab border-0 print:hidden bg-transparent p-1 text-[#78939c] active:cursor-grabbing"
+                          className="grid size-11 shrink-0 place-items-center touch-none cursor-grab border-0 print:hidden bg-transparent p-1 text-[#78939c] active:cursor-grabbing"
                           onPointerDown={(event) => startPointer(event, widget)}
                         >
                           <GripVertical size={16} />
@@ -510,19 +495,19 @@ export function DashboardsPage() {
                         <h2 className="m-0 flex-1 text-sm font-medium">
                           {widget.title}
                         </h2>
-                        <div className="flex shrink-0 gap-1 print:hidden">
+                        <div className="flex max-w-full flex-wrap gap-1 print:hidden">
                           <Tool
                             title={`Expand ${widget.title}`}
                             onClick={() => setExpandedWidget(widget.id)}
                           >
-                            <Maximize2 size={12} />
+                            <Maximize2 size={16} />
                           </Tool>
                           <Tool
                             title={`Move ${widget.title} up`}
                             disabled={index === 0 || save.isPending}
                             onClick={() => reorder(index, -1)}
                           >
-                            <ArrowUp size={12} />
+                            <ArrowUp size={16} />
                           </Tool>
                           <Tool
                             title={`Move ${widget.title} down`}
@@ -532,14 +517,14 @@ export function DashboardsPage() {
                             }
                             onClick={() => reorder(index, 1)}
                           >
-                            <ArrowDown size={12} />
+                            <ArrowDown size={16} />
                           </Tool>
                           <Tool
                             title={`Edit ${widget.title}`}
                             disabled={save.isPending}
                             onClick={() => openWidget(widget)}
                           >
-                            <Pencil size={12} />
+                            <Pencil size={16} />
                           </Tool>
                           <Tool
                             title={`Remove ${widget.title}`}
@@ -553,7 +538,7 @@ export function DashboardsPage() {
                               )
                             }
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={16} />
                           </Tool>
                         </div>
                       </header>
@@ -569,7 +554,7 @@ export function DashboardsPage() {
                         />
                       </div>
                       <div className="mt-auto flex items-center justify-end gap-2 px-3 pb-2 print:hidden">
-                        <label className="text-[11px] text-[#87969d]">
+                        <label className="text-[11px] text-[var(--fs-muted)]">
                           Height{" "}
                           <select
                             aria-label={`Height of ${widget.title}`}
@@ -616,7 +601,7 @@ export function DashboardsPage() {
               <Panel className="p-12 text-center">
                 <BarChart3 className="mx-auto text-[#8aadb5]" size={30} />
                 <h2 className="text-lg">Add your first widget</h2>
-                <p className="text-sm text-[#87969d]">
+                <p className="text-sm text-[var(--fs-muted)]">
                   Choose an indicator, a saved analysis, or a text note.
                 </p>
               </Panel>
@@ -632,7 +617,7 @@ export function DashboardsPage() {
           onClose={() => setPresentedDashboard(null)}
         >
           {from || through ? (
-            <p className="mb-4 text-sm text-[#73868d]">
+            <p className="mb-4 text-sm text-[var(--fs-muted)]">
               Results: {from || "All dates"} – {through || "Present"}
             </p>
           ) : null}
@@ -660,7 +645,7 @@ export function DashboardsPage() {
             ))}
           </div>
           {!dashboard.widgets.length && (
-            <p className="text-sm text-[#73868d]">Add widgets to present this dashboard.</p>
+            <p className="text-sm text-[var(--fs-muted)]">Add widgets to present this dashboard.</p>
           )}
         </Dialog>
       )}
@@ -843,7 +828,7 @@ export function DashboardsPage() {
               (kind === "indicator"
                 ? indicators.isLoading
                 : analyses.isLoading) && (
-                <p className="text-xs text-[#87969d]">
+                <p className="text-xs text-[var(--fs-muted)]">
                   Loading widget sources…
                 </p>
               )}
@@ -853,7 +838,7 @@ export function DashboardsPage() {
                 : analyses.isLoading) &&
               !(kind === "indicator" ? indicators.data : analyses.data)
                 ?.length && (
-                <p className="text-xs text-[#87969d]">
+                <p className="text-xs text-[var(--fs-muted)]">
                   No{" "}
                   {kind === "indicator" ? "indicators" : "saved visualizations"}{" "}
                   are available in this project. Create a source before adding
@@ -861,9 +846,9 @@ export function DashboardsPage() {
                 </p>
               )}
             {kind === "analysis" && (
-              <p className="text-xs text-[#87969d]">
+              <p className="text-xs text-[var(--fs-muted)]">
                 Save a visualization in{" "}
-                <Link to="/analytics" className="text-[#168596]">
+                <Link to="/analytics" className="text-[#0e7180]">
                   Explore & analyze
                 </Link>{" "}
                 to use it here. Dashboard dates override that visualization's
@@ -905,7 +890,7 @@ function Tool({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`grid size-7 place-items-center rounded border border-[#e2e9ec] bg-white hover:bg-[#f1f7f8] disabled:opacity-30 ${destructive ? "text-red-600 hover:text-red-700" : "text-[#78939c]"}`}
+      className={`grid size-11 place-items-center rounded-lg border border-[var(--fs-control-border)] bg-white hover:bg-[#f1f7f8] disabled:opacity-30 ${destructive ? "text-red-600 hover:text-red-700" : "text-[#78939c]"}`}
     >
       {children}
     </button>
@@ -932,6 +917,7 @@ function Widget({
   from: string;
   through: string;
 }) {
+  const { project: currentProject } = useWorkspace();
   const response = useQuery({
     queryKey: [
       "dashboard-widget",
@@ -965,11 +951,11 @@ function Widget({
   const error = response.error;
   if (widget.kind === "text")
     return (
-      <p className="m-0 whitespace-pre-wrap p-5 text-sm leading-7 text-[#73868d]">
+      <p className="m-0 whitespace-pre-wrap p-5 text-sm leading-7 text-[var(--fs-muted)]">
         {widget.text || "No text provided."}
       </p>
     );
-  if (error)
+  if (error && !response.data)
     return (
       <div className="p-5">
         <Notice error>{error.message}</Notice>
@@ -978,19 +964,25 @@ function Widget({
         </Button>
       </div>
     );
-  if (response.isLoading) return <LoadingState />;
+  if (response.isLoading) return <LoadingSkeleton layout="chart" label={`Loading ${widget.title}…`} />;
+  const feedback = <>
+    {response.isFetching && <LoadingState variant="inline" label="Updating widget…" />}
+    {error && <Notice error>Unable to update this widget. Showing its last loaded result. <button className="min-h-11 px-2 font-semibold underline" onClick={() => void response.refetch()}>Retry widget</button></Notice>}
+  </>;
   if (widget.kind === "indicator") {
     const item =
       response.data?.kind === "indicator" ? response.data.indicator : undefined;
     if (!item)
       return (
-        <p className="p-5 text-sm text-[#87969d]">
+        <p className="p-5 text-sm text-[var(--fs-muted)]">
           The source indicator is no longer available.
         </p>
       );
     return (
-      <div className="p-5">
-        <p className="mb-1 text-xs text-[#87969d]">{item.name}</p>
+      <div className="p-5" aria-busy={response.isFetching}>
+        {feedback}
+        <p className="mb-2 text-xs text-[var(--fs-muted)]">{currentProject?.name ?? project} · {from || "All dates"} – {through || "Present"} (UTC)</p>
+        <p className="mb-1 text-sm font-medium text-[var(--fs-text)]">{item.name}</p>
         {item.result_source === "unconfigured" ||
         !["healthy", "unmapped"].includes(item.mapping_health) ? (
           <p className="text-xs text-amber-700">
@@ -999,7 +991,7 @@ function Widget({
             mapping.
           </p>
         ) : null}
-        <strong className="block text-3xl font-semibold text-[#168596]">
+        <strong className="block text-3xl font-semibold text-[#0e7180]">
           {item.unit === "text"
             ? (item.qualitative_value ?? "Not reported")
             : value(item.current_value) +
@@ -1009,7 +1001,7 @@ function Widget({
         </strong>
         {item.unit !== "text" && (
           <>
-            <p className="text-xs text-[#87969d]">
+            <p className="text-xs text-[var(--fs-muted)]">
               Overall target: {value(item.target_value)}
               {from || through ? " (unchanged by date filters)" : ""}
             </p>
@@ -1025,7 +1017,7 @@ function Widget({
             )}
           </>
         )}
-        <p className="mt-4 text-[12px] text-[#87969d]">
+        <p className="mt-4 text-[12px] text-[var(--fs-muted)]">
           {item.result_source === "manual"
             ? `${item.manual_result_count} manual results`
             : `${item.eligible_records} ready records`}{" "}
@@ -1035,7 +1027,7 @@ function Widget({
             : item.status.replaceAll("_", " ")}
         </p>
         <Link
-          className="text-xs text-[#168596]"
+          className="text-xs text-[#0e7180]"
           to={`/projects/${project}/indicators?view=results`}
         >
           Open indicator results →
@@ -1046,19 +1038,19 @@ function Widget({
   }
   if (!saved)
     return (
-      <p className="p-5 text-sm text-[#87969d]">
+      <p className="p-5 text-sm text-[var(--fs-muted)]">
         The saved visualization is no longer available.
       </p>
     );
   if (!result.data)
     return (
-      <p className="p-5 text-sm text-[#87969d]">
+      <p className="p-5 text-sm text-[var(--fs-muted)]">
         Visualization data is unavailable.
       </p>
     );
   if (!result.data.series.length)
     return (
-      <p className="p-5 text-sm text-[#87969d]">
+      <p className="p-5 text-sm text-[var(--fs-muted)]">
         No answered records match this chart's source and filters.
       </p>
     );
@@ -1067,7 +1059,9 @@ function Widget({
     name: p.group ? `${p.name} · ${p.group}` : p.name,
   }));
   return (
-    <div className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "p-5"}>
+    <div aria-busy={response.isFetching} className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "p-5"}>
+      {feedback}
+      <p className="mb-3 mt-0 text-xs text-[var(--fs-muted)]">{currentProject?.name ?? project} · {result.data.filters?.date_from || "All dates"} – {result.data.filters?.date_to || "Present"} (UTC) · Ready records{result.data.filters?.location ? ` · ${result.data.filters.location}` : ""}</p>
       <div style={{ height: presentation ? compactPresentation ? "clamp(250px, 36dvh, 380px)" : "clamp(280px, calc(100dvh - 400px), 540px)" : Math.max(160, (widget.height ?? 420) - 170) }}>
         {saved.chart === "table" ? (
           <div className={`overflow-auto ${presentation ? "h-full" : "max-h-[250px]"}`}>
@@ -1098,14 +1092,14 @@ function Widget({
                   data={data}
                   dataKey="value"
                   nameKey="name"
-                  innerRadius={presentation ? "40%" : 48}
-                  outerRadius={presentation ? "70%" : 85}
+                  innerRadius="40%"
+                  outerRadius="70%"
                 >
                   {data.map((_, i) => (
                     <Cell
                       key={i}
                       fill={
-                        ["#25a6b4", "#69c4b5", "#a2dcd1", "#d5b76b", "#698fa8"][
+                        ["#0b51b7", "#0e7180", "#7756a8", "#a86612", "#ba4055"][
                           i % 5
                         ]
                       }
@@ -1118,31 +1112,43 @@ function Widget({
             ) : saved.chart === "line" ? (
               <LineChart data={data} margin={{ top: 12, right: 16, bottom: 12, left: 0 }}>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} minTickGap={32} tickMargin={8} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Line dataKey="value" stroke="#25a6b4" strokeWidth={2} />
+                <Line dataKey="value" stroke="#0e7180" strokeWidth={2} />
               </LineChart>
             ) : (
               <BarChart data={data} margin={{ top: 12, right: 16, bottom: 12, left: 0 }}>
                 <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} minTickGap={32} tickMargin={8} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#25a6b4" maxBarSize={presentation ? 80 : undefined} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="value" fill="#0e7180" maxBarSize={presentation ? 80 : undefined} radius={[3, 3, 0, 0]} />
               </BarChart>
             )}
           </ResponsiveContainer>
         )}
       </div>
-      <p className="mb-2 text-[12px] text-[#87969d]">
+      {saved.chart !== "table" && (
+        <details className="my-3 border-t border-slate-200 pt-2 text-sm text-slate-600">
+          <summary className="cursor-pointer py-2 font-medium text-brand">View chart data</summary>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Data for {widget.title}</caption>
+              <thead><tr><th scope="col" className="py-2">Category</th><th scope="col" className="px-2 text-right">Value</th><th scope="col" className="px-2 text-right">Count</th></tr></thead>
+              <tbody>{data.map((row, i) => <tr key={i} className="border-t border-slate-100"><th scope="row" className="py-2 font-medium">{row.name}</th><td className="px-2 text-right tabular-nums">{value(row.value)}</td><td className="px-2 text-right tabular-nums">{row.count.toLocaleString()}</td></tr>)}</tbody>
+            </table>
+          </div>
+        </details>
+      )}
+      <p className="mb-2 text-[12px] text-[var(--fs-muted)]">
         {result.data.answered_records} answered / {result.data.eligible_records}{" "}
         eligible · {result.data.missing_records} missing ·{" "}
         {result.data.invalid_answers} invalid
       </p>
       <Link
         to={`/analytics?project_id=${project}`}
-        className="text-xs text-[#168596]"
+        className="text-xs text-[#0e7180]"
       >
         Explore source data →
       </Link>

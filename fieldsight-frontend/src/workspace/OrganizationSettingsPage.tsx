@@ -41,6 +41,7 @@ export function OrganizationSettingsPage() {
   });
   return (
     <Page
+      breadcrumb="FieldSight / Organization"
       title="Organization settings"
       description="Manage shared project defaults and organization access."
     >
@@ -55,9 +56,11 @@ export function OrganizationSettingsPage() {
         <p className="text-xs">Recorded project lifecycle, submission review, and provider-deletion events. Earlier events are not backfilled.</p>
         {events.isPending ? <p role="status">Loading history…</p> : events.error ? <Notice error>{events.error.message}</Notice> : events.data?.length ? <ul className="text-xs">{events.data.map(event => <li key={event.id}>{new Date(event.occurred_at).toLocaleString()} · {event.action} · Resource {event.resource_id} · Administrator {event.actor_id}</li>)}</ul> : <p className="text-xs">No administrative events recorded.</p>}
       </Panel>
+      {query.isFetching && query.data && <LoadingState variant="inline" label="Updating settings…" />}
+      {query.error && <Button variant="secondary" onClick={() => void query.refetch()}>Retry settings</Button>}
       {query.isLoading ? (
-        <LoadingState />
-      ) : (
+        <LoadingState variant="panel" label="Loading organization settings…" />
+      ) : query.error && !query.data ? null : (
         <div className="grid grid-cols-2 items-start gap-5 max-lg:grid-cols-1">
           <Panel className="p-6">
             <h2 className="mb-5 mt-0 text-base font-semibold">

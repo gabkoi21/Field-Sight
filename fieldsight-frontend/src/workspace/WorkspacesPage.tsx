@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { LoadingState } from "../components/ui";
+import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../components/ui";
 import { apiClient } from "../services/apiClient";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
@@ -116,16 +116,10 @@ export function WorkspacesPage() {
     if (row.project_id === workspace.projectId && row.location)
       sites.set(row.location, (sites.get(row.location) ?? 0) + 1);
   }
-  const addButtonClass =
-    "inline-flex min-h-9 items-center justify-center gap-2 rounded border-0 bg-[#0b51b7] px-4 py-2 text-sm font-semibold text-white hover:bg-[#084394] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7]";
   return (
-    <div className="space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="m-0 text-[27px] font-semibold tracking-tight text-[#252b33]">
-          Projects
-        </h1>
-        <button
-          className={addButtonClass}
+    <div className="min-w-0 space-y-6">
+      <PageHeader eyebrow="FieldSight / Organization" title="Projects" description="Manage organization projects. Open a project to view its forms, indicators, and results.">
+        <Button
           onClick={() => {
             setActionProject(null);
             setAdding(true);
@@ -137,60 +131,27 @@ export function WorkspacesPage() {
         >
           <Plus size={14} />
           Add new project
-        </button>
-      </header>
+        </Button>
+      </PageHeader>
       <div className="flex items-center gap-2">
-        <label className="relative w-full max-w-[420px]">
-          <MapPin
-            size={14}
-            className="pointer-events-none absolute left-3 top-2.5 text-[#0b51b7]"
-          />
-          <span className="sr-only">Project</span>
-          <select
-            className="h-9 w-full rounded border border-[#e4e5eb] bg-white pl-9 pr-3 text-sm text-[#46505b] outline-none focus:border-[#0b51b7]"
-            value={
-              filtered.some((p) => p.id === workspace.projectId)
-                ? workspace.projectId
-                : ""
-            }
-            onChange={(event) => workspace.selectProject(event.target.value)}
-          >
-            {!filtered.some((p) => p.id === workspace.projectId) && (
-              <option value="">
-                {filtered.length ? "Select a project" : "No matching projects"}
-              </option>
-            )}
-            {filtered.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
+        <label className="relative w-full max-w-lg">
+          <Search size={18} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-[var(--fs-muted)]" />
+          <span className="sr-only">Search projects</span>
+          <input type="search" placeholder="Search projects…" className={`${fieldClass} pl-10`} value={search} onChange={(event) => setSearch(event.target.value)} />
         </label>
         <button
           aria-label="Filter projects"
           aria-expanded={showFilters}
-          className={`grid size-9 shrink-0 place-items-center rounded border border-[#e4e5eb] ${showFilters ? "bg-[#edf4ff]" : "bg-white"} text-[#0b51b7]`}
+          aria-controls="project-filters"
+          className={`grid size-11 shrink-0 place-items-center rounded-lg border border-[var(--fs-control-border)] ${showFilters ? "bg-[#edf4ff]" : "bg-white"} text-[#0b51b7]`}
           onClick={() => setShowFilters(!showFilters)}
         >
           <Filter size={14} />
         </button>
       </div>
       {showFilters && (
-        <Panel className="flex flex-wrap items-center gap-3 p-4">
-          <div className="relative min-w-[200px] flex-1">
-            <Search
-              size={14}
-              className="absolute left-3 top-3 text-[#95a2a9]"
-            />
-            <input
-              aria-label="Search projects"
-              placeholder="Find a project…"
-              className={`${fieldClass} pl-9`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
+        <div id="project-filters"><Panel className="flex flex-wrap items-end gap-3 p-4">
+          <Field label="Project status">
           <select
             aria-label="Project status"
             className={fieldClass + " max-w-[180px]"}
@@ -211,8 +172,9 @@ export function WorkspacesPage() {
               </option>
             ))}
           </select>
+          </Field>
           <button
-            className="border-0 bg-transparent text-xs text-[#0b51b7]"
+            className="min-h-11 rounded-lg px-3 text-sm font-medium text-brand hover:bg-blue-50"
             onClick={() => {
               setSearch("");
               setStatus("");
@@ -220,7 +182,7 @@ export function WorkspacesPage() {
           >
             Clear filters
           </button>
-        </Panel>
+        </Panel></div>
       )}
       <nav
         aria-label="Project tabs"
@@ -228,43 +190,55 @@ export function WorkspacesPage() {
         className="flex gap-1 overflow-x-auto border-b border-[#dddfe5]"
       >
         {[
-          { id: "workspace", label: "Project", icon: FolderKanban },
+          { id: "workspace", label: "Projects", icon: FolderKanban },
           { id: "sites", label: "Sites", icon: MapPin },
           { id: "stakeholders", label: "Stakeholders", icon: Users },
-        ].map(({ id, label, icon: Icon }) => (
+        ].map(({ id, label, icon: Icon }, index) => (
           <button
             key={id}
             role="tab"
             id={`workspace-tab-${id}`}
             aria-controls={`workspace-panel-${id}`}
             aria-selected={tab === id}
+            tabIndex={tab === id ? 0 : -1}
+            onKeyDown={(event) => {
+              const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : null;
+              if (next === null) return;
+              event.preventDefault();
+              const button = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next];
+              button?.focus();
+              button?.click();
+            }}
             onClick={() => setTab(id)}
-            className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3 text-xs ${tab === id ? "border-[#0b51b7] bg-white font-medium text-[#0b51b7]" : "border-transparent bg-transparent text-[#73828b] hover:text-[#0b51b7]"}`}
+            className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3 text-xs ${tab === id ? "border-[#0b51b7] bg-white font-medium text-[#0b51b7]" : "border-transparent bg-transparent text-[var(--fs-muted)] hover:text-[#0b51b7]"}`}
           >
             <Icon size={14} />
             {label}
           </button>
         ))}
       </nav>
-      {workspace.error && <Notice error>{workspace.error.message}</Notice>}
+      {tab !== "workspace" && <p className="text-sm text-[var(--fs-muted)]">Current project: <strong>{workspace.project?.name ?? "None selected"}</strong>. Choose a project from the Projects tab to switch projects.</p>}
+      {workspace.refreshing && <LoadingState variant="inline" label="Updating projects…" />}
+      {workspace.error && <Notice error>{workspace.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={workspace.reload}>Retry projects</button></Notice>}
       <div
         role="tabpanel"
         id={`workspace-panel-${tab}`}
         aria-labelledby={`workspace-tab-${tab}`}
+        aria-busy={workspace.refreshing || workspace.loading}
       >
         {workspace.loading ? (
-          <LoadingState />
-        ) : !workspace.project ? (
+          <LoadingSkeleton label="Loading projects…" columns={7} />
+        ) : workspace.error && !workspace.project ? <Panel className="p-5"><Button variant="secondary" onClick={workspace.reload}>Retry loading projects</Button></Panel> : !workspace.project ? (
           <Panel className="p-10 text-center">
             <h2 className="text-lg">Create your first project</h2>
-            <p className="text-sm text-[#87969d]">
+            <p className="text-sm text-[var(--fs-muted)]">
               Start with the project you want to monitor.
             </p>
           </Panel>
         ) : tab === "workspace" ? (
-          <div className="overflow-x-auto border-y border-[#e8e8ee] bg-white">
+          <div className="relative max-w-full overflow-x-auto rounded-xl border border-[var(--fs-border)] bg-white" role="region" aria-label="Projects table" tabIndex={0}>
             <table className="w-full min-w-[970px] border-collapse text-left text-sm">
-              <thead className="bg-[#f6f6f8] text-[12px] uppercase tracking-[.04em] text-[#73828b]">
+              <thead className="bg-[#f6f6f8] text-[12px] uppercase tracking-[.04em] text-[var(--fs-muted)]">
                 <tr>
                   {[
                     { label: "Name", key: "name" },
@@ -279,7 +253,7 @@ export function WorkspacesPage() {
                     <th
                       key={column.label}
                       scope="col"
-                      className="px-4 py-2.5 font-medium"
+                      className="px-3 py-2 font-medium"
                       aria-sort={
                         sort.key === column.key
                           ? sort.ascending
@@ -351,39 +325,40 @@ export function WorkspacesPage() {
                           openWorkspace(project.id);
                         }
                       }}
-                      className="cursor-pointer border-t border-[#ececf1] outline-none hover:bg-[#f5f9ff] focus-visible:bg-[#edf4ff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0b51b7]"
+                      className="cursor-pointer border-t border-[#ececf1] odd:bg-[#f5f6f8] even:bg-white outline-none focus-visible:bg-[#edf4ff] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#0b51b7]"
                     >
-                      <td className="max-w-[310px] px-4 py-4">
+                      <td className="max-w-[310px] px-3 py-2">
                         <Link
                           onClick={() => workspace.selectProject(project.id)}
                           to={`/projects/${project.id}`}
-                          className="font-medium leading-5 text-[#0b51b7] no-underline hover:underline"
+                          className="font-medium leading-5 text-[#0b51b7] no-underline"
                         >
                           {project.name}
                         </Link>
+                        {project.id === workspace.projectId && <span className="mt-1 block text-xs font-medium text-[var(--fs-muted)]">Current project</span>}
                       </td>
-                      <td className="px-4 py-4 text-[#49515c]">
+                      <td className="px-3 py-2 text-[#49515c]">
                         <span className="font-medium text-green-700" title={`Project ID: ${project.id}`}>
                           {project.workspace_details?.code ||
                             project.id.slice(0, 8).toUpperCase()}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-[#49515c]">
+                      <td className="px-3 py-2 text-[#49515c]">
                         {project.workspace_details?.stage || "Not set"}
                       </td>
-                      <td className="px-4 py-4 text-[#49515c]">
+                      <td className="px-3 py-2 text-[#49515c]">
                         {project.workspace_details?.group || "Not set"}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
+                      <td className="whitespace-nowrap px-3 py-2 text-[#49515c]">
                         {displayDate(project.start_date)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
+                      <td className="whitespace-nowrap px-3 py-2 text-[#49515c]">
                         {displayDate(project.end_date)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-[#49515c]">
+                      <td className="whitespace-nowrap px-3 py-2 text-[#49515c]">
                         {displayCreatedAt(project.created_at)}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-3 py-2">
                         <span
                           className="inline-flex items-center"
                           title={
@@ -419,13 +394,14 @@ export function WorkspacesPage() {
                                 "#a0a6b0",
                             }}
                           />
+                          <span className="ml-2 text-sm capitalize text-[var(--fs-text)]">{project.status.replaceAll("_", " ")}</span>
                         </span>
                       </td>
-                      <td className="px-2 py-4">
+                      <td className="px-2 py-2">
                         <button
                           aria-label={`Actions for ${project.name}`}
                           title="Update project"
-                          className="grid size-7 place-items-center border-0 bg-transparent text-[#0b51b7] hover:bg-[#edf4ff]"
+                          className="grid size-11 place-items-center rounded-lg border-0 bg-transparent text-[#0b51b7]"
                           onClick={(event) => {
                             event.stopPropagation();
                             workspace.selectProject(project.id);
@@ -455,14 +431,14 @@ export function WorkspacesPage() {
             <h2 className="m-0 border-b border-[#edf0f2] px-5 py-4 text-sm font-semibold">
               Project sites
             </h2>
-            <p className="px-5 text-xs leading-6 text-[#87969d]">
+            <p className="px-5 text-xs leading-6 text-[var(--fs-muted)]">
               Locations recorded in this project's stored responses.
             </p>
             {submissions.isLoading ? (
-              <LoadingState />
+              <LoadingState variant="panel" label="Loading project sites…" />
             ) : submissions.error ? (
               <div className="p-5">
-                <Notice error>{submissions.error.message}</Notice>
+                <Notice error>{submissions.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void submissions.refetch()}>Retry project sites</button></Notice>
               </div>
             ) : sites.size ? (
               <table className="w-full text-left text-xs">
@@ -484,7 +460,7 @@ export function WorkspacesPage() {
                 </tbody>
               </table>
             ) : (
-              <p className="p-6 text-sm text-[#87969d]">
+              <p className="p-6 text-sm text-[var(--fs-muted)]">
                 No site locations are recorded in this project's responses yet.
               </p>
             )}
@@ -492,7 +468,7 @@ export function WorkspacesPage() {
         ) : (
           <Panel className="p-6">
             <h2 className="mt-0 text-sm font-semibold">Stakeholders</h2>
-            <p className="text-sm leading-7 text-[#87969d]">
+            <p className="text-sm leading-7 text-[var(--fs-muted)]">
               Partner and external stakeholder records are not connected yet.
               Internal project members are managed separately in Team &
               invitations.
@@ -532,7 +508,7 @@ export function WorkspacesPage() {
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Start date">
                 <input
                   type="date"

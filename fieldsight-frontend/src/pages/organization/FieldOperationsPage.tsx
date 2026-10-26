@@ -5,9 +5,10 @@ import { Link } from "react-router-dom";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import { useAuth } from "../../auth/AuthContext";
-import { adminInputClass } from "../../components/superadmin/AdminUi";
-import { Button } from "../../components/ui";
+import { controlClass as adminInputClass } from "../../components/ui/controlStyles";
+import { Button, PageHeader } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { apiClient, ApiError, type ApiEnumerator, type EnumeratorUpdateInput } from "../../services/apiClient";
 
@@ -43,7 +44,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
   const [editEmergencyContactName, setEditEmergencyContactName] = useState("");
   const [editEmergencyContactPhone, setEditEmergencyContactPhone] = useState("");
   const [actionError, setActionError] = useState("");
-  const manageFieldClass = `${adminInputClass} min-h-[36px] border-[#edf1f5] bg-[#f5f7fa] px-2.5 text-[14px] text-[#526177]`;
+  const manageFieldClass = `${adminInputClass} min-h-11 border-[#edf1f5] bg-[#f5f7fa] px-2.5 text-[14px] text-[#526177]`;
   const organizationId = user?.memberships.find(
     (membership) => membership.role === "organization_admin",
   )?.organization_id;
@@ -303,9 +304,6 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
     );
   }
 
-  if (createMutation.isPending || updateMutation.isPending) {
-    return <LoadingState label="Refreshing enumerators…" />;
-  }
 
   return (
     <>
@@ -315,25 +313,18 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       >
         <ArrowLeft size={15} /> Back to {workspace.hasSelectedProject ? "project" : "projects"}
       </Link>
-      <div className="mb-[19px] flex items-start justify-between gap-3 max-[700px]:flex-col">
-        <div>
-          <p className="!m-0 !mb-[6px] text-[12px] font-bold uppercase leading-[1.4] tracking-[.08em] text-[#0b51b7]">
-            {projectEmbedded ? workspace.project?.name ?? "Project" : "FieldSight / Field team"}
-          </p>
-          <h1 className="!m-0 !font-sans !text-[28px] !font-semibold !leading-tight !tracking-tight">Field team</h1>
-          <p className="!m-0 text-[0.875rem] text-[#75849a]">
-            {projectEmbedded ? "Create and manage enumerators assigned to this project." : "Create and manage enumerator accounts for your organization."}
-          </p>
-        </div>
+      <div className="mb-6"><PageHeader eyebrow={projectEmbedded ? `FieldSight / ${workspace.project?.name ?? "Project"}` : "FieldSight / Organization"} title="Field team" description={projectEmbedded ? "Create and manage enumerators assigned to this project." : "Create and manage enumerator accounts for your organization."}>
         <Button onClick={() => { setFormError(""); if (projectEmbedded) setAssignedProjectId(workspace.projectId); setShowCreate(true); }}>
           <Plus size={15} /> Create enumerator
         </Button>
-      </div>
+      </PageHeader></div>
       {projectEmbedded && <div className="mb-5"><WorkspaceTabs /></div>}
-      {loadError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{loadError}</p>}
+      {((enumeratorsQuery.isFetching && enumeratorsQuery.data) || (assignmentsQuery.isFetching && assignmentsQuery.data)) && <LoadingState variant="inline" label="Updating field team…" />}
+      {(createMutation.isPending || updateMutation.isPending) && <LoadingState variant="inline" label="Saving enumerator…" announce />}
+      {loadError && <div role="alert" className="mb-4 rounded-md bg-[#fff0f2] p-3 text-sm text-[#b42318]">{loadError} <button type="button" className="min-h-11 px-3 font-semibold underline focus-visible:outline focus-visible:outline-2" onClick={() => { void enumeratorsQuery.refetch(); void assignmentsQuery.refetch(); }}>Retry field team</button></div>}
       {actionError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{actionError}</p>}{" "}
-      <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
+      {(enumeratorsQuery.isLoading || assignmentsQuery.isLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" label="Loading field team…" announce={false} /></div> : <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] p-[17px]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <Users size={19} />
           </span>
@@ -341,17 +332,17 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
             {projectEnumerators.length.toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">{projectId ? "Assigned to the selected project" : "Organization membership accounts"}</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">{projectId ? "Assigned to the selected project" : "Organization membership accounts"}</small>
         </Card>
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] p-[17px]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
             <UserCheck size={19} />
           </span>
           <span className="text-[12px] font-medium text-[#6f7d8a]">Active</span>
           <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{activeCount.toLocaleString()}</strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Can access assigned field work</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Can access assigned field work</small>
         </Card>
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-none border border-[#e5e9ed] p-[17px]">
+        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] p-[17px]">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
             <UserX size={19} />
           </span>
@@ -359,21 +350,23 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
             {(projectEnumerators.length - activeCount).toLocaleString()}
           </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[#88939d]">Access has been disabled</small>
+          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Access has been disabled</small>
         </Card>
-      </section>
+      </section>}
       <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
-        <label className="flex w-full items-center gap-[8px] rounded-[6px] border border-[#dce5ef] bg-white px-[11px] text-[#8492a4]">
+        <label className="flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand">
           <Search size={15} />
           <input
-            className="w-full border-0 bg-transparent py-[8px] font-sans text-[14px] font-normal leading-normal text-[#4e5e74] outline-none"
+            className="min-h-11 w-full min-w-0 rounded-lg border-0 bg-transparent py-2 text-base sm:text-sm text-[var(--fs-text)] focus:outline-none"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            aria-label="Search enumerators"
             placeholder="Search name, username, or email…"
           />
         </label>
         <select
-          className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[12px] text-[#69798e]"
+          className={adminInputClass}
+          aria-label={projectEmbedded ? "Current team project" : "Team project filter"}
           value={projectId}
           disabled={projectEmbedded}
           onChange={(event) => setProjectId(event.target.value)}
@@ -386,7 +379,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           ))}
         </select>
         <select
-          className="min-h-[36px] w-full rounded-[6px] border border-[#dce5ef] bg-white px-[11px] font-sans text-[12px] text-[#69798e]"
+          className={adminInputClass}
           value={exportPeriod}
           onChange={(event) => setExportPeriod(event.target.value as typeof exportPeriod)}
           aria-label="Enumerator CSV export period"
@@ -400,7 +393,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           type="button"
           onClick={exportCsv}
           disabled={!exportEnumerators.length}
-          className="flex min-h-[36px] cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[14px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-11 cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap rounded-[6px] border border-[#dce5ef] bg-white px-[16px] py-[9px] font-sans text-[14px] font-semibold leading-normal text-[#155da6] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download size={16} />
           Export data
@@ -408,8 +401,8 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       </div>
       <section className="mt-4 overflow-hidden rounded-lg border border-[#e1e7eb] bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] border-collapse whitespace-nowrap text-left text-xs">
-            <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
+          <table aria-busy={enumeratorsQuery.isFetching || assignmentsQuery.isFetching} className="w-full min-w-[1040px] border-collapse whitespace-nowrap text-left text-xs">
+            <thead className="bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">
                   Full name
@@ -439,10 +432,10 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
               </tr>
             </thead>
             <tbody>
-              {enumeratorsQuery.isLoading && (
+              {(enumeratorsQuery.isLoading || assignmentsQuery.isLoading) && (
                 <tr>
                   <td colSpan={9} className="px-4 py-6 text-center text-[14px] text-[#8190a4]">
-                    Loading enumerators…
+                    <LoadingSkeleton label="Loading enumerators…" columns={6} />
                   </td>
                 </tr>
               )}
@@ -507,7 +500,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
             <p className="m-0 p-10 text-center text-xs text-[#8793a2]">{query.trim() ? "No enumerators match your search." : projectId ? "No enumerators are assigned to this project yet." : "No enumerators have been created yet."}</p>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e1e7eb] px-5 py-3 text-xs text-[#87969d]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e1e7eb] px-5 py-3 text-xs text-[var(--fs-muted)]">
           <span aria-live="polite">{filteredEnumerators.length ? firstIndex + 1 : 0}–{Math.min(firstIndex + pageSize, filteredEnumerators.length)} of {filteredEnumerators.length} enumerators</span>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2">Rows per page
@@ -534,7 +527,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
             <header className="flex shrink-0 items-center justify-between border-b border-[#e8edf4] px-6 py-5">
               <div>
                 <h2 id="manage-enumerator-title" className="m-0 text-lg font-semibold tracking-tight text-[#253342]">Manage enumerator</h2>
-                <p className="mb-0 mt-1 text-xs text-[#75849a]">Update profile details and account access.</p>
+                <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">Update profile details and account access.</p>
               </div>
               <button
                 type="button"

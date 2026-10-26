@@ -31,7 +31,7 @@ import {
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
-import { Button, LoadingState } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../../components/ui";
 import {
   apiClient,
   type FrameworkNode,
@@ -52,11 +52,11 @@ import {
 } from "./IndicatorForms";
 
 const accents: Record<FrameworkNode["node_type"], string> = {
-  goal: "#e4a52b",
-  objective: "#137f91",
-  outcome: "#e45865",
-  output: "#289bae",
-  activity: "#36b89e",
+  goal: "#006b85",
+  objective: "#008da8",
+  outcome: "#09bce8",
+  output: "#10cba5",
+  activity: "#f3c000",
 };
 const registerGroups = {
   goal: { border: "#c4a227", background: "#fffbed" },
@@ -299,20 +299,20 @@ export function IndicatorWorkspacePage() {
   groups.push({ id: null, title: "Ungrouped indicators", depth: 0 });
   function tree(parentId: string | null): ReactNode {
     return (
-      <ul className="m-0 flex list-none items-start justify-center gap-5 p-0">
+      <ul className="results-framework-tree">
         {nodes
           .filter((node) => node.parent_id === parentId)
           .map((node) => (
-            <li key={node.id} className="flex flex-col items-center">
-              <div className="h-6 border-l border-[#8db9c0]" />
+            <li key={node.id} className="results-framework-branch">
+              
               <div
-                className="w-[235px] border border-[#dce5e8] border-l-[3px] bg-white p-4 shadow-sm"
+                className="results-framework-card"
                 style={{ borderLeftColor: accents[node.node_type] }}
               >
-                <div className="mb-2 flex justify-between gap-3">
+                <div className="flex items-center justify-between gap-2 px-3 pt-3">
                   <span
-                    className="text-[12px] font-semibold uppercase tracking-wide"
-                    style={{ color: accents[node.node_type] }}
+                    className="text-xs font-semibold capitalize text-[#17204c]"
+                    
                   >
                     {node.node_type}
                   </span>
@@ -340,10 +340,10 @@ export function IndicatorWorkspacePage() {
                     </Icon>
                   </div>
                 </div>
-                <strong className="block text-xs leading-5 text-[#24434c]">
+                <strong className="block px-3 pt-2 text-xs font-medium leading-5 text-[#24434c]">
                   {node.title}
                 </strong>
-                <span className="mt-3 block text-[12px] text-[#73868d]">
+                <span className="block px-3 pb-3 pt-1 text-xs text-[var(--fs-muted)]">
                   {
                     items.filter((item) => item.framework_node_id === node.id)
                       .length
@@ -353,20 +353,14 @@ export function IndicatorWorkspacePage() {
                 {node.node_type !== "activity" && (
                   <button
                     onClick={() => addNode(null, node.id)}
-                    className="mt-3 flex w-full items-center justify-center gap-1 border-0 bg-[#edf5f5] py-1.5 text-[12px] text-[#0c8593]"
+                    aria-label={`Add child result to ${node.title}`} title="Add child result" className="flex min-h-11 w-full items-center justify-center border-0 bg-[#eff5f7] text-[#006b85] hover:bg-[#dfeef2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006b85]"
                   >
-                    <Plus size={12} />
-                    Add child result
+                    <Plus size={20} aria-hidden="true" />
                   </button>
                 )}
               </div>
               {nodes.some((child) => child.parent_id === node.id) && (
-                <>
-                  <div className="h-5 border-l border-[#8db9c0]" />
-                  <div className="border-t border-[#8db9c0]">
-                    {tree(node.id)}
-                  </div>
-                </>
+                tree(node.id)
               )}
             </li>
           ))}
@@ -374,7 +368,7 @@ export function IndicatorWorkspacePage() {
     );
   }
 
-  if (loading || projects.isLoading) return <LoadingState />;
+  if (loading || projects.isLoading) return <LoadingState variant="panel" label="Loading indicators…" />;
   return (
     <div className="space-y-5 text-[#24434c]">
       <Link
@@ -383,23 +377,12 @@ export function IndicatorWorkspacePage() {
       >
         <ArrowLeft size={15} /> Project overview
       </Link>
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="mb-1 mt-0 text-[12px] font-semibold uppercase tracking-[.16em] text-[#0c8593]">
-            {project?.name ?? "FieldSight"} / Monitoring & evaluation
-          </p>
-          <h1 className="m-0 text-[28px] font-semibold tracking-tight text-[#24434c]">
-            Indicators
-          </h1>
-          <p className="mb-0 mt-1 text-[14px] text-[#73868d]">
-            Connect project results to measurable evidence and targets.
-          </p>
-        </div>
+      <PageHeader eyebrow={`FieldSight / ${project?.name ?? "Project"} / Monitoring & evaluation`} title="Indicators" description="Connect project results to measurable evidence and targets.">
         <Button disabled={!projectId || !org} onClick={() => editItem("new")}>
           <Plus size={15} />
           Add indicator
         </Button>
-      </header>
+      </PageHeader>
       {projectId && <WorkspaceTabs />}
       {!org ? (
         <Panel>
@@ -429,48 +412,16 @@ export function IndicatorWorkspacePage() {
         <>
           <Panel>
             <div className={`flex flex-wrap items-center gap-3 ${routeProject ? "justify-end px-4 py-1.5" : "p-5"}`}>
-              {routeProject && (
-                <div className="mr-auto flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              <div className="mr-auto flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <p className="m-0 text-sm font-medium text-[#24434c]">Indicator filters</p>
-                  <p className="m-0 text-xs text-[#73868d]">Filter by source mapping, target achievement or submission date.</p>
+                  <p className="m-0 text-xs text-[var(--fs-muted)]">Filter by source mapping, target achievement or submission date.</p>
                 </div>
-              )}
-              {!routeProject && <label className="min-w-[220px] flex-1">
-                <span className="mb-1.5 block text-[12px] uppercase tracking-wide text-[#73868d]">
-                  Project
-                </span>
-                <select
-                  aria-label="Project"
-                  className={inputClass}
-                  value={projectId}
-                  disabled={Boolean(routeProject)}
-                  onChange={(e) => {
-                    workspace.selectProject(e.target.value);
-                    navigate(
-                      `/projects/${e.target.value}/indicators?view=${view}`,
-                    );
-                    setSelected("");
-                    setError("");
-                  }}
-                >
-                  {!project && (
-                    <option value={projectId}>Project unavailable</option>
-                  )}
-                  {projects.data
-                    .filter((item) => !routeProject || item.id === routeProject)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </label>}
               <button
                 type="button"
                 aria-expanded={filtersOpen}
                 aria-controls="indicator-date-filters"
                 onClick={() => setFiltersOpen((open) => !open)}
-                className="inline-flex h-8 shrink-0 self-center items-center justify-center gap-1.5 rounded border border-[#dce5e8] bg-white px-2.5 py-0 text-xs text-[#3f7a86] hover:bg-[#f7fafb]"
+                className="inline-flex min-h-11 shrink-0 self-center items-center justify-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-2.5 py-0 text-xs text-[#3f7a86] hover:bg-[#f7fafb]"
               >
                 <SlidersHorizontal size={15} aria-hidden="true" /> Filters
                 {(dateFrom || dateTo || sourceFilter !== "all") && (
@@ -493,7 +444,7 @@ export function IndicatorWorkspacePage() {
               >
                 <div className="grid max-w-[900px] grid-cols-3 items-end gap-4 px-5 pb-4 max-[700px]:grid-cols-1">
                   <label className="grid min-w-0 gap-2">
-                    <span className="block text-[12px] uppercase tracking-wide text-[#73868d]">
+                    <span className="block text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
                       Indicator status
                     </span>
                     <select
@@ -509,7 +460,7 @@ export function IndicatorWorkspacePage() {
                     </select>
                   </label>
                   <label className="grid min-w-0 gap-2">
-                    <span className="block text-[12px] uppercase tracking-wide text-[#73868d]">
+                    <span className="block text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
                       Submitted from (UTC)
                     </span>
                     <input
@@ -521,7 +472,7 @@ export function IndicatorWorkspacePage() {
                     />
                   </label>
                   <label className="grid min-w-0 gap-2">
-                    <span className="block text-[12px] uppercase tracking-wide text-[#73868d]">
+                    <span className="block text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
                       Submitted through (UTC)
                     </span>
                     <input
@@ -533,7 +484,7 @@ export function IndicatorWorkspacePage() {
                     />
                   </label>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4 text-xs text-[#73868d]">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-4 text-xs text-[var(--fs-muted)]">
                   <span>
                     Filter actual results by submission date. Indicator targets
                     stay unchanged.
@@ -574,7 +525,7 @@ export function IndicatorWorkspacePage() {
                   key={id}
                   onClick={() => tab(id)}
                   aria-current={view === id ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3.5 text-sm transition-colors ${view === id ? "border-[#0c8593] bg-[#f0f8f9] font-semibold text-[#0c7180]" : "border-transparent bg-transparent text-[#73868d] hover:bg-[#f7fafb]"}`}
+                  className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3.5 text-sm transition-colors ${view === id ? "border-[#0c8593] bg-[#f0f8f9] font-semibold text-[#0c7180]" : "border-transparent bg-transparent text-[var(--fs-muted)] hover:bg-[#f7fafb]"}`}
                 >
                   <Symbol size={15} />
                   {label}
@@ -587,21 +538,22 @@ export function IndicatorWorkspacePage() {
             <Notice error>Start date must be on or before end date.</Notice>
           )}
           {indicators.error && (
-            <Notice error>{indicators.error.message}</Notice>
+            <Notice error>{indicators.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void indicators.refetch()}>Retry indicators</button></Notice>
           )}
-          {framework.error && <Notice error>{framework.error.message}</Notice>}
+          {framework.error && <Notice error>{framework.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void framework.refetch()}>Retry framework</button></Notice>}
           {(dateFrom || dateTo) && (
             <Notice>
               Actuals use the selected submission window. Overall and
               reporting-period targets are not prorated.
             </Notice>
           )}
+          {((indicators.isFetching && indicators.data) || (framework.isFetching && framework.data)) && <LoadingState variant="inline" label="Updating indicators…" />}
           {indicators.isLoading || framework.isLoading ? (
-            <LoadingState />
+            <LoadingSkeleton label="Loading indicators…" columns={7} />
           ) : (
             !invalidDates &&
-            !indicators.error &&
-            !framework.error && (
+            (!indicators.error || indicators.data) &&
+            (!framework.error || framework.data) && (
               <>
                 {view === "framework" ? (
                   <Panel>
@@ -610,7 +562,7 @@ export function IndicatorWorkspacePage() {
                         <h2 className="m-0 text-sm">
                           Project results framework
                         </h2>
-                        <p className="mb-0 mt-1 text-xs text-[#73868d]">
+                        <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">
                           Arrange intended results and link indicators from the
                           register.
                         </p>
@@ -631,18 +583,12 @@ export function IndicatorWorkspacePage() {
                         </Button>
                       </Empty>
                     ) : (
-                      <div className="overflow-x-auto bg-[#eef3f4] px-8 py-10">
-                        <div className="flex min-w-max flex-col items-center">
-                          <div className="w-[235px] bg-[#126f82] px-5 py-4 text-center text-sm font-semibold text-white">
-                            {project?.name ?? "Project"}
-                            <span className="mt-1 block text-[12px] font-normal opacity-75">
-                              Results framework
-                            </span>
-                          </div>
+                      <div className="overflow-x-auto bg-[#f6f4ee] p-4 sm:p-8" role="region" aria-label="Results framework diagram" tabIndex={0}>
+                        <div className="mx-auto w-max min-w-full bg-white px-6 pb-10 pt-6">
+                          <h3 className="mb-8 mt-0 text-center text-lg font-bold text-[#20265b]">Results framework</h3>
                           {tree(null)}
                         </div>
-                      </div>
-                    )}
+                      </div>                    )}
                   </Panel>
                 ) : view === "results" ? (
                   <>
@@ -664,7 +610,7 @@ export function IndicatorWorkspacePage() {
                           <Panel>
                             <div className="flex flex-wrap items-end justify-between gap-4 p-4">
                               <label className="min-w-[240px] flex-1">
-                                <span className="mb-1.5 block text-[12px] uppercase text-[#73868d]">
+                                <span className="mb-1.5 block text-[12px] uppercase text-[var(--fs-muted)]">
                                   Indicator
                                 </span>
                                 <select
@@ -702,7 +648,7 @@ export function IndicatorWorkspacePage() {
                                 <button
                                   key={id}
                                   onClick={() => setDetailsTab(id)}
-                                  className={`border-0 border-b-2 bg-transparent px-4 py-3 text-xs capitalize ${detailsTab === id ? "border-[#0c8593] text-[#0c7180]" : "border-transparent text-[#73868d]"}`}
+                                  className={`border-0 border-b-2 bg-transparent px-4 py-3 text-xs capitalize ${detailsTab === id ? "border-[#0c8593] text-[#0c7180]" : "border-transparent text-[var(--fs-muted)]"}`}
                                 >
                                   {id === "summary"
                                     ? "Results summary"
@@ -847,7 +793,7 @@ export function IndicatorWorkspacePage() {
                         <Panel key={label}>
                           <div className="flex items-center justify-between gap-4 p-5">
                             <div>
-                              <span className="text-xs font-medium text-[#73868d]">
+                              <span className="text-xs font-medium text-[var(--fs-muted)]">
                                 {label}
                               </span>
                               <strong className="mt-1.5 block text-[28px] font-semibold leading-tight tabular-nums text-[#24434c]">
@@ -1021,7 +967,7 @@ export function IndicatorWorkspacePage() {
                                           </td>
                                           <td data-label="Actual vs target" className="px-4 py-2.5 align-middle">
                                             {item.unit === "text" ? (
-                                              <span className="text-[#73868d]">
+                                              <span className="text-[var(--fs-muted)]">
                                                 {item.qualitative_value ??
                                                   "Not reported"}
                                               </span>
@@ -1102,7 +1048,7 @@ export function IndicatorWorkspacePage() {
                               </button>
                             </div>
                           )}
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7edef] bg-[#fafcfd] px-5 py-3 text-xs text-[#73868d]">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7edef] bg-[#fafcfd] px-5 py-3 text-xs text-[var(--fs-muted)]">
                             <span aria-live="polite">
                               Showing {visibleItems.length} of {items.length}{" "}
                               indicators
@@ -1217,7 +1163,7 @@ function Empty({
     <div className="grid justify-items-center px-5 py-12 text-center">
       <Target className="text-[#0c8593]" size={28} />
       <h2 className="mb-1 mt-4 text-base font-semibold">{title}</h2>
-      <p className="mb-5 mt-0 max-w-lg text-xs leading-6 text-[#73868d]">
+      <p className="mb-5 mt-0 max-w-lg text-xs leading-6 text-[var(--fs-muted)]">
         {description}
       </p>
       {children}
@@ -1243,7 +1189,7 @@ function Icon({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`grid size-7 place-items-center rounded border border-[#dce5e8] bg-white p-0 shadow-none transition-colors hover:border-[#b7c7cd] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73868d] disabled:opacity-40 ${destructive ? "text-red-600 hover:text-red-700" : "text-[#73868d] hover:text-[#24434c]"}`}
+      className={`grid size-7 place-items-center rounded border border-[#dce5e8] bg-white p-0 shadow-none transition-colors hover:border-[#b7c7cd] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73868d] disabled:opacity-40 ${destructive ? "text-red-600 hover:text-red-700" : "text-[var(--fs-muted)] hover:text-[#24434c]"}`}
     >
       {children}
     </button>
@@ -1342,7 +1288,7 @@ function IndicatorResults({
             {indicator.qualitative_value ??
               "No narrative recorded in this reporting window."}
           </p>
-          <p className="text-xs text-[#87969d]">
+          <p className="text-xs text-[var(--fs-muted)]">
             {indicator.manual_result_count} manual results ·{" "}
             {indicator.calculation_note}
           </p>
@@ -1426,7 +1372,7 @@ function IndicatorResults({
               </tbody>
             </table>
             {!indicator.history.length && (
-              <p className="p-6 text-center text-xs text-[#73868d]">
+              <p className="p-6 text-center text-xs text-[var(--fs-muted)]">
                 No dated results or saved period targets in this window.
               </p>
             )}
@@ -1463,7 +1409,7 @@ function IndicatorResults({
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="p-12 text-center text-xs text-[#73868d]">
+            <p className="p-12 text-center text-xs text-[var(--fs-muted)]">
               Results appear after a source question has usable, ready
               submissions.
             </p>

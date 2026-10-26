@@ -5,3 +5,11 @@ fieldsight-backend/fieldsight.db-wal
 sqlite-merge-backup-*/
 # Generated PDF inspection renders.
 /tmp/pdfs/
+
+# Disposable authentication verification data.
+/fieldsight-backend/outputs/auth-*/
+/fieldsight-backend/outputs/browser-auth-*.db*
+
+# Local authentication test reports.
+/tmp/auth-*.txt
+/tmp/auth-*.json

@@ -306,7 +306,7 @@ export function ExploreAnalyzePage() {
     URL.revokeObjectURL(url);
   }
 
-  if (authLoading || projectsQuery.isLoading || submissionsQuery.isLoading) return <LoadingState />;
+  if (authLoading || projectsQuery.isLoading || submissionsQuery.isLoading) return <LoadingState variant="page" label="Preparing analysis…" />;
   return (
     <div className="text-[#25324a]">
       <header className="mb-5 flex items-start justify-between gap-4 max-[700px]:flex-col">

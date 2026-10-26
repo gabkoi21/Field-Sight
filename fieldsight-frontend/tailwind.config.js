@@ -17,7 +17,8 @@ export default {
         display: ['Inter', 'Arial', 'sans-serif'],
       },
       fontSize: {
-        xs: ['0.875rem', { lineHeight: '1.375rem' }],
+        // Compact metadata/data labels vs. regular body and control text.
+        xs: ['0.8125rem', { lineHeight: '1.25rem' }],
         sm: ['0.875rem', { lineHeight: '1.375rem' }],
       },
       transitionTimingFunction: {

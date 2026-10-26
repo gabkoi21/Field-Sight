@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Database, Link2, Plus, Trash2 } from "lucide-react";
-import { Button, LoadingState } from "../components/ui";
+import { Button, LoadingSkeleton, LoadingState } from "../components/ui";
 import { apiClient, type Indicator } from "../services/apiClient";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { Field, Notice, Panel, fieldClass } from "./WorkspaceUI";
@@ -141,9 +141,11 @@ export function CollectedDataPanel({
           </Link>
         </Panel>
       )}
+      {results.isFetching && results.data && <LoadingState variant="inline" label="Updating collected records…" />}
+      {results.error && <Button variant="secondary" onClick={() => void results.refetch()}>Retry collected records</Button>}
       <Panel>
         {results.isLoading ? (
-          <LoadingState />
+          <LoadingSkeleton label="Loading collected records…" />
         ) : results.data?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] text-left text-xs">
@@ -192,7 +194,7 @@ export function CollectedDataPanel({
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : results.error ? null : (
           <div className="p-10 text-center text-sm text-[#87969d]">
             {indicator.mapping
               ? "This indicator uses linked table data. No manual entries are stored."

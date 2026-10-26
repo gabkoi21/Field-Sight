@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -39,3 +40,9 @@ def create_access_token(user_id: UUID, session_id: UUID, settings: Settings) -> 
         "aud": settings.jwt_audience,
     }
     return jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
+
+
+def rotated_refresh_token(previous: str, successor_id: UUID, settings: Settings) -> str:
+    """Reconstruct only the immediate successor during bounded lost-response recovery."""
+    message = f"fieldsight-refresh-rotation:{successor_id}:{previous}".encode()
+    return hmac.new(settings.jwt_secret.encode(), message, hashlib.sha256).hexdigest()
