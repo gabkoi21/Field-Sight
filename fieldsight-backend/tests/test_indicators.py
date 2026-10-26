@@ -136,7 +136,12 @@ def test_admin_can_manage_project_indicators(tmp_path: object) -> None:
     assert len(calculated.json()["history"]) == 1
     assert calculated.json()["history"][0]["period"] == "2026-Q3"
     assert {item["location"] for item in calculated.json()["location_breakdown"]} == {"Kajo-Keji", "Yei"}
-    updated = client.patch(f"/indicators/{indicator_id}", headers=headers, json={"target_value": 75})
+    assert client.patch(f"/indicators/{indicator_id}", headers=headers, json={"target_value": 75}).status_code == 409
+    preview = client.post(f"/indicators/{indicator_id}/definition-preview", headers=headers,
+                          json={"target_value": 75}).json()
+    updated = client.patch(f"/indicators/{indicator_id}", headers=headers, json={"target_value": 75,
+        "confirm_change": True, "change_reason": "Revised after review",
+        "expected_version": preview["expected_version"], "preview_token": preview["preview_token"]})
     assert updated.status_code == 200
     assert updated.json()["target_value"] == 75
     assert updated.json()["status"] == "in_progress"

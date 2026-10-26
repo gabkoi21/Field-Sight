@@ -9,6 +9,8 @@ import {
 import {
   ArrowLeft,
   BarChart3,
+  CalendarDays,
+  TrendingUp,
   ChevronDown,
   GitBranch,
   Link2,
@@ -30,6 +32,7 @@ import {
 } from "recharts";
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
+import { CollectedDataPanel } from "../../workspace/CollectedDataPanel";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../../components/ui";
 import {
@@ -95,7 +98,7 @@ export function IndicatorWorkspacePage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
-  const [review, setReview] = useState<{ kind: "definition" | "mapping" | "targets"; input: IndicatorInput | IndicatorMappingInput | Array<{period: string; target_value: number}>; preview: Awaited<ReturnType<typeof apiClient.indicatorPreview>> } | null>(null);
+  const [review, setReview] = useState<{ kind: "definition" | "mapping" | "targets" | "unmapping"; input: IndicatorInput | IndicatorMappingInput | Array<{period: string; target_value: number}>; preview: Awaited<ReturnType<typeof apiClient.indicatorPreview>> } | null>(null);
   const [reason, setReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   async function reviewDefinition(input: IndicatorInput) {
@@ -167,6 +170,14 @@ export function IndicatorWorkspacePage() {
     return matchesSource;
   });
   const selected = items.find((item) => item.id === selectedId) ?? items[0];
+  const sourceQuestions = useQuery({
+    queryKey: ["indicator-fields", projectId, selected?.source_form_id],
+    queryFn: () => apiClient.indicatorFields(projectId, selected?.source_form_id),
+    enabled: Boolean(projectId && selected?.mapping && detailsTab === "sources"),
+  });
+  const sourceQuestion = sourceQuestions.data?.find(
+    (field) => field.source_field === selected?.mapping?.source_field,
+  );
   async function refresh() {
     await Promise.all([
       cache.invalidateQueries({ queryKey: ["indicators", projectId] }),
@@ -195,6 +206,7 @@ export function IndicatorWorkspacePage() {
     onSuccess: async (data) => {
       const created = editing === "new";
       await refresh();
+      setReview(null);
       setEditing(null);
       setError("");
       if (created) {
@@ -209,15 +221,17 @@ export function IndicatorWorkspacePage() {
       apiClient.saveIndicatorMapping(mapping!.id, input),
     onSuccess: async () => {
       await refresh();
+      setReview(null);
       setMapping(null);
       setError("");
     },
     onError: (cause: Error) => setError(cause.message),
   });
   const unmap = useMutation({
-    mutationFn: () => apiClient.deleteIndicatorMapping(mapping!.id),
+    mutationFn: (controls: {confirm_change: boolean; change_reason: string; expected_version: number; preview_token: string}) => apiClient.deleteIndicatorMapping(mapping!.id, controls),
     onSuccess: async () => {
       await refresh();
+      setReview(null);
       setMapping(null);
       setError("");
     },
@@ -252,10 +266,11 @@ export function IndicatorWorkspacePage() {
     onError: (cause: Error) => setError(cause.message),
   });
   const targets = useMutation({
-    mutationFn: (input: {rows: Array<{ period: string; target_value: number }>; controls: {confirm_change: boolean; change_reason: string; expected_version: number}}) =>
+    mutationFn: (input: {rows: Array<{ period: string; target_value: number }>; controls: {confirm_change: boolean; change_reason: string; expected_version: number; preview_token: string}}) =>
       apiClient.saveIndicatorPeriodTargets(periodTargets!.id, input.rows, input.controls),
     onSuccess: async () => {
       await refresh();
+      setReview(null);
       setPeriodTargets(null);
       setError("");
     },
@@ -643,8 +658,8 @@ export function IndicatorWorkspacePage() {
                                 Period targets
                               </Button>
                             </div>
-                            <div className="flex border-t border-[#e7edef] px-4">
-                              {["details", "summary", "sources", "evidence"].map((id) => (
+                            <div className="flex flex-wrap border-t border-[#e7edef] px-4">
+                              {["summary", "details", "sources"].map((id) => (
                                 <button
                                   key={id}
                                   onClick={() => setDetailsTab(id)}
@@ -654,12 +669,16 @@ export function IndicatorWorkspacePage() {
                                     ? "Results summary"
                                     : id === "sources"
                                       ? "Mapping & sources"
-                                      : id === "evidence" ? "Evidence & versions" : "Indicator details"}
+                                      : "Indicator details"}
                                 </button>
                               ))}
                             </div>
                           </Panel>
-                          {detailsTab === "evidence" ? <IndicatorEvidence indicator={selected} from={dateFrom} to={dateTo} /> : detailsTab === "details" ? (
+                          <nav aria-label="Indicator evidence tools" className="flex flex-wrap gap-2">
+                            <Button variant="secondary" onClick={() => setDetailsTab("collected")}>Collected data</Button>
+                            <Button variant="secondary" onClick={() => setDetailsTab("evidence")}>Evidence &amp; versions</Button>
+                          </nav>
+                          {detailsTab === "evidence" ? <IndicatorEvidence indicator={selected} from={dateFrom} to={dateTo} /> : detailsTab === "collected" ? <CollectedDataPanel indicator={selected} onMap={() => editMap(selected)} /> : detailsTab === "details" ? (
                             <Panel>
                               <div className="grid grid-cols-2 gap-5 p-5 text-xs max-[600px]:grid-cols-1">
                                 <Detail
@@ -712,53 +731,55 @@ export function IndicatorWorkspacePage() {
                             </Panel>
                           ) : detailsTab === "sources" ? (
                             <Panel>
-                              <div className="space-y-4 p-5 text-xs">
+                              <div className="grid gap-5 p-5 text-sm sm:grid-cols-2">
                                 <Detail
-                                  label="Source form"
+                                  label="Linked form ID"
                                   value={
                                     selected.source_form_id ?? "No form mapped"
                                   }
                                 />
                                 <Detail
-                                  label="Source field"
+                                  label="Question used for this indicator"
                                   value={
-                                    selected.mapping?.source_field ??
+                                    sourceQuestion?.label ||
+                                    selected.mapping?.source_field ||
                                     "No question mapped"
                                   }
                                 />
                                 <Detail
-                                  label="Calculation"
+                                  label="Calculation method"
                                   value={
                                     selected.mapping
-                                      ? calculations[
+                                      ? selected.mapping.calculation === "count_matching"
+                                        ? `Count submissions answered “${sourceQuestion?.choices?.find((choice) => choice.value === selected.mapping?.match_value)?.label ?? selected.mapping.match_value ?? "Selected answer"}”`
+                                        : calculations[
                                           selected.mapping.calculation
                                         ]
                                       : "Choose a calculation"
                                   }
                                 />
                                 <Detail
-                                  label="Expected answer"
+                                  label="Answer included in the count"
                                   value={
+                                    sourceQuestion?.choices?.find(
+                                      (choice) => choice.value === selected.mapping?.match_value,
+                                    )?.label ??
                                     selected.mapping?.match_value ??
                                     "Not required for this calculation"
                                   }
                                 />
                                 <Detail
-                                  label="Mapping health"
-                                  value={selected.mapping_health.replaceAll(
-                                    "_",
-                                    " ",
-                                  )}
+                                  label="Source connection"
+                                  value={selected.mapping_health === "healthy"
+                                    ? "Form and question connected"
+                                    : selected.mapping_health.replaceAll("_", " ")}
                                 />
-                                <p className="m-0 rounded-md bg-[#f0f8f6] p-4 leading-6 text-[#526d75]">
-                                  {selected.calculation_note}
-                                </p>
                                 {selected.source_form_id && (
                                   <Link
                                     to={`/analytics?project_id=${projectId}`}
                                     className="inline-block text-[#0c8593]"
                                   >
-                                    Open survey question explorer →
+                                    View question responses →
                                   </Link>
                                 )}
                               </div>
@@ -1074,12 +1095,28 @@ export function IndicatorWorkspacePage() {
         <p className="text-xs">Included: {review.preview.after.mapped_records}; missing: {review.preview.after.missing_records}; invalid: {review.preview.after.invalid_answers}; quality excluded: {review.preview.after.quality_excluded_records}; numerator / denominator: {review.preview.after.numerator ?? "—"} / {review.preview.after.denominator}</p>
         <label className="grid gap-2 text-xs">Reason / explanation for target exceptions<textarea className={inputClass} value={reason} onChange={e => setReason(e.target.value)} /></label>
         <label className="my-4 flex gap-2 text-xs"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />Apply the new definition to current calculations for all reporting periods. Retain the previous definition in history.</label>
-        <Button disabled={!confirmed || reason.trim().length < 3 || definition.isPending || map.isPending} onClick={() => {
-          const controls = { change_reason: reason.trim(), confirm_change: true, expected_version: review.preview.expected_version };
-          if (review.kind === "definition") definition.mutate({ ...review.input as IndicatorInput, ...controls } as IndicatorInput);
-          else if (review.kind === "mapping") map.mutate({ ...review.input as IndicatorMappingInput, ...controls });
-          else targets.mutate({ rows: review.input as Array<{period: string; target_value: number}>, controls });
-          setReview(null);
+        <Button disabled={!confirmed || reason.trim().length < 3 || definition.isPending || map.isPending || targets.isPending || unmap.isPending} onClick={async () => {
+          const controls = { change_reason: reason.trim(), confirm_change: true, expected_version: review.preview.expected_version, preview_token: review.preview.preview_token };
+          try {
+            if (review.kind === "definition") await definition.mutateAsync({ ...review.input as IndicatorInput, ...controls } as IndicatorInput);
+            else if (review.kind === "mapping") await map.mutateAsync({ ...review.input as IndicatorMappingInput, ...controls });
+            else if (review.kind === "unmapping") await unmap.mutateAsync(controls);
+            else await targets.mutateAsync({ rows: review.input as Array<{period: string; target_value: number}>, controls });
+          } catch (cause) {
+            setConfirmed(false);
+            if (cause instanceof Error && /preview|changed since/i.test(cause.message)) {
+              try {
+                const preview = review.kind === "definition"
+                  ? await apiClient.indicatorPreview((editing as Indicator).id, review.input as IndicatorInput)
+                  : review.kind === "unmapping" ? await apiClient.indicatorMappingDeletePreview(mapping!.id)
+                  : review.kind === "mapping"
+                    ? await apiClient.indicatorMappingPreview(mapping!.id, review.input as IndicatorMappingInput)
+                    : await apiClient.indicatorTargetsPreview(periodTargets!.id, review.input as Array<{period: string; target_value: number}>);
+                setReview({...review, preview});
+                setError("The preview was stale. Updated results are shown. Review and confirm again; your reason has been retained.");
+              } catch (refreshError) { setError(refreshError instanceof Error ? refreshError.message : "Preview refresh failed. Try again."); }
+            }
+          }
         }}>Confirm change</Button>
       </Dialog>}
       {editing && !review && (
@@ -1100,7 +1137,12 @@ export function IndicatorWorkspacePage() {
           saving={map.isPending || unmap.isPending}
           onClose={() => setMapping(null)}
           onSave={reviewMapping}
-          onRemove={() => unmap.mutate()}
+          onRemove={async () => {
+            try {
+              const preview = await apiClient.indicatorMappingDeletePreview(mapping!.id);
+              setReason(""); setConfirmed(false); setReview({kind: "unmapping", input: {} as IndicatorInput, preview});
+            } catch (cause) { setError(cause instanceof Error ? cause.message : "Preview failed"); }
+          }}
         />
       )}
       {nodeEditor && (
@@ -1315,38 +1357,50 @@ function IndicatorResults({
           </button>
         </Notice>
       )}
-      <Panel>
-        <div className="grid grid-cols-3 gap-5 p-5 max-[700px]:grid-cols-1">
-          <Detail
-            label="Baseline"
-            value={amount(indicator.baseline_value, indicator.unit)}
-          />
-          <div>
-            <span className="mb-2 block text-[12px] uppercase tracking-wide text-[#8a9ba1]">
-              Actual vs overall target
-            </span>
-            <Progress indicator={indicator} />
-          </div>
-          <div>
-            <span className="mb-2 block text-[12px] uppercase tracking-wide text-[#8a9ba1]">
-              Deadline · {indicator.target_date ?? "Not set"}
-            </span>
-            <Status item={indicator} />
-          </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Starting value", value: amount(indicator.baseline_value, indicator.unit), icon: BarChart3 },
+            { label: "Current result", value: indicator.current_value === null ? "Awaiting data" : amount(indicator.current_value, indicator.unit), icon: TrendingUp },
+            { label: "Overall target", value: indicator.target_value === null ? "Not set" : amount(indicator.target_value, indicator.unit), icon: Target },
+            { label: "Target deadline", value: indicator.target_date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${indicator.target_date}T00:00:00Z`)) : "Not set", icon: CalendarDays },
+          ].map(({ label, value, icon: Icon }) => (
+            <Panel key={label}>
+              <div className="flex min-h-[120px] items-center justify-between gap-4 p-5">
+                <div className="min-w-0">
+                  <span className="text-xs font-medium text-[var(--fs-muted)]">{label}</span>
+                  <strong className={`mt-1.5 block break-words font-semibold leading-tight tabular-nums text-[#24434c] ${label === "Target deadline" ? "text-xl" : "text-[28px]"}`}>
+                    {value}
+                  </strong>
+                </div>
+                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]" aria-hidden="true">
+                  <Icon size={21} />
+                </span>
+              </div>
+            </Panel>
+          ))}
         </div>
-      </Panel>
+        {indicator.current_value !== null && indicator.progress_percent !== null && (
+          <Panel>
+            <div className="px-5 py-4">
+              <p className="mt-0 text-xs font-medium text-[#557078]">Progress toward overall target</p>
+              <Progress indicator={indicator} />
+            </div>
+          </Panel>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
         <Panel>
           <h3 className="m-0 border-b border-[#e7edef] px-5 py-4 text-sm font-medium">
             {frequency(indicator.reporting_frequency)} results
           </h3>
           <div className="max-h-[340px] overflow-auto">
-            <table className="w-full min-w-[400px] border-collapse text-left text-xs">
-              <thead className="bg-[#f8fbfb] text-[12px] uppercase text-[#8a9ba1]">
+            <table className="w-full min-w-[400px] border-collapse text-left text-sm tabular-nums text-[#24434c]">
+              <thead className="sticky top-0 bg-[#f0f6f8] text-xs text-[#557078]">
                 <tr>
                   {["Period", "Target", "Actual", "Answered / eligible"].map(
                     (label) => (
-                      <th key={label} className="px-4 py-3 font-medium">
+                      <th key={label} scope="col" className="px-5 py-4 font-semibold">
                         {label}
                       </th>
                     ),
@@ -1355,16 +1409,18 @@ function IndicatorResults({
               </thead>
               <tbody>
                 {indicator.history.map((point) => (
-                  <tr key={point.period} className="border-t border-[#edf1f2]">
-                    <td className="px-4 py-3">{point.period}</td>
-                    <td className="px-4 py-3">
+                  <tr key={point.period} className="border-t border-[#edf1f2] transition-colors hover:bg-[#f8fbfc]">
+                    <th scope="row" className="px-5 py-5 font-semibold">{point.period}</th>
+                    <td className="px-5 py-5 font-medium">
                       {amount(point.target_value, indicator.unit)}
                     </td>
-                    <td className="px-4 py-3 text-[#0c8593]">
+                    <td className="px-5 py-5 font-semibold text-[#0c7180]">
+                      <span className={point.target_achieved === true ? "inline-flex items-center gap-2 rounded-md bg-[#edf8f3] px-2.5 py-1 text-[#247453]" : ""}>
                       {amount(point.value, indicator.unit)}
-                      {point.target_achieved === true ? " ✓" : ""}
+                      {point.target_achieved === true && <span aria-label="Target achieved">✓</span>}
+                      </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-5 text-[#557078]">
                       {point.mapped_records} / {point.eligible_records}
                     </td>
                   </tr>
@@ -1418,19 +1474,24 @@ function IndicatorResults({
       </div>
       <div className="grid grid-cols-4 gap-3 max-[700px]:grid-cols-2">
         {[
-          ["Numerator", indicator.numerator],
-          ["Denominator", indicator.denominator],
+          ["Total score", indicator.numerator],
+          ["Number of responses", indicator.denominator],
           ["Missing answers", indicator.missing_records],
           ["Invalid answers", indicator.invalid_answers],
         ].map(([label, value]) => (
           <Panel key={label}>
-            <div className="p-4">
-              <span className="text-[12px] uppercase tracking-wide text-[#8a9ba1]">
+            <div className="flex min-h-[120px] items-center justify-between gap-4 p-5">
+              <div className="min-w-0">
+              <span className="text-xs font-medium text-[var(--fs-muted)]">
                 {label}
               </span>
-              <strong className="mt-2 block text-xl font-semibold">
+              <strong className="mt-1.5 block break-words text-[28px] font-semibold leading-tight tabular-nums text-[#24434c]">
                 {typeof value === "number" ? amount(value) : "Not reported"}
               </strong>
+              </div>
+              <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]" aria-hidden="true">
+                <BarChart3 size={21} />
+              </span>
             </div>
           </Panel>
         ))}
@@ -1466,23 +1527,13 @@ function IndicatorResults({
             </tbody>
           </table>
         </div>
-        <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-4 text-[12px] leading-6 text-[#6f858d]">
-          <strong>
-            {indicator.eligible_records} ready submissions included;{" "}
-            {indicator.quality_excluded_records} excluded by quality status.
-          </strong>{" "}
-          {indicator.calculation_note}
-          <br />
-          Form: {indicator.source_form_id ?? "Not mapped"} · Question:{" "}
-          {indicator.mapping?.source_field ?? "Not mapped"}
-        </div>
       </Panel>
     </div>
   );
 }
 
 
-function IndicatorEvidence({ indicator, from, to }: { indicator: Indicator; from: string; to: string }) {
+export function IndicatorEvidence({ indicator, from, to }: { indicator: Indicator; from: string; to: string }) {
   const [offset, setOffset] = useState(0);
   useEffect(() => setOffset(0), [indicator.id, from, to]);
   const evidence = useQuery({queryKey: ["indicator-evidence", indicator.id, offset, from, to], queryFn: () => apiClient.indicatorEvidence(indicator.id, offset, from, to)});
@@ -1493,11 +1544,15 @@ function IndicatorEvidence({ indicator, from, to }: { indicator: Indicator; from
     <p>Definition → result source → calculation → baseline/targets → preview. Date filters affect actuals; targets are unchanged. Period results are independent aggregates.</p>
     <p>{evidence.data?.source === "table" ? indicator.mapping_health === "healthy" ? "Linked table" : "Broken mapping" : evidence.data?.source === "manual" ? "Manual results" : "Not configured"} · {evidence.data?.method}</p>
     <p>{evidence.data?.notice}</p>
-    {(evidence.error || versions.error) && <p role="alert">{evidence.error?.message || versions.error?.message}</p>}
+    {evidence.data && <p>Contributes: {evidence.data.contributing_count ?? "—"} · Superseded: {evidence.data.superseded_count ?? 0} · Total considered and excluded: {evidence.data.total} · Actual: {evidence.data.actual ?? "—"} · Numerator / denominator: {evidence.data.numerator ?? "—"} / {evidence.data.denominator ?? "—"}</p>}
+    {evidence.isPending && <p role="status">Loading evidence…</p>}
+    {(evidence.error || versions.error) && <div role="alert"><p>{evidence.error?.message || versions.error?.message}</p><Button variant="secondary" onClick={() => { void evidence.refetch(); void versions.refetch(); }}>Retry evidence</Button></div>}
+    {evidence.data && !evidence.data.items.length && <p>No evidence in this scope.</p>}
     {evidence.data?.items.map(item => <article className="rounded border p-3" key={String(item.id)}>
-      {Object.entries(item).map(([key, value]) => <div className="break-words" key={key}><strong>{key.replaceAll("_", " ")}: </strong>{typeof value === "object" ? JSON.stringify(value) : String(value ?? "—")}</div>)}
+      <p className="mb-2 font-semibold">{({contributes: "Contributes", superseded: "Superseded", missing_components: "Missing components", invalid_components: "Invalid components", invalid_answer: "Invalid answer", missing_answer: "Missing answer", quality_excluded: "Quality excluded", broken_mapping: "Broken mapping"} as Record<string, string>)[String(item.contribution_state)] ?? (item.included ? "Contributes" : "Excluded")}</p>
+      {Object.entries(item).filter(([key]) => !["included", "contribution_state", "considered"].includes(key)).map(([key, value]) => <div className="break-words" key={key}><strong>{key.replaceAll("_", " ")}: </strong>{value == null ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value)}</div>)}
     </article>)}
-    <div className="flex gap-3"><Button variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 25))}>Previous</Button><span>{offset + 1}–{Math.min(offset + 25, evidence.data?.total ?? 0)} of {evidence.data?.total ?? 0}</span><Button variant="secondary" disabled={offset + 25 >= (evidence.data?.total ?? 0)} onClick={() => setOffset(offset + 25)}>Next</Button></div>
+    <div className="flex flex-wrap items-center gap-3"><Button variant="secondary" disabled={evidence.isFetching || offset === 0} onClick={() => setOffset(Math.max(0, offset - 25))}>Previous</Button><span>{evidence.data?.total ? offset + 1 : 0}–{Math.min(offset + 25, evidence.data?.total ?? 0)} of {evidence.data?.total ?? 0}</span><Button variant="secondary" disabled={evidence.isFetching || offset + 25 >= (evidence.data?.total ?? 0)} onClick={() => setOffset(offset + 25)}>Next</Button></div>
     <h3>Observed definition changes</h3>
     {versions.data?.map(version => <p key={version.version}>v{version.version} · {version.occurred_at} · {version.reason} · {version.effective_scope}</p>)}
     {!versions.data?.length && <p>No recorded changes. Legacy history has not been fabricated.</p>}

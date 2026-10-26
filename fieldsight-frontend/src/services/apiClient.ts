@@ -589,6 +589,7 @@ export interface IndicatorMappingInput {
   change_reason?: string;
   confirm_change?: boolean;
   expected_version?: number;
+  preview_token?: string;
   source_field: string;
   source_form_id?: string | null;
   calculation: IndicatorCalculation;
@@ -721,6 +722,7 @@ export type IndicatorUpdateInput = Partial<IndicatorInput> & {
   change_reason?: string;
   confirm_change?: boolean;
   expected_version?: number;
+  preview_token?: string;
 };
 export type IndicatorCreateInput = IndicatorInput & {
   mapping?: IndicatorMappingInput | null;
@@ -1392,10 +1394,10 @@ export const apiClient = {
   saveIndicatorPeriodTargets: (
     id: string,
     targets: Array<{ period: string; target_value: number }>,
-    controls?: {confirm_change: boolean; change_reason: string; expected_version: number},
+    controls?: {confirm_change: boolean; change_reason: string; expected_version: number; preview_token: string},
   ) =>
     request<Array<{ period: string; target_value: number }>>(
-      `/indicators/${id}/period-targets${controls ? `?confirm_change=true&change_reason=${encodeURIComponent(controls.change_reason)}&expected_version=${controls.expected_version}` : ""}`,
+      `/indicators/${id}/period-targets${controls ? `?confirm_change=true&change_reason=${encodeURIComponent(controls.change_reason)}&expected_version=${controls.expected_version}&preview_token=${encodeURIComponent(controls.preview_token)}` : ""}`,
       { method: "PUT", body: JSON.stringify(targets) },
     ),
   indicatorPeriodTargets: (id: string) =>
@@ -1403,10 +1405,10 @@ export const apiClient = {
       `/indicators/${id}/period-targets`,
     ),
   indicatorPolicy: () => request<{ linked: Record<IndicatorUnit, string[]>; manual: Record<IndicatorUnit, string[]> }>("/indicator-calculation-policy"),
-  indicatorTargetsPreview: (id: string, input: Array<{period: string; target_value: number}>) => request<{ expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/period-targets-preview`, { method: "POST", body: JSON.stringify(input) }),
-  indicatorMappingPreview: (id: string, input: IndicatorMappingInput) => request<{ expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/mapping-preview`, { method: "POST", body: JSON.stringify(input) }),
-  indicatorPreview: (id: string, input: IndicatorUpdateInput) => request<{ expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/definition-preview`, { method: "POST", body: JSON.stringify(input) }),
-  indicatorEvidence: (id: string, offset = 0, from = "", to = "") => request<{ source: string; method: string; definition_version: number; total: number; items: Array<Record<string, unknown>>; notice: string }>(`/indicators/${id}/evidence?offset=${offset}&limit=25${from ? `&date_from=${from}` : ""}${to ? `&date_to=${to}` : ""}`),
+  indicatorTargetsPreview: (id: string, input: Array<{period: string; target_value: number}>) => request<{ preview_token: string; expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/period-targets-preview`, { method: "POST", body: JSON.stringify(input) }),
+  indicatorMappingPreview: (id: string, input: IndicatorMappingInput) => request<{ preview_token: string; expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/mapping-preview`, { method: "POST", body: JSON.stringify(input) }),
+  indicatorPreview: (id: string, input: IndicatorUpdateInput) => request<{ preview_token: string; expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string }>(`/indicators/${id}/definition-preview`, { method: "POST", body: JSON.stringify(input) }),
+  indicatorEvidence: (id: string, offset = 0, from = "", to = "") => request<{ source: string; method: string; definition_version: number; total: number; contributing_count?: number; superseded_count?: number; actual?: number | null; numerator?: number | null; denominator?: number; items: Array<Record<string, unknown>>; notice: string }>(`/indicators/${id}/evidence?offset=${offset}&limit=25${from ? `&date_from=${from}` : ""}${to ? `&date_to=${to}` : ""}`),
   indicatorVersions: (id: string) => request<Array<{ version: number; reason: string; occurred_at: string; effective_scope: string }>>(`/indicators/${id}/versions`),
   createIndicator: (projectId: string, input: IndicatorCreateInput) =>
     request<Indicator>(`/projects/${projectId}/indicators`, {
@@ -1429,8 +1431,9 @@ export const apiClient = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
-  deleteIndicatorMapping: (indicatorId: string) =>
-    request<void>(`/indicators/${indicatorId}/mapping`, { method: "DELETE" }),
+  indicatorMappingDeletePreview: (id: string) => request<{preview_token: string; expected_version: number; affected_periods: string[]; before: Indicator; after: Indicator; notice: string}>(`/indicators/${id}/mapping-delete-preview`, {method: "POST"}),
+  deleteIndicatorMapping: (indicatorId: string, controls?: {confirm_change: boolean; change_reason: string; expected_version: number; preview_token: string}) =>
+    request<void>(`/indicators/${indicatorId}/mapping${controls ? `?confirm_change=true&change_reason=${encodeURIComponent(controls.change_reason)}&expected_version=${controls.expected_version}&preview_token=${encodeURIComponent(controls.preview_token)}` : ""}`, { method: "DELETE" }),
   enumerators: () => request<ApiEnumerator[]>("/enumerators"),
   enumerator: (membershipId: string) =>
     request<ApiEnumerator>(`/enumerators/${membershipId}`),

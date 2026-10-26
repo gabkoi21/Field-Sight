@@ -1,0 +1,56 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ✓ src/pages/organization/FieldOperationsPage.test.tsx (3 tests) 911ms
+   ✓ scopes cards and rows to project assignments and preserves counts when searching  503ms
+ ✓ src/pages/organization/IndicatorWorkspacePage.test.tsx (4 tests) 2742ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=false  1568ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=true  979ms
+ ✓ src/pages/organization/IndicatorReliability.test.tsx (2 tests) 315ms
+ ✓ src/pages/organization/SubmissionsPage.test.tsx (4 tests) 1554ms
+   ✓ requests bounded pages in project scope instead of fetching the full submission list  500ms
+   ✓ resets a later page on global project switching and browser navigation  429ms
+   ✓ recovers when a later page disappears and resets for search and review filters  348ms
+ ✓ src/workspace/DashboardsPage.test.tsx (16 tests) 4195ms
+   ✓ existing saved dashboard builder > creates, duplicates, renames and deletes persisted dashboards  899ms
+   ✓ existing saved dashboard builder > persists keyboard ordering and height across a reload  515ms
+   ✓ existing saved dashboard builder > supports dragging a widget to another position  301ms
+   ✓ existing saved dashboard builder > previews date filters, saves them and restores them on reload  341ms
+   ✓ existing saved dashboard builder > adds and edits a text widget using the existing save flow  418ms
+ ✓ src/workspace/WorkspacesPage.test.tsx (5 tests) 1473ms
+   ✓ requires confirmation, warns about Kobo, supports cancel and deletes the selected project  596ms
+   ✓ keeps search visible outside the filter panel and supports keyboard tab navigation  343ms
+ ✓ src/workspace/WorkspaceShell.test.tsx (3 tests) 1270ms
+   ✓ hides Overview while preserving project navigation and context  616ms
+   ✓ keeps the workspace shell mounted through a lazy route and back/forward navigation  366ms
+ ✓ src/pages/dashboard/OrganizationDashboardPage.test.tsx (3 tests) 1472ms
+   ✓ keeps API metrics, location data, and rankings in the overview project and period scope  1196ms
+ ✓ src/pages/organization/QualityCenterPage.test.tsx (2 tests) 1246ms
+   ✓ saves review notes and displays persisted author/time history  998ms
+ ✓ src/components/layout/RouteContent.test.tsx (2 tests) 835ms
+   ✓ renders fast navigation immediately and keeps the shell and focus during a slow lazy route  529ms
+   ✓ replaces a rejected lazy load with a recoverable error and keeps navigation usable  304ms
+ ✓ src/workspace/SyncControls.test.tsx (10 tests) 766ms
+   ✓ synchronization controls > enables automatic sync with the selected interval  329ms
+ ✓ src/pages/organization/KoboConnectionsPage.test.tsx (2 tests) 507ms
+   ✓ confirms connection removal, supports cancel and refreshes the account list  374ms
+ ✓ src/workspace/CollectedDataPanel.test.tsx (1 test) 378ms
+   ✓ submits numerator and denominator without an ambiguous separate value  376ms
+ ✓ src/pages/organization/SubmissionEvidence.test.tsx (4 tests) 505ms
+ ✓ src/workspace/ProjectSetupChecklist.test.tsx (2 tests) 343ms
+ ✓ src/pages/organization/FrameworkForm.test.tsx (1 test) 364ms
+   ✓ opens a child result form and saves the chosen parent and next level  360ms
+ ✓ src/components/ui/LoadingState.test.tsx (3 tests) 163ms
+ ✓ src/pages/organization/IndicatorEvidence.test.tsx (2 tests) 292ms
+ ✓ src/auth/AuthContext.test.tsx (4 tests) 155ms
+ ✓ src/services/apiClient.test.ts (15 tests) 153ms
+
+ Test Files  20 passed (20)
+      Tests  88 passed (88)
+   Start at  15:43:10
+   Duration  43.15s (transform 2.14s, setup 0ms, collect 21.96s, tests 19.64s, environment 28.91s, prepare 5.58s)
+

@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from app.core.indicator_policy import LINKED_METHODS, MANUAL_METHODS, incompatibility
+from app.core.indicator_preview import matches, preview_token, protect_state, state_digest
 from app.core.indicator_results import read_result
 from app.core.survey import flatten_answers, number
 from app.db.session import get_session
@@ -176,7 +177,7 @@ DEFINITION_FIELDS = {
     "reporting_frequency",
     "is_active",
 }
-CONTROL_FIELDS = {"change_reason", "confirm_change", "expected_version"}
+CONTROL_FIELDS = {"change_reason", "confirm_change", "expected_version", "preview_token"}
 
 
 def _definition(indicator: Indicator, db: Session) -> dict:
@@ -188,8 +189,13 @@ def _definition(indicator: Indicator, db: Session) -> dict:
         jsonable_encoder(
             {
                 **{key: getattr(indicator, key) for key in DEFINITION_FIELDS},
-                "period_targets": {row.period: row.target_value for row in db.exec(select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)).all()},
-            "mapping": mapping.model_dump(exclude={"id", "created_at", "updated_at"}) if mapping else None,
+                "period_targets": {
+                    row.period: row.target_value
+                    for row in db.exec(
+                        select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)
+                    ).all()
+                },
+                "mapping": mapping.model_dump(exclude={"id", "created_at", "updated_at"}) if mapping else None,
             }
         ),
     )
@@ -202,7 +208,10 @@ def _change_preview(indicator: Indicator, changes: dict, db: Session) -> dict:
         if key in DEFINITION_FIELDS:
             setattr(candidate, key, value)
     after = _read(candidate, db)
+    state = state_digest(indicator, _definition(indicator, db), db)
     return {
+        "state_digest": state,
+        "preview_token": preview_token(state, _definition(candidate, db)),
         "expected_version": indicator.definition_version,
         "affected_periods": [point.period for point in before.history],
         "before": before.model_dump(mode="json"),
@@ -215,10 +224,11 @@ def _change_preview(indicator: Indicator, changes: dict, db: Session) -> dict:
 def _record_change(
     indicator: Indicator, user: User, db: Session, previous: dict, controls: dict, preview: dict
 ) -> None:
-    if previous == _definition(indicator, db):
-        return
     if controls.get("expected_version") is not None and controls["expected_version"] != indicator.definition_version:
         raise HTTPException(409, "Definition changed since preview. Refresh the preview before saving.")
+    unchanged = previous == _definition(indicator, db)
+    if unchanged and not controls.get("confirm_change") and not controls.get("preview_token"):
+        return
     has_results = bool(
         preview["before"]["history"]
         or preview["before"]["eligible_records"]
@@ -231,6 +241,13 @@ def _record_change(
         or controls.get("expected_version") != indicator.definition_version
     ):
         raise HTTPException(409, "Preview this definition change, then confirm with a reason and expected_version.")
+    if (has_results or controls.get("confirm_change") or controls.get("preview_token")) and not matches(
+        controls.get("preview_token"), preview["state_digest"], _definition(indicator, db)
+    ):
+        raise HTTPException(409, "Evidence or definition changed since preview. Refresh the preview and confirm again.")
+    if unchanged:
+        return
+    preview["preview_token"] = controls.get("preview_token") or preview.get("preview_token")
     indicator.definition_version += 1
     db.add(
         IndicatorDefinitionVersion(
@@ -254,11 +271,13 @@ def calculation_policy(user: CurrentUser, db: Database) -> dict:
 
 @router.post("/indicators/{indicator_id}/definition-preview")
 def definition_preview(indicator_id: UUID, payload: IndicatorUpdate, user: CurrentUser, db: Database) -> dict:
+    protect_state(db)
     return _change_preview(_indicator(indicator_id, user, db), payload.model_dump(exclude_unset=True), db)
 
 
 @router.post("/indicators/{indicator_id}/mapping-preview")
 def mapping_preview(indicator_id: UUID, payload: IndicatorMappingWrite, user: CurrentUser, db: Database) -> dict:
+    protect_state(db)
     indicator = _indicator(indicator_id, user, db)
     if error := incompatibility(indicator.unit, payload.calculation):
         raise HTTPException(422, error)
@@ -281,6 +300,23 @@ def mapping_preview(indicator_id: UUID, payload: IndicatorMappingWrite, user: Cu
         db.add(mapping)
         db.flush()
         preview["after"] = _read(indicator, db).model_dump(mode="json")
+        preview["preview_token"] = preview_token(preview["state_digest"], _definition(indicator, db))
+        transaction.rollback()
+    return preview
+
+
+@router.post("/indicators/{indicator_id}/mapping-delete-preview")
+def mapping_delete_preview(indicator_id: UUID, user: CurrentUser, db: Database) -> dict:
+    protect_state(db)
+    indicator = _indicator(indicator_id, user, db)
+    preview = _change_preview(indicator, {}, db)
+    with db.begin_nested() as transaction:
+        mapping = _mapping(indicator, db)
+        if mapping:
+            db.delete(mapping)
+            db.flush()
+        preview["after"] = _read(indicator, db).model_dump(mode="json")
+        preview["preview_token"] = preview_token(preview["state_digest"], _definition(indicator, db))
         transaction.rollback()
     return preview
 
@@ -313,10 +349,12 @@ def indicator_evidence(
     limit: int = 25,
     date_from: date | None = None,
     date_to: date | None = None,
+    location: str | None = None,
+    period: str | None = None,
 ) -> dict:
     from sqlalchemy import func
 
-    from app.core.indicator_results import calculate
+    from app.core.indicator_results import calculate, period_for_date, period_key
     from app.core.review_evidence import eligible
     from app.core.survey import build_catalogue
     from app.models.operations import FieldMapping, Submission, SurveySchema
@@ -342,17 +380,17 @@ def indicator_evidence(
                 .distinct()
             ).all()
         )
-        if (
+        ambiguous = (
             not mapping.source_form_id
             and len(set(forms) | ({project.kobo_form_id} if project.kobo_form_id else set())) > 1
-        ):
-            return {"source": "table", "health": "broken_mapping", "items": [], "total": 0}
+        )
         form_id = form_id or (forms[0] if len(forms) == 1 else None)
         filters: list[Any] = [
             Submission.organization_id == indicator.organization_id,
             Submission.project_id == indicator.project_id,
-            Submission.kobo_form_id == form_id,
         ]
+        if not ambiguous:
+            filters.append(Submission.kobo_form_id == form_id)
         if date_from:
             filters.append(col(Submission.submitted_at) >= datetime.combine(date_from, datetime.min.time()))
         if date_to:
@@ -361,6 +399,20 @@ def indicator_evidence(
             filters.append(
                 col(Submission.submitted_at) < datetime.combine(date_to + timedelta(days=1), datetime.min.time())
             )
+        if location is not None:
+            filters.append(
+                Submission.location == location
+                if location != "Not reported"
+                else (col(Submission.location).is_(None) | (Submission.location == ""))
+            )
+        scoped_rows = list(db.exec(select(Submission).where(*filters)).all())
+        if period:
+            filters.append(
+                col(Submission.id).in_(
+                    [row.id for row in scoped_rows if period_key(row, indicator.reporting_frequency) == period]
+                )
+            )
+            scoped_rows = [row for row in scoped_rows if period_key(row, indicator.reporting_frequency) == period]
         total = db.exec(select(func.count()).select_from(Submission).where(*filters)).one()
         rows = list(
             db.exec(
@@ -389,9 +441,22 @@ def indicator_evidence(
             ).all()
         )
         fields = build_catalogue(
-            rows, mappings, [SurveyField.model_validate(f) for f in cache.fields_json] if cache else []
+            list(
+                db.exec(
+                    select(Submission).where(
+                        Submission.project_id == indicator.project_id,
+                        Submission.organization_id == indicator.organization_id,
+                        Submission.kobo_form_id == form_id,
+                    )
+                ).all()
+            ),
+            mappings,
+            [SurveyField.model_validate(f) for f in cache.fields_json] if cache else [],
         )
         field = next((f for f in fields if f.source_field == mapping.source_field), None)
+        health = _read(indicator, db).mapping_health
+        if health != "healthy":
+            field = None
         items = []
         for row in rows:
             result = calculate(mapping, [row], field, unit=indicator.unit if indicator.reliability_policy else None)
@@ -399,7 +464,7 @@ def indicator_evidence(
                 "quality_excluded"
                 if not eligible(row)
                 else "broken_mapping"
-                if not field
+                if not field or not field.supported
                 else "missing_answer"
                 if result.missing_records
                 else "invalid_answer"
@@ -407,21 +472,37 @@ def indicator_evidence(
                 else None
             )
             included = (
-                eligible(row) and field is not None and (mapping.calculation == "count_records" or reason is None)
+                eligible(row)
+                and field is not None
+                and field.supported
+                and (mapping.calculation == "count_records" or reason is None)
             )
             items.append(
                 {
                     "id": str(row.id),
                     "date": row.submitted_at,
+                    "source_form_id": row.kobo_form_id,
                     "updated_at": row.updated_at,
                     "author": row.enumerator,
                     "location": row.location,
                     "answer": flatten_answers(row.raw_answers).get(mapping.source_field),
                     "included": included,
+                    "considered": eligible(row),
+                    "contribution_state": "contributes" if included else reason,
                     "reason": None if included else reason,
                 }
             )
         source = "table"
+        authoritative = calculate(
+            mapping, scoped_rows, field, unit=indicator.unit if indicator.reliability_policy else None
+        )
+        actual = authoritative.value
+        numerator, denominator = authoritative.numerator, authoritative.denominator
+        contributing_count = (
+            authoritative.eligible_records
+            if field and mapping.calculation == "count_records"
+            else authoritative.mapped_records
+        )
     else:
         filters = [
             CollectedResult.indicator_id == indicator.id,
@@ -431,6 +512,20 @@ def indicator_evidence(
             filters.append(CollectedResult.result_date >= date_from)
         if date_to:
             filters.append(CollectedResult.result_date <= date_to)
+        if location is not None:
+            filters.append(
+                CollectedResult.location == location
+                if location != "Not reported"
+                else (col(CollectedResult.location).is_(None) | (CollectedResult.location == ""))
+            )
+        scoped_manual = list(db.exec(select(CollectedResult).where(*filters)).all())
+        if period:
+            scoped_manual = [
+                row
+                for row in scoped_manual
+                if period_for_date(row.result_date, indicator.reporting_frequency) == period
+            ]
+            filters.append(col(CollectedResult.id).in_([row.id for row in scoped_manual]))
         total = db.exec(select(func.count()).select_from(CollectedResult).where(*filters)).one()
         manual_rows = list(
             db.exec(
@@ -445,7 +540,33 @@ def indicator_evidence(
                 .limit(limit)
             ).all()
         )
-        items = [{**row.model_dump(mode="json"), "included": True, "reason": None} for row in manual_rows]
+        from app.core.collected_results import manual_contribution, manual_result, observation_order
+
+        reasons = {row.id: manual_contribution(indicator, row) for row in scoped_manual}
+        valid = [row for row in scoped_manual if reasons[row.id] is None]
+        if valid and (indicator.manual_aggregation == "latest" or indicator.unit == "text"):
+            chosen = max(valid, key=observation_order)
+            for manual_row in valid:
+                if manual_row.id != chosen.id:
+                    reasons[manual_row.id] = "superseded"
+        contributing_count = sum(reason is None for reason in reasons.values())
+        items = []
+        for manual_row in manual_rows:
+            author = db.get(User, manual_row.created_by_id)
+            reason = reasons[manual_row.id]
+            items.append(
+                {
+                    **manual_row.model_dump(mode="json"),
+                    "included": reason is None,
+                    "considered": True,
+                    "reason": reason,
+                    "contribution_state": reason or "contributes",
+                    "author": author.full_name if author else None,
+                }
+            )
+        manual_actual = manual_result(indicator, scoped_manual, {}, date_from, date_to)
+        actual = manual_actual.current_value
+        numerator, denominator = manual_actual.numerator, manual_actual.denominator
         source = "manual" if total or indicator.manual_aggregation != "legacy" else "unconfigured"
     return {
         "source": source,
@@ -456,10 +577,17 @@ def indicator_evidence(
         "date_from": date_from,
         "date_to": date_to,
         "total": total,
+        "contributing_count": contributing_count,
+        "superseded_count": sum(1 for row in reasons.values() if row == "superseded") if not mapping else 0,
+        "scope": {"period": period, "location": location},
+        "actual": actual,
+        "numerator": numerator,
+        "denominator": denominator,
         "offset": offset,
         "limit": limit,
         "items": items,
-        "notice": "Live evidence under the current definition; definition history does not freeze source data.",
+        "notice": "Live evidence under the current definition; definition history does not freeze source data. "
+        "Latest selection is independent within each requested overall, period, or location scope.",
     }
 
 
@@ -589,6 +717,7 @@ def get_indicator(
 
 @router.patch("/indicators/{indicator_id}", response_model=IndicatorRead)
 def update_indicator(indicator_id: UUID, payload: IndicatorUpdate, user: CurrentUser, db: Database) -> IndicatorRead:
+    protect_state(db)
     indicator = _indicator(indicator_id, user, db)
     controls = payload.model_dump()
     changes = payload.model_dump(exclude_unset=True, exclude=CONTROL_FIELDS)
@@ -643,6 +772,7 @@ def update_indicator(indicator_id: UUID, payload: IndicatorUpdate, user: Current
 def upsert_mapping(
     indicator_id: UUID, payload: IndicatorMappingWrite, user: CurrentUser, db: Database
 ) -> IndicatorMappingRead:
+    protect_state(db)
     indicator = _indicator(indicator_id, user, db)
     if indicator.unit == "text":
         raise HTTPException(422, "Use manual narratives for qualitative indicators.")
@@ -683,7 +813,9 @@ def delete_mapping(
     confirm_change: bool = False,
     change_reason: str | None = None,
     expected_version: int | None = None,
+    preview_token: str | None = None,
 ) -> Response:
+    protect_state(db)
     indicator = _indicator(indicator_id, user, db)
     mapping = _mapping(indicator, db)
     if mapping:
@@ -697,7 +829,12 @@ def delete_mapping(
             user,
             db,
             previous,
-            {"confirm_change": confirm_change, "change_reason": change_reason, "expected_version": expected_version},
+            {
+                "confirm_change": confirm_change,
+                "change_reason": change_reason,
+                "expected_version": expected_version,
+                "preview_token": preview_token,
+            },
             preview,
         )
         db.add(indicator)
@@ -709,7 +846,9 @@ def delete_mapping(
 def delete_indicator(indicator_id: UUID, user: CurrentUser, db: Database) -> Response:
     indicator = _indicator(indicator_id, user, db)
     mapping = _mapping(indicator, db)
-    for version in db.exec(select(IndicatorDefinitionVersion).where(IndicatorDefinitionVersion.indicator_id == indicator.id)).all():
+    for version in db.exec(
+        select(IndicatorDefinitionVersion).where(IndicatorDefinitionVersion.indicator_id == indicator.id)
+    ).all():
         db.delete(version)
     for target in db.exec(
         select(IndicatorPeriodTarget).where(IndicatorPeriodTarget.indicator_id == indicator.id)
@@ -737,14 +876,18 @@ def get_period_targets(indicator_id: UUID, user: CurrentUser, db: Database) -> l
 
 
 @router.post("/indicators/{indicator_id}/period-targets-preview")
-def period_targets_preview(indicator_id: UUID, payload: list[IndicatorPeriodTargetInput],
-                           user: CurrentUser, db: Database) -> dict:
+def period_targets_preview(
+    indicator_id: UUID, payload: list[IndicatorPeriodTargetInput], user: CurrentUser, db: Database
+) -> dict:
+    protect_state(db)
     indicator = _indicator(indicator_id, user, db)
     preview = _change_preview(indicator, {}, db)
     with db.begin_nested() as transaction:
-        replace_period_targets(indicator_id, payload, user, db, True, "Preview only", indicator.definition_version,
-                               _commit=False)
+        replace_period_targets(
+            indicator_id, payload, user, db, True, "Preview only", indicator.definition_version, _commit=False
+        )
         preview["after"] = _read(indicator, db).model_dump(mode="json")
+        preview["preview_token"] = preview_token(preview["state_digest"], _definition(indicator, db))
         transaction.rollback()
     return preview
 
@@ -755,11 +898,16 @@ def replace_period_targets(
     payload: list[IndicatorPeriodTargetInput],
     user: CurrentUser,
     db: Database,
-    confirm_change: bool = False, change_reason: str | None = None, expected_version: int | None = None,
+    confirm_change: bool = False,
+    change_reason: str | None = None,
+    expected_version: int | None = None,
     _commit: bool = True,
+    preview_token: str | None = None,
 ) -> list[IndicatorPeriodTargetInput]:
     import re
 
+    if _commit:
+        protect_state(db)
     indicator = _indicator(indicator_id, user, db)
     patterns = {
         "annual": r"[1-9]\d{3}",
@@ -790,8 +938,20 @@ def replace_period_targets(
         db.add(IndicatorPeriodTarget(indicator_id=indicator.id, **item.model_dump()))
     db.flush()
     preview["after"] = _read(indicator, db).model_dump(mode="json")
-    _record_change(indicator, user, db, previous, {"confirm_change": confirm_change,
-        "change_reason": change_reason, "expected_version": expected_version}, preview)
+    if _commit:
+        _record_change(
+            indicator,
+            user,
+            db,
+            previous,
+            {
+                "confirm_change": confirm_change,
+                "change_reason": change_reason,
+                "expected_version": expected_version,
+                "preview_token": preview_token,
+            },
+            preview,
+        )
     db.add(indicator)
     if _commit:
         db.commit()

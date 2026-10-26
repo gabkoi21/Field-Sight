@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -43,14 +43,19 @@ vi.mock("../../services/apiClient", () => ({
     surveyFields: vi.fn(),
     indicatorFields: vi.fn(),
     saveIndicatorMapping: vi.fn(),
+    indicatorPolicy: vi.fn(),
+    indicatorMappingPreview: vi.fn(),
   },
 }));
+beforeEach(() => {
+  vi.mocked(apiClient.indicatorPolicy).mockResolvedValue({linked: {number: ["sum", "average", "count_records", "count_matching"]}, manual: {number: ["sum", "latest", "unweighted_mean"]}} as never);
+});
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
 });
 
-it("opens source mapping from the selected table row and saves that indicator", async () => {
+it.each([false, true])("reviews source mapping and requires fresh confirmation after stale=%s", async (stale) => {
   const items = ["Boys present", "Girls present"].map(
     (name, index) =>
       ({
@@ -103,6 +108,10 @@ it("opens source mapping from the selected table row and saves that indicator", 
       form_id: "attendance",
     },
   ]);
+  vi.mocked(apiClient.indicatorMappingPreview).mockResolvedValue({
+    expected_version: 0, preview_token: "signed-preview", affected_periods: [], notice: "Current evidence, not frozen history",
+    before: items[1], after: {...items[1], mapped_records: 0, missing_records: 0, invalid_answers: 0, quality_excluded_records: 0, denominator: 0},
+  });
   vi.mocked(apiClient.saveIndicatorMapping).mockImplementation(
     async (id, input) => {
       const item = items.find((item) => item.id === id)!;
@@ -115,6 +124,13 @@ it("opens source mapping from the selected table row and saves that indicator", 
       return item.mapping!;
     },
   );
+  if (stale) {
+    vi.mocked(apiClient.saveIndicatorMapping).mockRejectedValueOnce(new Error("Evidence changed since preview. Refresh the preview and confirm again."));
+    vi.mocked(apiClient.indicatorMappingPreview).mockResolvedValueOnce({
+      expected_version: 0, preview_token: "old-preview", affected_periods: [], notice: "Initial preview",
+      before: items[1], after: {...items[1], current_value: 10},
+    });
+  }
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -211,12 +227,29 @@ it("opens source mapping from the selected table row and saves that indicator", 
     target: { value: "sum" },
   });
   fireEvent.click(within(dialog).getByRole("button", { name: "Save mapping" }));
+  const review = await screen.findByRole("dialog", {name: "Review definition change"});
+  expect(apiClient.saveIndicatorMapping).not.toHaveBeenCalled();
+  const confirm = within(review).getByRole("button", {name: "Confirm change"});
+  expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(within(review).getByRole("textbox"), {target: {value: "Reviewed source mapping"}});
+  fireEvent.click(within(review).getByRole("checkbox"));
+  fireEvent.click(confirm);
+  if (stale) {
+    await within(review).findByText(/The preview was stale/);
+    expect(within(review).getByRole("textbox")).toHaveProperty("value", "Reviewed source mapping");
+    expect(within(review).getByRole("checkbox")).toHaveProperty("checked", false);
+    expect(within(review).getByRole("button", {name: "Confirm change"})).toHaveProperty("disabled", true);
+    expect(apiClient.saveIndicatorMapping).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(review).getByRole("checkbox"));
+    fireEvent.click(within(review).getByRole("button", {name: "Confirm change"}));
+  }
   await waitFor(() =>
     expect(apiClient.saveIndicatorMapping).toHaveBeenCalledWith("1", {
       source_form_id: "attendance",
       source_field: "girls",
       calculation: "sum",
       match_value: null,
+      confirm_change: true, change_reason: "Reviewed source mapping", expected_version: 0, preview_token: "signed-preview",
     }),
   );
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -233,7 +266,7 @@ function renderMapping() {
         <IndicatorMappingForm
           projectId="project"
           indicator={
-            { id: "indicator", name: "Attendance", mapping: null } as Indicator
+            { id: "indicator", name: "Attendance", unit: "number", mapping: null } as Indicator
           }
           saving={false}
           error=""

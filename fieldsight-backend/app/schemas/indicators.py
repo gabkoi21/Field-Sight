@@ -50,6 +50,7 @@ class IndicatorCreate(BaseModel):
 
 
 class IndicatorUpdate(BaseModel):
+    preview_token: str | None = Field(default=None, max_length=128)
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     name: str | None = Field(default=None, min_length=2, max_length=200)
     code: str | None = Field(default=None, min_length=2, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -132,6 +133,7 @@ class IndicatorRead(BaseModel):
 
 
 class IndicatorMappingWrite(BaseModel):
+    preview_token: str | None = Field(default=None, max_length=128)
     model_config = ConfigDict(extra="forbid")
     change_reason: str | None = Field(default=None, min_length=3, max_length=1000)
     confirm_change: bool = False

@@ -1,0 +1,78 @@
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 91%]
+.....................                                                    [100%]
+============================== warnings summary ===============================
+tests/test_admin_journey.py: 1 warning
+tests/test_analysis.py: 3 warnings
+tests/test_automatic_sync.py: 2 warnings
+tests/test_indicator_results.py: 1 warning
+tests/test_pooled_results.py: 3 warnings
+tests/test_saved_dashboards.py: 7 warnings
+tests/test_workspace.py: 2 warnings
+tests/test_workspace_details.py: 5 warnings
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\starlette\_exception_handler.py:59: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    response = await handler(conn, exc)  # type: ignore[arg-type]
+
+tests/test_analysis.py: 2 warnings
+tests/test_indicator_results.py: 3 warnings
+tests/test_kobo_sync.py: 3 warnings
+tests/test_migrations.py: 9 warnings
+tests/test_review_evidence.py: 3 warnings
+tests/test_saved_dashboards.py: 3 warnings
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\alembic\config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.
+    util.warn_deprecated(
+
+tests/test_indicator_reliability.py: 68 warnings
+tests/test_review_evidence.py: 1 warning
+tests/test_saved_dashboards.py: 1 warning
+tests/test_workspace.py: 3 warnings
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\pydantic\main.py:520: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='direction', input_value='increase', input_type=str])
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='status', input_value='not_started', input_type=str])
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='unit', input_value='number', input_type=str])
+    return self.__pydantic_serializer__.to_python(
+
+tests/test_indicator_reliability.py: 46 warnings
+tests/test_review_evidence.py: 1 warning
+tests/test_saved_dashboards.py: 1 warning
+tests/test_workspace.py: 1 warning
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\pydantic\main.py:520: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='calculation', input_value='sum', input_type=str])
+    return self.__pydantic_serializer__.to_python(
+
+tests/test_indicator_reliability.py: 10 warnings
+tests/test_indicator_results.py: 6 warnings
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\pydantic\main.py:520: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='calculation', input_value='average', input_type=str])
+    return self.__pydantic_serializer__.to_python(
+
+tests/test_indicator_results.py::test_target_dates_direction_and_missing_deadline
+tests/test_indicator_results.py::test_target_dates_direction_and_missing_deadline
+tests/test_indicator_results.py::test_target_dates_direction_and_missing_deadline
+tests/test_indicator_results.py::test_target_dates_direction_and_missing_deadline
+tests/test_indicator_results.py::test_target_dates_direction_and_missing_deadline
+tests/test_indicator_results.py::test_target_dates_direction_and_missing_deadline
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\pydantic\main.py:520: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='direction', input_value='decrease', input_type=str])
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='status', input_value='not_started', input_type=str])
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='unit', input_value='number', input_type=str])
+    return self.__pydantic_serializer__.to_python(
+
+tests/test_indicator_results.py: 8 warnings
+tests/test_indicators.py: 4 warnings
+tests/test_pooled_results.py: 3 warnings
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\pydantic\main.py:520: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='direction', input_value='increase', input_type=str])
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='status', input_value='not_started', input_type=str])
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='unit', input_value='percentage', input_type=str])
+    return self.__pydantic_serializer__.to_python(
+
+tests/test_indicator_results.py: 8 warnings
+tests/test_indicators.py: 4 warnings
+  C:\Users\gabak\Videos\Field-Sight\fieldsight-backend\.venv\Lib\site-packages\pydantic\main.py:520: UserWarning: Pydantic serializer warnings:
+    PydanticSerializationUnexpectedValue(Expected `enum` - serialized value may not be as expected [field_name='calculation', input_value='percentage_matching', input_type=str])
+    return self.__pydantic_serializer__.to_python(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+237 passed, 218 warnings in 233.80s (0:03:53)

@@ -111,6 +111,8 @@ def test_target_dates_direction_and_missing_deadline(analysis_client: Client) ->
     assert result["progress_percent"] == 83.33
     assert result["target_achieved"] is False
     assert result["schedule_status"] == "not_due"
+    preview_0 = api.post(f"/indicators/{result['id']}/definition-preview", headers=headers,
+                         json={"target_date":"2000-01-01"}).json()
     result = api.patch(
         f"/indicators/{result['id']}",
         headers=headers,
@@ -119,9 +121,12 @@ def test_target_dates_direction_and_missing_deadline(analysis_client: Client) ->
             "confirm_change": True,
             "change_reason": "Review deadline",
             "expected_version": result["definition_version"],
+            "preview_token": preview_0["preview_token"],
         },
     ).json()
     assert result["status"] == "needs_attention" and result["schedule_status"] == "overdue"
+    preview_1 = api.post(f"/indicators/{result['id']}/definition-preview", headers=headers,
+                         json={"target_value":6}).json()
     result = api.patch(
         f"/indicators/{result['id']}",
         headers=headers,
@@ -130,9 +135,12 @@ def test_target_dates_direction_and_missing_deadline(analysis_client: Client) ->
             "confirm_change": True,
             "change_reason": "Review target",
             "expected_version": result["definition_version"],
+            "preview_token": preview_1["preview_token"],
         },
     ).json()
     assert result["target_achieved"] is True and result["schedule_status"] == "achieved"
+    preview_2 = api.post(f"/indicators/{result['id']}/definition-preview", headers=headers,
+                         json={"target_value":2,"target_date":None}).json()
     result = api.patch(
         f"/indicators/{result['id']}",
         headers=headers,
@@ -142,6 +150,7 @@ def test_target_dates_direction_and_missing_deadline(analysis_client: Client) ->
             "confirm_change": True,
             "change_reason": "Review deadline",
             "expected_version": result["definition_version"],
+            "preview_token": preview_2["preview_token"],
         },
     ).json()
     assert result["status"] == "in_progress" and result["schedule_status"] == "no_deadline"
@@ -188,8 +197,10 @@ def test_date_filtering_and_empty_results_do_not_achieve_zero_targets(analysis_c
 def test_period_targets_are_explicit_and_missing_period_actuals_remain_null(analysis_client: Client) -> None:
     api, _, _, headers = analysis_client
     item = create_indicator(analysis_client)
+    preview = api.post(f"/indicators/{item['id']}/period-targets-preview", headers=headers,
+                       json=[{"period": "2026-10", "target_value": 40}, {"period": "2026-11", "target_value": 80}]).json()
     response = api.put(
-        f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=0",
+        f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=0&preview_token={preview['preview_token']}",
         headers=headers,
         json=[
             {"period": "2026-10", "target_value": 40},
@@ -218,7 +229,10 @@ def test_period_targets_are_explicit_and_missing_period_actuals_remain_null(anal
         ).status_code
         == 409
     )
-    assert api.put(f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=1", headers=headers, json=[]).status_code == 200
+    preview = api.post(f"/indicators/{item['id']}/period-targets-preview", headers=headers, json=[]).json()
+    assert api.put(f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=1&preview_token={preview['preview_token']}", headers=headers, json=[]).status_code == 200
+    preview = api.post(f"/indicators/{item['id']}/definition-preview", headers=headers,
+                       json={"reporting_frequency": "quarterly"}).json()
     assert (
         api.patch(
             f"/indicators/{item['id']}",
@@ -227,6 +241,7 @@ def test_period_targets_are_explicit_and_missing_period_actuals_remain_null(anal
                 "reporting_frequency": "quarterly",
                 "confirm_change": True,
                 "change_reason": "Review frequency",
+                "preview_token": preview["preview_token"],
                 "expected_version": api.get(f"/indicators/{item['id']}", headers=headers).json()["definition_version"],
             },
         ).status_code

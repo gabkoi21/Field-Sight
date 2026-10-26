@@ -31,6 +31,7 @@ export function CollectedDataPanel({
   async function refresh() {
     await Promise.all([
       cache.invalidateQueries({ queryKey: ["indicator-evidence", indicator.id] }),
+      cache.invalidateQueries({ queryKey: ["indicator-evidence", indicator.id] }),
       cache.invalidateQueries({ queryKey: ["dashboard-widget"] }),
       cache.invalidateQueries({ queryKey: ["dashboard"] }),
       cache.invalidateQueries({

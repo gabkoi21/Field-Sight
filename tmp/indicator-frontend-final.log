@@ -1,0 +1,1215 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ❯ src/pages/organization/IndicatorReliability.test.tsx (2 tests | 1 failed) 3588ms
+   ✓ offers only the authoritative percentage methods and preserves unknown legacy selection  1959ms
+   × saves a new incomplete definition as a draft 1626ms
+     → Unable to find an accessible element with the role "button" and name "Save"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "Add indicator":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Add indicator"[39m
+    [33maria-modal[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"[39m
+    [33mrole[39m=[32m"dialog"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4 "[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "Add indicator":
+  [36m<h2[39m
+    [33mclass[39m=[32m"m-0 text-lg font-semibold text-[#24434c]"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mb-0 mt-1 text-xs leading-5 text-[#73868d]"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Close dialog":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Close dialog"[39m
+    [33mclass[39m=[32m"border-0 bg-transparent p-1 text-[#73868d]"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Cancel":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-control-border)] bg-[var(--fs-surface)] text-[var(--fs-text)] hover:border-[var(--fs-primary)] hover:bg-blue-50 active:bg-blue-100 "[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Create indicator":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Indicator name":
+  [36m<input[39m
+    [33mclass[39m=[32m"min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"[39m
+    [33mmaxlength[39m=[32m"200"[39m
+    [33mminlength[39m=[32m"2"[39m
+    [33mrequired[39m=[32m""[39m
+    [33mvalue[39m=[32m"Draft indicator"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  combobox:
+
+  Name "Indicator format":
+  [36m<select[39m
+    [33mclass[39m=[32m"min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"[39m
+    [33mrequired[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "Numeric":
+  [36m<option[39m
+    [33mvalue[39m=[32m"number"[39m
+  [36m/>[39m
+
+  Name "Percentage":
+  [36m<option[39m
+    [33mvalue[39m=[32m"percentage"[39m
+  [36m/>[39m
+
+  Name "Qualitative only":
+  [36m<option[39m
+    [33mvalue[39m=[32m"text"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-label[39m=[32m"Add indicator"[39m
+      [33maria-modal[39m=[32m"true"[39m
+      [33mclass[39m=[32m"fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"[39m
+      [33mrole[39m=[32m"dialog"[39m
+    [36m>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"w-full max-h-[90vh] max-w-[680px] p-6 overflow-y-auto rounded-lg bg-white shadow-xl"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4 "[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"m-0 text-lg font-semibold text-[#24434c]"[39m
+            [36m>[39m
+              [0mAdd indicator[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mb-0 mt-1 text-xs leading-5 text-[#73868d]"[39m
+            [36m>[39m
+              [0mStart with a name and format. Add targets, baselines and source data later by opening the indicator.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33maria-label[39m=[32m"Close dialog"[39m
+            [33mclass[39m=[32m"border-0 bg-transparent p-1 text-[#73868d]"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-x"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 6 6 18"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m6 6 12 12"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<form[39m
+          [33mclass[39m=[32m"grid gap-4"[39m
+        [36m>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"grid min-w-0 gap-1.5 text-xs text-[#526d75]"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0mIndicator name[0m
+            [36m</span>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"[39m
+              [33mmaxlength[39m=[32m"200"[39m
+              [33mminlength[39m=[32m"2"[39m
+              [33mrequired[39m=[32m""[39m
+              [33mvalue[39m=[32m"Draft indicator"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"grid min-w-0 gap-1.5 text-xs text-[#526d75]"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-medium"[39m
+            [36m>[39m
+              [0mIndicator format[0m
+            [36m</span>[39m
+            [36m<select[39m
+              [33mclass[39m=[32m"min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"[39m
+              [33mrequired[39m=[32m""[39m
+            [36m>[39m
+              [36m<option[39m
+                [33mvalue[39m=[32m"number"[39m
+              [36m>[39m
+                [0mNumeric[0m
+              [36m</option>[39m
+              [36m<option[39m
+                [33mvalue[39m=[32m"percentage"[39m
+              [36m>[39m
+                [0mPercentage[0m
+              [36m</option>[39m
+              [36m<option[39m
+                [33mvalue[39m=[32m"text"[39m
+              [36m>[39m
+                [0mQualitative only[0m
+              [36m</option>[39m
+            [36m</select>[39m
+          [36m</label>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mt-5 flex justify-end gap-2 border-t border-[#e7edef] pt-4"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-control-border)] bg-[var(--fs-surface)] text-[var(--fs-text)] hover:border-[var(--fs-primary)] hover:bg-blue-50 active:bg-blue-100 "[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mCancel[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "[39m
+              [33mtype[39m=[32m"submit"[39m
+            [36m>[39m
+              [0mCreate indicator[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</form>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ✓ src/workspace/WorkspaceShell.test.tsx (3 tests) 5765ms
+   ✓ hides Overview while preserving project navigation and context  4047ms
+   ✓ preserves nested project navigation without the header selector  786ms
+   ✓ keeps the workspace shell mounted through a lazy route and back/forward navigation  928ms
+ ❯ src/pages/organization/FieldOperationsPage.test.tsx (3 tests | 1 failed) 6053ms
+   × scopes cards and rows to project assignments and preserves counts when searching 3261ms
+     → Unable to find role="button" and name "Manage Alice"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"mb-4 inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"[39m
+      [33mdata-discover[39m=[32m"true"[39m
+      [33mhref[39m=[32m"/projects/p1"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33mclass[39m=[32m"lucide lucide-arrow-left"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"15"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"15"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m12 19-7-7 7-7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M19 12H5"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m Back to [0m
+      [0mproject[0m
+    [36m</a>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mb-6"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex min-w-0 flex-col justify-between gap-4 lg:flex-row lg:items-start"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0 flex-1"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mb-2 mt-0 text-xs font-semibold leading-5 tracking-wide text-[var(--fs-muted)]"[39m
+          [36m>[39m
+            [0mFieldSight / School Feeding[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"m-0 break-words text-[1.75rem] font-semibold leading-tight tracking-tight text-[var(--fs-text)]"[39m
+          [36m>[39m
+            [0mField team[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mb-0 mt-2 max-w-[68ch] text-sm leading-6 text-[var(--fs-muted)]"[39m
+          [36m>[39m
+            [0mCreate and manage enumerators assigned to this project.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex max-w-full flex-wrap items-center gap-2 lg:justify-end"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"15"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"15"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m Create enumerator[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mb-5"[39m
+    [36m/>[39m
+    [0m [0m
+    [36m<div[39m
+      [33mclass[39m=[32m"mb-5"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative min-w-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"min-w-0 space-y-4 motion-safe:animate-pulse"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid gap-4 sm:grid-cols-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-4 w-2/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-8 w-1/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-3 w-3/4"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-4 w-2/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-8 w-1/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-3 w-3/4"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-4 w-2/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-8 w-1/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-3 w-3/4"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33mclass[39m=[32m"lucide lucide-search"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"15"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<a[39m
+      [33mclass[39m=[32m"mb-4 inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"[39m
+      [33mdata-discover[39m=[32m"true"[39m
+      [33mhref[39m=[32m"/projects/p1"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33mclass[39m=[32m"lucide lucide-arrow-left"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"15"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"15"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m12 19-7-7 7-7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M19 12H5"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m Back to [0m
+      [0mproject[0m
+    [36m</a>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mb-6"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex min-w-0 flex-col justify-between gap-4 lg:flex-row lg:items-start"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"min-w-0 flex-1"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mb-2 mt-0 text-xs font-semibold leading-5 tracking-wide text-[var(--fs-muted)]"[39m
+          [36m>[39m
+            [0mFieldSight / School Feeding[0m
+          [36m</p>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"m-0 break-words text-[1.75rem] font-semibold leading-tight tracking-tight text-[var(--fs-text)]"[39m
+          [36m>[39m
+            [0mField team[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mb-0 mt-2 max-w-[68ch] text-sm leading-6 text-[var(--fs-muted)]"[39m
+          [36m>[39m
+            [0mCreate and manage enumerators assigned to this project.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex max-w-full flex-wrap items-center gap-2 lg:justify-end"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"15"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"15"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m Create enumerator[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mb-5"[39m
+    [36m/>[39m
+    [0m [0m
+    [36m<div[39m
+      [33mclass[39m=[32m"mb-5"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"relative min-w-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"min-w-0 space-y-4 motion-safe:animate-pulse"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid gap-4 sm:grid-cols-3"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-4 w-2/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-8 w-1/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-3 w-3/4"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-4 w-2/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-8 w-1/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-3 w-3/4"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-4 w-2/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-8 w-1/3"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"rounded-md bg-slate-100 h-3 w-3/4"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1"[39m
+    [36m>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33mclass[39m=[32m"lucide lucide-search"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"15"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39...
+   ✓ shows an unassigned project state instead of organization totals  1239ms
+   ✓ assigns new enumerators to the open project and refreshes assignments  1549ms
+ ✓ src/workspace/WorkspacesPage.test.tsx (5 tests) 7352ms
+   ✓ requires confirmation, warns about Kobo, supports cancel and deletes the selected project  4812ms
+   ✓ keeps a readable failure in the confirmation modal  779ms
+   ✓ does not expose project deletion to non-administrators  350ms
+   ✓ explains that a form without a connection is only removed from FieldSight  567ms
+   ✓ keeps search visible outside the filter panel and supports keyboard tab navigation  841ms
+ ✓ src/pages/organization/SubmissionsPage.test.tsx (4 tests) 7662ms
+   ✓ requests bounded pages in project scope instead of fetching the full submission list  3330ms
+   ✓ resets a later page on global project switching and browser navigation  1846ms
+   ✓ recovers when a later page disappears and resets for search and review filters  1271ms
+   ✓ keeps filters mounted through slow loads and retains rows and focus during background refresh errors  1212ms
+ ❯ src/pages/organization/IndicatorWorkspacePage.test.tsx (4 tests | 1 failed) 11326ms
+   × reviews source mapping and requires fresh confirmation after stale=false 6486ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ reviews source mapping and requires fresh confirmation after stale=true  4368ms
+   ✓ fetches Kobo metadata for a new form with no stored questions or submissions  312ms
+   ✓ keeps the form selected after metadata failure and lets the user retry 157ms
+ ✓ src/workspace/DashboardsPage.test.tsx (16 tests) 17120ms
+   ✓ existing saved dashboard builder > shows an honest empty state without sample values  1908ms
+   ✓ existing saved dashboard builder > creates, duplicates, renames and deletes persisted dashboards  3594ms
+   ✓ existing saved dashboard builder > persists keyboard ordering and height across a reload  2167ms
+   ✓ existing saved dashboard builder > supports dragging a widget to another position  1328ms
+   ✓ existing saved dashboard builder > keeps legacy full-width widgets side by side without width resize controls  660ms
+   ✓ existing saved dashboard builder > previews date filters, saves them and restores them on reload  1217ms
+   ✓ existing saved dashboard builder > presents all dashboard widgets together and closes without saving  778ms
+   ✓ existing saved dashboard builder > expands a widget for presentation and closes without saving its layout  686ms
+   ✓ existing saved dashboard builder > refreshes existing widget results after a successful background sync  755ms
+   ✓ existing saved dashboard builder > does not append a percent sign to unavailable values  384ms
+   ✓ existing saved dashboard builder > shows source failures and retries without fabricated results  440ms
+   ✓ existing saved dashboard builder > renders saved survey results from the shared endpoint and handles empty data  365ms
+   ✓ existing saved dashboard builder > adds and edits a text widget using the existing save flow  1990ms
+   ✓ existing saved dashboard builder > keeps save conflicts visible and leaves the last saved layout intact  527ms
+ ✓ src/pages/organization/KoboConnectionsPage.test.tsx (2 tests) 2337ms
+   ✓ confirms connection removal, supports cancel and refreshes the account list  1870ms
+   ✓ keeps a failed deletion visible for retry  445ms
+ ✓ src/components/layout/RouteContent.test.tsx (2 tests) 3315ms
+   ✓ renders fast navigation immediately and keeps the shell and focus during a slow lazy route  2185ms
+   ✓ replaces a rejected lazy load with a recoverable error and keeps navigation usable  1127ms
+ ✓ src/workspace/SyncControls.test.tsx (10 tests) 2504ms
+   ✓ synchronization controls > enables automatic sync with the selected interval  999ms
+   ✓ synchronization controls > shows the last successful timestamp without loading a history table  304ms
+ ✓ src/pages/organization/QualityCenterPage.test.tsx (2 tests) 3316ms
+   ✓ saves review notes and displays persisted author/time history  2255ms
+   ✓ persists reviewer assignment and requests the next scoped queue page  1058ms
+ ✓ src/pages/dashboard/OrganizationDashboardPage.test.tsx (3 tests) 3325ms
+   ✓ keeps API metrics, location data, and rankings in the overview project and period scope  2761ms
+   ✓ uses organization-wide filtering independently of the current-project URL  380ms
+ ✓ src/workspace/CollectedDataPanel.test.tsx (1 test) 1430ms
+   ✓ submits numerator and denominator without an ambiguous separate value  1427ms
+ ✓ src/pages/organization/SubmissionEvidence.test.tsx (4 tests) 872ms
+   ✓ shows flagged answers beyond ten fields and readable labels with raw paths  335ms
+   ✓ shows explicit loading and error states  438ms
+ ✓ src/workspace/ProjectSetupChecklist.test.tsx (2 tests) 847ms
+   ✓ links incomplete steps using saved project scope  611ms
+ ✓ src/pages/organization/FrameworkForm.test.tsx (1 test) 807ms
+   ✓ opens a child result form and saves the chosen parent and next level  804ms
+ ✓ src/components/ui/LoadingState.test.tsx (3 tests) 638ms
+   ✓ announces a contextual initial load while hiding decorative geometry  550ms
+ ✓ src/services/apiClient.test.ts (15 tests) 237ms
+ ✓ src/auth/AuthContext.test.tsx (4 tests) 378ms
+ ✓ src/pages/organization/IndicatorEvidence.test.tsx (2 tests) 582ms
+   ✓ loads, reports errors, retries and shows an accurate empty range  303ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/organization/FieldOperationsPage.test.tsx > scopes cards and rows to project assignments and preserves counts when searching
+TestingLibraryElementError: Unable to find role="button" and name "Manage Alice"
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <a
+      class="mb-4 inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+      data-discover="true"
+      href="/projects/p1"
+    >
+      <svg
+        class="lucide lucide-arrow-left"
+        fill="none"
+        height="15"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="15"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="m12 19-7-7 7-7"
+        />
+        <path
+          d="M19 12H5"
+        />
+      </svg>
+       Back to 
+      project
+    </a>
+    <div
+      class="mb-6"
+    >
+      <header
+        class="flex min-w-0 flex-col justify-between gap-4 lg:flex-row lg:items-start"
+      >
+        <div
+          class="min-w-0 flex-1"
+        >
+          <p
+            class="mb-2 mt-0 text-xs font-semibold leading-5 tracking-wide text-[var(--fs-muted)]"
+          >
+            FieldSight / School Feeding
+          </p>
+          <h1
+            class="m-0 break-words text-[1.75rem] font-semibold leading-tight tracking-tight text-[var(--fs-text)]"
+          >
+            Field team
+          </h1>
+          <p
+            class="mb-0 mt-2 max-w-[68ch] text-sm leading-6 text-[var(--fs-muted)]"
+          >
+            Create and manage enumerators assigned to this project.
+          </p>
+        </div>
+        <div
+          class="flex max-w-full flex-wrap items-center gap-2 lg:justify-end"
+        >
+          <button
+            class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "
+            type="button"
+          >
+            <svg
+              class="lucide lucide-plus"
+              fill="none"
+              height="15"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="15"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+             Create enumerator
+          </button>
+        </div>
+      </header>
+    </div>
+    <div
+      class="mb-5"
+    />
+     
+    <div
+      class="mb-5"
+    >
+      <div
+        class="relative min-w-0"
+      >
+        <div
+          aria-hidden="true"
+          class="min-w-0 space-y-4 motion-safe:animate-pulse"
+        >
+          <div
+            class="grid gap-4 sm:grid-cols-3"
+          >
+            <div
+              class="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"
+            >
+              <div
+                class="rounded-md bg-slate-100 h-4 w-2/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-8 w-1/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-3 w-3/4"
+              />
+            </div>
+            <div
+              class="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"
+            >
+              <div
+                class="rounded-md bg-slate-100 h-4 w-2/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-8 w-1/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-3 w-3/4"
+              />
+            </div>
+            <div
+              class="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"
+            >
+              <div
+                class="rounded-md bg-slate-100 h-4 w-2/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-8 w-1/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-3 w-3/4"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1"
+    >
+      <label
+        class="flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand"
+      >
+        <svg
+          class="lucide lucide-search"
+          fill="none"
+          height="15"
+          stroke="currentColor"
+          stroke-linecap[39...
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <a
+      class="mb-4 inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+      data-discover="true"
+      href="/projects/p1"
+    >
+      <svg
+        class="lucide lucide-arrow-left"
+        fill="none"
+        height="15"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="15"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="m12 19-7-7 7-7"
+        />
+        <path
+          d="M19 12H5"
+        />
+      </svg>
+       Back to 
+      project
+    </a>
+    <div
+      class="mb-6"
+    >
+      <header
+        class="flex min-w-0 flex-col justify-between gap-4 lg:flex-row lg:items-start"
+      >
+        <div
+          class="min-w-0 flex-1"
+        >
+          <p
+            class="mb-2 mt-0 text-xs font-semibold leading-5 tracking-wide text-[var(--fs-muted)]"
+          >
+            FieldSight / School Feeding
+          </p>
+          <h1
+            class="m-0 break-words text-[1.75rem] font-semibold leading-tight tracking-tight text-[var(--fs-text)]"
+          >
+            Field team
+          </h1>
+          <p
+            class="mb-0 mt-2 max-w-[68ch] text-sm leading-6 text-[var(--fs-muted)]"
+          >
+            Create and manage enumerators assigned to this project.
+          </p>
+        </div>
+        <div
+          class="flex max-w-full flex-wrap items-center gap-2 lg:justify-end"
+        >
+          <button
+            class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "
+            type="button"
+          >
+            <svg
+              class="lucide lucide-plus"
+              fill="none"
+              height="15"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="15"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5 12h14"
+              />
+              <path
+                d="M12 5v14"
+              />
+            </svg>
+             Create enumerator
+          </button>
+        </div>
+      </header>
+    </div>
+    <div
+      class="mb-5"
+    />
+     
+    <div
+      class="mb-5"
+    >
+      <div
+        class="relative min-w-0"
+      >
+        <div
+          aria-hidden="true"
+          class="min-w-0 space-y-4 motion-safe:animate-pulse"
+        >
+          <div
+            class="grid gap-4 sm:grid-cols-3"
+          >
+            <div
+              class="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"
+            >
+              <div
+                class="rounded-md bg-slate-100 h-4 w-2/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-8 w-1/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-3 w-3/4"
+              />
+            </div>
+            <div
+              class="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"
+            >
+              <div
+                class="rounded-md bg-slate-100 h-4 w-2/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-8 w-1/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-3 w-3/4"
+              />
+            </div>
+            <div
+              class="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"
+            >
+              <div
+                class="rounded-md bg-slate-100 h-4 w-2/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-8 w-1/3"
+              />
+              <div
+                class="rounded-md bg-slate-100 h-3 w-3/4"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1"
+    >
+      <label
+        class="flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand"
+      >
+        <svg
+          class="lucide lucide-search"
+          fill="none"
+          height="15"
+          stroke="currentColor"
+          stroke-linecap[39...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/pages/organization/FieldOperationsPage.test.tsx:34:16
+     32| it("scopes cards and rows to project assignments and preserves counts …
+     33|   setup();
+     34|   await screen.findByRole("button", { name: "Manage Alice" });
+       |                ^
+     35|   expect(screen.queryByRole("button", { name: "Manage Cara" })).toBeNu…
+     36|   const card = screen.getByText("Project enumerators").closest("sectio…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/pages/organization/IndicatorReliability.test.tsx > saves a new incomplete definition as a draft
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Save"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "Add indicator":
+  <div
+    aria-label="Add indicator"
+    aria-modal="true"
+    class="fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"
+    role="dialog"
+  />
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  <header
+    class="mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4 "
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "Add indicator":
+  <h2
+    class="m-0 text-lg font-semibold text-[#24434c]"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="mb-0 mt-1 text-xs leading-5 text-[#73868d]"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "Close dialog":
+  <button
+    aria-label="Close dialog"
+    class="border-0 bg-transparent p-1 text-[#73868d]"
+    type="button"
+  />
+
+  Name "Cancel":
+  <button
+    class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-control-border)] bg-[var(--fs-surface)] text-[var(--fs-text)] hover:border-[var(--fs-primary)] hover:bg-blue-50 active:bg-blue-100 "
+    type="button"
+  />
+
+  Name "Create indicator":
+  <button
+    class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "
+    type="submit"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "Indicator name":
+  <input
+    class="min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"
+    maxlength="200"
+    minlength="2"
+    required=""
+    value="Draft indicator"
+  />
+
+  --------------------------------------------------
+  combobox:
+
+  Name "Indicator format":
+  <select
+    class="min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"
+    required=""
+  />
+
+  --------------------------------------------------
+  option:
+
+  Name "Numeric":
+  <option
+    value="number"
+  />
+
+  Name "Percentage":
+  <option
+    value="percentage"
+  />
+
+  Name "Qualitative only":
+  <option
+    value="text"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      aria-label="Add indicator"
+      aria-modal="true"
+      class="fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"
+      role="dialog"
+    >
+      <section
+        class="w-full max-h-[90vh] max-w-[680px] p-6 overflow-y-auto rounded-lg bg-white shadow-xl"
+      >
+        <header
+          class="mb-5 flex items-start justify-between gap-3 border-b border-[#e7edef] pb-4 "
+        >
+          <div>
+            <h2
+              class="m-0 text-lg font-semibold text-[#24434c]"
+            >
+              Add indicator
+            </h2>
+            <p
+              class="mb-0 mt-1 text-xs leading-5 text-[#73868d]"
+            >
+              Start with a name and format. Add targets, baselines and source data later by opening the indicator.
+            </p>
+          </div>
+          <button
+            aria-label="Close dialog"
+            class="border-0 bg-transparent p-1 text-[#73868d]"
+            type="button"
+          >
+            <svg
+              class="lucide lucide-x"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="18"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+          </button>
+        </header>
+        <form
+          class="grid gap-4"
+        >
+          <label
+            class="grid min-w-0 gap-1.5 text-xs text-[#526d75]"
+          >
+            <span
+              class="font-medium"
+            >
+              Indicator name
+            </span>
+            <input
+              class="min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"
+              maxlength="200"
+              minlength="2"
+              required=""
+              value="Draft indicator"
+            />
+          </label>
+          <label
+            class="grid min-w-0 gap-1.5 text-xs text-[#526d75]"
+          >
+            <span
+              class="font-medium"
+            >
+              Indicator format
+            </span>
+            <select
+              class="min-h-11 w-full min-w-0 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-base sm:text-sm text-[var(--fs-text)] transition-colors hover:border-[var(--fs-muted)] focus:border-[var(--fs-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--fs-primary)] focus:ring-offset-1 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-60"
+              required=""
+            >
+              <option
+                value="number"
+              >
+                Numeric
+              </option>
+              <option
+                value="percentage"
+              >
+                Percentage
+              </option>
+              <option
+                value="text"
+              >
+                Qualitative only
+              </option>
+            </select>
+          </label>
+          <div
+            class="mt-5 flex justify-end gap-2 border-t border-[#e7edef] pt-4"
+          >
+            <button
+              class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-control-border)] bg-[var(--fs-surface)] text-[var(--fs-text)] hover:border-[var(--fs-primary)] hover:bg-blue-50 active:bg-blue-100 "
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[14px] font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b51b7] disabled:cursor-not-allowed disabled:opacity-50 border border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white hover:bg-[var(--fs-primary-hover)] active:bg-[#063777] "
+              type="submit"
+            >
+              Create indicator
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/organization/IndicatorReliability.test.tsx:31:27
+     29|   render(<QueryClientProvider client={new QueryClient()}><IndicatorDef…
+     30|   fireEvent.change(screen.getByLabelText("Indicator name"), {target: {…
+     31|   fireEvent.submit(screen.getByRole("button", {name: "Save"}).closest(…
+       |                           ^
+     32|   expect(save).toHaveBeenCalledWith(expect.objectContaining({is_active…
+     33| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/pages/organization/IndicatorWorkspacePage.test.tsx > reviews source mapping and requires fresh confirmation after stale=false
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/pages/organization/IndicatorWorkspacePage.test.tsx:58:22
+     56| });
+     57| 
+     58| it.each([false, true])("reviews source mapping and requires fresh conf…
+       |                      ^
+     59|   const items = ["Boys present", "Girls present"].map(
+     60|     (name, index) =>
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  3 failed | 17 passed (20)
+      Tests  3 failed | 85 passed (88)
+   Start at  15:39:08
+   Duration  44.02s (transform 16.47s, setup 0ms, collect 81.29s, tests 79.45s, environment 85.28s, prepare 12.55s)
+

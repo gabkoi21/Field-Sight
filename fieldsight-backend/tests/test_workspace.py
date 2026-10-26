@@ -22,6 +22,8 @@ def context(fixture):
 
 
 def indicator(client, project, headers, **values):
+    unit = values.get("unit", "number")
+    values.setdefault("manual_aggregation", "unweighted_mean" if unit == "percentage" else "latest" if unit == "text" else "sum")
     response = client.post(
         f"/projects/{project}/indicators",
         headers=headers,
@@ -375,6 +377,8 @@ def test_manual_source_changes_and_indicator_delete_cascade(sync_client):
         ).status_code
         == 201
     )
-    assert client.patch(f"/indicators/{item['id']}", headers=headers, json={"unit": "percentage"}).status_code == 409
+    rejected = client.patch(f"/indicators/{item['id']}", headers=headers, json={"unit": "percentage"})
+    assert rejected.status_code == 422  # Sum cannot produce percentage units.
+    assert client.get(f"/indicators/{item['id']}", headers=headers).json()["unit"] == "number"
     assert client.delete(f"/indicators/{item['id']}", headers=headers).status_code == 204
     assert client.get(f"/indicators/{item['id']}/collected-results", headers=headers).status_code == 404

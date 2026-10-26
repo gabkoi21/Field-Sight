@@ -11,6 +11,31 @@ from app.schemas.analysis import SurveyField
 from app.schemas.indicators import IndicatorRead
 
 
+def manual_contribution(indicator: Indicator, row: CollectedResult | Submission) -> str | None:
+    """Shared validation for calculation and evidence; None means usable."""
+    from app.core.survey import missing, number
+
+    values = row.raw_answers if isinstance(row, Submission) else row.model_dump()
+    if indicator.unit == "text":
+        return None if str(values.get("narrative") or "").strip() else "missing_answer"
+    if indicator.manual_aggregation == "pooled" and indicator.unit in {"percentage", "rate", "ratio"}:
+        raw_n, raw_d = values.get("numerator"), values.get("denominator")
+        if missing(raw_n) or missing(raw_d):
+            return "missing_components"
+        n, d = number(raw_n), number(raw_d)
+        if n is None or d is None or n < 0 or d <= 0 or (indicator.unit == "percentage" and n > d):
+            return "invalid_components"
+        return None
+    if missing(values.get("value")):
+        return "missing_answer"
+    return None if number(values.get("value")) is not None else "invalid_answer"
+
+
+def observation_order(row: CollectedResult | Submission) -> tuple:
+    day = row.submitted_at if isinstance(row, Submission) else row.result_date
+    return (day, row.created_at.replace(tzinfo=UTC), str(row.id))
+
+
 def manual_result(
     indicator: Indicator,
     rows: Sequence[CollectedResult],
@@ -18,7 +43,7 @@ def manual_result(
     start: date | None,
     end: date | None,
 ) -> IndicatorRead:
-    rows = sorted(rows, key=lambda row: (row.result_date, row.created_at.replace(tzinfo=UTC), str(row.id)))
+    rows = sorted(rows, key=observation_order)
     eligible = [r for r in rows if (not start or r.result_date >= start) and (not end or r.result_date <= end)]
     records = [
         Submission(
@@ -59,11 +84,13 @@ def manual_result(
         for item in items:
             numerator = number(item.raw_answers.get("numerator"))
             denominator = number(item.raw_answers.get("denominator"))
-            if numerator is None or denominator is None:
+            reason = manual_contribution(indicator, item)
+            if reason == "missing_components":
                 result.missing_records += 1
-            elif numerator < 0 or denominator <= 0 or (indicator.unit == "percentage" and numerator > denominator):
+            elif reason:
                 result.invalid_answers += 1
             else:
+                assert numerator is not None and denominator is not None
                 numerators.append(numerator)
                 denominators.append(denominator)
         result.mapped_records = len(numerators)
@@ -83,14 +110,15 @@ def manual_result(
 
     def latest(mapping: IndicatorMapping | None, items: list[Submission], field: SurveyField | None) -> Calculation:
         result = calculate(mapping, items, field)
-        valid = [item for item in items if isinstance(item.raw_answers.get("value"), (int, float))]
+        valid = [item for item in items if manual_contribution(indicator, item) is None]
         if valid:
-            chosen = max(valid, key=lambda item: (item.submitted_at, item.created_at.replace(tzinfo=UTC), str(item.id)))
+            chosen = max(valid, key=observation_order)
             from app.core.survey import number
 
             result.value = number(chosen.raw_answers["value"])
             result.numerator = result.value
             result.denominator = 1
+            result.mapped_records = 1
         return result
 
     use_pool = indicator.manual_aggregation == "pooled" and indicator.unit in {"percentage", "rate", "ratio"}
@@ -145,7 +173,7 @@ def manual_result(
     if indicator.manual_aggregation == "latest":
         result.calculation_note = (
             "Latest observation ordered by result date, creation timestamp, then record UUID. "
-            "Periods are independent; manual results only."
+            "Selection is independent within the requested overall, period, or location scope; manual results only."
         )
     if indicator.unit == "text":
         result.qualitative_value = eligible[-1].narrative if eligible else None

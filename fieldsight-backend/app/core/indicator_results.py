@@ -32,6 +32,10 @@ def calculate(
     result = Calculation(eligible_records=len(eligible), quality_excluded_records=len(records) - len(eligible))
     if mapping is None or field is None or not field.supported:
         return result
+    if mapping.calculation == "count_records":
+        result.mapped_records = result.denominator = len(eligible)
+        result.value = result.numerator = float(len(eligible)) if eligible else None
+        return result
     numbers: list[float] = []
     matches = 0
     numeric = mapping.calculation in {"sum", "average"}
@@ -241,15 +245,7 @@ def read_result(
         else "in_progress",
         history=history,
         location_breakdown=breakdown,
-        calculation_note=(
-            "Only ready submissions from the mapped form are included. "
-            "Missing and invalid answers are excluded from answer-based denominators. "
-            "Multi-select matching counts each submission once. "
-            "Count records includes all ready submissions, even without a question answer. "
-            "Period results are independent aggregates, not cumulative totals. "
-            "Undated records remain eligible for overall calculations but cannot be assigned to reporting periods. "
-            "Below-target results before the deadline are in progress; no pace estimate is assumed."
-        ),
+        calculation_note="",
     )
     if mapping:
         from app.schemas.indicators import IndicatorMappingRead

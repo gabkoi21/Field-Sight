@@ -19,7 +19,7 @@ it("offers only the authoritative percentage methods and preserves unknown legac
   expect(Array.from(method.options).map(option => option.value)).toEqual(["legacy", "unweighted_mean", "pooled", "latest"]);
   expect(method.value).toBe("legacy");
   fireEvent.change(method, {target: {value: "pooled"}});
-  fireEvent.submit(screen.getByRole("button", {name: "Save"}).closest("form")!);
+  fireEvent.submit(screen.getByRole("button", {name: "Save changes"}).closest("form")!);
   expect(save).toHaveBeenCalledWith(expect.objectContaining({manual_aggregation: "pooled", is_active: false}));
 });
 
@@ -28,6 +28,6 @@ it("saves a new incomplete definition as a draft", () => {
   const save = vi.fn();
   render(<QueryClientProvider client={new QueryClient()}><IndicatorDefinitionForm indicator={null} nodes={[]} error="" saving={false} onClose={vi.fn()} onSave={save} /></QueryClientProvider>);
   fireEvent.change(screen.getByLabelText("Indicator name"), {target: {value: "Draft indicator"}});
-  fireEvent.submit(screen.getByRole("button", {name: "Save"}).closest("form")!);
+  fireEvent.submit(screen.getByRole("button", {name: "Create indicator"}).closest("form")!);
   expect(save).toHaveBeenCalledWith(expect.objectContaining({is_active: false, manual_aggregation: "legacy"}));
 });
