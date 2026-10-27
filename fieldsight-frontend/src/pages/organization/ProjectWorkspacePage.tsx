@@ -1,3 +1,5 @@
+import { ProjectTimeline } from "../../workspace/ProjectTimeline";
+import { ProjectCompletionChart } from "../../workspace/ProjectCompletionChart";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router-dom";
@@ -7,7 +9,7 @@ import {
   Pencil, RefreshCw, Target, type LucideIcon,
 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
-import { Button, LoadingSkeleton, LoadingState } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, MetricCard } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiProject } from "../../services/apiClient";
 import { reportingCompleteness } from "./projectOverview";
@@ -132,40 +134,29 @@ export function ProjectWorkspacePage() {
 
     <section aria-label="Project summary" aria-describedby="overview-data-note" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {submissionsQuery.isPending ? <div className="sm:col-span-2 xl:col-span-3"><LoadingSkeleton layout="metrics" label="Loading collection counts…" /></div> : submissionsQuery.error ? <div className="sm:col-span-2 xl:col-span-3"><Card className="h-full p-5"><LoadError label="collection counts" retry={() => void submissionsQuery.refetch()} /></Card></div> : <>
-        <OverviewMetric label="Submitted records" value={submissionsQuery.data!.total} note="All saved submissions" icon={Database} to={`/submissions?${scope}`} />
-        <OverviewMetric label="Connected forms" value={connected ? 1 : 0} note="Project’s connected Kobo form" icon={Link2} to={`/forms?${scope}`} />
-        {teamQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading enumerators…" /></Card> : teamQuery.error ? <Card className="p-5"><LoadError label="enumerator count" retry={() => void teamQuery.refetch()} /></Card> : <OverviewMetric label="Total enumerators" value={enumeratorCount} note="Active enumerators assigned to this project" icon={Users} to={`/projects/${projectId}/team`} />}
+        <OverviewMetric label="Submitted records" value={submissionsQuery.data!.total} note="All saved submissions" icon={Database} />
+        <OverviewMetric label="Connected forms" value={connected ? 1 : 0} note="Project’s connected Kobo form" icon={Link2} />
+        {teamQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading enumerators…" /></Card> : teamQuery.error ? <Card className="p-5"><LoadError label="enumerator count" retry={() => void teamQuery.refetch()} /></Card> : <OverviewMetric label="Total enumerators" value={enumeratorCount} note="Active enumerators assigned to this project" icon={Users} />}
       </>}
-      {indicatorsQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading indicators…" /></Card> : indicatorsQuery.error ? <Card className="p-5"><LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /></Card> : <OverviewMetric label="Active indicators" value={activeIndicators?.length ?? 0} note="View project indicators" icon={Target} to={`/projects/${projectId}/indicators`} />}
+      {indicatorsQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading indicators…" /></Card> : indicatorsQuery.error ? <Card className="p-5"><LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /></Card> : <OverviewMetric label="Active indicators" value={activeIndicators?.length ?? 0} note="Active indicators in this project" icon={Target} />}
     </section>
 
     <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
-      <CollectionTrend data={trendQuery.data} loading={trendQuery.isPending} error={trendQuery.isError} retry={() => void trendQuery.refetch()} period={trendPeriod} onPeriod={setTrendPeriod} scope={scope} />
+      <CollectionTrend data={trendQuery.data} loading={trendQuery.isPending} error={trendQuery.isError} retry={() => void trendQuery.refetch()} period={trendPeriod} onPeriod={setTrendPeriod} />
       <ReviewBreakdown counts={submissionsQuery.data?.counts} loading={submissionsQuery.isPending} error={submissionsQuery.isError} retry={() => void submissionsQuery.refetch()} scope={scope} />
+    </div>
+    <div className="grid items-stretch gap-5 lg:grid-cols-2">
+      <ProjectCompletionChart project={project} />
+      <ProjectTimeline project={project} />
     </div>
     <p id="overview-data-note" className="sr-only">Collection counts include all saved records. Ready is a data-review status, not M&E result approval. Indicator results use their saved definitions; they are not frozen, approved reporting results. Reporting completeness is not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
   </div>;
 }
 
-function OverviewMetric({ label, value, note, icon: Icon, to }: { label: string; value: number | string; note: string; icon: LucideIcon; to: string }) {
-  return (
-    <NavLink to={to} title={note} className="no-underline">
-      <Card className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none">
-        <div className="flex min-h-[120px] items-center justify-between gap-4 p-5">
-          <div className="min-w-0">
-            <span className={`text-xs font-medium ${muted}`}>{label}</span>
-            <strong className={`mt-1.5 block break-words font-semibold leading-tight tabular-nums text-[#24434c] ${typeof value === "number" ? "text-[28px]" : "text-xl"}`}>
-              {value.toLocaleString()}
-            </strong>
-          </div>
-          <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]" aria-hidden="true">
-            <Icon size={21} />
-          </span>
-        </div>
-      </Card>
-    </NavLink>
-  );
+function OverviewMetric({ label, value, note, icon: Icon }: { label: string; value: number | string; note: string; icon: LucideIcon }) {
+  return <MetricCard label={label} value={value} title={note} icon={Icon} valueClassName={typeof value === "string" ? "!text-xl" : ""} />;
 }
+
 
 function LoadError({ label, retry }: { label: string; retry: () => void }) {
   return <div role="alert" className="mb-3 text-sm text-[var(--fs-danger)]">Unable to load {label}. <button type="button" onClick={retry} className="min-h-11 px-2 font-semibold underline">Retry {label}</button></div>;

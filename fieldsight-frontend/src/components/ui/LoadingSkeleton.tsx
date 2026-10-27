@@ -1,3 +1,5 @@
+import { metricBody, metricIcon, metricSurface } from "./metricStyles";
+
 type LoadingSkeletonProps = {
   label: string;
   announce?: boolean;
@@ -19,7 +21,7 @@ export function LoadingSkeleton({ label, layout = "table", rows = 5, columns = 5
       <div aria-hidden="true" className="min-w-0 space-y-4 motion-safe:animate-pulse">
         {["dashboard", "metrics", "table-page"].includes(layout) && (
           <div className={`grid gap-4 ${metricCount === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
-            {Array.from({ length: metricCount }, (_, i) => <div key={i} className="space-y-4 rounded-xl border border-[var(--fs-border)] bg-white p-5"><Block className="h-4 w-2/3" /><Block className="h-8 w-1/3" /><Block className="h-3 w-3/4" /></div>)}
+            {Array.from({ length: metricCount }, (_, i) => <div key={i} className={`${metricSurface} ${metricBody}`}><div className="min-w-0 flex-1 space-y-3"><Block className="h-3 w-2/3" /><Block className="h-7 w-1/3" /></div><span className={metricIcon}><Block className="size-5" /></span></div>)}
           </div>
         )}
         {layout === "dashboard" && (

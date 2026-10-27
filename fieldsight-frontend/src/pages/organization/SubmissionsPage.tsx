@@ -13,7 +13,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { controlClass } from "../../components/ui/controlStyles";
-import { LoadingSkeleton, LoadingState } from "../../components/ui";
+import { LoadingSkeleton, LoadingState, MetricCard } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
@@ -135,18 +135,7 @@ export function SubmissionsPage() {
       <div className="mb-6"><PageHeader eyebrow="FieldSight / Data collection" title="Submissions" description="Browse every completed form sent from your field teams and connected sources." /></div>
 
       {(isLoading || authLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" metricCount={3} announce={false} label="Loading submission counts…" /></div> : data && <section className="mb-[18px] grid grid-cols-1 gap-[14px]">
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
-            <Database size={19} />
-          </span>
-          <span className="block text-[12px] font-medium text-[#6f7d8a]">All submissions</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {Object.values(counts).reduce((sum, n) => sum + n, 0).toLocaleString()}
-          </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">
-            {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
-          </small>
-        </article>
+        <MetricCard label="All submissions" value={Object.values(counts).reduce((sum, n) => sum + n, 0)} context={projectId ? `For ${selectedProjectName}` : "Across active organization projects"} icon={Database} />
       </section>}
 
       <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">

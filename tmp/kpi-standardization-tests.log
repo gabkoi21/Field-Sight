@@ -1,0 +1,85 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ✓ src/components/layout/RouteContent.test.tsx (2 tests) 1863ms
+   ✓ renders fast navigation immediately and keeps the shell and focus during a slow lazy route  1383ms
+   ✓ replaces a rejected lazy load with a recoverable error and keeps navigation usable  477ms
+ ✓ src/pages/organization/FieldOperationsPage.test.tsx (3 tests) 2653ms
+   ✓ scopes cards and rows to project assignments and preserves counts when searching  1384ms
+   ✓ shows an unassigned project state instead of organization totals  399ms
+   ✓ assigns new enumerators to the open project and refreshes assignments  867ms
+ ✓ src/pages/organization/SubmissionsPage.test.tsx (4 tests) 3121ms
+   ✓ requests bounded pages in project scope instead of fetching the full submission list  1025ms
+   ✓ resets a later page on global project switching and browser navigation  1194ms
+   ✓ recovers when a later page disappears and resets for search changes  556ms
+   ✓ keeps filters mounted through slow loads and retains rows and focus during background refresh errors  343ms
+ ✓ src/pages/dashboard/OrganizationDashboardPage.test.tsx (3 tests) 2044ms
+   ✓ keeps API metrics, location data, and rankings in the overview project and period scope  1571ms
+   ✓ uses organization-wide filtering independently of the current-project URL  306ms
+ ✓ src/workspace/WorkspacesPage.test.tsx (5 tests) 3151ms
+   ✓ requires confirmation, warns about Kobo, supports cancel and deletes the selected project  1678ms
+   ✓ keeps a readable failure in the confirmation modal  581ms
+   ✓ keeps search visible outside the filter panel and supports keyboard tab navigation  423ms
+ ✓ src/pages/organization/IndicatorWorkspacePage.test.tsx (5 tests) 7269ms
+   ✓ opens the indicator requested by an overview action instead of the first indicator  992ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=false  3207ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=true  2621ms
+ ✓ src/pages/organization/IndicatorReliability.test.tsx (2 tests) 952ms
+   ✓ offers only the authoritative percentage methods and preserves unknown legacy selection  799ms
+ ✓ src/workspace/SyncControls.test.tsx (10 tests) 1666ms
+   ✓ synchronization controls > enables automatic sync with the selected interval  594ms
+ ✓ src/workspace/WorkspaceShell.test.tsx (3 tests) 2069ms
+   ✓ shows the project Overview while preserving navigation and context  1106ms
+   ✓ preserves nested project navigation without the header selector  377ms
+   ✓ keeps the workspace shell mounted through a lazy route and back/forward navigation  576ms
+ ✓ src/workspace/DashboardsPage.test.tsx (16 tests) 10000ms
+   ✓ existing saved dashboard builder > shows an honest empty state without sample values  575ms
+   ✓ existing saved dashboard builder > creates, duplicates, renames and deletes persisted dashboards  1809ms
+   ✓ existing saved dashboard builder > persists keyboard ordering and height across a reload  1552ms
+   ✓ existing saved dashboard builder > supports dragging a widget to another position  683ms
+   ✓ existing saved dashboard builder > keeps legacy full-width widgets side by side without width resize controls  417ms
+   ✓ existing saved dashboard builder > previews date filters, saves them and restores them on reload  801ms
+   ✓ existing saved dashboard builder > presents all dashboard widgets together and closes without saving  386ms
+   ✓ existing saved dashboard builder > expands a widget for presentation and closes without saving its layout  578ms
+   ✓ existing saved dashboard builder > refreshes existing widget results after a successful background sync  600ms
+   ✓ existing saved dashboard builder > shows source failures and retries without fabricated results  356ms
+   ✓ existing saved dashboard builder > renders saved survey results from the shared endpoint and handles empty data  312ms
+   ✓ existing saved dashboard builder > adds and edits a text widget using the existing save flow  1137ms
+   ✓ existing saved dashboard builder > keeps save conflicts visible and leaves the last saved layout intact  331ms
+ ✓ src/pages/organization/KoboConnectionsPage.test.tsx (2 tests) 1640ms
+   ✓ confirms connection removal, supports cancel and refreshes the account list  1304ms
+   ✓ keeps a failed deletion visible for retry  329ms
+ ✓ src/workspace/CollectedDataPanel.test.tsx (1 test) 960ms
+   ✓ submits numerator and denominator without an ambiguous separate value  957ms
+ ✓ src/pages/organization/ProjectWorkspacePage.test.tsx (15 tests) 5928ms
+   ✓ uses four compact project-scoped summary cards and links to the full indicator workflow  1549ms
+   ✓ shows honest empty states without creating school completeness or indicator metrics  522ms
+   ✓ does not show zero counts or an all-clear when required APIs fail  313ms
+   ✓ changes scope on project navigation and does not keep the previous project's results  1088ms
+   ✓ refreshes the saved overview after the existing synchronization action succeeds  450ms
+   ✓ keeps real project context in the header and links to the editable details  363ms
+   ✓ hides the lower indicator, attention, and sync sections for now  372ms
+ ✓ src/pages/organization/SubmissionEvidence.test.tsx (4 tests) 696ms
+   ✓ shows explicit loading and error states  327ms
+ ✓ src/components/ui/LoadingState.test.tsx (3 tests) 581ms
+   ✓ announces a contextual initial load while hiding decorative geometry  403ms
+ ✓ src/pages/organization/FrameworkForm.test.tsx (1 test) 790ms
+   ✓ opens a child result form and saves the chosen parent and next level  788ms
+ ✓ src/workspace/ProjectSetupChecklist.test.tsx (2 tests) 635ms
+   ✓ links incomplete steps using saved project scope  530ms
+ ✓ src/services/apiClient.test.ts (15 tests) 193ms
+ ✓ src/pages/organization/IndicatorEvidence.test.tsx (2 tests) 642ms
+   ✓ shows readable contribution states and traceable authors  345ms
+ ✓ src/auth/AuthContext.test.tsx (4 tests) 278ms
+ ✓ src/components/ui/MetricCard.test.tsx (3 tests) 495ms
+ ✓ src/app/App.test.tsx (4 tests) 256ms
+
+ Test Files  22 passed (22)
+      Tests  109 passed (109)
+   Start at  03:08:53
+   Duration  32.59s (transform 6.60s, setup 0ms, collect 53.63s, tests 47.88s, environment 69.30s, prepare 10.65s)
+

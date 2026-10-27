@@ -10,7 +10,7 @@ import { reportingCompleteness } from "./projectOverview";
 
 const auth = vi.hoisted(() => ({ role: "organization_admin" }));
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ loading: false, user: { memberships: [{ organization_id: "org", role: auth.role }] } }) }));
-vi.mock("../../services/apiClient", () => ({ apiClient: { getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
+vi.mock("../../services/apiClient", () => ({ apiClient: { organizationProjects: vi.fn(), getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
 // Chart values are verified through their accessible data alternatives in jsdom.
 vi.mock("recharts", async original => ({ ...await original<object>(), ResponsiveContainer: () => null }));
 
@@ -23,6 +23,7 @@ const indicator = (changes: Partial<Indicator> = {}): Indicator => ({
 
 beforeEach(() => {
   auth.role = "organization_admin";
+  vi.mocked(apiClient.organizationProjects).mockResolvedValue([{ status: "completed" }, { status: "active" }] as never);
   vi.mocked(apiClient.projectTeam).mockResolvedValue([{ user_id: "collector-1", role: "enumerator", is_active: true }, { user_id: "collector-2", role: "enumerator", is_active: true }] as never);
   vi.mocked(apiClient.analyticsOverview).mockResolvedValue({ trend: [{ day: "Oct 25", submissions: 8, approved: 5 }, { day: "Oct 26", submissions: 12, approved: 9 }] } as never);
   vi.mocked(apiClient.getProject).mockImplementation(async (_org, id) => ({ id, organization_sector_id: "org-education", name: id === "school" ? "Daily School Feeding Monitoring Form" : "Other project", description: "Daily feeding monitoring across partner schools.", country: "Liberia", start_date: "2026-08-01", end_date: "2027-07-31", workspace_details: { code: "SFP-26", stage: "Implementation" }, status: "active", kobo_connection_id: "connection", kobo_form_id: "form", kobo_form_name: "School Feeding Form" }) as never);
@@ -43,17 +44,19 @@ function setup(switchable = false) {
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/projects/school/overview"]}><Routes><Route path="/projects/:projectId/overview" element={switchable ? <SwitchProject /> : <ProjectWorkspacePage />} /></Routes></MemoryRouter></QueryClientProvider>);
 }
 
-it("uses four compact project-scoped summary cards and links to the full indicator workflow", async () => {
+it("uses four display-only project-scoped summary cards", async () => {
   setup();
-  await screen.findByRole("link", { name: /Active indicators/ }, { timeout: 5000 });
+  await screen.findByRole("article", { name: /Active indicators/ }, { timeout: 5000 });
   const summary = screen.getByRole("region", { name: "Project summary" });
   expect(within(summary).getByText("123")).toBeTruthy();
-  expect(within(summary).getByRole("link", { name: "Connected forms 1" }).getAttribute("href")).toBe("/forms?project_id=school");
-  expect(within(summary).getByRole("link", { name: "Total enumerators 2" }).getAttribute("href")).toBe("/projects/school/team");
+  expect(within(summary).getByRole("article", { name: "Connected forms 1" })).toBeTruthy();
+  expect(within(summary).getByRole("article", { name: "Total enumerators 2" })).toBeTruthy();
   expect(within(summary).queryByText("Awaiting review")).toBeNull();
   expect(within(summary).queryByText("Ready records")).toBeNull();
   expect(within(summary).getByText("3")).toBeTruthy();
-  expect(within(summary).getAllByRole("link")).toHaveLength(4);
+  expect(within(summary).getAllByRole("article")).toHaveLength(4);
+  expect(within(summary).queryByRole("link")).toBeNull();
+  expect(within(summary).queryByRole("button")).toBeNull();
   expect(screen.queryByText("450")).toBeNull();
   expect(screen.queryByText("Students fed")).toBeNull();
 
@@ -62,7 +65,6 @@ it("uses four compact project-scoped summary cards and links to the full indicat
   expect(params.get("limit")).toBe("5");
   expect(params.has("date_from")).toBe(false);
   expect(apiClient.indicators).toHaveBeenCalledWith("school");
-  expect(screen.getByRole("link", { name: /Active indicators/ }).getAttribute("href")).toBe("/projects/school/indicators");
   expect(screen.getByRole("link", { name: /Edit project/ }).getAttribute("href")).toBe("/projects/school/details");
   expect(screen.queryByRole("navigation", { name: "Project sections" })).toBeNull();
   expect(screen.getByText(/not frozen, approved/)).toBeTruthy();
@@ -75,7 +77,7 @@ it("shows honest empty states without creating school completeness or indicator 
   vi.mocked(apiClient.submissionPage).mockResolvedValue({ total: 0, counts: {}, items: [] });
   vi.mocked(apiClient.syncSettings).mockResolvedValue({ mode: "manual", interval_minutes: 60, pending: false, last_successful_sync: null });
   setup();
-  await screen.findByRole("link", { name: /Active indicators 0/ });
+  await screen.findByRole("article", { name: /Active indicators 0/ });
 
 
   expect(within(screen.getByRole("region", { name: "Project summary" })).getAllByText("0")).toHaveLength(3);
@@ -114,9 +116,9 @@ it("waits for authorized project detail before loading operational or result API
 it("changes scope on project navigation and does not keep the previous project's results", async () => {
   vi.mocked(apiClient.indicators).mockImplementation(async id => id === "school" ? [indicator()] : []);
   setup(true);
-  await screen.findByRole("link", { name: /Active indicators/ });
+  await screen.findByRole("article", { name: /Active indicators/ });
   fireEvent.click(screen.getByRole("button", { name: "Switch project" }));
-  await screen.findByRole("link", { name: /Active indicators 0/ });
+  await screen.findByRole("article", { name: /Active indicators 0/ });
   expect(screen.queryByText("Feeding sessions completed")).toBeNull();
   await waitFor(() => expect(apiClient.syncSettings).toHaveBeenCalledWith("other"));
   const calls = vi.mocked(apiClient.submissionPage).mock.calls;
@@ -126,7 +128,7 @@ it("changes scope on project navigation and does not keep the previous project's
 it("refreshes the saved overview after the existing synchronization action succeeds", async () => {
   vi.mocked(apiClient.syncProjectKoboForm).mockResolvedValue({ received: 5, created: 3, updated: 2 } as never);
   setup();
-  await screen.findByRole("link", { name: /Active indicators/ });
+  await screen.findByRole("article", { name: /Active indicators/ });
   const before = vi.mocked(apiClient.submissionPage).mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "Sync data" }));
   await screen.findByText("Sync complete: 5 received, 3 new, 2 updated.");
@@ -204,16 +206,24 @@ it("counts each active project enumerator once and excludes administrators and i
     { user_id: "admin", role: "organization_admin", is_active: true },
   ] as never);
   setup();
-  expect(await screen.findByRole("link", { name: "Total enumerators 1" })).toBeTruthy();
+  expect(await screen.findByRole("article", { name: "Total enumerators 1" })).toBeTruthy();
   expect(apiClient.projectTeam).toHaveBeenCalledWith("school");
   expect(screen.queryByText("Last submission")).toBeNull();
 });
 
-it("hides the lower indicator, attention, and sync sections for now", async () => {
+it("shows the project timeline while keeping indicator and attention sections hidden", async () => {
   setup();
-  await screen.findByRole("link", { name: /Active indicators/ });
+  await screen.findByRole("article", { name: /Active indicators/ });
   expect(screen.queryByRole("region", { name: "Indicator status" })).toBeNull();
+  expect(screen.getByRole("region", { name: "Project timeline" })).toBeTruthy();
   expect(screen.queryByRole("region", { name: "Needs Your Attention" })).toBeNull();
   expect(screen.queryByText("Last sync")).toBeNull();
   expect(screen.queryByRole("navigation", { name: "Project sections" })).toBeNull();
+});
+
+it("shows completion only for the selected project", async () => {
+  setup();
+  const chart = await screen.findByRole("region", { name: "Project completion" });
+  expect(within(chart).getByRole("img").getAttribute("aria-label")).toBe("Daily School Feeding Monitoring Form: Not completed. Saved project status: active.");
+  expect(apiClient.organizationProjects).not.toHaveBeenCalled();
 });

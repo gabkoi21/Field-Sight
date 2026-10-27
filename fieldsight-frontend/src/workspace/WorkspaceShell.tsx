@@ -6,7 +6,6 @@ import {
   BookOpen,
   ClipboardList,
   FileBarChart,
-  FileText,
   FolderKanban,
   HelpCircle,
   LayoutDashboard,
@@ -107,7 +106,6 @@ function Shell() {
       title: "Data operations",
       items: [
         { name: "Kobo connections", path: "/forms/connections", icon: Link2 },
-        { name: "Submissions", path: "/submissions", icon: FileText },
       ],
     },
     {

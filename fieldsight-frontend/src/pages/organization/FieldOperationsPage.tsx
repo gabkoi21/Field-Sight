@@ -6,7 +6,7 @@ import { useWorkspace } from "../../workspace/WorkspaceContext";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import { useAuth } from "../../auth/AuthContext";
 import { controlClass as adminInputClass } from "../../components/ui/controlStyles";
-import { Button, PageHeader } from "../../components/ui";
+import { Button, MetricCard, PageHeader } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
 import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { LoadingState } from "../../components/ui/LoadingState";
@@ -324,34 +324,9 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       {loadError && <div role="alert" className="mb-4 rounded-md bg-[#fff0f2] p-3 text-sm text-[#b42318]">{loadError} <button type="button" className="min-h-11 px-3 font-semibold underline focus-visible:outline focus-visible:outline-2" onClick={() => { void enumeratorsQuery.refetch(); void assignmentsQuery.refetch(); }}>Retry field team</button></div>}
       {actionError && <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">{actionError}</p>}{" "}
       {(enumeratorsQuery.isLoading || assignmentsQuery.isLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" label="Loading field team…" announce={false} /></div> : <section className="mb-[18px] grid grid-cols-3 gap-[14px] max-[800px]:grid-cols-1">
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] p-[17px]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
-            <Users size={19} />
-          </span>
-          <span className="text-[12px] font-medium text-[#6f7d8a]">{projectId ? "Project enumerators" : "All enumerators"}</span>
-          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
-            {projectEnumerators.length.toLocaleString()}
-          </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">{projectId ? "Assigned to the selected project" : "Organization membership accounts"}</small>
-        </Card>
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] p-[17px]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
-            <UserCheck size={19} />
-          </span>
-          <span className="text-[12px] font-medium text-[#6f7d8a]">Active</span>
-          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">{activeCount.toLocaleString()}</strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Can access assigned field work</small>
-        </Card>
-        <Card className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] p-[17px]">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
-            <UserX size={19} />
-          </span>
-          <span className="text-[12px] font-medium text-[#6f7d8a]">Inactive</span>
-          <strong className="mt-[2px] text-[23px] leading-[1.15] text-[#1d2a38]">
-            {(projectEnumerators.length - activeCount).toLocaleString()}
-          </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Access has been disabled</small>
-        </Card>
+        <MetricCard label={projectId ? "Project enumerators" : "All enumerators"} value={projectEnumerators.length} context={projectId ? "Assigned to the selected project" : "Organization membership accounts"} icon={Users} />
+        <MetricCard label="Active" value={activeCount} context="Can access assigned field work" icon={UserCheck} />
+        <MetricCard label="Inactive" value={projectEnumerators.length - activeCount} context="Access has been disabled" icon={UserX} />
       </section>}
       <div className="mt-[16px] grid grid-cols-[minmax(280px,1fr)_minmax(210px,260px)_minmax(130px,160px)_minmax(130px,auto)] items-center gap-[10px] max-[900px]:grid-cols-2 max-[560px]:grid-cols-1">
         <label className="flex min-w-0 w-full items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-[var(--fs-muted)] focus-within:ring-2 focus-within:ring-brand">

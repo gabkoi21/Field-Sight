@@ -4,6 +4,11 @@
 
 @layer base {
   :root {
+    --fs-metric-border: #d6e0ed;
+    --fs-metric-label: #43618a;
+    --fs-metric-value: #24434c;
+    --fs-metric-icon-bg: #f0f6f8;
+    --fs-metric-icon: #4f8491;
     --fs-text: #24334a;
     --fs-muted: #526477;
     --fs-border: #dfe6ee;

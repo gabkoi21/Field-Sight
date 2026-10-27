@@ -1,18 +1,12 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Card } from "../ui/Card";
+import { MetricCard } from "../ui/MetricCard";
 
 export type MetricTone = "blue" | "green" | "orange" | "violet" | "red";
 
-export function AdminMetric({ label, value, detail, icon: Icon, tone = "blue" }: { label: string; value: string; detail: string; icon: LucideIcon; tone?: MetricTone }) {
-  const tones: Record<MetricTone, string> = {
-    blue: "bg-[#e9f1ff] text-[#0b51b7]",
-    green: "bg-[#e6f7f2] text-[#158e7d]",
-    orange: "bg-[#fff1e4] text-[#d8792a]",
-    violet: "bg-[#f0edff] text-[#6d5bd0]",
-    red: "bg-[#fde9eb] text-[#c64e57]",
-  };
-  return <Card className="grid grid-cols-[auto_1fr] gap-x-[12px] p-4"><span className={`row-span-2 grid size-[40px] place-items-center rounded-full ${tones[tone]}`}><Icon size={19} /></span><div><p className="m-0 text-[12px] font-medium text-[#7081b9]">{label}</p><strong className="mt-[2px] block text-[22px] leading-[1.15] text-[#303e67]">{value}</strong></div><small className="col-start-2 mt-[6px] text-[12px] text-[#8997bd]">{detail}</small></Card>;
+export function AdminMetric({ label, value, detail, icon, tone: _tone }: { label: string; value: string; detail: string; icon: LucideIcon; tone?: MetricTone }) {
+  return <MetricCard label={label} value={value} context={detail} icon={icon} />;
 }
 
 export function AdminPanel({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {

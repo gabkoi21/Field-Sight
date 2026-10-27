@@ -16,9 +16,9 @@ function ChartError({ retry }: { retry: () => void }) {
   return <div role="alert" className="px-5 py-10 text-sm text-[var(--fs-danger)]">Chart data is unavailable. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={retry}>Retry chart</button></div>;
 }
 
-export function CollectionTrend({ data, loading, error, retry, period, onPeriod, scope }: {
+export function CollectionTrend({ data, loading, error, retry, period, onPeriod }: {
   data?: ApiAnalyticsOverview; loading: boolean; error: boolean; retry: () => void;
-  period: TrendPeriod; onPeriod: (value: TrendPeriod) => void; scope: string;
+  period: TrendPeriod; onPeriod: (value: TrendPeriod) => void;
 }) {
   const gradientId = useId().replaceAll(":", "");
   const rows = data?.trend ?? [];
@@ -41,10 +41,8 @@ export function CollectionTrend({ data, loading, error, retry, period, onPeriod,
         </AreaChart></ResponsiveContainer>
       </div>
     </>}
-    <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--fs-border)] px-5 py-1">
-      <details className="max-w-full text-xs"><summary className={`flex min-h-11 cursor-pointer items-center ${muted}`}>View chart data</summary>{!loading && !error && rows.length > 0 ? <div className="max-h-56 overflow-auto pb-3"><table className="w-full text-left tabular-nums" aria-label="Daily collection counts"><thead><tr><th scope="col" className="pr-5 py-2">Day (UTC)</th><th scope="col" className="pr-5 py-2">Submitted</th><th scope="col" className="py-2">Ready records</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.day}-${index}`}><th scope="row" className="pr-5 py-1 font-normal">{row.day}</th><td className="pr-5 py-1">{row.submissions}</td><td className="py-1">{row.approved}</td></tr>)}</tbody></table></div> : <p className={muted}>No chart values available.</p>}</details>
-      <NavLink className={link} to={`/submissions?${scope}`}>Open submissions →</NavLink>
-    </footer>
+    {!loading && !error && rows.length > 0 && <div className="sr-only"><table className="w-full text-left tabular-nums" aria-label="Daily collection counts"><thead><tr><th scope="col" className="pr-5 py-2">Day (UTC)</th><th scope="col" className="pr-5 py-2">Submitted</th><th scope="col" className="py-2">Ready records</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.day}-${index}`}><th scope="row" className="pr-5 py-1 font-normal">{row.day}</th><td className="pr-5 py-1">{row.submissions}</td><td className="py-1">{row.approved}</td></tr>)}</tbody></table></div>}
+
   </Card></section>;
 }
 
@@ -80,7 +78,7 @@ export function IndicatorReadiness({ items, loading, error, retry, projectId }: 
     { name: "Needs setup", value: (items?.length ?? 0) - configured, color: "#bd872d" },
     { name: "Overdue targets", value: items?.filter(item => item.schedule_status === "overdue").length ?? 0, color: "var(--fs-danger)" },
   ];
-  return <section aria-labelledby="indicator-readiness-heading" className="min-w-0"><Card>
+  return <section aria-labelledby="indicator-readiness-heading" className="min-w-0"><Card className="h-full !rounded-none !border !border-[var(--fs-metric-border)] !shadow-none">
     <header className="flex flex-wrap items-center justify-between gap-2 px-5 pt-4"><h2 id="indicator-readiness-heading" className="m-0 text-base font-semibold">Indicator status</h2><NavLink to={`/projects/${projectId}/indicators`} className={link}>{items?.length ? "View all indicators →" : "Configure indicators →"}</NavLink></header>
     {loading ? <div className="p-5"><LoadingState variant="inline" label="Loading indicator chart…" /></div> : error ? <ChartError retry={retry} /> : !items?.length ? <p className={`px-5 pb-5 text-sm ${muted}`}>No active indicators configured</p> : <>
       <div className="h-[155px] px-4 pb-3" role="img" aria-label={`Active indicator status: ${rows.map(row => `${row.name} ${row.value}`).join(", ")}. Overdue targets may also be configured.`}>

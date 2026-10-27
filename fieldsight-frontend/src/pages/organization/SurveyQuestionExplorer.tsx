@@ -34,7 +34,7 @@ import {
   type AnalysisResult,
   type SavedAnalysis,
 } from "../../services/apiClient";
-import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, MetricCard, PageHeader } from "../../components/ui";
 
 import { controlClass } from "../../components/ui/controlStyles";
 
@@ -708,16 +708,7 @@ export function SurveyQuestionExplorer() {
                             ["Missing", result.missing_records],
                             ["Invalid answers", result.invalid_answers],
                           ].map(([label, value]) => (
-                            <Panel key={label}>
-                              <div className="p-4">
-                                <small className="text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
-                                  {label}
-                                </small>
-                                <strong className="mt-2 block text-2xl font-semibold">
-                                  {format(Number(value))}
-                                </strong>
-                              </div>
-                            </Panel>
+                            <MetricCard key={label} label={String(label)} value={format(Number(value))} icon={Database} />
                           ))}
                         </div>
                         <Panel>

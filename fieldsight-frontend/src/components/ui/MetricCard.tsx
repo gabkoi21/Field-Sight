@@ -1,24 +1,13 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Card } from "./Card";
+import { NavLink } from "react-router-dom";
+
+import { metricBody, metricIcon, metricSurface } from "./metricStyles";
 
 type MetricTone = "brand" | "warning" | "success" | "danger";
 
-const tones: Record<MetricTone, string> = {
-  brand: "bg-[#eaf2ff] text-brand",
-  warning: "bg-[#fff0e8] text-[#c56b2c]",
-  success: "bg-[#eaf8f2] text-[#188b69]",
-  danger: "bg-[#fff0f2] text-[#b42318]",
-};
-
 export function MetricCard({
-  label,
-  value,
-  context,
-  icon: Icon,
-  tone = "brand",
-  className = "",
-  onClick,
+  label, value, context, icon: Icon, className = "", onClick, to, title, valueClassName = "",
 }: {
   label: string;
   value: number | string;
@@ -27,26 +16,27 @@ export function MetricCard({
   tone?: MetricTone;
   className?: string;
   onClick?: () => void;
+  to?: string;
+  title?: string;
+  valueClassName?: string;
 }) {
-  const content = (
-    <Card className={`h-full p-5 ${onClick ? "transition-colors hover:border-brand/40 hover:bg-blue-50/30" : ""} ${className}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <small className="text-sm font-medium text-[#64748b]">{label}</small>
-          <strong className="mt-2 block text-[2rem] font-semibold leading-tight tracking-tight tabular-nums text-[#1e293b]">
-            {typeof value === "number" ? value.toLocaleString() : value}
-          </strong>
-        </div>
-        <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tones[tone]}`}>
-          <Icon size={20} aria-hidden="true" />
-        </span>
+  const content = <>
+    <div className={metricBody}>
+      <div className="min-w-0">
+        <span className="block text-[13px] font-normal leading-5 text-[var(--fs-metric-label)]">{label}</span>
+        <strong className={`mt-1 block break-words text-[28px] font-semibold leading-tight tabular-nums text-[var(--fs-metric-value)] ${valueClassName}`}>
+          {typeof value === "number" ? value.toLocaleString() : value}
+        </strong>
       </div>
-      {context && <div className="mb-0 mt-2 text-xs text-[#64748b]">{context}</div>}
-    </Card>
-  );
-  return onClick ? (
-    <button type="button" onClick={onClick} className="w-full cursor-pointer border-0 bg-transparent p-0 text-left">
-      {content}
-    </button>
-  ) : content;
+      <span className={metricIcon} aria-hidden="true">
+        <Icon size={21} />
+      </span>
+    </div>
+    {context && <div className="sr-only focus-within:not-sr-only">{context}</div>}
+  </>;
+  const classes = `${metricSurface} ${className}`;
+  const tooltip = title ?? (typeof context === "string" ? context : undefined);
+  if (to) return <NavLink to={to} title={tooltip} className={classes}>{content}</NavLink>;
+  if (onClick) return <button type="button" title={tooltip} onClick={onClick} className={`w-full cursor-pointer ${classes}`}>{content}</button>;
+  return <article aria-label={`${label} ${typeof value === "number" ? value.toLocaleString() : value}`} title={tooltip} className={classes}>{content}</article>;
 }

@@ -34,7 +34,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
 import { CollectedDataPanel } from "../../workspace/CollectedDataPanel";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
-import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, MetricCard, PageHeader } from "../../components/ui";
 import {
   apiClient,
   type FrameworkNode,
@@ -808,30 +808,7 @@ export function IndicatorWorkspacePage() {
                             .length,
                         ],
                       ].map(([label, value]) => (
-                        <Panel key={label}>
-                          <div className="flex items-center justify-between gap-4 p-5">
-                            <div>
-                              <span className="text-xs font-medium text-[var(--fs-muted)]">
-                                {label}
-                              </span>
-                              <strong className="mt-1.5 block text-[28px] font-semibold leading-tight tabular-nums text-[#24434c]">
-                                {value}
-                              </strong>
-                            </div>
-                            <span
-                              className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]"
-                              aria-hidden="true"
-                            >
-                              {label === "Indicators" ? (
-                                <BarChart3 size={21} />
-                              ) : label === "With source mappings" ? (
-                                <Link2 size={21} />
-                              ) : (
-                                <Target size={21} />
-                              )}
-                            </span>
-                          </div>
-                        </Panel>
+                        <MetricCard key={label} label={String(label)} value={value} icon={label === "Indicators" ? BarChart3 : label === "With source mappings" ? Link2 : Target} />
                       ))}
                     </div>
                     <Panel>
@@ -1362,19 +1339,7 @@ function IndicatorResults({
             { label: "Overall target", value: indicator.target_value === null ? "Not set" : amount(indicator.target_value, indicator.unit), icon: Target },
             { label: "Target deadline", value: indicator.target_date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${indicator.target_date}T00:00:00Z`)) : "Not set", icon: CalendarDays },
           ].map(({ label, value, icon: Icon }) => (
-            <Panel key={label}>
-              <div className="flex min-h-[120px] items-center justify-between gap-4 p-5">
-                <div className="min-w-0">
-                  <span className="text-xs font-medium text-[var(--fs-muted)]">{label}</span>
-                  <strong className={`mt-1.5 block break-words font-semibold leading-tight tabular-nums text-[#24434c] ${label === "Target deadline" ? "text-xl" : "text-[28px]"}`}>
-                    {value}
-                  </strong>
-                </div>
-                <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]" aria-hidden="true">
-                  <Icon size={21} />
-                </span>
-              </div>
-            </Panel>
+            <MetricCard key={label} label={label} value={value} icon={Icon} valueClassName={label === "Target deadline" ? "!text-xl" : ""} />
           ))}
         </div>
         {indicator.current_value !== null && indicator.progress_percent !== null && (
@@ -1476,21 +1441,7 @@ function IndicatorResults({
           ["Missing answers", indicator.missing_records],
           ["Invalid answers", indicator.invalid_answers],
         ].map(([label, value]) => (
-          <Panel key={label}>
-            <div className="flex min-h-[120px] items-center justify-between gap-4 p-5">
-              <div className="min-w-0">
-              <span className="text-xs font-medium text-[var(--fs-muted)]">
-                {label}
-              </span>
-              <strong className="mt-1.5 block break-words text-[28px] font-semibold leading-tight tabular-nums text-[#24434c]">
-                {typeof value === "number" ? amount(value) : "Not reported"}
-              </strong>
-              </div>
-              <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]" aria-hidden="true">
-                <BarChart3 size={21} />
-              </span>
-            </div>
-          </Panel>
+          <MetricCard key={label} label={String(label)} value={typeof value === "number" ? amount(value) : "Not reported"} icon={BarChart3} />
         ))}
       </div>
       <Panel>

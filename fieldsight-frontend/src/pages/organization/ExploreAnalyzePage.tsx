@@ -1,3 +1,4 @@
+import { MetricCard } from "../../components/ui/MetricCard";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -668,23 +669,7 @@ function Metric({
   note: string;
   icon: typeof Database;
 }) {
-  return (
-    <Card className="p-4">
-      <div className="flex justify-between">
-        <div>
-          <small className="text-[12px] font-bold uppercase tracking-[.07em] text-[#77869a]">{label}</small>
-          <strong className="mt-2 block text-[24px] tracking-[-.5px]">{value}</strong>
-        </div>
-        <span className="grid size-10 place-items-center rounded-md bg-[#eaf2ff] text-brand">
-          <Icon size={18} />
-        </span>
-      </div>
-      <p className="mb-0 mt-2 flex items-center gap-1 text-[12px] text-[#8996a8]">
-        <ArrowUpRight size={11} />
-        {note}
-      </p>
-    </Card>
-  );
+  return <MetricCard label={label} value={value} context={note} icon={Icon} />;
 }
 function CardHeader({ title, subtitle, children }: { title: string; subtitle: string; children?: React.ReactNode }) {
   return (

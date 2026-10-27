@@ -20,6 +20,7 @@ import {
   Pencil,
   Plus,
   Printer,
+  Target,
   Trash2,
 } from "lucide-react";
 import {
@@ -37,7 +38,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Button, LoadingSkeleton, LoadingState } from "../components/ui";
+import { Button, LoadingSkeleton, LoadingState, MetricCard } from "../components/ui";
 import {
   apiClient,
   type DashboardWidget,
@@ -1003,7 +1004,6 @@ function Widget({
       <div className="p-5" aria-busy={response.isFetching}>
         {feedback}
         <p className="mb-2 text-xs text-[var(--fs-muted)]">{currentProject?.name ?? project} · {from || "All dates"} – {through || "Present"} (UTC)</p>
-        <p className="mb-1 text-sm font-medium text-[var(--fs-text)]">{item.name}</p>
         {item.result_source === "unconfigured" ||
         !["healthy", "unmapped"].includes(item.mapping_health) ? (
           <p className="text-xs text-amber-700">
@@ -1012,14 +1012,11 @@ function Widget({
             mapping.
           </p>
         ) : null}
-        <strong className="block text-3xl font-semibold text-[#0e7180]">
-          {item.unit === "text"
+        <MetricCard label={item.name} icon={Target} value={
+          item.unit === "text"
             ? (item.qualitative_value ?? "Not reported")
-            : value(item.current_value) +
-              (item.current_value != null && item.unit === "percentage"
-                ? "%"
-                : "")}
-        </strong>
+            : value(item.current_value) + (item.current_value != null && item.unit === "percentage" ? "%" : "")
+        } />
         {item.unit !== "text" && (
           <>
             <p className="text-xs text-[var(--fs-muted)]">
