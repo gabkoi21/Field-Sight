@@ -1,0 +1,95 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ✓ src/workspace/WorkspaceShell.test.tsx (3 tests) 3289ms
+   ✓ shows the project Overview while preserving navigation and context  1839ms
+   ✓ preserves nested project navigation without the header selector  730ms
+   ✓ keeps the workspace shell mounted through a lazy route and back/forward navigation  716ms
+ ✓ src/pages/organization/FieldOperationsPage.test.tsx (3 tests) 3670ms
+   ✓ scopes cards and rows to project assignments and preserves counts when searching  2048ms
+   ✓ shows an unassigned project state instead of organization totals  486ms
+   ✓ assigns new enumerators to the open project and refreshes assignments  1133ms
+ ✓ src/pages/organization/SubmissionsPage.test.tsx (4 tests) 3569ms
+   ✓ requests bounded pages in project scope instead of fetching the full submission list  1041ms
+   ✓ resets a later page on global project switching and browser navigation  1406ms
+   ✓ recovers when a later page disappears and resets for search changes  675ms
+   ✓ keeps filters mounted through slow loads and retains rows and focus during background refresh errors  443ms
+ ✓ src/workspace/WorkspacesPage.test.tsx (5 tests) 4547ms
+   ✓ requires confirmation, warns about Kobo, supports cancel and deletes the selected project  2558ms
+   ✓ keeps a readable failure in the confirmation modal  705ms
+   ✓ does not expose project deletion to non-administrators  316ms
+   ✓ explains that a form without a connection is only removed from FieldSight  477ms
+   ✓ keeps search visible outside the filter panel and supports keyboard tab navigation  486ms
+ ✓ src/pages/organization/ProjectWorkspacePage.test.tsx (14 tests) 7671ms
+   ✓ uses four compact project-scoped summary cards and links to the full indicator workflow  2102ms
+   ✓ shows honest empty states without creating school completeness or indicator metrics  631ms
+   ✓ does not show zero counts or an all-clear when required APIs fail  482ms
+   ✓ changes scope on project navigation and does not keep the previous project's results  1298ms
+   ✓ refreshes the saved overview after the existing synchronization action succeeds  667ms
+   ✓ keeps real project context in the header and links to the editable details  364ms
+   ✓ does not infer sector from topics and keeps missing project metadata explicit  321ms
+   ✓ uses the project analytics API for chart values and changes only the trend reporting period  359ms
+   ✓ keeps the review chart scoped to project submissions without removed review filters  430ms
+   ✓ keeps operational counts available when the trend request fails  311ms
+   ✓ hides the lower indicator, attention, and sync sections for now  322ms
+ ✓ src/pages/organization/IndicatorWorkspacePage.test.tsx (5 tests) 9404ms
+   ✓ opens the indicator requested by an overview action instead of the first indicator  1241ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=false  4713ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=true  2954ms
+   ✓ fetches Kobo metadata for a new form with no stored questions or submissions  317ms
+ ✓ src/workspace/DashboardsPage.test.tsx (16 tests) 12975ms
+   ✓ existing saved dashboard builder > shows an honest empty state without sample values  662ms
+   ✓ existing saved dashboard builder > creates, duplicates, renames and deletes persisted dashboards  2339ms
+   ✓ existing saved dashboard builder > persists keyboard ordering and height across a reload  1705ms
+   ✓ existing saved dashboard builder > supports dragging a widget to another position  852ms
+   ✓ existing saved dashboard builder > keeps legacy full-width widgets side by side without width resize controls  426ms
+   ✓ existing saved dashboard builder > previews date filters, saves them and restores them on reload  1234ms
+   ✓ existing saved dashboard builder > presents all dashboard widgets together and closes without saving  575ms
+   ✓ existing saved dashboard builder > expands a widget for presentation and closes without saving its layout  512ms
+   ✓ existing saved dashboard builder > refreshes existing widget results after a successful background sync  702ms
+   ✓ existing saved dashboard builder > does not append a percent sign to unavailable values  304ms
+   ✓ existing saved dashboard builder > shows source failures and retries without fabricated results  426ms
+   ✓ existing saved dashboard builder > renders saved survey results from the shared endpoint and handles empty data  942ms
+   ✓ existing saved dashboard builder > adds and edits a text widget using the existing save flow  1674ms
+   ✓ existing saved dashboard builder > keeps save conflicts visible and leaves the last saved layout intact  380ms
+ ✓ src/components/layout/RouteContent.test.tsx (2 tests) 2977ms
+   ✓ renders fast navigation immediately and keeps the shell and focus during a slow lazy route  2194ms
+   ✓ replaces a rejected lazy load with a recoverable error and keeps navigation usable  779ms
+ ✓ src/workspace/SyncControls.test.tsx (10 tests) 2398ms
+   ✓ synchronization controls > enables automatic sync with the selected interval  1054ms
+ ✓ src/pages/organization/KoboConnectionsPage.test.tsx (2 tests) 1625ms
+   ✓ confirms connection removal, supports cancel and refreshes the account list  1191ms
+   ✓ keeps a failed deletion visible for retry  431ms
+ ✓ src/pages/dashboard/OrganizationDashboardPage.test.tsx (3 tests) 2961ms
+   ✓ keeps API metrics, location data, and rankings in the overview project and period scope  2442ms
+   ✓ uses organization-wide filtering independently of the current-project URL  396ms
+ ✓ src/pages/organization/IndicatorReliability.test.tsx (2 tests) 1728ms
+   ✓ offers only the authoritative percentage methods and preserves unknown legacy selection  1401ms
+   ✓ saves a new incomplete definition as a draft  318ms
+ ✓ src/workspace/CollectedDataPanel.test.tsx (1 test) 1525ms
+   ✓ submits numerator and denominator without an ambiguous separate value  1522ms
+ ✓ src/pages/organization/FrameworkForm.test.tsx (1 test) 921ms
+   ✓ opens a child result form and saves the chosen parent and next level  917ms
+ ✓ src/pages/organization/SubmissionEvidence.test.tsx (4 tests) 801ms
+   ✓ shows flagged answers beyond ten fields and readable labels with raw paths  334ms
+   ✓ shows explicit loading and error states  346ms
+ ✓ src/workspace/ProjectSetupChecklist.test.tsx (2 tests) 923ms
+   ✓ links incomplete steps using saved project scope  778ms
+ ✓ src/components/ui/LoadingState.test.tsx (3 tests) 593ms
+   ✓ announces a contextual initial load while hiding decorative geometry  351ms
+ ✓ src/pages/organization/IndicatorEvidence.test.tsx (2 tests) 688ms
+   ✓ shows readable contribution states and traceable authors  321ms
+   ✓ loads, reports errors, retries and shows an accurate empty range  363ms
+ ✓ src/auth/AuthContext.test.tsx (4 tests) 348ms
+ ✓ src/services/apiClient.test.ts (15 tests) 438ms
+ ✓ src/app/App.test.tsx (2 tests) 297ms
+
+ Test Files  21 passed (21)
+      Tests  103 passed (103)
+   Start at  02:42:12
+   Duration  41.59s (transform 12.77s, setup 0ms, collect 71.67s, tests 63.35s, environment 83.66s, prepare 16.91s)
+

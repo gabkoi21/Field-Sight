@@ -13,7 +13,6 @@ from app.models.operations import (
     IndicatorCalculation,
     IndicatorMapping,
     Project,
-    QualityFinding,
     Submission,
     SurveySchema,
     SyncRun,
@@ -48,10 +47,6 @@ def seed_overview(engine, project_id):
             db.add(row)
             rows.append(row)
         db.flush()
-        db.add(QualityFinding(
-            id="school-finding", organization_id=project.organization_id, project_id=project.id,
-            submission_id=rows[2].id, severity="High", rule="missing_date", detail="Date requires review.",
-        ))
         for name, code, field, method, match in [
             ("Feeding sessions completed", "FEED", "students", IndicatorCalculation.COUNT_RECORDS, None),
             ("Students fed", "STUD", "students", IndicatorCalculation.SUM, None),
@@ -99,10 +94,6 @@ def seed_overview(engine, project_id):
             )
             db.add(row)
             db.flush()
-            db.add(QualityFinding(
-                id=f"finding-{other.id}", organization_id=other.organization_id, project_id=other.id,
-                submission_id=row.id, severity="High", rule="test", detail="Not in project overview.",
-            ))
         db.commit()
         return str(foreign.id), str(sibling.id), successful_at
 
@@ -115,9 +106,6 @@ def test_reused_overview_contract_preserves_operational_and_me_scopes(sync_clien
     assert records.json()["total"] == 4
     assert records.json()["counts"] == {"ready": 2, "needs_review": 1, "invalid": 1}
     assert len(records.json()["items"]) == 1
-    quality = client.get(f"/quality/queue?project_id={project}&limit=1", headers=headers).json()
-    assert quality["total"] == 1
-    assert quality["items"][0]["id"] == "school-finding"
     sync = client.get(f"/projects/{project}/sync-settings", headers=headers).json()
     assert sync["latest_status"] == "failed"
     assert datetime.fromisoformat(sync["last_successful_sync"]) == success
@@ -136,7 +124,7 @@ def test_foreign_tenant_and_empty_project_overview_contract(sync_client):
     foreign, sibling, _ = seed_overview(engine, project)
     for endpoint in [f"/projects/{foreign}/indicators", f"/projects/{foreign}/sync-settings"]:
         assert client.get(endpoint, headers=headers).status_code == 404
-    for endpoint in [f"/submissions/page?project_id={foreign}", f"/quality/queue?project_id={foreign}"]:
+    for endpoint in [f"/submissions/page?project_id={foreign}"]:
         response = client.get(endpoint, headers=headers)
         assert response.status_code == 200
         assert response.json()["total"] == 0 and response.json()["items"] == []
@@ -154,13 +142,13 @@ def test_overview_apis_keep_existing_membership_permissions(sync_client, role, a
         member.is_active = active
         db.add(member)
         db.commit()
-    for endpoint in [f"/submissions/page?project_id={project}", f"/quality/queue?project_id={project}",
+    for endpoint in [f"/submissions/page?project_id={project}",
                      f"/projects/{project}/indicators", f"/projects/{project}/sync-settings"]:
         assert client.get(endpoint, headers=headers).status_code == 403
 
 
 def test_overview_apis_require_authentication(sync_client):
     client, _, project, _ = sync_client
-    for endpoint in [f"/submissions/page?project_id={project}", f"/quality/queue?project_id={project}",
+    for endpoint in [f"/submissions/page?project_id={project}",
                      f"/projects/{project}/indicators", f"/projects/{project}/sync-settings"]:
         assert client.get(endpoint).status_code == 401

@@ -4,7 +4,6 @@ import { ArrowLeft, FileText, FileSpreadsheet, Link2, Plus } from "lucide-react"
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { Button } from "../components/ui";
 import { AssignFormModal } from "../pages/organization/ProjectsPage";
-import { SyncControls } from "./SyncControls";
 import { useWorkspace } from "./WorkspaceContext";
 import { Page, Panel, WorkspaceGate, WorkspaceTabs } from "./WorkspaceUI";
 
@@ -41,7 +40,6 @@ export function WorkspaceFormsPage() {
             </div>
           </div>
         </Panel>
-        {projectId && <SyncControls key={projectId} projectId={projectId} connected={Boolean(project?.kobo_connection_id && project?.kobo_form_id)} />}
       </WorkspaceGate>
       {adding && project && (
         <Dialog title="Add form" description={`Choose a source for ${project.name}.`} onClose={() => setAdding(false)}>

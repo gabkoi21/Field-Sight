@@ -1,0 +1,17 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run src/pages/organization/ProjectWorkspacePage.test.tsx
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ✓ src/pages/organization/ProjectWorkspacePage.test.tsx (17 tests) 2942ms
+   ✓ uses four compact project-scoped summary cards and links to the full indicator workflow  734ms
+   ✓ changes scope on project navigation and does not keep the previous project's results  371ms
+   ✓ refreshes the saved overview after the existing synchronization action succeeds  306ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  02:04:45
+   Duration  7.44s (transform 368ms, setup 0ms, collect 1.80s, tests 2.94s, environment 1.20s, prepare 238ms)
+

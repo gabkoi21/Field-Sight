@@ -80,9 +80,16 @@ function Shell() {
       items: [
         { name: "Projects", path: "/projects", icon: FolderKanban },
         {
+          name: "Overview",
+          path: workspace.hasSelectedProject
+            ? `/projects/${workspace.projectId}/overview`
+            : "/projects",
+          icon: LayoutDashboard,
+        },
+        {
           name: "Details & activity",
           path: workspace.hasSelectedProject
-            ? `/projects/${workspace.projectId}`
+            ? `/projects/${workspace.projectId}/details`
             : "/projects",
           icon: ClipboardList,
         },
@@ -101,7 +108,6 @@ function Shell() {
       items: [
         { name: "Kobo connections", path: "/forms/connections", icon: Link2 },
         { name: "Submissions", path: "/submissions", icon: FileText },
-        { name: "Data Quality", path: "/quality", icon: ClipboardList },
       ],
     },
     {
@@ -147,7 +153,7 @@ function Shell() {
               <p className="navigation-section-label mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
                 {section.title}
               </p>
-              {section.items.map(({ name, path, icon: Icon }) => name === "Details & activity" && !workspace.hasSelectedProject ? (
+              {section.items.map(({ name, path, icon: Icon }) => ["Overview", "Details & activity"].includes(name) && !workspace.hasSelectedProject ? (
                 <div key={name} className="navigation-project-hint my-0.5 px-3 py-2">
                   <span aria-disabled="true" className="flex items-center gap-2.5 text-xs text-[#91a9bb] opacity-60">
                     <Icon size={15} />{name}
@@ -162,11 +168,11 @@ function Shell() {
                   title={name}
                   aria-label={name}
                   aria-current={active(path) ? "page" : undefined}
-                  to={workspace.projectId && ["/forms", "/data-tables", "/analytics", "/dashboards", "/submissions", "/quality", "/reports"].includes(path)
+                  to={workspace.projectId && ["/forms", "/data-tables", "/analytics", "/dashboards", "/submissions", "/reports"].includes(path)
                     ? `${path}?project_id=${workspace.projectId}`
                     : path}
                   onClick={() => setOpen(false)}
-                  className={`my-0.5 flex min-h-11 items-center gap-2.5 rounded-lg border-l-2 px-3 py-2 text-sm no-underline transition-colors focus-visible:outline-white hover:bg-[#0b51b7]/50 hover:text-white ${active(path) ? "border-[#8ebaff] bg-[#0b51b7]/50 font-semibold text-white" : "border-transparent text-[#b5c7d5]"}`}
+                  className={`my-0.5 flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm no-underline transition-colors focus-visible:outline-white hover:bg-[#0b51b7]/50 hover:text-white ${active(path) ? "bg-[#0b51b7]/50 font-semibold text-white" : "text-[#b5c7d5]"}`}
                 >
                   <Icon size={17} aria-hidden="true" />
                   <span className="navigation-label">{name}</span>

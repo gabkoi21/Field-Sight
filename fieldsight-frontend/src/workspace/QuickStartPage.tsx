@@ -137,7 +137,7 @@ const chapters = [
     steps: [
       "Use Import table and choose Local CSV or KoboToolbox.",
       "CSV files need unique column headings. Optionally identify the date and location columns; preview the file before saving.",
-      "Imported CSV rows start in Needs review. Review quality before including them in indicator calculations. Reimporting the identical file with the same mapping is rejected.",
+      "Imported CSV rows start in Needs review. Check record eligibility before using them in indicator calculations. Reimporting the identical file with the same mapping is rejected.",
     ],
     action: "Open data tables",
     to: "/data-tables",
@@ -166,8 +166,8 @@ const chapters = [
       "Missing actuals: check source mapping, answer type, ready status and reporting dates. Needs-review and invalid records are excluded from indicator actuals.",
       "Access denied: ask an organization administrator to review your membership or field assignment.",
     ],
-    action: "Inspect data quality",
-    to: "/quality",
+    action: "Inspect submissions",
+    to: "/submissions",
   },
   {
     id: "help",

@@ -98,7 +98,7 @@ export function WorkspaceTabs() {
       className="grid grid-cols-2 gap-1.5 rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] p-1.5 sm:grid-cols-3 xl:grid-cols-6"
     >
       {[
-        { label: "Details", to: `/projects/${projectId}`, icon: ClipboardList },
+        { label: "Details", to: `/projects/${projectId}/details`, icon: ClipboardList },
         { label: "Field Team", to: `/projects/${projectId}/team`, icon: Users },
         { label: "Forms", to: `/forms?project_id=${projectId}`, icon: FileText },
         { label: "Data tables", to: `/data-tables?project_id=${projectId}`, icon: Table2 },

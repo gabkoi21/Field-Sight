@@ -5,15 +5,12 @@ import {
   Database,
   Download,
   ExternalLink,
-  FileCheck2,
   MapPin,
-  MoreHorizontal,
   Search,
-  ShieldAlert,
   X,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { controlClass } from "../../components/ui/controlStyles";
 import { LoadingSkeleton, LoadingState } from "../../components/ui";
@@ -22,7 +19,6 @@ import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
 import { formatLocation } from "../../utils/location";
 
-type Review = "Ready" | "Needs review" | "Invalid";
 type ExportPeriod = "daily" | "weekly" | "biweekly" | "monthly";
 type Row = {
   id: string;
@@ -34,17 +30,10 @@ type Row = {
   project: string;
   form: string;
   sync: "Synced" | "Pending";
-  review: Review;
   device: string;
 };
 
 function toRow(submission: ApiSubmission): Row {
-  const review: Review =
-    submission.review_status === "invalid"
-      ? "Invalid"
-      : submission.review_status === "needs_review"
-        ? "Needs review"
-        : "Ready";
   return {
     id: submission.external_id,
     projectId: submission.project_id,
@@ -55,17 +44,10 @@ function toRow(submission: ApiSubmission): Row {
     project: submission.project_name,
     form: submission.form_name ?? "Kobo form",
     sync: "Synced",
-    review,
     device: "Kobo Collect",
   };
 }
 const eyebrowClass = "!m-0 !mb-[6px] text-[12px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase";
-const reviewBadgeClass = "inline-block rounded-[3px] px-[6px] py-[4px] text-[12px] font-bold";
-const reviewStyles: Record<Review, string> = {
-  Ready: "bg-[#e9f8f1] text-[#22a779]",
-  "Needs review": "bg-[#fff3e5] text-[#d9841c]",
-  Invalid: "bg-[#fff0f2] text-[#d95667]",
-};
 const selectClass = controlClass + " w-auto max-w-full";
 
 export function SubmissionsPage() {
@@ -81,12 +63,9 @@ export function SubmissionsPage() {
   const setQuery = (value: string) => { const params = new URLSearchParams(searchParams); if (value) params.set("search", value); else params.delete("search"); setSearchParams(params, { replace: true }); };
   const projectId = searchParams.get("project_id") ?? "";
   const setProjectId = (id: string) => { const params = new URLSearchParams(searchParams); if (id) params.set("project_id", id); else params.delete("project_id"); setSearchParams(params); };
-  const reviewValue = searchParams.get("review");
-  const review = reviewValue === "ready" ? "Ready" : reviewValue === "needs_review" ? "Needs review" : reviewValue === "invalid" ? "Invalid" : "All records";
-  const setReview = (value: string) => { const params = new URLSearchParams(searchParams); if (value === "All records") params.delete("review"); else params.set("review", value === "Ready" ? "ready" : value === "Invalid" ? "invalid" : "needs_review"); setSearchParams(params); };
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("daily");
   const [selected, setSelected] = useState<string | null>(null);
-  const scope = JSON.stringify([organizationId, projectId, query, review]);
+  const scope = JSON.stringify([organizationId, projectId, query]);
   const [pagination, setPagination] = useState({ scope, page: 1 });
   const currentPage = pagination.scope === scope ? pagination.page : 1;
   const setCurrentPage = (value: number | ((page: number) => number)) => setPagination(previous => ({ scope, page: typeof value === "function" ? value(previous.scope === scope ? previous.page : 1) : value }));
@@ -94,7 +73,6 @@ export function SubmissionsPage() {
   const pageSize = 10;
   const params = new URLSearchParams({ offset: String((currentPage - 1) * pageSize), limit: String(pageSize), search: query });
   if (projectId) params.set("project_id", projectId);
-  if (review !== "All records") params.set("review_status", review === "Ready" ? "ready" : review === "Invalid" ? "invalid" : "needs_review");
   const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading });
   const rows: Row[] = (data?.items ?? []).map(toRow);
   const total = data?.total ?? 0;
@@ -153,10 +131,10 @@ export function SubmissionsPage() {
     <div className="text-[#25324a]">
       {error && <p role="alert">Unable to load submissions: {error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void refetch()}>Retry submissions</button></p>}
       {csvExport.error && <p role="alert">Unable to export: {csvExport.error.message}</p>}
-      <p className="text-xs">Exports include every matching submission across all pages, filtered by the selected project, review status, search and UTC period.</p>
-      <div className="mb-6"><PageHeader eyebrow="FieldSight / Data collection" title="Submissions" description="Review every completed form sent from your field teams and connected sources." /></div>
+      <p className="text-xs">Exports include every matching submission across all pages, filtered by the selected project, search and UTC period.</p>
+      <div className="mb-6"><PageHeader eyebrow="FieldSight / Data collection" title="Submissions" description="Browse every completed form sent from your field teams and connected sources." /></div>
 
-      {(isLoading || authLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" metricCount={4} announce={false} label="Loading submission counts…" /></div> : data && <section className="mb-[18px] grid grid-cols-4 gap-[14px] max-[1100px]:grid-cols-2 max-[700px]:grid-cols-1">
+      {(isLoading || authLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" metricCount={3} announce={false} label="Loading submission counts…" /></div> : data && <section className="mb-[18px] grid grid-cols-1 gap-[14px]">
         <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
           <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#edf3fc] text-[#4d7fc6]">
             <Database size={19} />
@@ -168,36 +146,6 @@ export function SubmissionsPage() {
           <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">
             {projectId ? `For ${selectedProjectName}` : "Across active organization projects"}
           </small>
-        </article>
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
-            <FileCheck2 size={19} />
-          </span>
-          <span className="block text-[12px] font-medium text-[#6f7d8a]">Ready for analysis</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {(counts.ready ?? 0).toLocaleString()}
-          </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Validated and export-ready records</small>
-        </article>
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fff3e5] text-[#d88935]">
-            <ShieldAlert size={19} />
-          </span>
-          <span className="block text-[12px] font-medium text-[#6f7d8a]">Needs review</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {(counts.needs_review ?? 0).toLocaleString()}
-          </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Records waiting for quality review</small>
-        </article>
-        <article className="grid w-full grid-cols-[auto_1fr] grid-rows-[auto_auto] gap-x-[12px] rounded-xl border border-[var(--fs-border)] bg-white p-[17px] text-left">
-          <span className="row-[1/3] grid size-[40px] place-items-center rounded-full bg-[#fcebee] text-[#ca5560]">
-            <ShieldAlert size={19} />
-          </span>
-          <span className="block text-[12px] font-medium text-[#6f7d8a]">Invalid records</span>
-          <strong className="mt-[2px] block text-[23px] leading-[1.15] text-[#1d2a38]">
-            {(counts.invalid ?? 0).toLocaleString()}
-          </strong>
-          <small className="col-start-2 mt-[6px] text-[12px] text-[var(--fs-muted)]">Blocked from export until resolved</small>
         </article>
       </section>}
 
@@ -242,9 +190,6 @@ export function SubmissionsPage() {
           <option value="biweekly">Biweekly</option>
           <option value="monthly">Monthly</option>
         </select>
-        <select aria-label="Review status filter" className={selectClass} value={review} onChange={event => { setReview(event.target.value); setCurrentPage(1); }}>
-          <option>All records</option><option>Ready</option><option>Needs review</option><option>Invalid</option>
-        </select>
         <button
           type="button"
           onClick={exportCsv}
@@ -257,12 +202,12 @@ export function SubmissionsPage() {
       </div>
 
       {isFetching && data && <div className="my-3"><LoadingState variant="inline" label="Updating submissions…" /></div>}
-      {(isLoading || authLoading || outOfRange) ? <div className="mt-4"><LoadingSkeleton label="Loading submissions…" columns={8} /></div> : <Card className="mt-[16px] rounded-none">
+      {(isLoading || authLoading || outOfRange) ? <div className="mt-4"><LoadingSkeleton label="Loading submissions…" columns={6} /></div> : <Card className="mt-[16px] rounded-none">
         <div className="overflow-x-auto">
-          <table aria-busy={isFetching} className="w-full min-w-[1040px] border-separate border-spacing-0 overflow-hidden text-left">
+          <table aria-busy={isFetching} className="w-full min-w-[900px] border-separate border-spacing-0 overflow-hidden text-left">
             <thead>
               <tr>
-                {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Sync", "Review"].map(
+                {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Sync"].map(
                   (heading) => (
                     <th
                       key={heading}
@@ -272,7 +217,6 @@ export function SubmissionsPage() {
                     </th>
                   ),
                 )}
-                <th className="border-b border-[#dfe6ee] bg-[#f3f6fb] px-4 py-3 text-left" />
               </tr>
             </thead>
             <tbody>
@@ -319,24 +263,13 @@ export function SubmissionsPage() {
                       {row.sync}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]">
-                    <span className={`${reviewBadgeClass} ${reviewStyles[row.review]}`}>{row.review}</span>
-                  </td>
-                  <td
-                    className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <Link className="text-[#0b51b7]" aria-label={`Review project quality for ${row.id}`} to={`/quality?project_id=${row.projectId}`}>
-                      <MoreHorizontal size={18} />
-                    </Link>
-                  </td>
                 </tr>
               ))}
               {!error && visible.length === 0 && (
                 <tr>
                   <td
                     className="whitespace-nowrap border-t border-[#edf1f5] px-4 py-3 text-[12px] leading-[1.45] text-[#536177]"
-                    colSpan={9}
+                    colSpan={6}
                   >
                     <div className="p-[38px] text-center text-[14px] text-[#8190a4]">
                       No submissions match these filters.
@@ -419,9 +352,6 @@ export function SubmissionsPage() {
                   <div>
                     <p className={eyebrowClass}>SUBMISSION RECORD</p>
                     <h2 className="my-[4px] mb-[8px] text-[22px] font-normal text-[#303e67]">{record?.id}</h2>
-                    <span className={`${reviewBadgeClass} ${reviewStyles[record?.review ?? "Ready"]}`}>
-                      {record?.review}
-                    </span>
                   </div>
                   <button
                     className="cursor-pointer border-0 bg-transparent p-0 text-[#8593a6]"
@@ -470,31 +400,9 @@ export function SubmissionsPage() {
                       <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.device}</dd>
                     </div>
                   </dl>
-                  <div className="mt-[24px] border-t border-[#edf1f5] pt-[19px]">
-                    <h3 className="!m-0 !mb-[12px] text-[12px] font-bold tracking-[.35px] text-[#65758c] uppercase">
-                      Review activity
-                    </h3>
-                    <p className="!m-0 flex items-center gap-[5px] text-[12px] text-[#77869a]">
-                      <span className="mr-[3px] grid h-[25px] w-[25px] place-items-center rounded-full bg-[#e8f1fb] text-[8px] font-bold text-[#2866a8]">
-                        AJ
-                      </span>
-                      No persisted reviewer history is available for this record.
-                      <small className="ml-auto text-[#9ca8b6]">Today</small>
-                    </p>
-                  </div>
+
                 </div>
 
-                <footer className="flex justify-end gap-[7px] border-t border-[#e7edf3] bg-white px-[21px] py-[14px] max-[460px]:flex-wrap">
-                  <button className="cursor-pointer rounded-[5px] border border-[#e2b8be] bg-white px-[10px] py-[8px] font-sans text-[12px] font-semibold leading-normal text-[#c55763]">
-                    Reject
-                  </button>
-                  <button className="cursor-pointer rounded-[5px] border border-[#dce5ef] bg-white px-[10px] py-[8px] font-sans text-[12px] font-semibold leading-normal text-[#5c6b7f]">
-                    Request correction
-                  </button>
-                  <button className="cursor-pointer rounded-[5px] border border-[#0b51b7] bg-[#0b51b7] px-[10px] py-[8px] font-sans text-[12px] font-semibold leading-normal text-white">
-                    Mark ready
-                  </button>
-                </footer>
               </section>
             </div>
           )

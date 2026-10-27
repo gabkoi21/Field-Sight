@@ -1,22 +1,38 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router-dom";
-import { ArrowRight, Building2, Clock3, Database, FileCheck2, RefreshCw, Target } from "lucide-react";
-import { Card, CardHeader } from "../../components/ui/Card";
-import { Badge, Button, LoadingState, MetricCard } from "../../components/ui";
+import {
+  ArrowLeft, ArrowRight, Building2, CalendarDays, ChevronDown,
+  CircleAlert, Clock3, Database, Link2, MapPin, Users,
+  Pencil, RefreshCw, Target, type LucideIcon,
+} from "lucide-react";
+import { Card } from "../../components/ui/Card";
+import { Button, LoadingSkeleton, LoadingState } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { apiClient, type Indicator } from "../../services/apiClient";
-import { indicatorLink, overviewIssues, reportingCompleteness } from "./projectOverview";
+import { apiClient, type ApiProject } from "../../services/apiClient";
+import { reportingCompleteness } from "./projectOverview";
+import { CollectionTrend, ReviewBreakdown, type TrendPeriod } from "./ProjectOverviewCharts";
 
-const linkClass = "inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-brand underline underline-offset-2";
-const formatNumber = (number: number) => number.toLocaleString(undefined, { maximumFractionDigits: 2 });
-function resultValue(item: Indicator) {
-  if (item.unit === "text") return item.qualitative_value || "Awaiting data";
-  if (item.current_value === null) return "Awaiting data";
-  return `${formatNumber(item.current_value)}${item.unit === "percentage" ? "%" : ""}`;
+const textLink = "inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[var(--fs-primary)] hover:underline";
+const secondaryLink = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fs-text)] transition-colors hover:border-[var(--fs-primary)] hover:bg-blue-50";
+const muted = "text-[var(--fs-muted)]";
+
+function dateLabel(value: string | null | undefined) {
+  if (!value) return "Not set";
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? "Not set" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: "UTC" }).format(parsed);
 }
 function timestamp(value: string | null | undefined) {
-  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value)) + " UTC" : "Not recorded";
+  if (!value) return "Not recorded";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "Not recorded" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(parsed) + " UTC";
+}
+function locationLabel(project: ApiProject) {
+  return project.workspace_details?.countries?.filter(Boolean).join(", ") || project.country || "Location not set";
+}
+function Status({ value }: { value: string }) {
+  const tone = value === "active" || value === "completed" ? "text-[var(--fs-success)] bg-emerald-50" : "text-[var(--fs-muted)] bg-[var(--fs-canvas)]";
+  return <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${tone}`}><span aria-hidden="true" className="size-1.5 rounded-full bg-current" />{value.replaceAll("_", " ")}</span>;
 }
 
 export function ProjectWorkspacePage() {
@@ -27,12 +43,17 @@ export function ProjectWorkspacePage() {
   const enabled = Boolean(!authLoading && organizationId && projectId);
   const scope = `project_id=${encodeURIComponent(projectId)}`;
   const [syncMessage, setSyncMessage] = useState<{ projectId: string; text: string } | null>(null);
+  const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>("30d");
   const projectQuery = useQuery({
     queryKey: ["project", organizationId, projectId],
     queryFn: () => apiClient.getProject(organizationId!, projectId), enabled,
   });
-  // Child requests wait for the authorized project. No organization-wide raw data fetch.
+  // Metadata authorizes every project-scoped child request before it can run.
   const authorized = enabled && projectQuery.isSuccess;
+  const trendQuery = useQuery({
+    queryKey: ["project-overview", organizationId, projectId, "trend", trendPeriod],
+    queryFn: () => apiClient.analyticsOverview({ projectId, period: trendPeriod }), enabled: authorized,
+  });
   const submissionsQuery = useQuery({
     queryKey: ["project-overview", organizationId, projectId, "submissions"],
     queryFn: () => apiClient.submissionPage(new URLSearchParams({ project_id: projectId, limit: "5" })), enabled: authorized,
@@ -45,93 +66,105 @@ export function ProjectWorkspacePage() {
     queryKey: ["indicators", projectId, "overview", organizationId],
     queryFn: () => apiClient.indicators(projectId), enabled: authorized,
   });
-  const qualityQuery = useQuery({
-    queryKey: ["quality-issues", organizationId, projectId, "overview"],
-    queryFn: () => apiClient.qualityQueue(new URLSearchParams({ project_id: projectId, limit: "1" })), enabled: authorized,
+  const teamQuery = useQuery({
+    queryKey: ["project-team", organizationId, projectId],
+    queryFn: () => apiClient.projectTeam(projectId), enabled: authorized,
   });
+  const hasSector = authorized && Boolean(projectQuery.data?.organization_sector_id);
+  const organizationSectors = useQuery({
+    queryKey: ["organization-sectors", organizationId],
+    queryFn: () => apiClient.organizationSectors(organizationId!), enabled: hasSector,
+  });
+  const sectors = useQuery({ queryKey: ["sectors"], queryFn: () => apiClient.sectors(), enabled: hasSector, staleTime: 300000 });
+  const sectorId = organizationSectors.data?.find(item => item.id === projectQuery.data?.organization_sector_id)?.sector_id;
+  const sectorName = sectors.data?.find(item => item.id === sectorId)?.name;
+  const sectorError = organizationSectors.isError || sectors.isError;
+  const sectorLabel = sectorName || (sectorError ? "Sector unavailable" : hasSector && (organizationSectors.isPending || sectors.isPending) ? "Loading sector…" : "Sector not set");
   const syncMutation = useMutation({
     mutationFn: (id: string) => apiClient.syncProjectKoboForm(id),
     onSuccess: async (result, id) => {
       setSyncMessage({ projectId: id, text: `Sync complete: ${result.received} received, ${result.created} new, ${result.updated} updated.` });
-      await Promise.all(["project-overview", "submissions", "sync-settings", "sync-runs", "kobo-pending-sync", "indicators", "quality-issues", "dashboard-widget"].map(key => cache.invalidateQueries({ queryKey: [key] })));
+      await Promise.all(["project-overview", "submissions", "sync-settings", "sync-runs", "kobo-pending-sync", "indicators", "dashboard-widget"].map(key => cache.invalidateQueries({ queryKey: [key] })));
     },
   });
-  const refresh = () => Promise.all([projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), qualityQuery.refetch()]);
+  const refresh = () => Promise.all([
+    projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(), teamQuery.refetch(),
+    ...(hasSector ? [organizationSectors.refetch(), sectors.refetch()] : []),
+  ]);
 
-  if (authLoading || (enabled && projectQuery.isPending)) return <LoadingState variant="page" label="Loading project…" />;
-  if (!organizationId) return <div role="alert">An active organization administrator membership is required to view this project.</div>;
-  if (projectQuery.error || !projectQuery.data) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">Unable to load project. <Button variant="secondary" onClick={() => void projectQuery.refetch()}>Retry project</Button></div>;
+  if (authLoading || (enabled && projectQuery.isPending)) return <div className="space-y-6"><LoadingState variant="inline" label="Loading project…" /><LoadingSkeleton layout="metrics" metricCount={4} label="Loading project summary…" announce={false} /></div>;
+  if (!organizationId) return <Card className="p-6"><p role="alert">An active organization administrator membership is required to view this project.</p><NavLink to="/projects" className={textLink}>Back to projects</NavLink></Card>;
+  if (projectQuery.error || !projectQuery.data) return <Card className="p-6"><div role="alert"><h1 className="m-0 text-xl font-semibold">Project unavailable</h1><p className={muted}>The project could not be loaded. Try again or return to your projects.</p><div className="flex flex-wrap gap-3"><Button variant="secondary" onClick={() => void projectQuery.refetch()}>Retry project</Button><NavLink to="/projects" className={textLink}>Back to projects</NavLink></div></div></Card>;
   const project = projectQuery.data;
   const connected = Boolean(project.kobo_connection_id && project.kobo_form_id);
+  const enumeratorCount = new Set((teamQuery.data ?? [])
+    .filter(member => member.is_active && member.role === "enumerator")
+    .map(member => member.user_id)).size;
   const activeIndicators = indicatorsQuery.data?.filter(item => item.is_active);
-  const issues = overviewIssues({ projectId, connected, counts: submissionsQuery.data?.counts, sync: syncQuery.data, indicators: indicatorsQuery.data, findings: qualityQuery.data?.total });
-  const attentionLoading = [submissionsQuery, syncQuery, indicatorsQuery, qualityQuery].some(query => query.isPending);
-  const attentionError = [submissionsQuery, syncQuery, indicatorsQuery, qualityQuery].some(query => query.isError);
 
-  return <div className="flex flex-col gap-5 pb-5">
-    <header className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <NavLink to="/projects" className={linkClass}>All projects</NavLink>
-        <div className="flex items-center gap-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-blue-50 text-brand" aria-hidden="true"><Building2 size={22} /></span>
-          <div><h1 className="m-0 text-2xl font-bold text-[var(--fs-text)]">{project.name}</h1><p className="mb-0 mt-1 text-sm text-[var(--fs-muted)]">Project overview</p></div>
-          <Badge value={project.status} />
+
+  return <div className="mx-auto flex max-w-[1440px] flex-col gap-5 pb-6 text-[var(--fs-text)]">
+    <header className="space-y-3">
+      <NavLink to="/projects" className={`inline-flex min-h-11 items-center gap-2 text-sm ${muted} hover:text-[var(--fs-primary)]`}><ArrowLeft size={15} aria-hidden="true" />Projects</NavLink>
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
+          <span className="hidden size-14 shrink-0 place-items-center rounded-xl border border-blue-100 bg-blue-50 text-[var(--fs-primary)] sm:grid" aria-hidden="true"><Building2 size={25} strokeWidth={1.6} /></span>
+          <div className="min-w-0 space-y-2">
+            {project.workspace_details?.code && <p className={`m-0 text-xs font-medium tracking-wide ${muted}`}>{project.workspace_details.code}</p>}
+            <div className="flex flex-wrap items-center gap-3"><h1 className="m-0 break-words text-2xl font-semibold leading-tight tracking-tight sm:text-[28px]">{project.name}</h1></div>
+            <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-sm ${muted}`}>
+              <span className="inline-flex items-center gap-1.5"><Building2 size={14} aria-hidden="true" />{sectorLabel}</span>
+              <span className="inline-flex items-center gap-1.5"><MapPin size={14} aria-hidden="true" />{locationLabel(project)}</span>
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={14} aria-hidden="true" />{dateLabel(project.start_date)}<span aria-hidden="true">–</span><span className="sr-only">to</span>{dateLabel(project.end_date)}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" className="!px-3" aria-label="Refresh overview" title="Refresh overview" onClick={() => void refresh()}><RefreshCw size={16} aria-hidden="true" /></Button>
+          <NavLink className={secondaryLink} to={`/projects/${projectId}/details`}><Pencil size={15} aria-hidden="true" />Edit project</NavLink>
+          <Button disabled={!connected || project.status === "archived" || syncMutation.isPending} onClick={() => { setSyncMessage(null); syncMutation.mutate(projectId); }}><RefreshCw size={15} aria-hidden="true" />{syncMutation.isPending ? "Syncing…" : "Sync data"}</Button>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" onClick={() => void refresh()}><RefreshCw size={15} aria-hidden="true" />Refresh overview</Button>
-        <Button disabled={!connected || project.status === "archived" || syncMutation.isPending} onClick={() => { setSyncMessage(null); syncMutation.mutate(projectId); }}><RefreshCw size={15} aria-hidden="true" />{syncMutation.isPending ? "Syncing…" : "Sync data"}</Button>
-      </div>
+      {syncMessage?.projectId === projectId && <p role="status" className="m-0 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-[var(--fs-success)]">{syncMessage.text}</p>}
+      {syncMutation.error && syncMutation.variables === projectId && <p role="alert" className="m-0 text-sm text-[var(--fs-danger)]">Synchronization failed. Check the source connection and try again.</p>}
     </header>
-    {syncMessage?.projectId === projectId && <p role="status" className="m-0 text-sm text-[var(--fs-success)]">{syncMessage.text}</p>}
-    {syncMutation.error && syncMutation.variables === projectId && <p role="alert" className="m-0 text-sm text-[var(--fs-danger)]">Synchronization failed. Check the source connection and try again.</p>}
-    <nav aria-label="Project sections" className="flex flex-wrap gap-x-5 border-b border-[var(--fs-border)]">
-      <span aria-current="page" className="min-h-11 border-b-2 border-brand py-3 text-sm font-semibold text-brand">Overview</span>
-      <NavLink className={linkClass} to={`/projects/${projectId}/indicators`}>Indicators</NavLink>
-      <NavLink className={linkClass} to={`/dashboards?${scope}`}>Dashboards</NavLink>
-      <NavLink className={linkClass} to={`/analytics?${scope}`}>Analytics</NavLink>
-      <NavLink className={linkClass} to={`/reports?${scope}`}>Reports</NavLink>
-    </nav>
 
-    <section aria-labelledby="collection-heading">
-      <h2 id="collection-heading" className="mb-1 mt-0 text-lg font-semibold">Data collection</h2>
-      <p className="mb-4 mt-0 text-sm text-[var(--fs-muted)]">All saved project records, including records awaiting review. These counts are operational, not approved M&E results.</p>
-      {submissionsQuery.isPending ? <LoadingState variant="panel" label="Loading collection counts…" /> : submissionsQuery.error ? <LoadError label="collection counts" retry={() => void submissionsQuery.refetch()} /> : <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Submitted records" value={submissionsQuery.data!.total} icon={Database} context={<NavLink to={`/submissions?${scope}`} className={linkClass}>View submissions</NavLink>} />
-        <MetricCard label="Awaiting review" value={submissionsQuery.data!.counts.needs_review ?? 0} icon={Clock3} context={<NavLink to={`/submissions?${scope}&review=needs_review`} className={linkClass}>Review records</NavLink>} />
-        <MetricCard label="Ready records" value={submissionsQuery.data!.counts.ready ?? 0} icon={FileCheck2} context="Ready is a data-review status, not result approval." />
-      </div>}
-      <Card className="mt-3 p-4">
-        <h3 className="m-0 text-sm font-semibold">Latest successful synchronization</h3>
-        {syncQuery.isPending ? <p role="status">Loading synchronization status…</p> : syncQuery.error ? <LoadError label="synchronization status" retry={() => void syncQuery.refetch()} /> : <p className="mb-0 mt-2 text-sm text-[var(--fs-muted)]"><time>{timestamp(syncQuery.data?.last_successful_sync)}</time>{syncQuery.data?.pending ? " · Synchronization queued" : ""}</p>}
-        {!connected && <p className="mb-0 mt-2 text-sm">No Kobo data source is configured. <NavLink className={linkClass} to={`/forms?${scope}`}>Connect a data source</NavLink></p>}
-        {connected && submissionsQuery.data?.total === 0 && <p className="mb-0 mt-2 text-sm">No submissions saved yet. Synchronize the connected form to load records.</p>}
-      </Card>
+
+    <section aria-label="Project summary" aria-describedby="overview-data-note" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {submissionsQuery.isPending ? <div className="sm:col-span-2 xl:col-span-3"><LoadingSkeleton layout="metrics" label="Loading collection counts…" /></div> : submissionsQuery.error ? <div className="sm:col-span-2 xl:col-span-3"><Card className="h-full p-5"><LoadError label="collection counts" retry={() => void submissionsQuery.refetch()} /></Card></div> : <>
+        <OverviewMetric label="Submitted records" value={submissionsQuery.data!.total} note="All saved submissions" icon={Database} to={`/submissions?${scope}`} />
+        <OverviewMetric label="Connected forms" value={connected ? 1 : 0} note="Project’s connected Kobo form" icon={Link2} to={`/forms?${scope}`} />
+        {teamQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading enumerators…" /></Card> : teamQuery.error ? <Card className="p-5"><LoadError label="enumerator count" retry={() => void teamQuery.refetch()} /></Card> : <OverviewMetric label="Total enumerators" value={enumeratorCount} note="Active enumerators assigned to this project" icon={Users} to={`/projects/${projectId}/team`} />}
+      </>}
+      {indicatorsQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading indicators…" /></Card> : indicatorsQuery.error ? <Card className="p-5"><LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /></Card> : <OverviewMetric label="Active indicators" value={activeIndicators?.length ?? 0} note="View project indicators" icon={Target} to={`/projects/${projectId}/indicators`} />}
     </section>
 
-    <section aria-labelledby="attention-heading">
-      <Card>
-        <CardHeader title={<span id="attention-heading">Needs Your Attention</span>} subtitle="Actions based on saved project data and configured indicator rules." />
-        <div className="p-5">
-          {attentionLoading && <LoadingState variant="inline" label="Checking project issues…" />}
-          {attentionError && <LoadError label="some attention checks" retry={() => void refresh()} />}
-          {issues.length > 0 && <ul className="m-0 list-none divide-y divide-[var(--fs-border)] p-0">{issues.map(issue => <li key={issue.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"><div><h3 className="m-0 text-sm font-semibold">{issue.title}</h3><p className="mb-0 mt-1 text-sm text-[var(--fs-muted)]">{issue.detail}</p></div><NavLink to={issue.to} className={linkClass} aria-label={`${issue.action}: ${issue.title}`}>{issue.action}<ArrowRight size={14} aria-hidden="true" /></NavLink></li>)}</ul>}
-          {!attentionLoading && !attentionError && !issues.length && <p className="m-0 text-sm text-[var(--fs-muted)]">No actionable issues found in the loaded checks. Saved quality findings reflect the last validation run.</p>}
+    <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
+      <CollectionTrend data={trendQuery.data} loading={trendQuery.isPending} error={trendQuery.isError} retry={() => void trendQuery.refetch()} period={trendPeriod} onPeriod={setTrendPeriod} scope={scope} />
+      <ReviewBreakdown counts={submissionsQuery.data?.counts} loading={submissionsQuery.isPending} error={submissionsQuery.isError} retry={() => void submissionsQuery.refetch()} scope={scope} />
+    </div>
+    <p id="overview-data-note" className="sr-only">Collection counts include all saved records. Ready is a data-review status, not M&E result approval. Indicator results use their saved definitions; they are not frozen, approved reporting results. Reporting completeness is not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
+  </div>;
+}
+
+function OverviewMetric({ label, value, note, icon: Icon, to }: { label: string; value: number | string; note: string; icon: LucideIcon; to: string }) {
+  return (
+    <NavLink to={to} title={note} className="no-underline">
+      <Card className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none">
+        <div className="flex min-h-[120px] items-center justify-between gap-4 p-5">
+          <div className="min-w-0">
+            <span className={`text-xs font-medium ${muted}`}>{label}</span>
+            <strong className={`mt-1.5 block break-words font-semibold leading-tight tabular-nums text-[#24434c] ${typeof value === "number" ? "text-[28px]" : "text-xl"}`}>
+              {value.toLocaleString()}
+            </strong>
+          </div>
+          <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-[#f0f6f8] text-[#4f8491]" aria-hidden="true">
+            <Icon size={21} />
+          </span>
         </div>
       </Card>
-    </section>
-
-    <section aria-labelledby="results-heading">
-      <h2 id="results-heading" className="mb-1 mt-0 text-lg font-semibold">Configured M&E results</h2>
-      <p className="mb-4 mt-0 text-sm text-[var(--fs-muted)]">All dates. Current calculations use each indicator's saved definition and eligibility rules. These are not frozen, approved reporting results.</p>
-      {indicatorsQuery.isPending ? <LoadingState variant="panel" label="Loading indicator results…" /> : indicatorsQuery.error ? <LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /> : !activeIndicators?.length ? <Card className="p-5"><h3 className="m-0 text-base font-semibold">No active indicators configured</h3><p className="mb-0 mt-2 text-sm text-[var(--fs-muted)]">Configure indicators and their data sources to show project performance here.</p><NavLink to={`/projects/${projectId}/indicators`} className={linkClass}>Configure indicators</NavLink></Card> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{activeIndicators.map(item => <MetricCard key={item.id} label={item.name} value={resultValue(item)} icon={Target} context={<><span className="block">{item.result_source === "manual" ? "Manual results" : item.result_source === "table" ? "Linked source data" : "Source not configured"}{item.target_value !== null ? ` · Target: ${formatNumber(item.target_value)}${item.unit === "percentage" ? "%" : ""}` : " · No target set"}</span><span className="mt-1 block">{item.quality_excluded_records} excluded by data review</span><NavLink to={indicatorLink(projectId, item.id)} className={linkClass}>View {item.name}</NavLink></>} />)}</div>}
-    </section>
-
-    <Card className="p-5">
-      <h2 className="m-0 text-lg font-semibold">School reporting completeness</h2>
-      <p className="mb-0 mt-2 text-sm text-[var(--fs-muted)]">Not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
-    </Card>
-  </div>;
+    </NavLink>
+  );
 }
 
 function LoadError({ label, retry }: { label: string; retry: () => void }) {

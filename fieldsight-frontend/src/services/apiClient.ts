@@ -305,6 +305,7 @@ export interface WorkspaceDetails {
   health_status: "" | "red" | "amber" | "green";
 }
 export interface ApiProject {
+  organization_sector_id?: string;
   created_at?: string;
   updated_at?: string;
   country?: string | null;
@@ -377,14 +378,6 @@ export interface ApiSubmission {
   evidence_fingerprint?: string;
 }
 
-export interface SubmissionReviewDetail {
-  fields?: SurveyField[];
-  submission: ApiSubmission;
-  reviewer_id: string | null;
-  reviewers: { id: string; name: string }[];
-  events: { id: string; action: string; actor: string; previous_status: string | null; status: string | null; reviewer_id: string | null; note: string | null; occurred_at: string }[];
-}
-
 export interface ApiAnalyticsOverview {
   total_submissions: number;
   ready_records: number;
@@ -428,29 +421,6 @@ export interface ApiDashboardOverview extends ApiAnalyticsOverview {
     connected_sources: number;
     sources: ApiPendingKoboSync["sources"];
   };
-}
-export interface ApiQualityIssue {
-  id: string;
-  submission_id: string;
-  external_id: string;
-  project_id: string;
-  project_name: string;
-  enumerator: string | null;
-  location: string | null;
-  submitted_at: string | null;
-  severity: "Blocking" | "High" | "Medium" | "Low";
-  rule: string;
-  detail: string;
-  field: string | null;
-  state: string;
-}
-
-export interface ApiQualityResult {
-  checked: number;
-  ready: number;
-  needs_review: number;
-  invalid: number;
-  issues: ApiQualityIssue[];
 }
 export interface ApiSyncResult {
   sync_run_id: string | null;
@@ -1305,32 +1275,6 @@ export const apiClient = {
       `/dashboard/overview${query ? `?${query}` : ""}`,
     );
   },
-  qualityQueue: (params: URLSearchParams) => request<{ items: ApiQualityIssue[]; total: number; counts: Record<string, number>; snapshot_note: string }>(`/quality/queue?${params}`),
-  submissionReview: (id: string) => request<SubmissionReviewDetail>(`/submissions/${id}/review`),
-  assignReviewer: (id: string, reviewerId: string | null) => request(`/submissions/${id}/reviewer`, { method: "PATCH", body: JSON.stringify({ reviewer_id: reviewerId }) }),
-  addReviewNote: (id: string, note: string) => request(`/submissions/${id}/review-notes`, { method: "POST", body: JSON.stringify({ note }) }),
-  qualityIssues: (projectId?: string) =>
-    request<ApiQualityIssue[]>(
-      `/quality/issues${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
-    ),
-  runQualityValidation: (projectId?: string) =>
-    request<ApiQualityResult>(
-      `/quality/run${projectId ? `?project_id=${encodeURIComponent(projectId)}` : ""}`,
-      { method: "POST" },
-    ),
-  updateSubmissionReviewStatus: (
-    submissionId: string,
-    status: "ready" | "needs_review" | "invalid",
-    note?: string | null,
-    evidenceFingerprint?: string,
-  ) =>
-    request<{ id: string; review_status: string }>(
-      `/submissions/${submissionId}/review-status`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status, note, evidence_fingerprint: evidenceFingerprint }),
-      },
-    ),
   syncProjectKoboForm: (projectId: string) =>
     request<ApiSyncResult>(`/projects/${projectId}/sync`, { method: "POST" }),
   syncSettings: (id: string) => request<{mode: "manual" | "scheduled"; interval_minutes: number; interval_seconds?: number; last_successful_sync: string | null; pending: boolean; queued_at?: string | null; attempts?: number; next_attempt_at?: string | null; worker_last_seen_at?: string | null; worker_available?: boolean | null; worker_heartbeat_at?: string | null; execution_state?: "running" | "unconfirmed" | null; execution_started_at?: string | null; latest_status?: string | null; latest_error?: string | null; received?: number; created?: number; updated?: number}>(`/projects/${id}/sync-settings`),

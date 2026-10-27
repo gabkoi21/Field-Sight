@@ -5,7 +5,6 @@ import { LoadingSkeleton, LoadingState } from "../ui";
 function RouteLoading({ pathname }: { pathname: string }) {
   if (pathname.endsWith("/dashboards") || pathname === "/superadmin") return <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />;
   if (pathname.includes("indicators")) return <LoadingSkeleton label="Loading indicators…" />;
-  if (pathname === "/quality") return <LoadingSkeleton label="Loading quality issues…" />;
   return <LoadingState variant="page" label={pathname === "/analytics" ? "Preparing analysis…" : "Loading page…"} />;
 }
 

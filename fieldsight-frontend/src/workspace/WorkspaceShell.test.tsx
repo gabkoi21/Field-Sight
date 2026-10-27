@@ -17,13 +17,15 @@ function setup(path: string) {
   render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[path]}><Routes><Route element={<WorkspaceShell />}><Route path="*" element={<Location />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
 }
 
-it("hides Overview while preserving project navigation and context", async () => {
+it("shows the project Overview while preserving navigation and context", async () => {
   setup("/dashboards?project_id=p2");
   await waitFor(() => expect(screen.getByRole("link", { name: "Reports" }).getAttribute("href")).toBe("/reports?project_id=p2"));
   expect(screen.queryByLabelText("Current project")).toBeNull();
   const nav = screen.getByRole("navigation", { name: "Main navigation" });
+  expect(within(nav).getAllByRole("link").slice(0, 3).map(link => link.textContent)).toEqual(["Projects", "Overview", "Details & activity"]);
+  expect(within(nav).queryByRole("link", { name: "Data Quality" })).toBeNull();
   expect(within(nav).getByRole("link", { name: "Project dashboards" }).getAttribute("aria-current")).toBe("page");
-  expect(within(nav).queryByRole("link", { name: "Overview" })).toBeNull();
+  expect(within(nav).getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/projects/p2/overview");
   for (const name of ["Forms", "Indicators", "Field Team"]) {
     expect(within(nav).queryByRole("link", { name })).toBeNull();
   }
@@ -36,7 +38,7 @@ it("hides Overview while preserving project navigation and context", async () =>
 
 it("preserves nested project navigation without the header selector", async () => {
   setup("/projects/p1/indicators?project_id=p1&view=results&page=3&offset=50");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/projects/p1"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/projects/p1/details"));
   expect(screen.queryByLabelText("Current project")).toBeNull();
 });
 

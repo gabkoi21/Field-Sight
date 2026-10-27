@@ -14,6 +14,19 @@ from app.models.operations import IndicatorMapping, Submission, SubmissionReview
 from app.schemas.analysis import AnalysisQuery, SurveyField
 
 
+def stored_review(engine, identifier):
+    """Inspect retained eligibility/audit persistence without a Data Quality endpoint."""
+    with Session(engine) as db:
+        row = db.get(Submission, identifier)
+        events = db.exec(select(SubmissionReviewEvent).where(SubmissionReviewEvent.submission_id == identifier)).all()
+        return {"submission": {"review_status": row.review_status,
+                               "evidence_fingerprint": evidence_fingerprint(row.raw_answers)},
+                "events": [{"action": event.action, "note": event.note,
+                            "actor": "System" if event.actor_id is None else "Administrator",
+                            "source": event.source, "previous_status": event.previous_status, "status": event.status}
+                           for event in events]}
+
+
 def sync(client, project, headers, payloads):
     with patch("app.routes.collection.decrypt_kobo_token", return_value="synthetic"), patch(
         "app.routes.collection.list_kobo_submissions", return_value=payloads,
@@ -26,47 +39,42 @@ def payload(answer=2, **metadata):
 
 
 @pytest.mark.parametrize("decision", ["ready", "invalid", "needs_review"])
-def test_decision_survives_unchanged_and_metadata_only_sync_and_validation(sync_client, decision):
+def test_decision_survives_unchanged_and_metadata_only_sync(sync_client, decision):
     client, engine, project, headers = sync_client
     assert sync(client, project, headers, [payload()]).status_code == 200
     with Session(engine) as db:
         identifier = db.exec(select(Submission)).one().id
     path = f"/submissions/{identifier}"
-    reviewed = client.get(path + "/review", headers=headers).json()["submission"]["evidence_fingerprint"]
+    reviewed = stored_review(engine, identifier)["submission"]["evidence_fingerprint"]
     response = client.patch(path + "/review-status", headers=headers,
                             json={"status": decision, "note": "Reviewed evidence", "evidence_fingerprint": reviewed})
     assert response.status_code == 200
     for answers in [payload(), payload(_tags=["provider-tag"], _validation_status={"uid": "approved"})]:
         assert sync(client, project, headers, [answers]).status_code == 200
-        result = client.post(f"/quality/run?project_id={project}", headers=headers)
-        assert result.status_code == 200
-        detail = client.get(path + "/review", headers=headers).json()
+        detail = stored_review(engine, identifier)
         assert detail["submission"]["review_status"] == decision
         assert len(detail["events"]) == 1
     assert sync(client, project, headers, [answers]).json()["updated"] == 0
 
 
 @pytest.mark.parametrize("decision", ["ready", "invalid"])
-def test_changed_evidence_reopens_and_remains_held_after_clean_validation(sync_client, decision):
+def test_changed_evidence_reopens_and_remains_held_after_repeat_sync(sync_client, decision):
     client, engine, project, headers = sync_client
     sync(client, project, headers, [payload()])
     with Session(engine) as db:
         identifier = db.exec(select(Submission)).one().id
     path = f"/submissions/{identifier}"
-    old = client.get(path + "/review", headers=headers).json()["submission"]["evidence_fingerprint"]
+    old = stored_review(engine, identifier)["submission"]["evidence_fingerprint"]
     client.patch(path + "/review-status", headers=headers, json={"status": decision, "note": "Previous note"})
     assert sync(client, project, headers, [payload(3)]).status_code == 200
     assert sync(client, project, headers, [payload(3)]).json()["updated"] == 0
-    result = client.post(f"/quality/run?project_id={project}", headers=headers).json()
-    assert result["needs_review"] == 1 and result["ready"] == 0
-    detail = client.get(path + "/review", headers=headers).json()
+    detail = stored_review(engine, identifier)
     assert detail["submission"]["review_status"] == "needs_review"
     events = detail["events"]
     assert len(events) == 2 and any(event["note"] == "Previous note" for event in events)
     automatic = next(event for event in events if event["action"] == "evidence_changed")
     assert automatic["actor"] == "System" and automatic["source"] == "kobo_sync"
     assert automatic["previous_status"] == decision and automatic["status"] == "needs_review"
-    assert client.get(f"/quality/queue?project_id={project}", headers=headers).json()["total"] == 1
     # A stale browser cannot approve new evidence using the old fingerprint.
     assert client.patch(path + "/review-status", headers=headers,
                         json={"status": "ready", "evidence_fingerprint": old}).status_code == 409
@@ -193,7 +201,5 @@ def test_legacy_migration_reopens_without_claiming_evidence_and_preserves_notes(
             assert len(history) == 2 and any(event.note == "Historical approval" for event in history)
             migrated = next(event for event in history if event.source == "migration")
             assert migrated.actor_id is None and migrated.previous_status == "ready"
-        assert client.post(f"/quality/run?project_id={project}", headers=headers).json()["needs_review"] == 1
-        assert client.get(f"/quality/queue?project_id={project}", headers=headers).json()["total"] == 1
     finally:
         get_settings.cache_clear()

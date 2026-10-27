@@ -1,0 +1,83 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ✓ src/pages/organization/QualityCenterPage.test.tsx (2 tests) 1555ms
+   ✓ saves review notes and displays persisted author/time history  1106ms
+   ✓ persists reviewer assignment and requests the next scoped queue page  445ms
+ ✓ src/pages/organization/FieldOperationsPage.test.tsx (3 tests) 2453ms
+   ✓ scopes cards and rows to project assignments and preserves counts when searching  1360ms
+   ✓ assigns new enumerators to the open project and refreshes assignments  873ms
+ ✓ src/pages/organization/SubmissionsPage.test.tsx (4 tests) 3214ms
+   ✓ requests bounded pages in project scope instead of fetching the full submission list  900ms
+   ✓ resets a later page on global project switching and browser navigation  944ms
+   ✓ recovers when a later page disappears and resets for search and review filters  810ms
+   ✓ keeps filters mounted through slow loads and retains rows and focus during background refresh errors  555ms
+ ✓ src/pages/dashboard/OrganizationDashboardPage.test.tsx (3 tests) 1989ms
+   ✓ keeps API metrics, location data, and rankings in the overview project and period scope  1451ms
+   ✓ uses organization-wide filtering independently of the current-project URL  404ms
+ ✓ src/workspace/WorkspacesPage.test.tsx (5 tests) 3039ms
+   ✓ requires confirmation, warns about Kobo, supports cancel and deletes the selected project  1583ms
+   ✓ keeps a readable failure in the confirmation modal  553ms
+   ✓ keeps search visible outside the filter panel and supports keyboard tab navigation  331ms
+ ✓ src/pages/organization/IndicatorWorkspacePage.test.tsx (5 tests) 7470ms
+   ✓ opens the indicator requested by an overview action instead of the first indicator  880ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=false  3635ms
+   ✓ reviews source mapping and requires fresh confirmation after stale=true  2561ms
+ ✓ src/components/layout/RouteContent.test.tsx (2 tests) 1697ms
+   ✓ renders fast navigation immediately and keeps the shell and focus during a slow lazy route  1146ms
+   ✓ replaces a rejected lazy load with a recoverable error and keeps navigation usable  527ms
+ ✓ src/workspace/ProjectSetupChecklist.test.tsx (2 tests) 801ms
+   ✓ links incomplete steps using saved project scope  679ms
+ ✓ src/workspace/DashboardsPage.test.tsx (16 tests) 9909ms
+   ✓ existing saved dashboard builder > shows an honest empty state without sample values  429ms
+   ✓ existing saved dashboard builder > creates, duplicates, renames and deletes persisted dashboards  1962ms
+   ✓ existing saved dashboard builder > persists keyboard ordering and height across a reload  1424ms
+   ✓ existing saved dashboard builder > supports dragging a widget to another position  672ms
+   ✓ existing saved dashboard builder > keeps legacy full-width widgets side by side without width resize controls  485ms
+   ✓ existing saved dashboard builder > previews date filters, saves them and restores them on reload  868ms
+   ✓ existing saved dashboard builder > presents all dashboard widgets together and closes without saving  464ms
+   ✓ existing saved dashboard builder > expands a widget for presentation and closes without saving its layout  475ms
+   ✓ existing saved dashboard builder > refreshes existing widget results after a successful background sync  583ms
+   ✓ existing saved dashboard builder > shows source failures and retries without fabricated results  382ms
+   ✓ existing saved dashboard builder > adds and edits a text widget using the existing save flow  997ms
+   ✓ existing saved dashboard builder > keeps save conflicts visible and leaves the last saved layout intact  402ms
+ ✓ src/pages/organization/KoboConnectionsPage.test.tsx (2 tests) 1379ms
+   ✓ confirms connection removal, supports cancel and refreshes the account list  1164ms
+ ✓ src/workspace/SyncControls.test.tsx (10 tests) 1849ms
+   ✓ synchronization controls > enables automatic sync with the selected interval  591ms
+ ✓ src/pages/organization/ProjectWorkspacePage.test.tsx (9 tests) 3449ms
+   ✓ uses project-scoped all-time counts and configured School Feeding indicators, including zero values  1310ms
+   ✓ links attention issues to the existing project-filtered screens and indicator  398ms
+   ✓ does not show zero counts or an all-clear when required APIs fail  424ms
+   ✓ changes scope on project navigation and does not keep the previous project's results  468ms
+   ✓ refreshes the saved overview after the existing synchronization action succeeds  415ms
+ ✓ src/pages/organization/IndicatorReliability.test.tsx (2 tests) 936ms
+   ✓ offers only the authoritative percentage methods and preserves unknown legacy selection  802ms
+ ✓ src/pages/organization/SubmissionEvidence.test.tsx (4 tests) 582ms
+   ✓ shows flagged answers beyond ten fields and readable labels with raw paths  308ms
+ ✓ src/pages/organization/IndicatorEvidence.test.tsx (2 tests) 659ms
+   ✓ shows readable contribution states and traceable authors  341ms
+   ✓ loads, reports errors, retries and shows an accurate empty range  315ms
+ ✓ src/pages/organization/FrameworkForm.test.tsx (1 test) 684ms
+   ✓ opens a child result form and saves the chosen parent and next level  681ms
+ ✓ src/workspace/CollectedDataPanel.test.tsx (1 test) 944ms
+   ✓ submits numerator and denominator without an ambiguous separate value  940ms
+ ✓ src/components/ui/LoadingState.test.tsx (3 tests) 662ms
+   ✓ announces a contextual initial load while hiding decorative geometry  349ms
+ ✓ src/workspace/WorkspaceShell.test.tsx (3 tests) 2165ms
+   ✓ shows the project Overview while preserving navigation and context  1198ms
+   ✓ preserves nested project navigation without the header selector  427ms
+   ✓ keeps the workspace shell mounted through a lazy route and back/forward navigation  537ms
+ ✓ src/services/apiClient.test.ts (15 tests) 243ms
+ ✓ src/auth/AuthContext.test.tsx (4 tests) 231ms
+ ✓ src/app/App.test.tsx (2 tests) 249ms
+
+ Test Files  22 passed (22)
+      Tests  100 passed (100)
+   Start at  01:46:19
+   Duration  34.57s (transform 9.88s, setup 0ms, collect 56.64s, tests 46.16s, environment 65.65s, prepare 10.88s)
+

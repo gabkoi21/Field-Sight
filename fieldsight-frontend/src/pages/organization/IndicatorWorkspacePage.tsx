@@ -388,7 +388,7 @@ export function IndicatorWorkspacePage() {
   return (
     <div className="space-y-5 text-[#24434c]">
       <Link
-        to={projectId ? `/projects/${projectId}` : "/projects"}
+        to={projectId ? `/projects/${projectId}/overview` : "/projects"}
         className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
       >
         <ArrowLeft size={15} /> Project overview

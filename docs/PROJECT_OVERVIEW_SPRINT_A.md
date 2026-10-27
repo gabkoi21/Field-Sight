@@ -2,8 +2,13 @@
 
 ## Audit and scope
 
-The existing page is `fieldsight-frontend/src/pages/organization/ProjectWorkspacePage.tsx`,
-served at `/projects/:projectId`. It previously downloaded organization-wide submissions,
+The overview component is `fieldsight-frontend/src/pages/organization/ProjectWorkspacePage.tsx`.
+It is now registered in the application router at `/projects/:projectId/overview`, accessible
+through **Overview** in both the sidebar and project tabs. The existing **Details & activity**
+page remains at `/projects/:projectId`. The overview component was previously unregistered;
+the initial Sprint A verification tested the component without catching that routing gap.
+An actual App-router regression test now covers this integration.
+The old overview component downloaded organization-wide submissions,
 filtered them in the browser, and mixed all-time totals with a 30-day analytics overview.
 Its exception panel inferred issues from generic missing fields and claimed automated
 validation success without checking persisted quality findings.
@@ -82,7 +87,8 @@ copy. This implementation preserves that configuration; it does not reinterpret 
 or create additional indicators. The three-indicator scenario is covered by disposable
 synthetic backend/frontend tests, rather than by modifying this project database.
 
-1. Open **Projects → Daily School Feeding Monitoring Form → Overview**.
+1. Open **Projects → Daily School Feeding Monitoring Form**, then click **Overview** in the
+   project tabs or the left sidebar. The URL ends in `/projects/{project_id}/overview`.
 2. Check **Submitted records**, **Awaiting review**, and **Ready records** against Submissions
    filtered to that project. Include records older than 30 days and undated records when comparing.
 3. In the project's Indicators screen, configure the desired indicators using the form's actual
@@ -125,7 +131,7 @@ Verification on 27 October 2026:
 | Check | Result |
 | --- | --- |
 | Full backend suite | 244 passed (222 existing serializer warnings), using disposable SQLite test databases |
-| Full frontend suite | 98 passed across 21 files |
+| Full frontend suite after navigation integration | 100 passed across 22 files, including actual App-router and sidebar tests |
 | Targeted overview and indicator tests after the test-fixture type correction | 14 passed |
 | Backend mypy | Passed, 52 source files |
 | Ruff: application code plus new backend tests | Passed |

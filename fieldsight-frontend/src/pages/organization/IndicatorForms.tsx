@@ -1093,7 +1093,7 @@ export function IndicatorMappingForm({
 
                   <Link
 
-                    to={`/projects/${projectId}`}
+                    to={`/projects/${projectId}/details`}
 
                     className="text-[#0c8593] underline"
 

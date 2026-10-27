@@ -13,6 +13,7 @@ import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
 import { KoboConnectionsPage } from "../pages/organization/KoboConnectionsPage";
 import { WorkspacesPage } from "../workspace/WorkspacesPage";
 import { WorkspaceDetailsPage } from "../workspace/WorkspaceDetailsPage";
+import { ProjectWorkspacePage } from "../pages/organization/ProjectWorkspacePage";
 import { QuickStartPage } from "../workspace/QuickStartPage";
 import { WorkspaceTeamPage } from "../workspace/WorkspaceTeamPage";
 import { DataTablesPage } from "../workspace/DataTablesPage";
@@ -25,7 +26,6 @@ import {
 } from "../workspace/ProfilePage";
 import { OrganizationSettingsPage } from "../workspace/OrganizationSettingsPage";
 const ProjectIndicatorsPage = lazy(() => import("../pages/organization/ProjectIndicatorsPage").then(module => ({ default: module.ProjectIndicatorsPage })));
-const QualityCenterPage = lazy(() => import("../pages/organization/QualityCenterPage").then(module => ({ default: module.QualityCenterPage })));
 import { WorkspaceReportsPage as ReportsPage } from "../workspace/WorkspaceReportsPage";
 import { SubmissionsPage } from "../pages/organization/SubmissionsPage";
 import {
@@ -83,7 +83,9 @@ export function App() {
           path="workspaces"
           element={<Navigate replace to="/projects" />}
         />
-        <Route path="projects/:projectId" element={<WorkspaceDetailsPage />} />
+        <Route path="projects/:projectId" element={<Navigate to="overview" replace />} />
+        <Route path="projects/:projectId/details" element={<WorkspaceDetailsPage />} />
+        <Route path="projects/:projectId/overview" element={<ProjectWorkspacePage />} />
         <Route
           path="projects/:projectId/indicators"
           element={<ProjectIndicatorsPage />}
@@ -92,7 +94,6 @@ export function App() {
         <Route path="forms/connections" element={<KoboConnectionsPage />} />
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />
-        <Route path="quality" element={<QualityCenterPage />} />
         <Route path="analytics" element={<SurveyQuestionExplorer />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="projects/:projectId/team" element={<FieldOperationsPage projectEmbedded />} />

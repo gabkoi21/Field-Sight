@@ -28,7 +28,6 @@ import {
 } from "recharts";
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
-import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import {
   apiClient,
   type AnalysisQuery,
@@ -276,7 +275,6 @@ export function SurveyQuestionExplorer() {
           </Button>
         </div>
       </PageHeader>
-      {workspace.projectId && <WorkspaceTabs />}
       {!org ? (
         <Panel>
           <div className="p-12 text-center">

@@ -1,0 +1,77 @@
+
+> fieldsight-data-platform@0.1.0 test
+> vitest run src/pages/organization/ProjectWorkspacePage.test.tsx
+
+
+ RUN  v3.2.7 C:/Users/gabak/Videos/Field-Sight/fieldsight-frontend
+
+ ❯ src/pages/organization/ProjectWorkspacePage.test.tsx (13 tests | 1 failed) 2370ms
+   ✓ uses four compact project-scoped summary cards and links to the full indicator workflow  679ms
+   ✓ links attention issues to the existing project-filtered screens and indicator 228ms
+   ✓ shows honest empty states without creating school completeness or indicator metrics 220ms
+   ✓ does not show zero counts or an all-clear when required APIs fail 147ms
+   ✓ does not load project data for an enumerator or an unauthorized project 20ms
+   ✓ waits for authorized project detail before loading operational or result APIs 30ms
+   ✓ changes scope on project navigation and does not keep the previous project's results  384ms
+   ✓ does not infer missing school reports, stale sync, or validation success 1ms
+   ✓ refreshes the saved overview after the existing synchronization action succeeds 293ms
+   ✓ shows real project metadata and resolves only the assigned organization sector 106ms
+   ✓ uses saved submissions and successful synchronization for activity, with project-scoped links 98ms
+   × keeps attention actions collapsed, keyboard-accessible, and available on demand 108ms
+     → expected <a …(4)><svg …(11)>…(2)</svg></a> to be null
+   ✓ does not infer sector from topics and keeps missing project metadata explicit 51ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/organization/ProjectWorkspacePage.test.tsx > keeps attention actions collapsed, keyboard-accessible, and available on demand
+AssertionError: expected <a …(4)><svg …(11)>…(2)</svg></a> to be null
+
+- Expected: 
+null
+
++ Received: 
+<a
+  aria-label="Review submissions: 20 records awaiting review"
+  class="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-[var(--fs-primary)] hover:underline"
+  data-discover="true"
+  href="/submissions?project_id=school&review=needs_review"
+>
+  Review submissions
+  <svg
+    aria-hidden="true"
+    class="lucide lucide-arrow-right"
+    fill="none"
+    height="14"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="2"
+    viewBox="0 0 24 24"
+    width="14"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M5 12h14"
+    />
+    <path
+      d="m12 5 7 7-7 7"
+    />
+  </svg>
+</a>
+
+ ❯ src/pages/organization/ProjectWorkspacePage.test.tsx:182:89
+    180|   const attention = await screen.findByRole("region", { name: "Needs Y…
+    181|   await within(attention).findByText("20 records awaiting review");
+    182|   expect(within(attention).queryByRole("link", { name: /20 records awa…
+       |                                                                                         ^
+    183|   const disclosure = within(attention).getByText("20 records awaiting …
+    184|   fireEvent.click(disclosure);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  01:55:31
+   Duration  4.91s (transform 229ms, setup 0ms, collect 757ms, tests 2.37s, environment 799ms, prepare 601ms)
+

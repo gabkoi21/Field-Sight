@@ -20,6 +20,9 @@ it("requests bounded pages in project scope instead of fetching the full submiss
   expect(first.get("project_id")).toBe("p");
   expect(first.get("limit")).toBe("10");
   expect(screen.getByRole("button", { name: /Export all filtered data/ })).toBeTruthy();
+  expect(screen.queryByRole("columnheader", { name: "Review" })).toBeNull();
+  expect(screen.queryByLabelText("Review status filter")).toBeNull();
+  expect(screen.queryByText("Needs review")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "2" }));
   await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.calls.some(([params]) => params.get("offset") === "10")).toBe(true));
 });
@@ -49,7 +52,7 @@ it("resets a later page on global project switching and browser navigation", asy
   expect(vi.mocked(apiClient.submissionPage).mock.calls.filter(([p]) => p.get("project_id") === "other")[0][0].get("offset")).toBe("0");
 });
 
-it("recovers when a later page disappears and resets for search and review filters", async () => {
+it("recovers when a later page disappears and resets for search changes", async () => {
   vi.mocked(apiClient.organizationProjects).mockResolvedValue([{ id: "p", name: "QA" }] as never);
   let shrink = false;
   vi.mocked(apiClient.submissionPage).mockImplementation(async params => {
@@ -63,9 +66,8 @@ it("recovers when a later page disappears and resets for search and review filte
   fireEvent.change(screen.getByPlaceholderText(/Search ID/), { target: { value: "person" } });
   await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("search")).toBe("person"));
   expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("offset")).toBe("0");
-  fireEvent.change(await screen.findByLabelText("Review status filter"), { target: { value: "Invalid" } });
-  await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("review_status")).toBe("invalid"));
-  expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("offset")).toBe("0");
+  expect(screen.queryByLabelText("Review status filter")).toBeNull();
+  expect(screen.queryByRole("columnheader", { name: "Review" })).toBeNull();
 });
 
 it("keeps filters mounted through slow loads and retains rows and focus during background refresh errors", async () => {

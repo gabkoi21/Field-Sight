@@ -1,0 +1,23 @@
+
+> fieldsight-data-platform@0.1.0 build
+> tsc -b && vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 2315 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                   0.69 kB │ gzip:   0.38 kB
+dist/assets/index-BOtREcAZ.css                  112.15 kB │ gzip:  23.26 kB
+dist/assets/sliders-horizontal-BNktWhJW.js        0.75 kB │ gzip:   0.37 kB
+dist/assets/LineChart-BcZHCss8.js                11.10 kB │ gzip:   4.28 kB
+dist/assets/SurveyQuestionExplorer-D_6Ho4LB.js   21.12 kB │ gzip:   6.79 kB
+dist/assets/DashboardsPage-DmYEzUaH.js           26.16 kB │ gzip:   8.24 kB
+dist/assets/ProjectIndicatorsPage-B3Z4KaYo.js    46.33 kB │ gzip:  13.29 kB
+dist/assets/index-COV2WXju.js                   949.98 kB │ gzip: 264.45 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 20.84s

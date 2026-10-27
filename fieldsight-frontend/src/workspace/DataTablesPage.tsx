@@ -74,13 +74,12 @@ export function DataTablesPage() {
         cache.invalidateQueries({ queryKey: ["workspace-tables"] }),
         cache.invalidateQueries({ queryKey: ["submissions"] }),
         cache.invalidateQueries({ queryKey: ["survey-fields"] }),
-        cache.invalidateQueries({ queryKey: ["quality"] }),
       ]);
       closeImport();
       setSelection({ project: projectId, id: result.form_id });
       setOffset(0);
       setMessage(
-        `Imported ${result.imported} rows. Review their quality before using them in indicator calculations.`,
+        `Imported ${result.imported} rows. Confirm their source mapping before using them in indicator calculations.`,
       );
     },
   });
@@ -142,9 +141,6 @@ export function DataTablesPage() {
         {message && (
           <Notice>
             {message}{" "}
-            <Link to="/quality" className="text-inherit underline">
-              Open data quality
-            </Link>
           </Notice>
         )}
         {(tables.error || rows.error) && (
