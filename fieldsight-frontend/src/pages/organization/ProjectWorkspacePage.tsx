@@ -68,10 +68,6 @@ export function ProjectWorkspacePage() {
     queryKey: ["indicators", projectId, "overview", organizationId],
     queryFn: () => apiClient.indicators(projectId), enabled: authorized,
   });
-  const teamQuery = useQuery({
-    queryKey: ["project-team", organizationId, projectId],
-    queryFn: () => apiClient.projectTeam(projectId), enabled: authorized,
-  });
   const hasSector = authorized && Boolean(projectQuery.data?.organization_sector_id);
   const organizationSectors = useQuery({
     queryKey: ["organization-sectors", organizationId],
@@ -90,7 +86,7 @@ export function ProjectWorkspacePage() {
     },
   });
   const refresh = () => Promise.all([
-    projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(), teamQuery.refetch(),
+    projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
     ...(hasSector ? [organizationSectors.refetch(), sectors.refetch()] : []),
   ]);
 
@@ -99,9 +95,6 @@ export function ProjectWorkspacePage() {
   if (projectQuery.error || !projectQuery.data) return <Card className="p-6"><div role="alert"><h1 className="m-0 text-xl font-semibold">Project unavailable</h1><p className={muted}>The project could not be loaded. Try again or return to your projects.</p><div className="flex flex-wrap gap-3"><Button variant="secondary" onClick={() => void projectQuery.refetch()}>Retry project</Button><NavLink to="/projects" className={textLink}>Back to projects</NavLink></div></div></Card>;
   const project = projectQuery.data;
   const connected = Boolean(project.kobo_connection_id && project.kobo_form_id);
-  const enumeratorCount = new Set((teamQuery.data ?? [])
-    .filter(member => member.is_active && member.role === "enumerator")
-    .map(member => member.user_id)).size;
   const activeIndicators = indicatorsQuery.data?.filter(item => item.is_active);
 
 
@@ -134,11 +127,11 @@ export function ProjectWorkspacePage() {
 
     <section aria-label="Project summary" aria-describedby="overview-data-note" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {submissionsQuery.isPending ? <div className="sm:col-span-2 xl:col-span-3"><LoadingSkeleton layout="metrics" label="Loading collection counts…" /></div> : submissionsQuery.error ? <div className="sm:col-span-2 xl:col-span-3"><Card className="h-full p-5"><LoadError label="collection counts" retry={() => void submissionsQuery.refetch()} /></Card></div> : <>
-        <OverviewMetric label="Submitted records" value={submissionsQuery.data!.total} note="All saved submissions" icon={Database} />
+        <OverviewMetric label="Submitted records" value={submissionsQuery.data!.total} note="All saved submissions" icon={Database} href={`/submissions?${scope}`} />
         <OverviewMetric label="Connected forms" value={connected ? 1 : 0} note="Project’s connected Kobo form" icon={Link2} />
-        {teamQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading enumerators…" /></Card> : teamQuery.error ? <Card className="p-5"><LoadError label="enumerator count" retry={() => void teamQuery.refetch()} /></Card> : <OverviewMetric label="Total enumerators" value={enumeratorCount} note="Active enumerators assigned to this project" icon={Users} />}
+        <OverviewMetric label="Awaiting review" value={submissionsQuery.data!.counts.needs_review ?? 0} note="All saved records awaiting evidence review" icon={CircleAlert} href={`/submissions?${scope}&review_status=needs_review`} />
       </>}
-      {indicatorsQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading indicators…" /></Card> : indicatorsQuery.error ? <Card className="p-5"><LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /></Card> : <OverviewMetric label="Active indicators" value={activeIndicators?.length ?? 0} note="Active indicators in this project" icon={Target} />}
+      {indicatorsQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading indicators…" /></Card> : indicatorsQuery.error ? <Card className="p-5"><LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /></Card> : <OverviewMetric label="Active indicators" value={activeIndicators?.length ?? 0} note="Active indicators in this project" icon={Target} href={`/projects/${projectId}/indicators`} />}
     </section>
 
     <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
@@ -149,12 +142,29 @@ export function ProjectWorkspacePage() {
       <ProjectCompletionChart project={project} />
       <ProjectTimeline project={project} />
     </div>
+    <section aria-labelledby="attention-heading" className="border border-[var(--fs-border)] bg-white p-5">
+      <h2 id="attention-heading" className="m-0 text-base font-semibold">Needs attention</h2>
+      {(submissionsQuery.isPending || syncQuery.isPending || indicatorsQuery.isPending) && <p role="status">Checking project exceptions…</p>}
+      {(submissionsQuery.isError || indicatorsQuery.isError) && <p>Some exception checks are unavailable. Resolve the errors above before assessing this project.</p>}
+      {!!submissionsQuery.data?.counts.needs_review && <p><NavLink className={textLink} to={`/submissions?${scope}&review_status=needs_review`}>{submissionsQuery.data.counts.needs_review} submissions await review →</NavLink></p>}
+      <div className="mt-3 text-sm">
+        <h3 className="font-semibold">Source synchronization</h3>
+        {!connected ? <p>No source connected. <NavLink className={textLink} to={`/forms?${scope}`}>Connect a test form</NavLink></p> : syncQuery.isError ? <LoadError label="synchronization status" retry={() => void syncQuery.refetch()} /> : syncQuery.data && <>
+          <p>{syncQuery.data.latest_status === "failed" ? "Latest sync failed" : syncQuery.data.pending ? "Synchronization queued" : syncQuery.data.latest_status === "completed" || syncQuery.data.latest_status === "unchanged" ? "Latest sync succeeded" : "No successful synchronization confirmed"}</p>
+          <p>Last successful sync: {timestamp(syncQuery.data.last_successful_sync)}</p>
+          {syncQuery.data.mode === "scheduled" && syncQuery.data.worker_available === false && <p>Worker unavailable; scheduled collection needs attention.</p>}
+          <NavLink className={textLink} to={`/sync?${scope}`}>Inspect synchronization →</NavLink>
+        </>}
+      </div>
+      {!!activeIndicators?.filter(item => item.schedule_status === "overdue").length && <NavLink className={textLink} to={`/projects/${projectId}/indicators`}>{activeIndicators.filter(item => item.schedule_status === "overdue").length} overdue indicator targets →</NavLink>}
+    </section>
     <p id="overview-data-note" className="sr-only">Collection counts include all saved records. Ready is a data-review status, not M&E result approval. Indicator results use their saved definitions; they are not frozen, approved reporting results. Reporting completeness is not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
   </div>;
 }
 
-function OverviewMetric({ label, value, note, icon: Icon }: { label: string; value: number | string; note: string; icon: LucideIcon }) {
-  return <MetricCard label={label} value={value} title={note} icon={Icon} valueClassName={typeof value === "string" ? "!text-xl" : ""} />;
+function OverviewMetric({ label, value, note, icon: Icon, href }: { label: string; value: number | string; note: string; icon: LucideIcon; href?: string }) {
+  const card = <MetricCard label={label} value={value} title={note} icon={Icon} valueClassName={typeof value === "string" ? "!text-xl" : ""} />;
+  return href ? <NavLink to={href} className="block min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--fs-primary)]">{card}</NavLink> : card;
 }
 
 

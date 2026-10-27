@@ -44,18 +44,18 @@ function setup(switchable = false) {
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/projects/school/overview"]}><Routes><Route path="/projects/:projectId/overview" element={switchable ? <SwitchProject /> : <ProjectWorkspacePage />} /></Routes></MemoryRouter></QueryClientProvider>);
 }
 
-it("uses four display-only project-scoped summary cards", async () => {
+it("uses four source-linked project-scoped summary cards", async () => {
   setup();
   await screen.findByRole("article", { name: /Active indicators/ }, { timeout: 5000 });
   const summary = screen.getByRole("region", { name: "Project summary" });
   expect(within(summary).getByText("123")).toBeTruthy();
   expect(within(summary).getByRole("article", { name: "Connected forms 1" })).toBeTruthy();
-  expect(within(summary).getByRole("article", { name: "Total enumerators 2" })).toBeTruthy();
-  expect(within(summary).queryByText("Awaiting review")).toBeNull();
+  expect(within(summary).getByRole("article", { name: "Awaiting review 20" })).toBeTruthy();
+  expect(within(summary).getByText("Awaiting review")).toBeTruthy();
   expect(within(summary).queryByText("Ready records")).toBeNull();
   expect(within(summary).getByText("3")).toBeTruthy();
   expect(within(summary).getAllByRole("article")).toHaveLength(4);
-  expect(within(summary).queryByRole("link")).toBeNull();
+  expect(within(summary).getAllByRole("link")).toHaveLength(3);
   expect(within(summary).queryByRole("button")).toBeNull();
   expect(screen.queryByText("450")).toBeNull();
   expect(screen.queryByText("Students fed")).toBeNull();
@@ -80,7 +80,7 @@ it("shows honest empty states without creating school completeness or indicator 
   await screen.findByRole("article", { name: /Active indicators 0/ });
 
 
-  expect(within(screen.getByRole("region", { name: "Project summary" })).getAllByText("0")).toHaveLength(3);
+  expect(within(screen.getByRole("region", { name: "Project summary" })).getAllByText("0")).toHaveLength(4);
 
   expect((screen.getByRole("button", { name: "Sync data" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByText("Students fed")).toBeNull();
@@ -200,32 +200,28 @@ it("keeps operational counts available when the trend request fails", async () =
   expect(screen.queryByRole("table", { name: "Daily collection counts", hidden: true })).toBeNull();
 });
 
-it("counts each active project enumerator once and excludes administrators and inactive members", async () => {
-  vi.mocked(apiClient.projectTeam).mockResolvedValue([
-    { user_id: "collector", role: "enumerator", is_active: true },
-    { user_id: "collector", role: "enumerator", is_active: true },
-    { user_id: "inactive", role: "enumerator", is_active: false },
-    { user_id: "admin", role: "organization_admin", is_active: true },
-  ] as never);
+it("shows the scoped review backlog and source health with navigation", async () => {
   setup();
-  expect(await screen.findByRole("article", { name: "Total enumerators 1" })).toBeTruthy();
-  expect(apiClient.projectTeam).toHaveBeenCalledWith("school");
-  expect(screen.queryByText("Last submission")).toBeNull();
+  expect(await screen.findByRole("article", { name: "Awaiting review 20" })).toBeTruthy();
+  expect(screen.getByText("Latest sync succeeded")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Inspect synchronization →" }).getAttribute("href")).toBe("/sync?project_id=school");
 });
 
-it("shows the project timeline while keeping indicator and attention sections hidden", async () => {
+it("shows schedule and compact attention without duplicating indicator analytics", async () => {
   setup();
   await screen.findByRole("article", { name: /Active indicators/ });
   expect(screen.queryByRole("region", { name: "Indicator status" })).toBeNull();
   expect(screen.getByRole("region", { name: "Project timeline" })).toBeTruthy();
-  expect(screen.queryByRole("region", { name: "Needs Your Attention" })).toBeNull();
+  expect(screen.getByRole("region", { name: "Needs attention" })).toBeTruthy();
   expect(screen.queryByText("Last sync")).toBeNull();
   expect(screen.queryByRole("navigation", { name: "Project sections" })).toBeNull();
 });
 
-it("shows completion only for the selected project", async () => {
+it("shows the selected project lifecycle without a progress ring", async () => {
   setup();
-  const chart = await screen.findByRole("region", { name: "Project completion" });
-  expect(within(chart).getByRole("img").getAttribute("aria-label")).toBe("Daily School Feeding Monitoring Form: Not completed. Saved project status: active.");
+  const panel = await screen.findByRole("region", { name: "Project status" });
+  expect(within(panel).getByText("active")).toBeTruthy();
+  expect(within(panel).queryByRole("img")).toBeNull();
+  expect(within(panel).queryByText(/%/)).toBeNull();
   expect(apiClient.organizationProjects).not.toHaveBeenCalled();
 });

@@ -23,7 +23,7 @@ export function ProjectTimeline({ project }: { project: Pick<ApiProject, "start_
   const label = (date: Date | null) => date ? date.toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" }) : "Not set";
   return <section aria-labelledby={heading} className="flex min-w-0 flex-col border border-[var(--fs-metric-border)] bg-white p-5">
     <header className="flex items-center gap-2"><CalendarDays size={19} className="text-[var(--fs-primary)]" aria-hidden="true" /><h2 id={heading} className="m-0 text-lg font-semibold">Project timeline</h2></header>
-    <p className="mb-0 mt-2 text-xs text-[var(--fs-muted)]">Selected project · planned schedule</p>
+    <p className="mb-0 mt-2 text-xs text-[var(--fs-muted)]">Time elapsed / planned period · schedule only</p>
     <div className="flex flex-1 flex-col justify-center py-4">
       <dl className="m-0 grid grid-cols-2 gap-4"><div><dt className="text-xs text-[var(--fs-muted)]">Start date</dt><dd className="m-0 mt-2 text-base font-semibold">{label(start)}</dd></div><div className="text-right"><dt className="text-xs text-[var(--fs-muted)]">End date</dt><dd className="m-0 mt-2 text-base font-semibold">{label(end)}</dd></div></dl>
       {elapsed !== null && <>
