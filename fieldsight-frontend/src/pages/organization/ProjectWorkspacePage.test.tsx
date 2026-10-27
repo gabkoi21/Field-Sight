@@ -10,7 +10,7 @@ import { reportingCompleteness } from "./projectOverview";
 
 const auth = vi.hoisted(() => ({ role: "organization_admin" }));
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ loading: false, user: { memberships: [{ organization_id: "org", role: auth.role }] } }) }));
-vi.mock("../../services/apiClient", () => ({ apiClient: { organizationProjects: vi.fn(), getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
+vi.mock("../../services/apiClient", () => ({ apiClient: { projectActions: vi.fn(), organizationProjects: vi.fn(), getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
 // Chart values are verified through their accessible data alternatives in jsdom.
 vi.mock("recharts", async original => ({ ...await original<object>(), ResponsiveContainer: () => null }));
 
@@ -23,6 +23,7 @@ const indicator = (changes: Partial<Indicator> = {}): Indicator => ({
 
 beforeEach(() => {
   auth.role = "organization_admin";
+  vi.mocked(apiClient.projectActions).mockResolvedValue({ items: [], total: 0, summary: { unresolved: 0, overdue: 0, high_priority: 0 } } as never);
   vi.mocked(apiClient.organizationProjects).mockResolvedValue([{ status: "completed" }, { status: "active" }] as never);
   vi.mocked(apiClient.projectTeam).mockResolvedValue([{ user_id: "collector-1", role: "enumerator", is_active: true }, { user_id: "collector-2", role: "enumerator", is_active: true }] as never);
   vi.mocked(apiClient.analyticsOverview).mockResolvedValue({ trend: [{ day: "Oct 25", submissions: 8, approved: 5 }, { day: "Oct 26", submissions: 12, approved: 9 }] } as never);

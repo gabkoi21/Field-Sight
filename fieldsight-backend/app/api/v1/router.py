@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from app.routes.actions import router as actions_router
 from app.routes.administration import router as administration_router
 from app.routes.analysis import router as analysis_router
 from app.routes.auth import router as auth_router
@@ -18,6 +19,7 @@ from app.routes.sectors import router as sectors_router
 from app.routes.workspace import router as workspace_router
 
 api_router = APIRouter()
+api_router.include_router(actions_router)
 api_router.include_router(health_router, tags=["system"])
 api_router.include_router(auth_router, tags=["authentication"])
 api_router.include_router(sectors_router, tags=["sectors"])

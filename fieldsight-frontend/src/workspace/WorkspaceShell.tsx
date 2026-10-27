@@ -92,6 +92,7 @@ function Shell() {
             : "/projects",
           icon: ClipboardList,
         },
+        { name: "Actions & Follow-ups", path: workspace.hasSelectedProject ? `/projects/${workspace.projectId}/actions` : "/projects", icon: ClipboardList },
       ],
     },
     {

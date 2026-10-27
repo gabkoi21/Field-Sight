@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../services/apiClient";
@@ -25,6 +26,7 @@ export function SubmissionReview({ id, onClose }: { id: string; onClose: () => v
       <dl className="grid gap-3 sm:grid-cols-2"><div><dt>Source</dt><dd>{record.form_name ?? "Form not named"} · {record.external_id}</dd></div><div><dt>Review status</dt><dd>{record.review_status.replaceAll("_", " ")}</dd></div><div><dt>Received (UTC)</dt><dd>{record.submitted_at ? new Date(record.submitted_at).toISOString() : "Not recorded"}</dd></div><div><dt>Collector</dt><dd>{record.enumerator ?? "Not recorded"}</dd></div></dl>
       {record.review_required && <p>Changed evidence requires a new decision.</p>}
       {record.findings.map(finding => <p key={finding.id}>{finding.field && `${finding.field}: `}{finding.detail}</p>)}
+      <Link className="inline-flex min-h-11 items-center font-semibold underline" to={`/projects/${record.project_id}/actions?new=1&submission_id=${id}`}>Create follow-up for this submission</Link>
       <SubmissionEvidence answers={record.raw_answers} loading={false} error={false} />
       <form className="mt-5 grid gap-3" onSubmit={event => { event.preventDefault(); decision.mutate(); }}>
         <label>Decision<select className={controlClass} value={status} onChange={event => setStatus(event.target.value)}><option value="ready">Ready</option><option value="needs_review">Needs review</option><option value="invalid">Invalid</option></select></label>

@@ -25,6 +25,7 @@ import {
   AccountHelpPage,
 } from "../workspace/ProfilePage";
 import { OrganizationSettingsPage } from "../workspace/OrganizationSettingsPage";
+const ProjectActionsPage = lazy(() => import("../pages/organization/ProjectActionsPage").then(module => ({ default: module.ProjectActionsPage })));
 const ProjectIndicatorsPage = lazy(() => import("../pages/organization/ProjectIndicatorsPage").then(module => ({ default: module.ProjectIndicatorsPage })));
 import { WorkspaceReportsPage as ReportsPage } from "../workspace/WorkspaceReportsPage";
 import { SubmissionsPage } from "../pages/organization/SubmissionsPage";
@@ -85,6 +86,7 @@ export function App() {
         />
         <Route path="projects/:projectId" element={<Navigate to="overview" replace />} />
         <Route path="projects/:projectId/details" element={<WorkspaceDetailsPage />} />
+        <Route path="projects/:projectId/actions" element={<ProjectActionsPage />} />
         <Route path="projects/:projectId/overview" element={<ProjectWorkspacePage />} />
         <Route
           path="projects/:projectId/indicators"

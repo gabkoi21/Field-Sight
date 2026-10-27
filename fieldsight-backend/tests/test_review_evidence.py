@@ -300,6 +300,7 @@ def test_review_detail_reason_concurrency_and_history(sync_client):
     assert client.patch(path, headers=headers, json={"status": "ready", **tokens}).status_code == 409
     saved = client.get(f"/submissions/{identifier}", headers=headers).json()
     assert saved["history_total"] == 1 and saved["history"][0]["actor_id"]
+    assert saved["history"][0]["occurred_at"].endswith("+00:00")
     assert saved["history"][0]["note"] == "Invalid answer"
     assert saved["history"][0]["evidence_fingerprint"] == tokens["evidence_fingerprint"]
     assert client.get(f"/submissions/{identifier}?history_offset=50", headers=headers).json()["history"] == []

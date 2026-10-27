@@ -74,7 +74,7 @@ export function SubmissionsPage() {
   const [pagination, setPagination] = useState({ scope, page: 1 });
   const currentPage = pagination.scope === scope ? pagination.page : 1;
   const setCurrentPage = (value: number | ((page: number) => number)) => setPagination(previous => ({ scope, page: typeof value === "function" ? value(previous.scope === scope ? previous.page : 1) : value }));
-  useEffect(() => { setSelected(null); setPagination(previous => previous.scope === scope ? previous : { scope, page: 1 }); }, [scope]);
+  useEffect(() => { setSelected(searchParams.get("submission_id")); setPagination(previous => previous.scope === scope ? previous : { scope, page: 1 }); }, [scope, searchParams.get("submission_id")]);
   const pageSize = 10;
   const params = new URLSearchParams({ offset: String((currentPage - 1) * pageSize), limit: String(pageSize), search: query });
   if (projectId) params.set("project_id", projectId);

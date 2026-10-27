@@ -424,3 +424,42 @@ class IndicatorDefinitionVersion(SQLModel, table=True):
     previous_definition: dict = Field(sa_column=Column(JSON, nullable=False))
     new_definition: dict = Field(sa_column=Column(JSON, nullable=False))
     preview: dict = Field(sa_column=Column(JSON, nullable=False))
+
+
+class ProjectAction(SQLModel, table=True):
+    """Project-owned follow-up; changes are recorded in ProjectActionEvent."""
+
+    __tablename__ = "project_actions"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    project_id: UUID = Field(foreign_key="projects.id", index=True)
+    title: str = Field(max_length=200)
+    description: str = ""
+    priority: str = Field(default="medium", index=True)
+    status: str = Field(default="open", index=True)
+    assigned_user_id: UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    created_by_id: UUID = Field(foreign_key="users.id")
+    due_date: date | None = Field(default=None, index=True)
+    submission_id: UUID | None = Field(
+        default=None, sa_column=Column(ForeignKey("submissions.id", ondelete="SET NULL")))
+    indicator_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("indicators.id", ondelete="SET NULL")))
+    resolution_summary: str | None = None
+    version: int = 1
+    created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+    resolved_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    closed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+
+
+class ProjectActionEvent(SQLModel, table=True):
+    __tablename__ = "project_action_events"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    project_id: UUID = Field(foreign_key="projects.id", index=True)
+    action_id: UUID = Field(foreign_key="project_actions.id", index=True)
+    actor_id: UUID = Field(foreign_key="users.id")
+    event_type: str
+    previous_values: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    new_values: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    note: str | None = None
+    occurred_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))

@@ -791,7 +791,9 @@ def submission_detail(
         QualityFinding.submission_id == submission.id, QualityFinding.organization_id == organization_id,
     ).limit(100)).all()
     return {**_read_submission(submission, project), "review_token": _review_token(submission, db),
-            "history_total": total, "history": [event.model_dump(mode="json") for event in history],
+            "history_total": total, "history": [{**event.model_dump(mode="json"),
+                "occurred_at": (event.occurred_at.replace(tzinfo=UTC) if event.occurred_at.tzinfo is None
+                                else event.occurred_at.astimezone(UTC)).isoformat()} for event in history],
             "findings": [finding.model_dump(mode="json") for finding in findings]}
 
 

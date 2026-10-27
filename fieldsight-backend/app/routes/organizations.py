@@ -488,6 +488,10 @@ def delete_project(
     db.execute(update(Project).where(col(Project.id) == project.id).values(updated_at=Project.updated_at))
     db.refresh(project)
     # Local cleanup and provider deletion are independent retryable operations.
+    from app.models.operations import ProjectAction
+
+    if db.exec(select(ProjectAction.id).where(ProjectAction.project_id == project.id).limit(1)).first():
+        raise HTTPException(409, "Archive this project to preserve its action register and audit history.")
     try:
         indicator_ids = select(Indicator.id).where(col(Indicator.project_id) == project.id)
         db.exec(delete(AnalyticalDashboard).where(col(AnalyticalDashboard.project_id) == project.id))

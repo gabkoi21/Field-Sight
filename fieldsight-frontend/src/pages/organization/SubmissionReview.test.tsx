@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,7 +11,7 @@ afterEach(() => { cleanup(); vi.resetAllMocks(); });
 it("inspects evidence and submits the displayed evidence and review tokens", async () => {
   vi.mocked(apiClient.submissionDetail).mockResolvedValue({ id: "s", external_id: "SCHOOL-1", project_id: "p", review_status: "needs_review", raw_answers: { portions: 215 }, evidence_fingerprint: "v1:current", review_token: "event-1", history: [], history_total: 0, findings: [] } as never);
   vi.mocked(apiClient.reviewSubmission).mockResolvedValue({});
-  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><SubmissionReview id="s" onClose={vi.fn()} /></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><SubmissionReview id="s" onClose={vi.fn()} /></MemoryRouter></QueryClientProvider>);
   await screen.findByText("Review submission SCHOOL-1");
   fireEvent.click(screen.getByText(/All submission answers/));
   expect(screen.getByText("215")).toBeTruthy();
@@ -22,7 +23,7 @@ it("inspects evidence and submits the displayed evidence and review tokens", asy
 it("shows stale evidence conflict and a reload action", async () => {
   vi.mocked(apiClient.submissionDetail).mockResolvedValue({ external_id: "1", review_status: "ready", raw_answers: {}, evidence_fingerprint: "v1:a", review_token: "a", history: [], findings: [], history_total: 0 } as never);
   vi.mocked(apiClient.reviewSubmission).mockRejectedValue(new Error("Submission evidence changed. Reload the record before reviewing."));
-  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><SubmissionReview id="s" onClose={vi.fn()} /></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><SubmissionReview id="s" onClose={vi.fn()} /></MemoryRouter></QueryClientProvider>);
   await screen.findByText("Review submission 1");
   fireEvent.click(screen.getByRole("button", { name: "Record decision" }));
   expect(await screen.findByRole("alert")).toBeTruthy();

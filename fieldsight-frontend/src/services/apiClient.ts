@@ -949,12 +949,29 @@ async function request<T>(
   return result as T;
 }
 
+export interface ProjectAction {
+  id: string; organization_id: string; project_id: string; title: string; description: string;
+  priority: "low" | "medium" | "high"; status: "open" | "in_progress" | "resolved" | "closed";
+  assigned_user_id: string | null; created_by_id: string; due_date: string | null;
+  submission_id: string | null; indicator_id: string | null; resolution_summary: string | null;
+  version: number; created_at: string; updated_at: string; resolved_at: string | null; closed_at: string | null; overdue: boolean;
+}
+export interface ActionDetail extends ProjectAction {
+  history_total: number;
+  history: Array<{ id: string; actor_id: string; occurred_at: string; event_type: string; note: string | null; previous_values: Record<string, unknown>; new_values: Record<string, unknown> }>;
+}
+export interface ActionPage { items: ProjectAction[]; total: number; offset: number; limit: number; summary: { unresolved: number; overdue: number; high_priority: number } }
+export type ActionInput = Pick<ProjectAction, "title" | "description" | "priority" | "assigned_user_id" | "due_date" | "submission_id" | "indicator_id">;
 export interface SubmissionDetail extends ApiSubmission {
   review_token: string; history_total: number;
   history: Array<{ id: string; actor_id: string | null; source: string; occurred_at: string; previous_status: string | null; status: string | null; note: string | null; evidence_fingerprint: string | null }>;
   findings: Array<{ id: string; detail: string; field: string | null }>;
 }
 export const apiClient = {
+  projectActions: (project: string, params = new URLSearchParams()) => request<ActionPage>(`/projects/${project}/actions?${params}`),
+  actionDetail: (project: string, action: string, offset = 0) => request<ActionDetail>(`/projects/${project}/actions/${action}?history_offset=${offset}`),
+  createAction: (project: string, body: ActionInput) => request<ProjectAction>(`/projects/${project}/actions`, { method: "POST", body: JSON.stringify(body) }),
+  updateAction: (project: string, id: string, body: Partial<ActionInput> & { expected_version: number; status?: ProjectAction["status"]; resolution_summary?: string; note?: string }) => request<ProjectAction>(`/projects/${project}/actions/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   submissionDetail: (id: string, offset = 0) => request<SubmissionDetail>(`/submissions/${id}?history_offset=${offset}`),
   reviewSubmission: (id: string, body: { status: string; note: string; evidence_fingerprint: string; expected_review_token: string }) => request(`/submissions/${id}/review-status`, { method: "PATCH", body: JSON.stringify(body) }),
   organizationSettings: (org: string) =>

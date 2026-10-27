@@ -1,3 +1,4 @@
+import { ProjectActionSummary } from "./ProjectActionSummary";
 import { ProjectTimeline } from "../../workspace/ProjectTimeline";
 import { ProjectCompletionChart } from "../../workspace/ProjectCompletionChart";
 import { useState } from "react";
@@ -86,7 +87,7 @@ export function ProjectWorkspacePage() {
     },
   });
   const refresh = () => Promise.all([
-    projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
+    cache.invalidateQueries({ queryKey: ["project-actions"] }), projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
     ...(hasSector ? [organizationSectors.refetch(), sectors.refetch()] : []),
   ]);
 
@@ -157,6 +158,7 @@ export function ProjectWorkspacePage() {
         </>}
       </div>
       {!!activeIndicators?.filter(item => item.schedule_status === "overdue").length && <NavLink className={textLink} to={`/projects/${projectId}/indicators`}>{activeIndicators.filter(item => item.schedule_status === "overdue").length} overdue indicator targets →</NavLink>}
+      <ProjectActionSummary projectId={projectId} organizationId={organizationId} />
     </section>
     <p id="overview-data-note" className="sr-only">Collection counts include all saved records. Ready is a data-review status, not M&E result approval. Indicator results use their saved definitions; they are not frozen, approved reporting results. Reporting completeness is not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
   </div>;
