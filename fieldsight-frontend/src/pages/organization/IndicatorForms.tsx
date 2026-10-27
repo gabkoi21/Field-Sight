@@ -825,8 +825,6 @@ export function IndicatorDefinitionForm({
 
                 </FormField>
 
-                <p className="text-xs">Sum: 2 + 3 = 5. Mean: (20 + 80) / 2 = 50; each entry has equal weight regardless of population. Pooled: (9 + 1) / (10 + 90) = 10%; populations must be comparable. Latest: newest result date, then creation time, then record ID. Periods are independent aggregates.</p>
-
                 {form.unit === "rate" && form.manual_aggregation === "pooled" && <FormField label="Rate per population (e.g. 1000)">
 
                   <input className={inputClass} type="number" required min={0.000001} max={1000000} step="any" value={form.manual_rate_multiplier ?? 1} onChange={event => update("manual_rate_multiplier", Number(event.target.value))} />

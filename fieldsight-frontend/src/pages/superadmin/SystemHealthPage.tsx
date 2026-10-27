@@ -29,19 +29,19 @@ export function SystemHealthPage() {
   const liveQuery = useQuery({
     queryKey: ["health", "live"],
     queryFn: apiClient.live,
-    refetchInterval: 30_000,
+    meta: { backgroundRefresh: true }, refetchInterval: 30_000,
     retry: false,
   });
   const readyQuery = useQuery({
     queryKey: ["health", "ready"],
     queryFn: apiClient.ready,
-    refetchInterval: 30_000,
+    meta: { backgroundRefresh: true }, refetchInterval: 30_000,
     retry: false,
   });
   const statusQuery = useQuery({
     queryKey: ["health", "status"],
     queryFn: apiClient.status,
-    refetchInterval: 30_000,
+    meta: { backgroundRefresh: true }, refetchInterval: 30_000,
     retry: false,
   });
   const refreshing =

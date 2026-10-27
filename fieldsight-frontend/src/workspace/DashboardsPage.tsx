@@ -117,7 +117,7 @@ export function DashboardsPage() {
     queryKey: ["sync-settings", projectId],
     queryFn: () => apiClient.syncSettings(projectId),
     enabled: Boolean(projectId),
-    refetchInterval: 5000,
+    meta: { backgroundRefresh: true }, refetchInterval: 5000,
   });
   useEffect(() => {
     pointerCleanup.current?.();

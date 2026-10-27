@@ -1,3 +1,4 @@
+import { Check, Database } from "lucide-react";
 import { useId } from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -22,22 +23,29 @@ export function CollectionTrend({ data, loading, error, retry, period, onPeriod 
 }) {
   const gradientId = useId().replaceAll(":", "");
   const rows = data?.trend ?? [];
+  const submitted = rows.reduce((sum, row) => sum + row.submissions, 0);
+  const ready = rows.reduce((sum, row) => sum + row.approved, 0);
+  const readyPercent = submitted > 0 ? Math.round(ready / submitted * 100) : 0;
   return <section aria-labelledby="collection-trend-heading" className="min-w-0"><Card className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none">
-    <header className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
-      <div><h2 id="collection-trend-heading" className="m-0 text-base font-semibold">Collection trend</h2><p className={`mb-0 mt-1 text-xs ${muted}`}>Daily submissions · UTC · {period === "7d" ? "last 7 days" : "last 30 days"}</p></div>
-      <div className="inline-flex rounded-lg bg-[var(--fs-canvas)] p-1" role="group" aria-label="Collection trend period">{(["7d", "30d"] as const).map(value => <button key={value} type="button" aria-pressed={period === value} onClick={() => onPeriod(value)} className={`min-h-9 rounded-md px-3 text-xs font-medium transition-colors ${period === value ? "bg-[var(--fs-surface)] text-[var(--fs-primary)] shadow-sm" : muted}`}>{value === "7d" ? "7 days" : "30 days"}</button>)}</div>
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8edf5] px-4 py-3">
+      <h2 id="collection-trend-heading" className="m-0 text-sm font-medium">Collection trend</h2>
+      <div className="inline-flex rounded border border-[#e3eaf5] bg-white p-0.5" role="group" aria-label="Collection trend period">{(["7d", "30d"] as const).map(value => <button key={value} type="button" aria-pressed={period === value} onClick={() => onPeriod(value)} className={`min-h-9 rounded-md px-3 text-xs font-medium transition-colors ${period === value ? "bg-[#edf4ff] text-[var(--fs-primary)]" : muted}`}>{value === "7d" ? "7 days" : "30 days"}</button>)}</div>
     </header>
     {loading ? <div className="p-8"><LoadingState variant="panel" label="Loading collection trend…" /></div> : error ? <ChartError retry={retry} /> : !rows.length ? <div className={`flex min-h-[260px] flex-col items-center justify-center px-6 text-center text-sm ${muted}`}><p className="mb-1 font-medium text-[var(--fs-text)]">No dated submissions in this period</p><p className="m-0">Try a longer period or synchronize your source.</p></div> : <>
-      <div className="flex flex-wrap items-center gap-4 px-5 pt-4 text-xs"><span className="inline-flex items-center gap-2"><i className="h-0.5 w-4 bg-[var(--fs-primary)]" aria-hidden="true" />Submitted</span><span className="inline-flex items-center gap-2"><i className="h-0.5 w-4 bg-[var(--fs-success)]" aria-hidden="true" />Ready records</span></div>
-      <div className="h-[240px] px-2 pb-2 pt-4 sm:px-4" role="img" aria-label={`Daily submitted and ready record counts for the last ${period === "7d" ? "7" : "30"} days. Exact values are available in the chart data table.`}>
+      <div className="flex items-start gap-3 px-5 pt-5 pb-2">
+        <Database size={30} strokeWidth={1.6} className="mt-1 shrink-0 text-[#7184bb]" aria-hidden="true" />
+        <div><p className="m-0 flex items-center gap-1.5 text-base font-medium text-[#24446c]">{submitted > 0 ? readyPercent + "% of records ready" : "No records submitted in this period"}{submitted > 0 && <Check size={19} className="text-[#20b99b]" aria-hidden="true" />}</p><p className="mb-0 mt-1 text-xs text-[#657da7]">{submitted.toLocaleString()} submitted · {ready.toLocaleString()} ready for use · {period === "7d" ? "last 7 days" : "last 30 days"} (UTC)</p></div>
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-4 px-5 pt-3 text-xs text-[#6e87af]"><span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#337cff]" aria-hidden="true" />Submitted</span><span className="inline-flex items-center gap-1.5"><i className="size-2.5 rounded-full bg-[#a5c4f4]" aria-hidden="true" />Ready records</span></div>
+      <div className="h-[250px] px-2 pb-3 pt-4 sm:px-4" role="img" aria-label={`Daily submitted and ready record counts for the last ${period === "7d" ? "7" : "30"} days. Exact values are available in the chart data table.`}>
         <ResponsiveContainer width="100%" height="100%"><AreaChart data={rows} margin={{ top: 8, right: 12, left: -20, bottom: 0 }} accessibilityLayer>
-          <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--fs-primary)" stopOpacity={0.16} /><stop offset="100%" stopColor="var(--fs-primary)" stopOpacity={0.01} /></linearGradient></defs>
-          <CartesianGrid vertical={false} stroke="var(--fs-border)" strokeDasharray="3 5" />
+          <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#337cff" stopOpacity={0.14} /><stop offset="100%" stopColor="#337cff" stopOpacity={0.01} /></linearGradient></defs>
+          <CartesianGrid vertical={false} stroke="#e5edf9" strokeDasharray="3 4" />
           <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--fs-muted)" }} minTickGap={30} dy={8} />
           <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "var(--fs-muted)" }} />
           <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--fs-border)", fontSize: 12 }} />
-          <Area type="linear" dataKey="submissions" name="Submitted" stroke="var(--fs-primary)" strokeWidth={2.5} fill={`url(#${gradientId})`} dot={{ r: 3, strokeWidth: 2, fill: "var(--fs-surface)" }} isAnimationActive={false} />
-          <Area type="linear" dataKey="approved" name="Ready records" stroke="var(--fs-success)" strokeWidth={2} strokeDasharray="5 4" fill="transparent" dot={false} isAnimationActive={false} />
+          <Area type="monotone" dataKey="submissions" name="Submitted" stroke="#337cff" strokeWidth={1.8} fill={`url(#${gradientId})`} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+          <Area type="monotone" dataKey="approved" name="Ready records" stroke="#a5c4f4" strokeWidth={1.6} strokeDasharray="5 4" fill="#a5c4f4" fillOpacity={0.04} dot={false} isAnimationActive={false} />
         </AreaChart></ResponsiveContainer>
       </div>
     </>}

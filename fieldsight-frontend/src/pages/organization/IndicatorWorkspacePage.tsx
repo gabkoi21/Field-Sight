@@ -44,7 +44,6 @@ import {
   type IndicatorMappingInput,
 } from "../../services/apiClient";
 import {
-  Dialog,
   calculations,
   FrameworkForm,
   IndicatorDefinitionForm,
@@ -98,27 +97,34 @@ export function IndicatorWorkspacePage() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set(),
   );
-  const [review, setReview] = useState<{ kind: "definition" | "mapping" | "targets" | "unmapping"; input: IndicatorInput | IndicatorMappingInput | Array<{period: string; target_value: number}>; preview: Awaited<ReturnType<typeof apiClient.indicatorPreview>> } | null>(null);
-  const [reason, setReason] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
+  const [preparingChange, setPreparingChange] = useState(false);
+  function changeControls(preview: Awaited<ReturnType<typeof apiClient.indicatorPreview>>, action: string) {
+    return { change_reason: action + " from indicator editor", confirm_change: true, expected_version: preview.expected_version, preview_token: preview.preview_token };
+  }
   async function reviewDefinition(input: IndicatorInput) {
     if (editing === "new") { definition.mutate(input); return; }
+    setPreparingChange(true);
     try {
       const preview = await apiClient.indicatorPreview((editing as Indicator).id, input);
-      setReason(""); setConfirmed(false); setReview({kind: "definition", input, preview});
-    } catch (cause) { setError((cause as Error).message); }
+      await definition.mutateAsync({ ...input, ...changeControls(preview, "Saved definition changes") } as IndicatorInput);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save changes. Try again."); }
+    finally { setPreparingChange(false); }
   }
   async function reviewMapping(input: IndicatorMappingInput) {
+    setPreparingChange(true);
     try {
       const preview = await apiClient.indicatorMappingPreview(mapping!.id, input);
-      setReason(""); setConfirmed(false); setReview({kind: "mapping", input, preview});
-    } catch (cause) { setError((cause as Error).message); }
+      await map.mutateAsync({ ...input, ...changeControls(preview, "Saved source mapping changes") });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save mapping. Try again."); }
+    finally { setPreparingChange(false); }
   }
   async function reviewTargets(input: Array<{period: string; target_value: number}>) {
+    setPreparingChange(true);
     try {
       const preview = await apiClient.indicatorTargetsPreview(periodTargets!.id, input);
-      setReason(""); setConfirmed(false); setReview({kind: "targets", input, preview});
-    } catch (cause) { setError((cause as Error).message); }
+      await targets.mutateAsync({ rows: input, controls: changeControls(preview, "Saved period target changes") });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to save targets. Try again."); }
+    finally { setPreparingChange(false); }
   }
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Indicator | "new" | null>(null);
@@ -207,7 +213,6 @@ export function IndicatorWorkspacePage() {
     onSuccess: async (data) => {
       const created = editing === "new";
       await refresh();
-      setReview(null);
       setEditing(null);
       setError("");
       if (created) {
@@ -222,7 +227,6 @@ export function IndicatorWorkspacePage() {
       apiClient.saveIndicatorMapping(mapping!.id, input),
     onSuccess: async () => {
       await refresh();
-      setReview(null);
       setMapping(null);
       setError("");
     },
@@ -232,7 +236,6 @@ export function IndicatorWorkspacePage() {
     mutationFn: (controls: {confirm_change: boolean; change_reason: string; expected_version: number; preview_token: string}) => apiClient.deleteIndicatorMapping(mapping!.id, controls),
     onSuccess: async () => {
       await refresh();
-      setReview(null);
       setMapping(null);
       setError("");
     },
@@ -271,7 +274,6 @@ export function IndicatorWorkspacePage() {
       apiClient.saveIndicatorPeriodTargets(periodTargets!.id, input.rows, input.controls),
     onSuccess: async () => {
       await refresh();
-      setReview(null);
       setPeriodTargets(null);
       setError("");
     },
@@ -1062,60 +1064,31 @@ export function IndicatorWorkspacePage() {
           )}
         </>
       )}
-      {review && <Dialog title="Review definition change" onClose={() => setReview(null)} error={error}>
-        <p className="text-xs">{review.preview.notice}</p>
-        <p className="text-xs">Affected periods: {review.preview.affected_periods.join(", ") || "No dated results"}</p>
-        <p>Actual: {amount(review.preview.before.current_value, review.preview.before.unit)} → {amount(review.preview.after.current_value, review.preview.after.unit)}</p>
-        <p className="text-xs">Included: {review.preview.after.mapped_records}; missing: {review.preview.after.missing_records}; invalid: {review.preview.after.invalid_answers}; quality excluded: {review.preview.after.quality_excluded_records}; numerator / denominator: {review.preview.after.numerator ?? "—"} / {review.preview.after.denominator}</p>
-        <label className="grid gap-2 text-xs">Reason / explanation for target exceptions<textarea className={inputClass} value={reason} onChange={e => setReason(e.target.value)} /></label>
-        <label className="my-4 flex gap-2 text-xs"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />Apply the new definition to current calculations for all reporting periods. Retain the previous definition in history.</label>
-        <Button disabled={!confirmed || reason.trim().length < 3 || definition.isPending || map.isPending || targets.isPending || unmap.isPending} onClick={async () => {
-          const controls = { change_reason: reason.trim(), confirm_change: true, expected_version: review.preview.expected_version, preview_token: review.preview.preview_token };
-          try {
-            if (review.kind === "definition") await definition.mutateAsync({ ...review.input as IndicatorInput, ...controls } as IndicatorInput);
-            else if (review.kind === "mapping") await map.mutateAsync({ ...review.input as IndicatorMappingInput, ...controls });
-            else if (review.kind === "unmapping") await unmap.mutateAsync(controls);
-            else await targets.mutateAsync({ rows: review.input as Array<{period: string; target_value: number}>, controls });
-          } catch (cause) {
-            setConfirmed(false);
-            if (cause instanceof Error && /preview|changed since/i.test(cause.message)) {
-              try {
-                const preview = review.kind === "definition"
-                  ? await apiClient.indicatorPreview((editing as Indicator).id, review.input as IndicatorInput)
-                  : review.kind === "unmapping" ? await apiClient.indicatorMappingDeletePreview(mapping!.id)
-                  : review.kind === "mapping"
-                    ? await apiClient.indicatorMappingPreview(mapping!.id, review.input as IndicatorMappingInput)
-                    : await apiClient.indicatorTargetsPreview(periodTargets!.id, review.input as Array<{period: string; target_value: number}>);
-                setReview({...review, preview});
-                setError("The preview was stale. Updated results are shown. Review and confirm again; your reason has been retained.");
-              } catch (refreshError) { setError(refreshError instanceof Error ? refreshError.message : "Preview refresh failed. Try again."); }
-            }
-          }
-        }}>Confirm change</Button>
-      </Dialog>}
-      {editing && !review && (
+      {editing && (
         <IndicatorDefinitionForm
           indicator={editing === "new" ? null : editing}
           nodes={nodes}
           error={error}
-          saving={definition.isPending}
+          saving={preparingChange || definition.isPending}
           onClose={() => setEditing(null)}
           onSave={reviewDefinition}
         />
       )}
-      {mapping && !review && (
+      {mapping && (
         <IndicatorMappingForm
           indicator={mapping}
           projectId={projectId}
           error={error}
-          saving={map.isPending || unmap.isPending}
+          saving={preparingChange || map.isPending || unmap.isPending}
           onClose={() => setMapping(null)}
           onSave={reviewMapping}
           onRemove={async () => {
+            setPreparingChange(true);
             try {
               const preview = await apiClient.indicatorMappingDeletePreview(mapping!.id);
-              setReason(""); setConfirmed(false); setReview({kind: "unmapping", input: {} as IndicatorInput, preview});
-            } catch (cause) { setError(cause instanceof Error ? cause.message : "Preview failed"); }
+              await unmap.mutateAsync(changeControls(preview, "Removed source mapping"));
+            } catch (cause) { setError(cause instanceof Error ? cause.message : "Unable to remove mapping. Try again."); }
+            finally { setPreparingChange(false); }
           }}
         />
       )}
@@ -1130,11 +1103,11 @@ export function IndicatorWorkspacePage() {
           onSave={(input) => saveNode.mutate(input)}
         />
       )}
-      {periodTargets && !review && (
+      {periodTargets && (
         <PeriodTargetsForm
           indicator={periodTargets}
           error={error}
-          saving={targets.isPending}
+          saving={preparingChange || targets.isPending}
           onClose={() => setPeriodTargets(null)}
           onSave={reviewTargets}
         />

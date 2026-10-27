@@ -10,9 +10,29 @@
       rel="stylesheet"
     />
     <title>FieldSight</title>
+    <style>
+      .startup-skeleton { padding: 32px; background: #f5f7fb; min-height: 100vh; box-sizing: border-box; }
+      .startup-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+      .startup-heading { height: 24px; width: 180px; background: #e5eaf1; border-radius: 4px; margin-bottom: 24px; }
+      .startup-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+      .startup-metrics i { display: block; height: 120px; background: white; border: 1px solid #d6e0ed; }
+      .startup-panel { padding: 20px; background: white; border: 1px solid #d6e0ed; }
+      .startup-panel i { display: block; height: 24px; margin: 16px 0; background: #edf1f6; border-radius: 4px; }
+      @media (max-width: 640px) { .startup-skeleton { padding: 16px; } .startup-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (prefers-reduced-motion: no-preference) { .startup-skeleton > div { animation: startup-pulse 1.5s ease-in-out infinite; } @keyframes startup-pulse { 50% { opacity: .5; } } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div role="status" aria-label="Loading FieldSight" class="startup-skeleton">
+        <span class="startup-sr-only">Loading FieldSight…</span>
+        <div aria-hidden="true">
+          <div class="startup-heading"></div>
+          <div class="startup-metrics"><i></i><i></i><i></i><i></i></div>
+          <div class="startup-panel"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

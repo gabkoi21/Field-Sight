@@ -1,11 +1,17 @@
-import { Component, Suspense, type ReactNode } from "react";
+import { QueryClientContext, useIsFetching } from "@tanstack/react-query";
+import { Component, Suspense, useContext, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { LoadingSkeleton, LoadingState } from "../ui";
 
 function RouteLoading({ pathname }: { pathname: string }) {
   if (pathname.endsWith("/dashboards") || pathname === "/superadmin") return <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />;
   if (pathname.includes("indicators")) return <LoadingSkeleton label="Loading indicators…" />;
-  return <LoadingState variant="page" label={pathname === "/analytics" ? "Preparing analysis…" : "Loading page…"} />;
+  return <LoadingSkeleton layout="table-page" label={pathname === "/analytics" ? "Preparing analysis…" : "Loading page…"} />;
+}
+
+function RefreshSkeleton() {
+  const refreshing = useIsFetching({ predicate: query => query.getObserversCount() > 0 && query.state.status === "success" && !query.meta?.backgroundRefresh && query.queryKey[0] !== "kobo-pending-sync" });
+  return refreshing ? <div className="mb-4" aria-busy="true"><LoadingState variant="inline" label="Refreshing page data…" /></div> : null;
 }
 
 class PageLoadBoundary extends Component<{ path: string; children: ReactNode }, { failed: boolean }> {
@@ -23,5 +29,6 @@ class PageLoadBoundary extends Component<{ path: string; children: ReactNode }, 
 /** Only route content suspends; the authenticated shell remains mounted. */
 export function RouteContent() {
   const { pathname } = useLocation();
-  return <PageLoadBoundary path={pathname}><Suspense key={pathname} fallback={<RouteLoading pathname={pathname} />}><Outlet /></Suspense></PageLoadBoundary>;
+  const queryClient = useContext(QueryClientContext);
+  return <PageLoadBoundary path={pathname}>{queryClient && <RefreshSkeleton />}<Suspense key={pathname} fallback={<RouteLoading pathname={pathname} />}><Outlet /></Suspense></PageLoadBoundary>;
 }

@@ -76,7 +76,7 @@ it("opens the indicator requested by an overview action instead of the first ind
   expect((screen.getByRole("combobox", { name: "Indicator" }) as HTMLSelectElement).value).toBe("1");
 });
 
-it.each([false, true])("reviews source mapping and requires fresh confirmation after stale=%s", async (stale) => {
+it.each([false, true])("saves mapping without a review dialog and supports retry after stale=%s", async (stale) => {
   const items = ["Boys present", "Girls present"].map(
     (name, index) =>
       ({
@@ -248,21 +248,12 @@ it.each([false, true])("reviews source mapping and requires fresh confirmation a
     target: { value: "sum" },
   });
   fireEvent.click(within(dialog).getByRole("button", { name: "Save mapping" }));
-  const review = await screen.findByRole("dialog", {name: "Review definition change"});
-  expect(apiClient.saveIndicatorMapping).not.toHaveBeenCalled();
-  const confirm = within(review).getByRole("button", {name: "Confirm change"});
-  expect((confirm as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.change(within(review).getByRole("textbox"), {target: {value: "Reviewed source mapping"}});
-  fireEvent.click(within(review).getByRole("checkbox"));
-  fireEvent.click(confirm);
+  expect(screen.queryByRole("dialog", { name: "Review definition change" })).toBeNull();
   if (stale) {
-    await within(review).findByText(/The preview was stale/);
-    expect(within(review).getByRole("textbox")).toHaveProperty("value", "Reviewed source mapping");
-    expect(within(review).getByRole("checkbox")).toHaveProperty("checked", false);
-    expect(within(review).getByRole("button", {name: "Confirm change"})).toHaveProperty("disabled", true);
+    await within(dialog).findByText(/Evidence changed since preview/);
     expect(apiClient.saveIndicatorMapping).toHaveBeenCalledTimes(1);
-    fireEvent.click(within(review).getByRole("checkbox"));
-    fireEvent.click(within(review).getByRole("button", {name: "Confirm change"}));
+    await waitFor(() => expect(within(dialog).getByRole("button", {name: "Save mapping"})).toHaveProperty("disabled", false));
+    fireEvent.click(within(dialog).getByRole("button", {name: "Save mapping"}));
   }
   await waitFor(() =>
     expect(apiClient.saveIndicatorMapping).toHaveBeenCalledWith("1", {
@@ -270,7 +261,7 @@ it.each([false, true])("reviews source mapping and requires fresh confirmation a
       source_field: "girls",
       calculation: "sum",
       match_value: null,
-      confirm_change: true, change_reason: "Reviewed source mapping", expected_version: 0, preview_token: "signed-preview",
+      confirm_change: true, change_reason: "Saved source mapping changes from indicator editor", expected_version: 0, preview_token: "signed-preview",
     }),
   );
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

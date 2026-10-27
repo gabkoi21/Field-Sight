@@ -62,7 +62,7 @@ export function ProjectWorkspacePage() {
   });
   const syncQuery = useQuery({
     queryKey: ["project-overview", organizationId, projectId, "sync"],
-    queryFn: () => apiClient.syncSettings(projectId), enabled: authorized, refetchInterval: 15000,
+    queryFn: () => apiClient.syncSettings(projectId), enabled: authorized, meta: { backgroundRefresh: true }, refetchInterval: 15000,
   });
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", projectId, "overview", organizationId],

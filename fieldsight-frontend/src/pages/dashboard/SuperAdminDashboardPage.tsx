@@ -35,7 +35,7 @@ export function SuperAdminDashboardPage() {
   const navigate = useNavigate();
   const organizationsQuery = useQuery({ queryKey: ["platform-organizations"], queryFn: apiClient.organizations });
   const usersQuery = useQuery({ queryKey: ["platform-users"], queryFn: apiClient.users });
-  const statusQuery = useQuery({ queryKey: ["health", "status"], queryFn: apiClient.status, refetchInterval: 30_000 });
+  const statusQuery = useQuery({ queryKey: ["health", "status"], queryFn: apiClient.status, meta: { backgroundRefresh: true }, refetchInterval: 30_000 });
   if (organizationsQuery.isLoading || usersQuery.isLoading)
     return <div className="space-y-6"><PageHeader eyebrow="Platform operations" title="Platform overview" description="Tenant access, account coverage, and service health." /><LoadingSkeleton layout="dashboard" metricCount={4} label="Loading platform operations…" /></div>;
 
