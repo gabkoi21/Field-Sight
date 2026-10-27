@@ -130,23 +130,35 @@ def test_evidence_reconciles_linked_exclusions(analysis_client):
     assert sum(item["reason"] == "quality_excluded" for item in evidence["items"]) == result["quality_excluded_records"]
     assert sum(item["reason"] == "missing_answer" for item in evidence["items"]) == result["missing_records"]
 
+
 def controls(preview):
-    return {"confirm_change": True, "change_reason": "Reviewed updated evidence",
-            "expected_version": preview["expected_version"], "preview_token": preview["preview_token"]}
+    return {
+        "confirm_change": True,
+        "change_reason": "Reviewed updated evidence",
+        "expected_version": preview["expected_version"],
+        "preview_token": preview["preview_token"],
+    }
 
 
 def test_latest_scope_pagination_and_ties(sync_client):
     from datetime import datetime
+
     from sqlmodel import select
+
     from app.models.workspace import CollectedResult
 
     client, engine, project, headers = sync_client
     indicator = create(client, project, headers, manual_aggregation="latest")
     path = f"/indicators/{indicator}"
-    for day, value, location in [("2026-09-01", 20, "West"), ("2026-10-01", 80, "East"),
-                                 ("2026-10-01", 90, "East")]:
-        assert client.post(path + "/collected-results", headers=headers,
-                           json={"result_date": day, "value": value, "location": location}).status_code == 201
+    for day, value, location in [("2026-09-01", 20, "West"), ("2026-10-01", 80, "East"), ("2026-10-01", 90, "East")]:
+        assert (
+            client.post(
+                path + "/collected-results",
+                headers=headers,
+                json={"result_date": day, "value": value, "location": location},
+            ).status_code
+            == 201
+        )
     with Session(engine) as db:
         rows = db.exec(select(CollectedResult).where(CollectedResult.indicator_id == UUID(indicator))).all()
         for row in rows:
@@ -171,6 +183,7 @@ def test_latest_scope_pagination_and_ties(sync_client):
 
 def test_pooled_missing_invalid_and_zero(sync_client):
     from sqlmodel import select
+
     from app.models.workspace import CollectedResult
 
     client, engine, project, headers = sync_client
@@ -178,8 +191,14 @@ def test_pooled_missing_invalid_and_zero(sync_client):
     path = f"/indicators/{indicator}"
     assert client.get(path, headers=headers).json()["current_value"] is None
     for _ in range(3):
-        assert client.post(path + "/collected-results", headers=headers,
-                           json={"result_date": "2026-10-01", "numerator": 0, "denominator": 10}).status_code == 201
+        assert (
+            client.post(
+                path + "/collected-results",
+                headers=headers,
+                json={"result_date": "2026-10-01", "numerator": 0, "denominator": 10},
+            ).status_code
+            == 201
+        )
     # Representative legacy malformed rows retained for inspection.
     with Session(engine) as db:
         rows = db.exec(select(CollectedResult).where(CollectedResult.indicator_id == UUID(indicator))).all()
@@ -194,22 +213,47 @@ def test_pooled_missing_invalid_and_zero(sync_client):
     assert result["missing_records"] == result["invalid_answers"] == result["mapped_records"] == 1
 
 
-@pytest.mark.parametrize("change", ["answer", "review", "insert", "delete", "manual_insert", "manual_update", "manual_delete", "definition", "forged", "proposal"])
+@pytest.mark.parametrize(
+    "change",
+    [
+        "answer",
+        "review",
+        "insert",
+        "delete",
+        "manual_insert",
+        "manual_update",
+        "manual_delete",
+        "definition",
+        "forged",
+        "proposal",
+    ],
+)
 def test_stale_confirmation_is_atomic(analysis_client, change):
     from sqlmodel import select
+
     from app.models.operations import Submission
     from app.models.workspace import CollectedResult
 
     client, engine, project, headers = analysis_client
-    indicator = create(client, project, headers, manual_aggregation="sum", mapping={
-        "source_field": "score", "source_form_id": "form-1", "calculation": "sum"})
+    indicator = create(
+        client,
+        project,
+        headers,
+        manual_aggregation="sum",
+        mapping={"source_field": "score", "source_form_id": "form-1", "calculation": "sum"},
+    )
     path = f"/indicators/{indicator}"
     # Manual rows are retained even while linked evidence is selected.
     with Session(engine) as db:
         row = db.get(Indicator, UUID(indicator))
-        manual = CollectedResult(indicator_id=row.id, project_id=row.project_id,
-                                 organization_id=row.organization_id, created_by_id=row.created_by_id,
-                                 result_date=__import__('datetime').date(2026, 10, 1), value=20)
+        manual = CollectedResult(
+            indicator_id=row.id,
+            project_id=row.project_id,
+            organization_id=row.organization_id,
+            created_by_id=row.created_by_id,
+            result_date=__import__("datetime").date(2026, 10, 1),
+            value=20,
+        )
         db.add(manual)
         db.commit()
     preview = client.post(path + "/definition-preview", headers=headers, json={"target_value": 200}).json()
@@ -260,11 +304,13 @@ def test_stale_confirmation_is_atomic(analysis_client, change):
 
 def test_provider_metadata_does_not_invalidate_preview(analysis_client):
     from sqlmodel import select
+
     from app.models.operations import Submission
 
     client, engine, project, headers = analysis_client
-    indicator = create(client, project, headers, mapping={
-        "source_field": "score", "source_form_id": "form-1", "calculation": "sum"})
+    indicator = create(
+        client, project, headers, mapping={"source_field": "score", "source_form_id": "form-1", "calculation": "sum"}
+    )
     path = f"/indicators/{indicator}"
     preview = client.post(path + "/definition-preview", headers=headers, json={"target_value": 200}).json()
     with Session(engine) as db:
@@ -278,13 +324,18 @@ def test_provider_metadata_does_not_invalidate_preview(analysis_client):
 
 def test_count_records_includes_unanswered_question(analysis_client):
     client, _, project, headers = analysis_client
-    indicator = create(client, project, headers, mapping={
-        "source_field": "score", "source_form_id": "form-1", "calculation": "count_records"})
+    indicator = create(
+        client,
+        project,
+        headers,
+        mapping={"source_field": "score", "source_form_id": "form-1", "calculation": "count_records"},
+    )
     path = f"/indicators/{indicator}"
     result = client.get(path, headers=headers).json()
     evidence = client.get(path + "/evidence", headers=headers).json()
     assert sum(row["included"] for row in evidence["items"]) == result["denominator"] == result["mapped_records"]
     assert all(row["included"] or row["reason"] == "quality_excluded" for row in evidence["items"])
+
 
 def test_concurrent_confirmations_cannot_bypass_validation(sync_client):
     from concurrent.futures import ThreadPoolExecutor
@@ -325,6 +376,7 @@ def test_integrity_failure_rolls_back_definition_and_history(sync_client):
 
 def test_cross_organization_preview_evidence_and_confirmation_are_denied(sync_client):
     from datetime import UTC, datetime, timedelta
+
     from app.core.config import Settings
     from app.core.security import create_access_token
     from app.models.identity import Organization, OrganizationMembership, RefreshSession, Role, User
@@ -339,8 +391,9 @@ def test_cross_organization_preview_evidence_and_confirmation_are_denied(sync_cl
         db.add_all([user, org])
         db.flush()
         db.add(OrganizationMembership(organization_id=org.id, user_id=user.id, role=Role.ORGANIZATION_ADMIN))
-        refresh = RefreshSession(user_id=user.id, token_hash="other-preview-refresh",
-                                 expires_at=datetime.now(UTC) + timedelta(days=1))
+        refresh = RefreshSession(
+            user_id=user.id, token_hash="other-preview-refresh", expires_at=datetime.now(UTC) + timedelta(days=1)
+        )
         db.add(refresh)
         db.commit()
         other = {"Authorization": "Bearer " + create_access_token(user.id, refresh.id, Settings(environment="test"))}
@@ -349,13 +402,16 @@ def test_cross_organization_preview_evidence_and_confirmation_are_denied(sync_cl
     assert client.post(path + "/definition-preview", headers=other, json={"target_value": 200}).status_code == 404
     assert client.patch(path, headers=other, json={"target_value": 200, **controls(preview)}).status_code == 404
 
+
 def test_mapping_and_targets_previews_bind_proposal_and_evidence(analysis_client):
     from sqlmodel import select
+
     from app.models.operations import Submission
 
     client, engine, project, headers = analysis_client
-    indicator = create(client, project, headers, mapping={
-        "source_field": "score", "source_form_id": "form-1", "calculation": "sum"})
+    indicator = create(
+        client, project, headers, mapping={"source_field": "score", "source_form_id": "form-1", "calculation": "sum"}
+    )
     path = f"/indicators/{indicator}"
     proposal = {"source_field": "score", "source_form_id": "form-1", "calculation": "average"}
     preview = client.post(path + "/mapping-preview", headers=headers, json=proposal).json()
@@ -371,8 +427,12 @@ def test_mapping_and_targets_previews_bind_proposal_and_evidence(analysis_client
     assert client.get(path, headers=headers).json()["mapping"]["calculation"] == "average"
     targets = [{"period": "2026-10", "target_value": 40}]
     preview = client.post(path + "/period-targets-preview", headers=headers, json=targets).json()
-    bad = client.put(path + "/period-targets", headers=headers, params=controls(preview),
-                     json=[{"period": "2026-10", "target_value": 60}])
+    bad = client.put(
+        path + "/period-targets",
+        headers=headers,
+        params=controls(preview),
+        json=[{"period": "2026-10", "target_value": 60}],
+    )
     assert bad.status_code == 409
     assert client.get(path + "/period-targets", headers=headers).json() == []
     saved = client.put(path + "/period-targets", headers=headers, params=controls(preview), json=targets)
@@ -383,12 +443,16 @@ def test_mapping_and_targets_previews_bind_proposal_and_evidence(analysis_client
     assert saved.status_code == 204, saved.text
     assert client.get(path, headers=headers).json()["mapping"] is None
 
+
 def test_schema_display_metadata_does_not_invalidate_preview(analysis_client):
     from sqlmodel import select
+
     from app.models.operations import SurveySchema
+
     client, engine, project, headers = analysis_client
-    indicator = create(client, project, headers, mapping={
-        "source_field": "score", "source_form_id": "form-1", "calculation": "sum"})
+    indicator = create(
+        client, project, headers, mapping={"source_field": "score", "source_form_id": "form-1", "calculation": "sum"}
+    )
     path = f"/indicators/{indicator}"
     preview = client.post(path + "/definition-preview", headers=headers, json={"target_value": 200}).json()
     with Session(engine) as db:
@@ -400,17 +464,22 @@ def test_schema_display_metadata_does_not_invalidate_preview(analysis_client):
     saved = client.patch(path, headers=headers, json={"target_value": 200, **controls(preview)})
     assert saved.status_code == 200, saved.text
 
+
 def test_broken_mapping_retains_excluded_evidence(analysis_client):
     from sqlmodel import select
+
     from app.models.operations import SurveySchema
+
     client, engine, project, headers = analysis_client
-    indicator = create(client, project, headers, mapping={
-        "source_field": "score", "source_form_id": "form-1", "calculation": "sum"})
+    indicator = create(
+        client, project, headers, mapping={"source_field": "score", "source_form_id": "form-1", "calculation": "sum"}
+    )
     path = f"/indicators/{indicator}"
     with Session(engine) as db:
         schema = db.exec(select(SurveySchema).where(SurveySchema.project_id == UUID(project))).one()
-        schema.fields_json = [{**field, "type": "text"} if field["source_field"] == "score" else field
-                              for field in schema.fields_json]
+        schema.fields_json = [
+            {**field, "type": "text"} if field["source_field"] == "score" else field for field in schema.fields_json
+        ]
         db.add(schema)
         db.commit()
     evidence = client.get(path + "/evidence", headers=headers).json()

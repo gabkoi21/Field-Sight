@@ -1,21 +1,23 @@
 """Disposable local browser fixture. Never use against an existing database."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from datetime import UTC, datetime, timedelta
+
 import jwt
 import uvicorn
 from fastapi import Request
-from sqlmodel import SQLModel, Session, create_engine
-from app.main import create_app
+from sqlmodel import Session, SQLModel, create_engine
+
+import app.routes.auth as auth
 from app.core.config import Settings
 from app.core.security import password_hasher
 from app.db.session import get_session
-from app.models.identity import User, Role
-import app.routes.auth as auth
+from app.main import create_app
+from app.models.identity import Role, User
 
 path = Path(__file__).resolve().parents[1] / "outputs" / f"browser-auth-{uuid4().hex}.db"
 if path.exists():

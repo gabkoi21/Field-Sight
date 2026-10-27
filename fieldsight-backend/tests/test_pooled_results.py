@@ -51,7 +51,9 @@ def test_legacy_results_are_not_silently_reinterpreted_and_fraction_validation(s
     definition = {"name": "Legacy percentage", "code": "LEGACY", "unit": "percentage"}
     indicator = client.post(f"/projects/{project}/indicators", headers=headers, json=definition).json()["id"]
     from uuid import UUID
+
     from sqlmodel import Session
+
     from app.models.operations import Indicator
 
     with Session(engine) as db:
@@ -63,8 +65,9 @@ def test_legacy_results_are_not_silently_reinterpreted_and_fraction_validation(s
     client.post(path + "/collected-results", headers=headers, json={"result_date": "2026-10-01", "value": 0})
     assert client.patch(path, headers=headers, json={"manual_aggregation": "pooled"}).status_code == 409
     assert client.get(path, headers=headers).json()["current_value"] == 0
-    preview = client.post(path + "/definition-preview", headers=headers,
-                          json={"manual_aggregation": "unweighted_mean"}).json()
+    preview = client.post(
+        path + "/definition-preview", headers=headers, json={"manual_aggregation": "unweighted_mean"}
+    ).json()
     assert (
         client.patch(
             path,

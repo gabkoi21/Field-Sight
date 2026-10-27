@@ -23,7 +23,9 @@ def context(fixture):
 
 def indicator(client, project, headers, **values):
     unit = values.get("unit", "number")
-    values.setdefault("manual_aggregation", "unweighted_mean" if unit == "percentage" else "latest" if unit == "text" else "sum")
+    values.setdefault(
+        "manual_aggregation", "unweighted_mean" if unit == "percentage" else "latest" if unit == "text" else "sum"
+    )
     response = client.post(
         f"/projects/{project}/indicators",
         headers=headers,

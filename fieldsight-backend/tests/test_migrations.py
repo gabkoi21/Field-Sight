@@ -111,7 +111,9 @@ def test_followup_migrations_preserve_legacy_results(tmp_path: Path, monkeypatch
 
 def test_auth_migration_preserves_legacy_users_and_sessions(tmp_path: Path, monkeypatch) -> None:
     from datetime import UTC, datetime, timedelta
+
     from sqlmodel import Session, create_engine
+
     from app.models.identity import RefreshSession, User
 
     path = tmp_path / "legacy-auth.db"
@@ -123,20 +125,30 @@ def test_auth_migration_preserves_legacy_users_and_sessions(tmp_path: Path, monk
     engine = create_engine(f"sqlite:///{path.as_posix()}")
     with Session(engine) as db:
         user = User(email="legacy@example.com", password_hash="synthetic-unchanged")
-        db.add(user); db.flush()
-        session = RefreshSession(user_id=user.id, token_hash="synthetic-legacy-hash",
-                                 expires_at=datetime.now(UTC) + timedelta(days=3))
-        db.add(session); db.commit()
+        db.add(user)
+        db.flush()
+        session = RefreshSession(
+            user_id=user.id, token_hash="synthetic-legacy-hash", expires_at=datetime.now(UTC) + timedelta(days=3)
+        )
+        db.add(session)
+        db.commit()
     engine.dispose()
     with connect(path) as db:
         db.execute("DROP INDEX IF EXISTS ix_refresh_sessions_family_id")
         for column in ["family_id", "remembered", "rotated_at"]:
             db.execute(f"ALTER TABLE refresh_sessions DROP COLUMN {column}")
         before_users = db.execute("SELECT * FROM users").fetchall()
-        before_sessions = db.execute("SELECT id,user_id,token_hash,expires_at,revoked_at,replaced_by_id,created_at FROM refresh_sessions").fetchall()
+        before_sessions = db.execute(
+            "SELECT id,user_id,token_hash,expires_at,revoked_at,replaced_by_id,created_at FROM refresh_sessions"
+        ).fetchall()
     command.upgrade(config, "head")
     with connect(path) as db:
         assert db.execute("SELECT * FROM users").fetchall() == before_users
-        assert db.execute("SELECT id,user_id,token_hash,expires_at,revoked_at,replaced_by_id,created_at FROM refresh_sessions").fetchall() == before_sessions
+        assert (
+            db.execute(
+                "SELECT id,user_id,token_hash,expires_at,revoked_at,replaced_by_id,created_at FROM refresh_sessions"
+            ).fetchall()
+            == before_sessions
+        )
         assert db.execute("SELECT family_id,remembered,rotated_at FROM refresh_sessions").fetchone() == (None, 1, None)
     get_settings.cache_clear()

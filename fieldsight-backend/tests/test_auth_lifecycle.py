@@ -174,9 +174,11 @@ def test_diagnostics_are_sanitized_and_correlated(auth, caplog):
 
 
 def test_production_cookie_keeps_secure_defaults():
+    from uuid import uuid4
+
     from cryptography.fernet import Fernet
     from fastapi import Response
-    from uuid import uuid4
+
     from app.routes.auth import _set_tokens
 
     settings = Settings(

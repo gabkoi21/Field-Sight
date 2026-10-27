@@ -1,4 +1,17 @@
 # Local database files and merge recovery backups
+node_modules/
+__pycache__/
+.pytest*/
+.mypy_cache/
+.ruff_cache/
+*.py[cod]
+*.db-wal
+*.db-shm
+/tmp/
+**/test-results/
+**/playwright-report/
+**/coverage/
+*.log
 fieldsight-backend/fieldsight.db
 fieldsight-backend/fieldsight.db-shm
 fieldsight-backend/fieldsight.db-wal
