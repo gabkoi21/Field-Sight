@@ -10,7 +10,7 @@ export function SyncControls({ projectId, connected }: { projectId: string; conn
   const [interval, setInterval] = useState(3600);
   useEffect(() => { if (settings.data) setInterval(settings.data.interval_seconds ?? settings.data.interval_minutes * 60); }, [settings.data?.interval_minutes, settings.data?.interval_seconds]);
   const refresh = async () => {
-    await Promise.all(["sync-settings", "sync-runs", "submissions", "workspace-tables", "indicators", "collected-results", "project-overview"].map(
+    await Promise.all(["kobo-pending-sync", "sync-settings", "sync-runs", "submissions", "workspace-tables", "indicators", "collected-results", "project-overview"].map(
       key => cache.invalidateQueries({ queryKey: [key] }),
     ));
   };

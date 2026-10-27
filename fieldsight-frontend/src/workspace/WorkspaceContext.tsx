@@ -19,7 +19,7 @@ type WorkspaceState = {
 };
 const WorkspaceContext = createContext<WorkspaceState | null>(null);
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: sessionLoading } = useAuth();
   const membership =
     user?.memberships.find((m) => m.role === "organization_admin") ??
     user?.memberships[0];
@@ -30,7 +30,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const query = useQuery({
     queryKey: ["organization-projects", organizationId],
     queryFn: () => apiClient.organizationProjects(organizationId),
-    enabled: Boolean(organizationId),
+    enabled: Boolean(organizationId) && !sessionLoading,
   });
   const projects = query.data ?? [];
   const routeId = location.pathname.match(/^\/projects\/([^/]+)/)?.[1];

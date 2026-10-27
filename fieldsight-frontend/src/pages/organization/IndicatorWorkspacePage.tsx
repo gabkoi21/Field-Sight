@@ -1293,17 +1293,6 @@ function IndicatorResults({
           reporting-period results.
         </Notice>
       )}
-      {indicator.mapping_health !== "healthy" && (
-        <Notice>
-          Source status: {indicator.mapping_health.replaceAll("_", " ")}.{" "}
-          <button
-            onClick={onMap}
-            className="border-0 bg-transparent font-semibold text-[#0c8593] underline"
-          >
-            Configure source mapping
-          </button>
-        </Notice>
-      )}
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[

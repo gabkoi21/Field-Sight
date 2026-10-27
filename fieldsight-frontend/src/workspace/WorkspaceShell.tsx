@@ -19,16 +19,17 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { apiClient } from "../services/apiClient";
 import { WorkspaceProvider, useWorkspace } from "./WorkspaceContext";
+import { LoadingState } from "../components/ui";
 import { RouteContent } from "../components/layout/RouteContent";
 
-export function WorkspaceShell() {
+export function WorkspaceShell({ loading = false }: { loading?: boolean }) {
   return (
     <WorkspaceProvider>
-      <Shell />
+      <Shell loading={loading} />
     </WorkspaceProvider>
   );
 }
-function Shell() {
+function Shell({ loading }: { loading: boolean }) {
   const { user, logout } = useAuth();
   const workspace = useWorkspace();
   const location = useLocation();
@@ -69,10 +70,15 @@ function Shell() {
   const pending = useQuery({
     queryKey: ["kobo-pending-sync"],
     queryFn: apiClient.pendingKoboSync,
-    enabled: workspace.isAdmin,
-    staleTime: 300000,
-    refetchOnWindowFocus: false,
+    enabled: workspace.isAdmin && !loading,
+    staleTime: 5000,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    meta: { backgroundRefresh: true },
   });
+  // The URL still identifies the current page while project data is loading.
+  const navigationHasProject = workspace.hasSelectedProject ||
+    Boolean(workspace.projectId && (loading || workspace.loading));
   const sections = [
     {
       title: "Project",
@@ -80,19 +86,18 @@ function Shell() {
         { name: "Projects", path: "/projects", icon: FolderKanban },
         {
           name: "Overview",
-          path: workspace.hasSelectedProject
+          path: navigationHasProject
             ? `/projects/${workspace.projectId}/overview`
             : "/projects",
           icon: LayoutDashboard,
         },
         {
           name: "Details & activity",
-          path: workspace.hasSelectedProject
+          path: navigationHasProject
             ? `/projects/${workspace.projectId}/details`
             : "/projects",
           icon: ClipboardList,
         },
-        { name: "Actions & Follow-ups", path: workspace.hasSelectedProject ? `/projects/${workspace.projectId}/actions` : "/projects", icon: ClipboardList },
       ],
     },
     {
@@ -152,14 +157,9 @@ function Shell() {
               <p className="navigation-section-label mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
                 {section.title}
               </p>
-              {section.items.map(({ name, path, icon: Icon }) => ["Overview", "Details & activity"].includes(name) && !workspace.hasSelectedProject ? (
-                <div key={name} className="navigation-project-hint my-0.5 px-3 py-2">
-                  <span aria-disabled="true" className="flex items-center gap-2.5 text-xs text-[#91a9bb] opacity-60">
-                    <Icon size={15} />{name}
-                  </span>
-                  <NavLink to="/projects" onClick={() => setOpen(false)} className="mt-1 block pl-6 text-[12px] text-[#b5c7d5] underline underline-offset-2">
-                    Choose a project first
-                  </NavLink>
+              {section.items.map(({ name, path, icon: Icon }) => ["Overview", "Details & activity"].includes(name) && !navigationHasProject ? (
+                <div key={name} aria-disabled="true" className="navigation-project-hint my-0.5 flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#91a9bb] opacity-60">
+                  <Icon size={17} aria-hidden="true" /><span className="navigation-label">{name}</span>
                 </div>
               ) : (
                 <Link
@@ -208,15 +208,18 @@ function Shell() {
             <button
               aria-label="Sync notifications"
               aria-expanded={notifications}
-              onClick={() => setNotifications(!notifications)}
-              className="relative grid size-11 place-items-center rounded-md border-0 bg-transparent text-[#71858e]"
+              onClick={() => { setNotifications(!notifications); if (workspace.isAdmin && !loading) void pending.refetch(); }}
+              className="relative grid size-11 shrink-0 place-items-center rounded-md border-0 bg-transparent text-[var(--fs-muted)] transition-colors hover:text-[var(--fs-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)]"
             >
-              <Bell size={17} />
-              {Boolean(pending.data?.pending_count) && (
-                <span className="absolute -right-1 -top-1 rounded-full bg-[#d85962] px-1 text-[11px] text-white">
-                  {pending.data?.pending_count}
-                </span>
-              )}
+              <Bell size={20} strokeWidth={1.8} aria-hidden="true" />
+              <span
+                aria-label={`${pending.data?.pending_count ?? 0} pending sync notifications`}
+                aria-live="polite"
+                aria-atomic="true"
+                className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#dc2626] px-1 text-[10px] font-bold leading-none tabular-nums text-white"
+              >
+                {pending.data?.pending_count ?? 0}
+              </span>
             </button>
             {notifications && (
               <div className="absolute right-0 top-11 w-64 rounded-lg border border-[#dce4e8] bg-white p-4 text-xs shadow-lg">
@@ -286,7 +289,7 @@ function Shell() {
           </div>
         </header>
         <div id="main-content" tabIndex={-1} className="mx-auto min-w-0 max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <RouteContent />
+          {loading ? <LoadingState label="Loading your session..." /> : <RouteContent />}
         </div>
       </main>
     </div>

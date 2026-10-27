@@ -99,7 +99,7 @@ export function ProjectWorkspacePage() {
   const activeIndicators = indicatorsQuery.data?.filter(item => item.is_active);
 
 
-  return <div className="mx-auto flex max-w-[1440px] flex-col gap-5 pb-6 text-[var(--fs-text)]">
+  return <div className="flex min-w-0 w-full flex-col gap-5 pb-6 text-[var(--fs-text)]">
     <header className="space-y-3">
       <NavLink to="/projects" className={`inline-flex min-h-11 items-center gap-2 text-sm ${muted} hover:text-[var(--fs-primary)]`}><ArrowLeft size={15} aria-hidden="true" />Projects</NavLink>
       <div className="flex flex-wrap items-start justify-between gap-5">

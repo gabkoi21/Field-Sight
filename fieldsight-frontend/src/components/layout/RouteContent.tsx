@@ -1,7 +1,7 @@
 import { QueryClientContext, useIsFetching } from "@tanstack/react-query";
 import { Component, Suspense, useContext, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { LoadingSkeleton, LoadingState } from "../ui";
+import { LoadingSkeleton } from "../ui";
 
 function RouteLoading({ pathname }: { pathname: string }) {
   if (pathname.endsWith("/dashboards") || pathname === "/superadmin") return <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />;
@@ -11,7 +11,7 @@ function RouteLoading({ pathname }: { pathname: string }) {
 
 function RefreshSkeleton() {
   const refreshing = useIsFetching({ predicate: query => query.getObserversCount() > 0 && query.state.status === "success" && !query.meta?.backgroundRefresh && query.queryKey[0] !== "kobo-pending-sync" });
-  return refreshing ? <div className="mb-4" aria-busy="true"><LoadingState variant="inline" label="Refreshing page data…" /></div> : null;
+  return refreshing ? <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5" aria-busy="true"><span className="sr-only">Refreshing page data…</span><span aria-hidden="true" className="block h-full bg-[var(--fs-primary)] motion-safe:animate-pulse" /></div> : null;
 }
 
 class PageLoadBoundary extends Component<{ path: string; children: ReactNode }, { failed: boolean }> {
@@ -30,5 +30,5 @@ class PageLoadBoundary extends Component<{ path: string; children: ReactNode }, 
 export function RouteContent() {
   const { pathname } = useLocation();
   const queryClient = useContext(QueryClientContext);
-  return <PageLoadBoundary path={pathname}>{queryClient && <RefreshSkeleton />}<Suspense key={pathname} fallback={<RouteLoading pathname={pathname} />}><Outlet /></Suspense></PageLoadBoundary>;
+  return <PageLoadBoundary path={pathname}><div className="relative min-w-0 w-full">{queryClient && <RefreshSkeleton />}<Suspense key={pathname} fallback={<RouteLoading pathname={pathname} />}><Outlet /></Suspense></div></PageLoadBoundary>;
 }

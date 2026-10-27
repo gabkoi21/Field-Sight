@@ -403,7 +403,7 @@ export function IndicatorDefinitionForm({
 
 }) {
 
-  const policy = useQuery({ queryKey: ["indicator-policy"], queryFn: apiClient.indicatorPolicy });
+
 
   const [form, setForm] = useState<IndicatorInput>(
 
@@ -486,41 +486,8 @@ export function IndicatorDefinitionForm({
   }
 
   return (
-
-    <Dialog
-
-      title={indicator ? "Edit indicator" : "Add indicator"}
-
-      description={
-
-        indicator
-
-          ? "Update the indicator details, targets and reporting settings."
-
-          : "Start with a name and format. Add targets, baselines and source data later by opening the indicator."
-
-      }
-
-      error={error}
-
-      onClose={onClose}
-
-    >
-
-      <form
-
-        onSubmit={(event) => {
-
-          event.preventDefault();
-
-          onSave({ ...form, name: form.name.trim(), code: form.code.trim() });
-
-        }}
-
-        className="grid gap-4"
-
-      >
-
+    <Dialog title={indicator ? "Edit indicator" : "Add indicator"} description="Start with the basics. Targets and additional settings are optional." error={error} onClose={onClose}>
+      <form onSubmit={event => { event.preventDefault(); onSave({ ...form, name: form.name.trim(), code: form.code.trim() }); }} className="grid gap-4">
         <FormField label="Indicator name">
 
           <input
@@ -542,66 +509,7 @@ export function IndicatorDefinitionForm({
           />
 
         </FormField>
-
-        {!indicator && (
-
-          <FormField label="Indicator format">
-
-            <select
-
-              required
-
-              className={inputClass}
-
-              value={form.unit}
-
-              onChange={(event) =>
-
-                update("unit", event.target.value as IndicatorUnit)
-
-              }
-
-            >
-
-              <option value="number">Numeric</option>
-
-              <option value="percentage">Percentage</option>
-
-              <option value="text">Qualitative only</option>
-
-            </select>
-
-          </FormField>
-
-        )}
-
-        {indicator && (
-
-          <>
-
-            <FormField label="Indicator code">
-
-              <input
-
-                required
-
-                minLength={2}
-
-                maxLength={80}
-
-                pattern="[A-Za-z0-9][A-Za-z0-9_-]*"
-
-                className={inputClass}
-
-                value={form.code}
-
-                onChange={(e) => update("code", e.target.value)}
-
-              />
-
-            </FormField>
-
-            <FormField label="Description">
+        <FormField label="Description">
 
               <textarea
 
@@ -618,42 +526,7 @@ export function IndicatorDefinitionForm({
               />
 
             </FormField>
-
-            <FormField label="Results framework group">
-
-              <select
-
-                className={inputClass}
-
-                value={form.framework_node_id ?? ""}
-
-                onChange={(e) =>
-
-                  update("framework_node_id", e.target.value || null)
-
-                }
-
-              >
-
-                <option value="">Ungrouped</option>
-
-                {nodes.map((node) => (
-
-                  <option key={node.id} value={node.id}>
-
-                    {node.node_type}: {node.title}
-
-                  </option>
-
-                ))}
-
-              </select>
-
-            </FormField>
-
-            <div className="grid grid-cols-2 gap-3 max-[520px]:grid-cols-1">
-
-              <FormField label="Unit">
+        <FormField label="Unit">
 
                 <select
 
@@ -704,8 +577,80 @@ export function IndicatorDefinitionForm({
                 </select>
 
               </FormField>
+        <details className="rounded-lg border border-[var(--fs-border)]">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Optional targets</summary>
+          <div className="grid gap-3 px-4 pb-4 sm:grid-cols-2">
+            {form.unit !== "text" && <><FormField label="Baseline">
 
-              <FormField label="Desired direction">
+                <input
+
+                  type="number"
+
+                  step="any"
+
+                  className={inputClass}
+
+                  value={form.baseline_value ?? ""}
+
+                  onChange={(e) =>
+
+                    update(
+
+                      "baseline_value",
+
+                      e.target.value === "" ? null : Number(e.target.value),
+
+                    )
+
+                  }
+
+                />
+
+              </FormField><FormField label="Overall target">
+
+                <input
+
+                  type="number"
+
+                  step="any"
+
+                  className={inputClass}
+
+                  value={form.target_value ?? ""}
+
+                  onChange={(e) =>
+
+                    update(
+
+                      "target_value",
+
+                      e.target.value === "" ? null : Number(e.target.value),
+
+                    )
+
+                  }
+
+                />
+
+              </FormField><FormField label="Target deadline">
+
+                <input
+
+                  type="date"
+
+                  className={inputClass}
+
+                  value={form.target_date ?? ""}
+
+                  onChange={(e) =>
+
+                    update("target_date", e.target.value || null)
+
+                  }
+
+                />
+
+              </FormField><FormField label="Desired direction">
 
                 <select
 
@@ -733,107 +678,43 @@ export function IndicatorDefinitionForm({
 
                 </select>
 
-              </FormField>
+              </FormField></>}
+            {form.unit === "text" && <p className="text-sm text-[var(--fs-muted)]">Numeric targets do not apply to qualitative indicators.</p>}
+          </div>
+        </details>
+        <details className="rounded-lg border border-[var(--fs-border)]">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">Additional settings</summary>
+          <div className="grid gap-3 px-4 pb-4"><FormField label="Results framework group">
 
-              <FormField label="Baseline">
+              <select
 
-                <input
+                className={inputClass}
 
-                  type="number"
+                value={form.framework_node_id ?? ""}
 
-                  step="any"
+                onChange={(e) =>
 
-                  className={inputClass}
+                  update("framework_node_id", e.target.value || null)
 
-                  value={form.baseline_value ?? ""}
+                }
 
-                  onChange={(e) =>
+              >
 
-                    update(
+                <option value="">Ungrouped</option>
 
-                      "baseline_value",
+                {nodes.map((node) => (
 
-                      e.target.value === "" ? null : Number(e.target.value),
+                  <option key={node.id} value={node.id}>
 
-                    )
+                    {node.node_type}: {node.title}
 
-                  }
+                  </option>
 
-                />
+                ))}
 
-              </FormField>
+              </select>
 
-              <FormField label="Overall target">
-
-                <input
-
-                  type="number"
-
-                  step="any"
-
-                  className={inputClass}
-
-                  value={form.target_value ?? ""}
-
-                  onChange={(e) =>
-
-                    update(
-
-                      "target_value",
-
-                      e.target.value === "" ? null : Number(e.target.value),
-
-                    )
-
-                  }
-
-                />
-
-              </FormField>
-
-              <FormField label="Target deadline">
-
-                <input
-
-                  type="date"
-
-                  className={inputClass}
-
-                  value={form.target_date ?? ""}
-
-                  onChange={(e) =>
-
-                    update("target_date", e.target.value || null)
-
-                  }
-
-                />
-
-              </FormField>
-
-              {<>
-
-                <FormField label="Manual result aggregation">
-
-                  <select className={inputClass} value={form.manual_aggregation ?? "legacy"} onChange={event => update("manual_aggregation", event.target.value as IndicatorInput["manual_aggregation"])}>
-
-                    <option value="legacy">{indicator ? "Legacy method (selection unknown)" : "Choose a method before entering results"}</option>
-
-                    {(policy.data?.manual[form.unit] ?? []).map(method => <option key={method} value={method}>{({sum: "Sum", unweighted_mean: "Unweighted mean", pooled: "Pooled fraction", latest: "Latest observation"} as Record<string, string>)[method]}</option>)}
-
-                  </select>
-
-                </FormField>
-
-                {form.unit === "rate" && form.manual_aggregation === "pooled" && <FormField label="Rate per population (e.g. 1000)">
-
-                  <input className={inputClass} type="number" required min={0.000001} max={1000000} step="any" value={form.manual_rate_multiplier ?? 1} onChange={event => update("manual_rate_multiplier", Number(event.target.value))} />
-
-                </FormField>}
-
-              </>}
-
-              <FormField label="Reporting frequency">
+            </FormField><FormField label="Reporting frequency">
 
                 <select
 
@@ -879,33 +760,13 @@ export function IndicatorDefinitionForm({
 
                 </select>
 
-              </FormField>
-
-            </div>
-
-          </>
-
-        )}
-
-        <Actions
-
-          onClose={onClose}
-
-          saving={saving}
-
-          label={indicator ? "Save changes" : "Create indicator"}
-
-        />
-
+              </FormField></div>
+        </details>
+        <Actions onClose={onClose} saving={saving} label={indicator ? "Save changes" : "Create indicator"} />
       </form>
-
     </Dialog>
-
   );
-
 }
-
-
 
 export function IndicatorMappingForm({
 

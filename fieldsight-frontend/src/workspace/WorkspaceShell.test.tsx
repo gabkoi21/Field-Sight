@@ -26,7 +26,7 @@ it("shows the project Overview while preserving navigation and context", async (
   expect(within(nav).queryByRole("link", { name: "Data Quality" })).toBeNull();
   expect(within(nav).getByRole("link", { name: "Project dashboards" }).getAttribute("aria-current")).toBe("page");
   expect(within(nav).getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/projects/p2/overview");
-  for (const name of ["Forms", "Indicators", "Field Team"]) {
+  for (const name of ["Forms", "Indicators", "Field Team", "Actions & Follow-ups"]) {
     expect(within(nav).queryByRole("link", { name })).toBeNull();
   }
   expect(within(nav).getByRole("link", { name: "Reports" }).getAttribute("href")).toBe("/reports?project_id=p2");
@@ -66,4 +66,16 @@ it("keeps the workspace shell mounted through a lazy route and back/forward navi
   expect(await screen.findByRole("heading", { name: "Dashboard ready" })).toBeTruthy();
   expect(screen.getByRole("navigation", { name: "Main navigation" })).toBe(navigation);
   expect(screen.getByRole("button", { name: "User menu" })).toBe(userMenu);
+});
+
+it("shows a red zero notification badge and updates the count without remounting navigation", async () => {
+  const cache = new QueryClient();
+  render(<QueryClientProvider client={cache}><MemoryRouter><Routes><Route element={<WorkspaceShell />}><Route path="*" element={<p>Page</p>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+  const zero = await screen.findByLabelText("0 pending sync notifications");
+  expect(zero.className).toContain("bg-[#dc2626]");
+  const nav = screen.getByRole("navigation", {name: "Main navigation"});
+  await waitFor(() => expect(cache.getQueryState(["kobo-pending-sync"])?.status).toBe("success"));
+  act(() => cache.setQueryData(["kobo-pending-sync"], {pending_count: 3}));
+  expect(await screen.findByLabelText("3 pending sync notifications")).toBeTruthy();
+  expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(nav);
 });

@@ -20,6 +20,13 @@ export function CollectedDataPanel({
   const [value, setValue] = useState("");
   const [numerator, setNumerator] = useState("");
   const [denominator, setDenominator] = useState("");
+  const [method, setMethod] = useState(indicator.manual_aggregation ?? "legacy");
+  const [multiplier, setMultiplier] = useState(indicator.manual_rate_multiplier ?? 1);
+  const policy = useQuery({ queryKey: ["indicator-policy"], queryFn: apiClient.indicatorPolicy, enabled: !indicator.mapping });
+  const aggregation = useMutation({
+    mutationFn: () => apiClient.updateIndicator(indicator.id, { manual_aggregation: method, manual_rate_multiplier: multiplier }),
+    onSuccess: refresh,
+  });
   const pooled = indicator.manual_aggregation === "pooled";
   const [narrative, setNarrative] = useState("");
   const [location, setLocation] = useState("");
@@ -103,7 +110,7 @@ export function CollectedDataPanel({
           </div>
         </header>
         <div className="px-5 py-4 text-xs leading-6 text-[#73868d]">
-          {indicator.manual_aggregation === "legacy" && !indicator.legacy_definition && <p>Select an explicit aggregation method in indicator settings before adding results.</p>}
+          {indicator.manual_aggregation === "legacy" && !indicator.legacy_definition && <p>Choose a calculation method below before adding results.</p>}
           {indicator.mapping ? (
             <>
               <strong>Linked table source</strong> · {indicator.source_form_id}
@@ -120,11 +127,26 @@ export function CollectedDataPanel({
           ) : indicator.unit === "text" ? (
             "Qualitative indicators store dated narratives. The latest result is shown in the indicator summary."
           ) : (
-            indicator.calculation_note || "Manual results are separate from linked table calculations. Select the aggregation method in indicator settings before entering pooled values."
+            indicator.calculation_note || "Manual results are separate from linked table calculations. Choose a calculation method before entering pooled values."
           )}
         </div>
       </Panel>
-      {[results.error, add.error, remove.error].filter(Boolean).map((e, i) => (
+      {!indicator.mapping && <Panel className="p-5">
+        <details open={indicator.manual_aggregation === "legacy" && !indicator.legacy_definition}>
+          <summary className="cursor-pointer text-sm font-semibold">Manual result settings</summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Field label="Manual result aggregation">
+              <select className={fieldClass} value={method} onChange={event => setMethod(event.target.value as typeof method)}>
+                <option value="legacy" disabled>Choose a calculation method</option>
+                {(policy.data?.manual[indicator.unit] ?? []).map(value => <option key={value} value={value}>{({sum: "Sum", unweighted_mean: "Unweighted mean", pooled: "Pooled fraction", latest: "Latest observation"} as Record<string, string>)[value]}</option>)}
+              </select>
+            </Field>
+            {indicator.unit === "rate" && method === "pooled" && <Field label="Rate per population (e.g. 1000)"><input className={fieldClass} type="number" min={0.000001} max={1000000} step="any" value={multiplier} onChange={event => setMultiplier(Number(event.target.value))} /></Field>}
+            <div><Button disabled={aggregation.isPending || method === "legacy" || policy.isPending || policy.isError || !Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 1000000} onClick={() => aggregation.mutate()}>Save manual settings</Button></div>
+          </div>
+        </details>
+      </Panel>}
+      {[results.error, add.error, remove.error, aggregation.error].filter(Boolean).map((e, i) => (
         <Notice error key={i}>
           {e?.message}
         </Notice>

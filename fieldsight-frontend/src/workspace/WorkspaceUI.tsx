@@ -95,7 +95,7 @@ export function WorkspaceTabs() {
   return (
     <nav
       aria-label="Project sections"
-      className="grid grid-cols-2 gap-1.5 rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] p-1.5 sm:grid-cols-3 xl:grid-cols-6"
+      className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] p-1"
     >
       {[
         { label: "Details", to: `/projects/${projectId}/details`, icon: ClipboardList },
@@ -111,7 +111,7 @@ export function WorkspaceTabs() {
           to={to}
           end
           className={({ isActive }) =>
-            `flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] ${isActive ? "bg-[var(--fs-primary)] text-white shadow-sm" : "text-[var(--fs-muted)] hover:bg-blue-50 hover:text-[var(--fs-primary)] active:bg-blue-100"}`
+            `flex min-h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] ${isActive ? "bg-[var(--fs-primary)] text-white shadow-sm" : "text-[var(--fs-muted)] hover:bg-blue-50 hover:text-[var(--fs-primary)] active:bg-blue-100"}`
           }
         >
           <Icon size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />
