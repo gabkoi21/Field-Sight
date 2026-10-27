@@ -218,11 +218,11 @@ it("shows schedule and compact attention without duplicating indicator analytics
   expect(screen.queryByRole("navigation", { name: "Project sections" })).toBeNull();
 });
 
-it("shows the selected project lifecycle without a progress ring", async () => {
+it("shows the selected project lifecycle with a categorical status ring", async () => {
   setup();
   const panel = await screen.findByRole("region", { name: "Project status" });
-  expect(within(panel).getByText("active")).toBeTruthy();
-  expect(within(panel).queryByRole("img")).toBeNull();
+  expect(within(panel).getByRole("img").getAttribute("aria-label")).toContain("Project status: Active.");
+  expect(panel.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
   expect(within(panel).queryByText(/%/)).toBeNull();
   expect(apiClient.organizationProjects).not.toHaveBeenCalled();
 });
