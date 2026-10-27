@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 from sqlmodel import Session, select
 from test_kobo_sync import page
+from test_review_evidence import review_tokens
 
 from app.core.sync_worker import process_one, schedule_due
 from app.models.identity import Organization, OrganizationMembership, Role
@@ -201,7 +202,11 @@ def test_indicator_engine_reads_latest_successfully_stored_answers(sync_client):
                 assert calculate(mapping, records, field).value is None
             identifier = records[0].id
         # Changed worker imports become eligible only after an explicit new review.
-        client.patch(f"/submissions/{identifier}/review-status", headers=headers, json={"status": "ready"})
+        client.patch(
+            f"/submissions/{identifier}/review-status",
+            headers=headers,
+            json={"status": "ready", **review_tokens(client, identifier, headers)},
+        )
         with Session(engine) as db:
             assert calculate(mapping, list(db.exec(select(Submission)).all()), field).value == score
     client.post(f"/projects/{project}/sync-jobs", headers=headers)

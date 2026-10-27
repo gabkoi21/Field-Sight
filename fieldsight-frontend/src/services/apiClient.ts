@@ -376,6 +376,8 @@ export interface ApiSubmission {
   review_status: string;
   raw_answers: Record<string, unknown>;
   evidence_fingerprint?: string;
+  validation_status?: string | null;
+  review_required?: boolean;
 }
 
 export interface ApiAnalyticsOverview {
@@ -947,7 +949,14 @@ async function request<T>(
   return result as T;
 }
 
+export interface SubmissionDetail extends ApiSubmission {
+  review_token: string; history_total: number;
+  history: Array<{ id: string; actor_id: string | null; source: string; occurred_at: string; previous_status: string | null; status: string | null; note: string | null; evidence_fingerprint: string | null }>;
+  findings: Array<{ id: string; detail: string; field: string | null }>;
+}
 export const apiClient = {
+  submissionDetail: (id: string, offset = 0) => request<SubmissionDetail>(`/submissions/${id}?history_offset=${offset}`),
+  reviewSubmission: (id: string, body: { status: string; note: string; evidence_fingerprint: string; expected_review_token: string }) => request(`/submissions/${id}/review-status`, { method: "PATCH", body: JSON.stringify(body) }),
   organizationSettings: (org: string) =>
     request<{
       country: string | null;

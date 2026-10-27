@@ -20,9 +20,9 @@ it("requests bounded pages in project scope instead of fetching the full submiss
   expect(first.get("project_id")).toBe("p");
   expect(first.get("limit")).toBe("10");
   expect(screen.getByRole("button", { name: /Export all filtered data/ })).toBeTruthy();
-  expect(screen.queryByRole("columnheader", { name: "Review" })).toBeNull();
-  expect(screen.queryByLabelText("Review status filter")).toBeNull();
-  expect(screen.queryByText("Needs review")).toBeNull();
+  expect(await screen.findByRole("columnheader", { name: "Review" })).toBeTruthy();
+  expect(screen.getByLabelText("Review status filter")).toBeTruthy();
+  expect(screen.getByText("Needs review")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "2" }));
   await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.calls.some(([params]) => params.get("offset") === "10")).toBe(true));
 });
@@ -66,8 +66,8 @@ it("recovers when a later page disappears and resets for search changes", async 
   fireEvent.change(screen.getByPlaceholderText(/Search ID/), { target: { value: "person" } });
   await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("search")).toBe("person"));
   expect(vi.mocked(apiClient.submissionPage).mock.lastCall?.[0].get("offset")).toBe("0");
-  expect(screen.queryByLabelText("Review status filter")).toBeNull();
-  expect(screen.queryByRole("columnheader", { name: "Review" })).toBeNull();
+  expect(screen.getByLabelText("Review status filter")).toBeTruthy();
+  expect(await screen.findByRole("columnheader", { name: "Review" })).toBeTruthy();
 });
 
 it("keeps filters mounted through slow loads and retains rows and focus during background refresh errors", async () => {

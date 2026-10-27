@@ -14,22 +14,42 @@ from app.models.operations import IndicatorMapping, Submission, SubmissionReview
 from app.schemas.analysis import AnalysisQuery, SurveyField
 
 
+def review_tokens(client, identifier, headers):
+    record = client.get(f"/submissions/{identifier}", headers=headers).json()
+    return {"evidence_fingerprint": record["evidence_fingerprint"], "expected_review_token": record["review_token"]}
+
+
 def stored_review(engine, identifier):
     """Inspect retained eligibility/audit persistence without a Data Quality endpoint."""
     with Session(engine) as db:
         row = db.get(Submission, identifier)
         events = db.exec(select(SubmissionReviewEvent).where(SubmissionReviewEvent.submission_id == identifier)).all()
-        return {"submission": {"review_status": row.review_status,
-                               "evidence_fingerprint": evidence_fingerprint(row.raw_answers)},
-                "events": [{"action": event.action, "note": event.note,
-                            "actor": "System" if event.actor_id is None else "Administrator",
-                            "source": event.source, "previous_status": event.previous_status, "status": event.status}
-                           for event in events]}
+        return {
+            "submission": {
+                "review_status": row.review_status,
+                "evidence_fingerprint": evidence_fingerprint(row.raw_answers),
+            },
+            "events": [
+                {
+                    "action": event.action,
+                    "note": event.note,
+                    "actor": "System" if event.actor_id is None else "Administrator",
+                    "source": event.source,
+                    "previous_status": event.previous_status,
+                    "status": event.status,
+                }
+                for event in events
+            ],
+        }
 
 
 def sync(client, project, headers, payloads):
-    with patch("app.routes.collection.decrypt_kobo_token", return_value="synthetic"), patch(
-        "app.routes.collection.list_kobo_submissions", return_value=payloads,
+    with (
+        patch("app.routes.collection.decrypt_kobo_token", return_value="synthetic"),
+        patch(
+            "app.routes.collection.list_kobo_submissions",
+            return_value=payloads,
+        ),
     ):
         return client.post(f"/projects/{project}/sync", headers=headers)
 
@@ -46,8 +66,16 @@ def test_decision_survives_unchanged_and_metadata_only_sync(sync_client, decisio
         identifier = db.exec(select(Submission)).one().id
     path = f"/submissions/{identifier}"
     reviewed = stored_review(engine, identifier)["submission"]["evidence_fingerprint"]
-    response = client.patch(path + "/review-status", headers=headers,
-                            json={"status": decision, "note": "Reviewed evidence", "evidence_fingerprint": reviewed})
+    response = client.patch(
+        path + "/review-status",
+        headers=headers,
+        json={
+            "status": decision,
+            "note": "Reviewed evidence",
+            **review_tokens(client, identifier, headers),
+            "evidence_fingerprint": reviewed,
+        },
+    )
     assert response.status_code == 200
     for answers in [payload(), payload(_tags=["provider-tag"], _validation_status={"uid": "approved"})]:
         assert sync(client, project, headers, [answers]).status_code == 200
@@ -65,7 +93,11 @@ def test_changed_evidence_reopens_and_remains_held_after_repeat_sync(sync_client
         identifier = db.exec(select(Submission)).one().id
     path = f"/submissions/{identifier}"
     old = stored_review(engine, identifier)["submission"]["evidence_fingerprint"]
-    client.patch(path + "/review-status", headers=headers, json={"status": decision, "note": "Previous note"})
+    client.patch(
+        path + "/review-status",
+        headers=headers,
+        json={"status": decision, "note": "Previous note", **review_tokens(client, identifier, headers)},
+    )
     assert sync(client, project, headers, [payload(3)]).status_code == 200
     assert sync(client, project, headers, [payload(3)]).json()["updated"] == 0
     detail = stored_review(engine, identifier)
@@ -76,8 +108,14 @@ def test_changed_evidence_reopens_and_remains_held_after_repeat_sync(sync_client
     assert automatic["actor"] == "System" and automatic["source"] == "kobo_sync"
     assert automatic["previous_status"] == decision and automatic["status"] == "needs_review"
     # A stale browser cannot approve new evidence using the old fingerprint.
-    assert client.patch(path + "/review-status", headers=headers,
-                        json={"status": "ready", "evidence_fingerprint": old}).status_code == 409
+    assert (
+        client.patch(
+            path + "/review-status",
+            headers=headers,
+            json={"status": "ready", **review_tokens(client, identifier, headers), "evidence_fingerprint": old},
+        ).status_code
+        == 409
+    )
     with Session(engine) as db:
         submission = db.get(Submission, identifier)
         mapping = IndicatorMapping(source_field="answer", calculation="sum")
@@ -85,7 +123,9 @@ def test_changed_evidence_reopens_and_remains_held_after_repeat_sync(sync_client
         assert calculate(mapping, [submission], field).eligible_records == 0
         query = AnalysisQuery(project_id=UUID(project), source_field="answer", filters={"review_status": "all"})
         assert aggregate(query, [submission], [field]).eligible_records == 0
-    client.patch(path + "/review-status", headers=headers, json={"status": "ready"})
+    client.patch(
+        path + "/review-status", headers=headers, json={"status": "ready", **review_tokens(client, identifier, headers)}
+    )
     with Session(engine) as db:
         assert calculate(mapping, [db.get(Submission, identifier)], field).value == 3
 
@@ -95,7 +135,11 @@ def test_failed_import_rolls_back_answers_decision_and_history(sync_client):
     sync(client, project, headers, [payload()])
     with Session(engine) as db:
         identifier = db.exec(select(Submission)).one().id
-    client.patch(f"/submissions/{identifier}/review-status", headers=headers, json={"status": "ready"})
+    client.patch(
+        f"/submissions/{identifier}/review-status",
+        headers=headers,
+        json={"status": "ready", **review_tokens(client, identifier, headers)},
+    )
     assert sync(client, project, headers, [payload(9), {"answer": "missing ID"}]).status_code == 422
     with Session(engine) as db:
         item = db.get(Submission, identifier)
@@ -109,7 +153,11 @@ def test_zero_to_false_is_an_evidence_change_despite_python_equality(sync_client
     sync(client, project, headers, [payload(0)])
     with Session(engine) as db:
         identifier = db.exec(select(Submission)).one().id
-    client.patch(f"/submissions/{identifier}/review-status", headers=headers, json={"status": "ready"})
+    client.patch(
+        f"/submissions/{identifier}/review-status",
+        headers=headers,
+        json={"status": "ready", **review_tokens(client, identifier, headers)},
+    )
     assert sync(client, project, headers, [payload(False)]).json()["updated"] == 1
     with Session(engine) as db:
         record = db.get(Submission, identifier)
@@ -138,14 +186,32 @@ def test_indicator_dashboard_report_and_intelligence_drop_changed_evidence(sync_
     sync(client, project, headers, [payload()])
     with Session(engine) as db:
         identifier = db.exec(select(Submission)).one().id
-    client.patch(f"/submissions/{identifier}/review-status", headers=headers, json={"status": "ready"})
+    client.patch(
+        f"/submissions/{identifier}/review-status",
+        headers=headers,
+        json={"status": "ready", **review_tokens(client, identifier, headers)},
+    )
     item = indicator(client, project, headers, unit="number")
-    response = client.put(f"/indicators/{item['id']}/mapping", headers=headers,
-                          json={"source_field": "answer", "source_form_id": "form-1", "calculation": "sum"})
+    response = client.put(
+        f"/indicators/{item['id']}/mapping",
+        headers=headers,
+        json={"source_field": "answer", "source_form_id": "form-1", "calculation": "sum"},
+    )
     assert response.status_code == 200, response.text
-    saved = client.post("/analysis/saved", headers=headers, json={"title": "Diagnostic all", "chart": "table",
-        "query": {"project_id": project, "source_field": "answer", "measure": "sum",
-                  "filters": {"review_status": "all"}}}).json()
+    saved = client.post(
+        "/analysis/saved",
+        headers=headers,
+        json={
+            "title": "Diagnostic all",
+            "chart": "table",
+            "query": {
+                "project_id": project,
+                "source_field": "answer",
+                "measure": "sum",
+                "filters": {"review_status": "all"},
+            },
+        },
+    ).json()
     dashboard = create(sync_client, [widget("indicator", item["id"]), widget("analysis", saved["id"])])
     for expected in [1, 0, 1]:
         current = client.get(f"/indicators/{item['id']}", headers=headers).json()
@@ -160,7 +226,11 @@ def test_indicator_dashboard_report_and_intelligence_drop_changed_evidence(sync_
         if expected and current["current_value"] == 2:
             sync(client, project, headers, [payload(3)])
         elif not expected:
-            client.patch(f"/submissions/{identifier}/review-status", headers=headers, json={"status": "ready"})
+            client.patch(
+                f"/submissions/{identifier}/review-status",
+                headers=headers,
+                json={"status": "ready", **review_tokens(client, identifier, headers)},
+            )
 
 
 def test_legacy_migration_reopens_without_claiming_evidence_and_preserves_notes(sync_client, monkeypatch):
@@ -176,12 +246,20 @@ def test_legacy_migration_reopens_without_claiming_evidence_and_preserves_notes(
     sync(client, project, headers, [payload()])
     with Session(engine) as db:
         identifier = db.exec(select(Submission)).one().id
-    client.patch(f"/submissions/{identifier}/review-status", headers=headers,
-                 json={"status": "ready", "note": "Historical approval"})
+    client.patch(
+        f"/submissions/{identifier}/review-status",
+        headers=headers,
+        json={"status": "ready", "note": "Historical approval", **review_tokens(client, identifier, headers)},
+    )
     # Recreate the actual pre-0027 columns; do not rely on current create_all metadata.
     with engine.begin() as connection:
-        for name in ("evidence_fingerprint", "decision_fingerprint", "decision_status", "validation_status",
-                     "review_required"):
+        for name in (
+            "evidence_fingerprint",
+            "decision_fingerprint",
+            "decision_status",
+            "validation_status",
+            "review_required",
+        ):
             connection.execute(text(f"ALTER TABLE submissions DROP COLUMN {name}"))
         for name in ("source", "evidence_fingerprint", "previous_evidence_fingerprint"):
             connection.execute(text(f"ALTER TABLE submission_review_events DROP COLUMN {name}"))
@@ -203,3 +281,56 @@ def test_legacy_migration_reopens_without_claiming_evidence_and_preserves_notes(
             assert migrated.actor_id is None and migrated.previous_status == "ready"
     finally:
         get_settings.cache_clear()
+
+
+def test_review_detail_reason_concurrency_and_history(sync_client):
+    client, engine, project, headers = sync_client
+    sync(client, project, headers, [payload()])
+    identifier = client.get(f"/submissions/page?project_id={project}", headers=headers).json()["items"][0]["id"]
+    detail = client.get(f"/submissions/{identifier}", headers=headers).json()
+    tokens = review_tokens(client, identifier, headers)
+    assert detail["raw_answers"]["answer"] == 2 and detail["history_total"] == 0
+    path = f"/submissions/{identifier}/review-status"
+    assert client.patch(path, headers=headers, json={"status": "ready"}).status_code == 422
+    assert client.patch(path, headers=headers, json={"status": "invalid", "note": " ", **tokens}).status_code == 422
+    assert (
+        client.patch(path, headers=headers, json={"status": "invalid", "note": "Invalid answer", **tokens}).status_code
+        == 200
+    )
+    assert client.patch(path, headers=headers, json={"status": "ready", **tokens}).status_code == 409
+    saved = client.get(f"/submissions/{identifier}", headers=headers).json()
+    assert saved["history_total"] == 1 and saved["history"][0]["actor_id"]
+    assert saved["history"][0]["note"] == "Invalid answer"
+    assert saved["history"][0]["evidence_fingerprint"] == tokens["evidence_fingerprint"]
+    assert client.get(f"/submissions/{identifier}?history_offset=50", headers=headers).json()["history"] == []
+    filtered = client.get(f"/submissions/page?project_id={project}&review_status=invalid", headers=headers).json()
+    assert filtered["total"] == 1 and filtered["counts"]["invalid"] == 1
+
+
+def test_review_detail_denies_foreign_tenant_and_enumerator(sync_client):
+    from app.models.identity import OrganizationMembership, Role
+    from app.models.operations import Project
+
+    client, engine, project, headers = sync_client
+    sync(client, project, headers, [payload()])
+    record = client.get(f"/submissions/page?project_id={project}", headers=headers).json()["items"][0]
+    with Session(engine) as db:
+        item = db.get(Submission, UUID(record["id"]))
+        owner_id = db.get(Project, UUID(project)).organization_id
+        from app.models.identity import Organization
+
+        foreign = Organization(name="Other", slug="other")
+        db.add(foreign)
+        db.flush()
+        item.organization_id = foreign.id
+        db.add(item)
+        db.commit()
+    assert client.get(f"/submissions/{record['id']}", headers=headers).status_code == 404
+    with Session(engine) as db:
+        item = db.get(Submission, UUID(record["id"]))
+        item.organization_id = owner_id
+        member = db.exec(select(OrganizationMembership)).one()
+        member.role = Role.ENUMERATOR
+        db.add_all([item, member])
+        db.commit()
+    assert client.get(f"/submissions/{record['id']}", headers=headers).status_code == 403

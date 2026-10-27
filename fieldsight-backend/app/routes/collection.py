@@ -29,6 +29,7 @@ from app.models.operations import (
     OrganizationAdminEvent,
     Project,
     ProjectStatus,
+    QualityFinding,
     Submission,
     SubmissionReviewEvent,
     SyncJob,
@@ -758,7 +759,40 @@ def analytics_overview(
 class ReviewStatusUpdate(BaseModel):
     status: str
     note: str | None = Field(default=None, max_length=2000)
-    evidence_fingerprint: str | None = None
+    evidence_fingerprint: str
+    expected_review_token: str
+
+
+def _review_token(submission: Submission, db: Session) -> str:
+    latest = db.exec(select(SubmissionReviewEvent).where(
+        SubmissionReviewEvent.submission_id == submission.id,
+    ).order_by(col(SubmissionReviewEvent.occurred_at).desc(), col(SubmissionReviewEvent.id).desc())).first()
+    return str(latest.id) if latest else "unreviewed"
+
+
+@router.get("/submissions/{submission_id}", tags=["Submissions"])
+def submission_detail(
+    submission_id: UUID, user: CurrentUser, db: Database,
+    history_offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
+    organization_id = _organization_admin_id(user, db)
+    submission = db.get(Submission, submission_id)
+    if submission is None or submission.organization_id != organization_id:
+        raise HTTPException(404, "Submission was not found.")
+    project = _sync_project(submission.project_id, user, db)
+    events = select(SubmissionReviewEvent).where(
+        SubmissionReviewEvent.submission_id == submission.id,
+        SubmissionReviewEvent.organization_id == organization_id,
+    )
+    total = db.exec(select(func.count()).select_from(events.subquery())).one()
+    history = db.exec(events.order_by(col(SubmissionReviewEvent.occurred_at).desc(),
+                                     col(SubmissionReviewEvent.id).desc()).offset(history_offset).limit(50)).all()
+    findings = db.exec(select(QualityFinding).where(
+        QualityFinding.submission_id == submission.id, QualityFinding.organization_id == organization_id,
+    ).limit(100)).all()
+    return {**_read_submission(submission, project), "review_token": _review_token(submission, db),
+            "history_total": total, "history": [event.model_dump(mode="json") for event in history],
+            "findings": [finding.model_dump(mode="json") for finding in findings]}
 
 
 @router.patch("/submissions/{submission_id}/review-status", tags=["Submissions"])
@@ -777,8 +811,12 @@ def update_submission_review_status(
     db.execute(update(Project).where(col(Project.id) == submission.project_id).values(updated_at=Project.updated_at))
     db.refresh(submission)
     fingerprint = evidence_fingerprint(submission.raw_answers)
-    if payload.evidence_fingerprint is not None and payload.evidence_fingerprint != fingerprint:
+    if payload.evidence_fingerprint != fingerprint:
         raise HTTPException(409, "Submission evidence changed. Reload the record before reviewing.")
+    if payload.expected_review_token is not None and payload.expected_review_token != _review_token(submission, db):
+        raise HTTPException(409, "Another review was recorded. Reload before deciding.")
+    if payload.status in {"invalid", "needs_review"} and not (payload.note or "").strip():
+        raise HTTPException(422, "A reason is required for invalid or reopened decisions.")
     db.add(SubmissionReviewEvent(submission_id=submission.id, organization_id=organization_id,
         evidence_fingerprint=fingerprint, actor_id=user.id, action="status", previous_status=submission.review_status,
         status=payload.status, note=payload.note))

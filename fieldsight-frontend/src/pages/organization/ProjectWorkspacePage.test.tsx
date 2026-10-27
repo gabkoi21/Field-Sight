@@ -174,12 +174,12 @@ it("uses the project analytics API for chart values and changes only the trend r
   expect(within(screen.getByRole("region", { name: "Review status" })).getByText(/all dates/)).toBeTruthy();
 });
 
-it("keeps the review chart scoped to project submissions without removed review filters", async () => {
+it("keeps the review chart scoped to project submissions and the selected review status", async () => {
   setup();
   const chart = await screen.findByRole("region", { name: "Review status" });
   const review = await within(chart).findByRole("link", { name: "Awaiting review 20" });
-  expect(review.getAttribute("href")).toBe("/submissions?project_id=school");
-  expect(within(chart).getByRole("link", { name: "Invalid 3" }).getAttribute("href")).toBe("/submissions?project_id=school");
+  expect(review.getAttribute("href")).toBe("/submissions?project_id=school&review_status=needs_review");
+  expect(within(chart).getByRole("link", { name: "Invalid 3" }).getAttribute("href")).toBe("/submissions?project_id=school&review_status=invalid");
   expect(within(chart).getByRole("img").getAttribute("aria-label")).toContain("Ready 100");
 });
 

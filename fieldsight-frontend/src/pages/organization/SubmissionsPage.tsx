@@ -4,10 +4,8 @@ import {
   ChevronRight,
   Database,
   Download,
-  ExternalLink,
   MapPin,
   Search,
-  X,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
@@ -17,11 +15,15 @@ import { LoadingSkeleton, LoadingState, MetricCard } from "../../components/ui";
 import { Card } from "../../components/ui/Card";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
+import { SubmissionReview } from "./SubmissionReview";
 import { formatLocation } from "../../utils/location";
 
 type ExportPeriod = "daily" | "weekly" | "biweekly" | "monthly";
 type Row = {
   id: string;
+  internalId: string;
+  review: string;
+  concern: boolean;
   projectId: string;
   enumerator: string;
   location: string;
@@ -36,6 +38,9 @@ type Row = {
 function toRow(submission: ApiSubmission): Row {
   return {
     id: submission.external_id,
+    internalId: submission.id,
+    review: submission.review_status ?? "Not recorded",
+    concern: Boolean(submission.review_required || submission.validation_status === "invalid"),
     projectId: submission.project_id,
     enumerator: submission.enumerator ?? "Unassigned",
     location: formatLocation(submission.location),
@@ -47,7 +52,6 @@ function toRow(submission: ApiSubmission): Row {
     device: "Kobo Collect",
   };
 }
-const eyebrowClass = "!m-0 !mb-[6px] text-[12px] !leading-[1.4] font-bold tracking-[.08em] text-[#0b51b7] uppercase";
 const selectClass = controlClass + " w-auto max-w-full";
 
 export function SubmissionsPage() {
@@ -65,7 +69,8 @@ export function SubmissionsPage() {
   const setProjectId = (id: string) => { const params = new URLSearchParams(searchParams); if (id) params.set("project_id", id); else params.delete("project_id"); setSearchParams(params); };
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("daily");
   const [selected, setSelected] = useState<string | null>(null);
-  const scope = JSON.stringify([organizationId, projectId, query]);
+  const reviewStatus = searchParams.get("review_status") ?? "";
+  const scope = JSON.stringify([organizationId, projectId, query, reviewStatus]);
   const [pagination, setPagination] = useState({ scope, page: 1 });
   const currentPage = pagination.scope === scope ? pagination.page : 1;
   const setCurrentPage = (value: number | ((page: number) => number)) => setPagination(previous => ({ scope, page: typeof value === "function" ? value(previous.scope === scope ? previous.page : 1) : value }));
@@ -73,6 +78,7 @@ export function SubmissionsPage() {
   const pageSize = 10;
   const params = new URLSearchParams({ offset: String((currentPage - 1) * pageSize), limit: String(pageSize), search: query });
   if (projectId) params.set("project_id", projectId);
+  if (reviewStatus) params.set("review_status", reviewStatus);
   const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading });
   const rows: Row[] = (data?.items ?? []).map(toRow);
   const total = data?.total ?? 0;
@@ -105,7 +111,7 @@ export function SubmissionsPage() {
   }, [totalPages, activePage]);
   const firstVisibleRow = visible.length ? (activePage - 1) * pageSize + 1 : 0;
   const lastVisibleRow = Math.min(activePage * pageSize, total);
-  const record = rows.find((row) => row.id === selected) ?? null;
+
   const csvExport = useMutation({
     mutationFn: () => {
       const exportParams = new URLSearchParams(params);
@@ -168,6 +174,11 @@ export function SubmissionsPage() {
             </option>
           ))}
         </select>
+        <label className="text-sm">Review status
+          <select aria-label="Review status filter" className={`${selectClass} w-full`} value={reviewStatus} onChange={event => { const next = new URLSearchParams(searchParams); if (event.target.value) next.set("review_status", event.target.value); else next.delete("review_status"); setSearchParams(next); }}>
+            <option value="">All review statuses</option><option value="ready">Ready</option><option value="needs_review">Needs review</option><option value="invalid">Invalid</option>
+          </select>
+        </label>
         <select
           className={`${selectClass} w-full`}
           value={exportPeriod}
@@ -196,7 +207,7 @@ export function SubmissionsPage() {
           <table aria-busy={isFetching} className="w-full min-w-[900px] border-separate border-spacing-0 overflow-hidden text-left">
             <thead>
               <tr>
-                {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Sync"].map(
+                {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Review"].map(
                   (heading) => (
                     <th
                       key={heading}
@@ -212,12 +223,12 @@ export function SubmissionsPage() {
               {paginatedRows.map((row) => (
                 <tr key={`${row.projectId}:${row.id}`} className="border-b border-[#edf1f5] bg-white transition-colors hover:bg-[#f7faff]">
                   <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#536177]">
-                    <span className="block text-left text-[14px] font-semibold leading-normal text-[#0b51b7]">
+                    <button type="button" className="min-h-11 block text-left text-[14px] font-semibold leading-normal text-[#0b51b7] focus-visible:outline focus-visible:outline-2" onClick={() => setSelected(row.internalId)}>
                       {row.id}
                       <small className="mt-[2px] block text-[12px] font-normal text-[#8a99ad]">
-                        Mobile submission
+                        {row.form}
                       </small>
-                    </span>
+                    </button>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45] text-[#374151]">
                     <strong className="block text-[14px] font-semibold text-[#1f2937]">{row.project}</strong>
@@ -243,14 +254,8 @@ export function SubmissionsPage() {
                     {row.submitted}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 align-middle text-[14px] leading-[1.45]">
-                    <span
-                      className={`flex items-center gap-[6px] text-[14px] font-medium ${row.sync === "Pending" ? "text-[#d97706]" : "text-[#059669]"}`}
-                    >
-                      <i
-                        className={`h-[8px] w-[8px] shrink-0 rounded-full ${row.sync === "Pending" ? "bg-[#fbbf24]" : "bg-[#34d399]"}`}
-                      />
-                      {row.sync}
-                    </span>
+                    <span>{row.review.replaceAll("_", " ")}</span>
+                    {row.concern && <small className="block text-amber-800">Evidence needs attention</small>}
                   </td>
                 </tr>
               ))}
@@ -330,72 +335,8 @@ export function SubmissionsPage() {
         </footer>
       </Card>}
 
-      {record
-        ? false && (
-            <div className="fixed inset-0 z-20 bg-[#102a4330]" onClick={() => setSelected(null)}>
-              <section
-                className="absolute bottom-0 right-0 top-0 flex w-[min(460px,100%)] flex-col bg-white shadow-[-16px_0_35px_#102a4324]"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <header className="!flex !h-auto !items-start !justify-between !border-b !border-[#e8eef4] !bg-white !px-[21px] !py-[20px]">
-                  <div>
-                    <p className={eyebrowClass}>SUBMISSION RECORD</p>
-                    <h2 className="my-[4px] mb-[8px] text-[22px] font-normal text-[#303e67]">{record?.id}</h2>
-                  </div>
-                  <button
-                    className="cursor-pointer border-0 bg-transparent p-0 text-[#8593a6]"
-                    onClick={() => setSelected(null)}
-                    aria-label="Close submission"
-                  >
-                    <X size={19} />
-                  </button>
-                </header>
+      {selected && <SubmissionReview key={selected} id={selected} onClose={() => setSelected(null)} />}
 
-                <div className="flex-1 overflow-auto px-[21px] py-[18px]">
-                  <div className="mb-[22px] flex gap-[7px]">
-                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[12px] font-semibold leading-normal text-[#0b51b7]">
-                      Open full record <ExternalLink size={14} />
-                    </button>
-                    <button className="flex items-center gap-[5px] rounded-[5px] border border-[#dce5ef] bg-white px-[9px] py-[7px] font-sans text-[12px] font-semibold leading-normal text-[#0b51b7]">
-                      Download
-                    </button>
-                  </div>
-                  <h3 className="!m-0 !mb-[12px] text-[12px] font-bold tracking-[.35px] text-[#65758c] uppercase">
-                    Collection details
-                  </h3>
-                  <dl className="!m-0 grid grid-cols-2 gap-[14px] max-[460px]:grid-cols-1">
-                    <div>
-                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Project</dt>
-                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.project}</dd>
-                    </div>
-                    <div>
-                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Form</dt>
-                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.form}</dd>
-                    </div>
-                    <div>
-                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Collector</dt>
-                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.enumerator}</dd>
-                    </div>
-                    <div>
-                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Location</dt>
-                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.location}</dd>
-                    </div>
-                    <div>
-                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Received</dt>
-                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.submitted}</dd>
-                    </div>
-                    <div>
-                      <dt className="mb-[4px] text-[12px] text-[#97a4b3]">Device</dt>
-                      <dd className="!m-0 text-[12px] font-semibold text-[#435269]">{record?.device}</dd>
-                    </div>
-                  </dl>
-
-                </div>
-
-              </section>
-            </div>
-          )
-        : null}
     </div>
   );
 }

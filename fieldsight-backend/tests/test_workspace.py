@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlmodel import Session, select
 from test_kobo_sync import sync_client as sync_client
+from test_review_evidence import review_tokens
 
 from app.core.config import Settings
 from app.core.security import create_access_token, password_hasher
@@ -150,7 +151,9 @@ def test_csv_import_catalogue_rows_duplicate_and_quality(sync_client):
     for row in rows["rows"]:
         assert (
             client.patch(
-                f"/submissions/{row['id']}/review-status", headers=headers, json={"status": "ready"}
+                f"/submissions/{row['id']}/review-status",
+                headers=headers,
+                json={"status": "ready", **review_tokens(client, row["id"], headers)},
             ).status_code
             == 200
         )
