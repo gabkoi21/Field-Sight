@@ -1,0 +1,32 @@
+INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_phase_1_baseline, Phase 1 migration baseline.
+INFO  [alembic.runtime.migration] Running upgrade 0001_phase_1_baseline -> 0002_identity_tenancy_projects, Create identity, tenancy, project, team, and settings tables.
+INFO  [alembic.runtime.migration] Running upgrade 0002_identity_tenancy_projects -> 0003_add_user_full_name, Add optional full names to user accounts.
+INFO  [alembic.runtime.migration] Running upgrade 0003_add_user_full_name -> 0004_enumerator_profile, Add enumerator profile fields to users.
+INFO  [alembic.runtime.migration] Running upgrade 0004_enumerator_profile -> 0005_kobo_connections, Add encrypted organization KoboToolbox connections.
+INFO  [alembic.runtime.migration] Running upgrade 0005_kobo_connections -> 0006_kobo_selected_form, Persist the selected Kobo form on each connection.
+INFO  [alembic.runtime.migration] Running upgrade 0006_kobo_selected_form -> 0007_project_kobo_form, Store a separate Kobo form assignment for every FieldSight project.
+INFO  [alembic.runtime.migration] Running upgrade 0007_project_kobo_form -> 0008_collection_sync, Add flexible Kobo submission storage and synchronization history.
+INFO  [alembic.runtime.migration] Running upgrade 0008_collection_sync -> 0009_project_intelligence, Add project field mappings and multiple monitoring targets.
+INFO  [alembic.runtime.migration] Running upgrade 0009_project_intelligence -> 0010_dashboard_query_indexes, Add composite indexes for dashboard aggregate queries.
+INFO  [alembic.runtime.migration] Running upgrade 0010_dashboard_query_indexes -> 0011_indicators, Add the project-level M&E indicator register.
+INFO  [alembic.runtime.migration] Running upgrade 0011_indicators -> 0012_indicator_mappings, Add Kobo mappings for M&E indicators.
+INFO  [alembic.runtime.migration] Running upgrade 0012_indicator_mappings -> 0013_submission_form_identity, Scope submission identities to the project and source form.
+INFO  [alembic.runtime.migration] Running upgrade 0013_submission_form_identity -> 0014_survey_analysis, Cache form schemas and save scoped survey visualizations.
+INFO  [alembic.runtime.migration] Running upgrade 0014_survey_analysis -> 0015_indicator_framework, Add result frameworks and source form provenance to indicators.
+INFO  [alembic.runtime.migration] Running upgrade 0015_indicator_framework -> 0016_workspace_quick_start, Workspace onboarding, manual results, preferences and dashboards.
+INFO  [alembic.runtime.migration] Running upgrade 0016_workspace_quick_start -> 0017_workspace_details, Persist workspace detail form metadata without replacing existing project fields.
+INFO  [alembic.runtime.migration] Running upgrade 0017_workspace_details -> 0018_automatic_sync, Durable synchronization queue and per-project schedule.
+INFO  [alembic.runtime.migration] Running upgrade 0018_automatic_sync -> 0019_sync_seconds, Support sub-minute synchronization without changing existing schedules.
+INFO  [alembic.runtime.migration] Running upgrade 0019_sync_seconds -> 0020_dashboard_filters, Persist dashboard filters and protect concurrent layout saves.
+INFO  [alembic.runtime.migration] Running upgrade 0020_dashboard_filters -> 0021_deleted_connections, Retain token-free connection references for historical submissions.
+INFO  [alembic.runtime.migration] Running upgrade 0021_deleted_connections -> 0022_worker_heartbeat, Track actual synchronization worker polls.
+INFO  [alembic.runtime.migration] Running upgrade 0022_worker_heartbeat -> 0023_manual_mean_choice, Preserve legacy manual averages and allow an explicit administrator choice.
+INFO  [alembic.runtime.migration] Running upgrade 0023_manual_mean_choice -> 0024_admin_events, Persist real organization administrative events.
+INFO  [alembic.runtime.migration] Running upgrade 0024_admin_events -> 0025_manual_pooled_results, Explicit pooled manual results; retain all legacy calculations.
+INFO  [alembic.runtime.migration] Running upgrade 0025_manual_pooled_results -> 0026_quality_review, Persist validation findings and real review decisions and assignments.
+INFO  [alembic.runtime.migration] Running upgrade 0026_quality_review -> 0027_review_evidence, Bind review decisions to evidence; conservatively reopen legacy decisions.
+INFO  [alembic.runtime.migration] Running upgrade 0027_review_evidence -> 0028_indicator_reliability, Add observed definition history without inventing legacy approval evidence.
+INFO  [alembic.runtime.migration] Running upgrade 0028_indicator_reliability -> 0029_auth_lifecycle, Keep refresh families revocable while rotating credentials atomically.
+INFO  [alembic.runtime.migration] Running upgrade 0029_auth_lifecycle -> 0030_project_actions, Add project actions and immutable-through-API audit history without changing evidence.

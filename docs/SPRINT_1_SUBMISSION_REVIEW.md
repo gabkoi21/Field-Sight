@@ -35,3 +35,5 @@ confirm only eligible Ready records contribute to indicators and reports.
 History paging preserves access to older events. Close review returns focus.
 
 Final Sprint 1 verification: full backend 245 passed (223 warnings, 305.19s); frontend integration 22 passed; production build passed (31.00s). Ruff/mypy passed. Git diff whitespace check passed.
+
+Sprint 4 browser follow-up: authenticated synthetic officer opened the needs-review filter by keyboard, inspected answers and saved a Ready decision with persisted history. Actual screenshot is in docs/verification/pilot-submission-review.jpg. Active user data was not used.

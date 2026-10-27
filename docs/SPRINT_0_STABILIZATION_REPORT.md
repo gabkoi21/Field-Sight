@@ -23,7 +23,7 @@ No tracked .env found by audit; credential values were not read or printed.
 
 Deployment gate: NOT AUTHORIZED. Root verify runs PR/main; deploy runs main after
 verification. Vercel uses frontend root, npm run build, dist, SPA rewrites. Confirm
-VITE_API_BASE_URL, backend explicit HTTPS CORS, auth cookie routing, dashboard
+VITE_API_URL, backend explicit HTTPS CORS, auth cookie routing, dashboard
 branch settings and separate worker supervision before release. Hosted Vercel logs
 and account configuration are unavailable here; hosted status is UNVERIFIED.
 Inspect GitHub Actions for the exact dev SHA and Vercel project deployment logs.
@@ -40,3 +40,5 @@ Final Sprint 0 frontend verification: 119 tests passed in 24 files with --maxWor
 Follow-up inventory: five residual backend test-output files and two local database backup snapshots under outputs/demo-enumerators-backup were also untracked without deletion. Treat historical backup blobs as potentially sensitive. They remain in prior Git history; any history rewrite or credential rotation requires a separately coordinated procedure. No credential values were inspected.
 
 Connected GitHub check: dev starting SHA has no returned Actions workflow runs and Vercel status failure, target https://vercel.com/gabkoi21s-projects/fieldsight/Enfrw6wd7jWMmdxLUkkbfbkuoQqk . Detailed Vercel account logs remain unavailable; exact hosted failure cause unverified.
+
+Final cleanup also untracks the three inventoried .agents Python bytecode caches. Their local files and all skill source instructions remain intact. No tracked node_modules, tmp or Python cache files remain.

@@ -79,3 +79,5 @@ linking foreign-project evidence and stale edits; confirm rejection. Archive and
 confirm history remains readable while new edits are denied.
 
 Final Sprint 3: full backend 252 passed (232 warnings, 281.71s); full frontend 127 passed in 26 files (184.89s); production build passed (23.19s); Ruff and mypy pass. Follow-up UTC/audit-rollback checks: 2 passed. Strengthened action empty-state test rerun: 6 passed. Existing dependency warnings and npm audit findings remain release-review items for Sprint 4.
+
+Sprint 4 authenticated browser follow-up completed evidence-linked create, field-member assignment, native due-date edit, In progress, Resolved, Closed, reload with five audit events and empty other-project register. Screenshots are linked in the UAT checklist.

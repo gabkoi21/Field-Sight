@@ -35,3 +35,5 @@ Screenshots must come from the running app; no generated mockups substitute for
 browser validation. Human NGO usability acceptance remains Sprint 4 external work.
 
 Final Sprint 2: 23 tests passed (35.54s), production build passed (40.41s), git diff whitespace check passed. Backend unchanged from Sprint 1 full regression.
+
+Sprint 4 authenticated browser follow-up verified desktop/tablet/mobile widths and visible keyboard focus; actual screenshots are linked in SPRINT_4_UAT_CHECKLIST.md. These are synthetic local app screens, not practitioner or production acceptance.
