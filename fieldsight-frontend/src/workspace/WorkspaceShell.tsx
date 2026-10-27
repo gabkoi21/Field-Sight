@@ -144,11 +144,11 @@ function Shell() {
         >
           {sections.map((section) => (
             <div key={section.title} className="mb-4">
-              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
+              <p className="navigation-section-label mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
                 {section.title}
               </p>
               {section.items.map(({ name, path, icon: Icon }) => name === "Details & activity" && !workspace.hasSelectedProject ? (
-                <div key={name} className="my-0.5 px-3 py-2">
+                <div key={name} className="navigation-project-hint my-0.5 px-3 py-2">
                   <span aria-disabled="true" className="flex items-center gap-2.5 text-xs text-[#91a9bb] opacity-60">
                     <Icon size={15} />{name}
                   </span>
@@ -159,6 +159,8 @@ function Shell() {
               ) : (
                 <Link
                   key={name}
+                  title={name}
+                  aria-label={name}
                   aria-current={active(path) ? "page" : undefined}
                   to={workspace.projectId && ["/forms", "/data-tables", "/analytics", "/dashboards", "/submissions", "/quality", "/reports"].includes(path)
                     ? `${path}?project_id=${workspace.projectId}`
@@ -167,7 +169,7 @@ function Shell() {
                   className={`my-0.5 flex min-h-11 items-center gap-2.5 rounded-lg border-l-2 px-3 py-2 text-sm no-underline transition-colors focus-visible:outline-white hover:bg-[#0b51b7]/50 hover:text-white ${active(path) ? "border-[#8ebaff] bg-[#0b51b7]/50 font-semibold text-white" : "border-transparent text-[#b5c7d5]"}`}
                 >
                   <Icon size={17} aria-hidden="true" />
-                  {name}
+                  <span className="navigation-label">{name}</span>
                 </Link>
               ))}
             </div>
@@ -175,11 +177,13 @@ function Shell() {
         </nav>
         <NavLink
           to="/guide"
+          title="Quick-start guide"
+          aria-label="Quick-start guide"
           onClick={() => setOpen(false)}
           className="m-3 flex items-center gap-2 rounded-md border border-[#234d82] bg-[#103564] px-3 py-2.5 text-xs font-medium text-[#dceaf5] no-underline"
         >
           <BookOpen size={15} />
-          Quick-start guide<span className="ml-auto">↗</span>
+          <span className="navigation-label">Quick-start guide</span><span className="navigation-label ml-auto">↗</span>
         </NavLink>
       </aside>
       <main ref={main} className="min-h-screen pt-16 lg:ml-[240px]">

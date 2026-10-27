@@ -128,7 +128,8 @@ export function IndicatorWorkspacePage() {
     node: FrameworkNode | null;
     parentId: string | null;
   } | null>(null);
-  const [selectedId, setSelected] = useState("");
+  const requestedIndicatorId = params.get("indicator_id") ?? "";
+  const [selectedId, setSelected] = useState(requestedIndicatorId);
   const [detailsTab, setDetailsTab] = useState("summary");
   const view = params.get("view") ?? "register";
   const projects = useQuery({
@@ -139,7 +140,7 @@ export function IndicatorWorkspacePage() {
   const projectId = routeProject || workspace.projectId || "";
   const project = projects.data?.find((item) => item.id === projectId);
   useEffect(() => {
-    setSelected("");
+    setSelected(requestedIndicatorId);
     setEditing(null);
     setMapping(null);
     setPeriodTargets(null);
@@ -147,7 +148,7 @@ export function IndicatorWorkspacePage() {
     setError("");
     setSourceFilter("all");
     setCollapsedGroups(new Set());
-  }, [projectId]);
+  }, [projectId, requestedIndicatorId]);
   const invalidDates = Boolean(dateFrom && dateTo && dateFrom > dateTo);
   const indicators = useQuery({
     queryKey: ["indicators", projectId, dateFrom, dateTo],
@@ -674,10 +675,6 @@ export function IndicatorWorkspacePage() {
                               ))}
                             </div>
                           </Panel>
-                          <nav aria-label="Indicator evidence tools" className="flex flex-wrap gap-2">
-                            <Button variant="secondary" onClick={() => setDetailsTab("collected")}>Collected data</Button>
-                            <Button variant="secondary" onClick={() => setDetailsTab("evidence")}>Evidence &amp; versions</Button>
-                          </nav>
                           {detailsTab === "evidence" ? <IndicatorEvidence indicator={selected} from={dateFrom} to={dateTo} /> : detailsTab === "collected" ? <CollectedDataPanel indicator={selected} onMap={() => editMap(selected)} /> : detailsTab === "details" ? (
                             <Panel>
                               <div className="grid grid-cols-2 gap-5 p-5 text-xs max-[600px]:grid-cols-1">
@@ -1450,14 +1447,14 @@ function IndicatorResults({
                   <Bar
                     dataKey="target_value"
                     name="Period target"
-                    fill="#17a7c5"
+                    fill="#8eb5e8"
                     isAnimationActive={false}
                     radius={[3, 3, 0, 0]}
                   />
                   <Bar
                     dataKey="value"
                     name="Actual"
-                    fill="#efb426"
+                    fill="var(--fs-primary)"
                     isAnimationActive={false}
                     radius={[3, 3, 0, 0]}
                   />

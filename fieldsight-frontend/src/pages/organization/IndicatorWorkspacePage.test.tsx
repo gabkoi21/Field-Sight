@@ -55,6 +55,27 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
+it("opens the indicator requested by an overview action instead of the first indicator", async () => {
+  vi.mocked(apiClient.organizationProjects).mockResolvedValue([{ id: "project", name: "School feeding" }] as never);
+  vi.mocked(apiClient.resultsFramework).mockResolvedValue([]);
+  vi.mocked(apiClient.indicators).mockResolvedValue(["Sessions", "Shortage incidents"].map((name, index) => ({
+    id: String(index), project_id: "project", name, code: `KPI-${index}`, unit: "number",
+    is_active: true, status: "not_started", direction: "decrease", baseline_value: 0,
+    target_value: 0, target_date: null, current_value: null, progress_percent: null,
+    target_achieved: null, reporting_frequency: "monthly", mapping_health: "unmapped", mapping: null,
+    result_source: "unconfigured", qualitative_value: null, framework_node_id: null,
+    schedule_status: "no_data", history: [], location_breakdown: [], eligible_records: 0,
+    mapped_records: 0, numerator: null, denominator: 0, missing_records: 0, invalid_answers: 0,
+    quality_excluded_records: 0, undated_records: 0,
+    manual_result_count: 0, description: null, calculation_note: "No source configured.", source_form_id: null,
+    date_from: null, date_to: null, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z",
+  } as Indicator)));
+  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/projects/project/indicators?view=results&indicator_id=1"]}><Routes><Route path="/projects/:projectId/indicators" element={<IndicatorWorkspacePage />} /></Routes></MemoryRouter></QueryClientProvider>);
+  await screen.findByRole("combobox", { name: "Indicator" });
+  expect((screen.getByRole("combobox", { name: "Indicator" }) as HTMLSelectElement).value).toBe("1");
+});
+
 it.each([false, true])("reviews source mapping and requires fresh confirmation after stale=%s", async (stale) => {
   const items = ["Boys present", "Girls present"].map(
     (name, index) =>

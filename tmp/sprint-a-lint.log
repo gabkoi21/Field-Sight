@@ -1,0 +1,391 @@
+I001 [*] Import block is un-sorted or un-formatted
+ --> scripts\auth_browser_fixture.py:3:1
+  |
+1 |   """Disposable local browser fixture. Never use against an existing database."""
+2 |
+3 | / from pathlib import Path
+4 | | import sys
+5 | | from uuid import uuid4
+  | |______________________^
+6 |
+7 |   sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+  |
+help: Organize imports
+  |
+2 |
+3 + import sys
+4 | from pathlib import Path
+  - import sys
+5 | from uuid import uuid4
+  |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> scripts\auth_browser_fixture.py:8:1
+   |
+ 7 |   sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ 8 | / from datetime import UTC, datetime, timedelta
+ 9 | | import jwt
+10 | | import uvicorn
+11 | | from fastapi import Request
+12 | | from sqlmodel import SQLModel, Session, create_engine
+13 | | from app.main import create_app
+14 | | from app.core.config import Settings
+15 | | from app.core.security import password_hasher
+16 | | from app.db.session import get_session
+17 | | from app.models.identity import User, Role
+18 | | import app.routes.auth as auth
+   | |______________________________^
+19 |
+20 |   path = Path(__file__).resolve().parents[1] / "outputs" / f"browser-auth-{uuid4().hex}.db"
+   |
+help: Organize imports
+   |
+8  | from datetime import UTC, datetime, timedelta
+9  +
+10 | import jwt
+11 | import uvicorn
+12 | from fastapi import Request
+   - from sqlmodel import SQLModel, Session, create_engine
+   - from app.main import create_app
+13 + from sqlmodel import Session, SQLModel, create_engine
+14 +
+15 + import app.routes.auth as auth
+16 | from app.core.config import Settings
+17 | from app.core.security import password_hasher
+18 | from app.db.session import get_session
+   - from app.models.identity import User, Role
+   - import app.routes.auth as auth
+19 + from app.main import create_app
+20 + from app.models.identity import Role, User
+21 |
+   |
+
+E501 Line too long (143 > 120)
+  --> scripts\seed_community_preview.py:32:121
+   |
+30 | …oject_id == project.id)).all()
+31 | …project.kobo_form_id)
+32 | …project_id == project.id, SurveySchema.form_id == project.kobo_form_id)).one()
+   |                                                         ^^^^^^^^^^^^^^^^^^^^^^^
+33 | …) for f in schema.fields_json}
+34 | …oject_id == project.id)).all()
+   |
+
+E501 Line too long (192 > 120)
+  --> scripts\seed_community_preview.py:40:121
+   |
+38 | …r_id == indicator.id)).first()
+39 | …
+40 | …obo_form_id == mapping.source_form_id], fields.get(mapping.source_field), indicator.unit).model_dump()
+   |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+41 | …
+42 | …
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_auth_lifecycle.py:177:5
+    |
+176 |   def test_production_cookie_keeps_secure_defaults():
+177 | /     from cryptography.fernet import Fernet
+178 | |     from fastapi import Response
+179 | |     from uuid import uuid4
+180 | |     from app.routes.auth import _set_tokens
+    | |___________________________________________^
+181 |
+182 |       settings = Settings(
+    |
+help: Organize imports
+    |
+176 | def test_production_cookie_keeps_secure_defaults():
+177 +     from uuid import uuid4
+178 +
+179 |     from cryptography.fernet import Fernet
+180 |     from fastapi import Response
+    -     from uuid import uuid4
+181 +
+182 |     from app.routes.auth import _set_tokens
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:139:5
+    |
+138 |   def test_latest_scope_pagination_and_ties(sync_client):
+139 | /     from datetime import datetime
+140 | |     from sqlmodel import select
+141 | |     from app.models.workspace import CollectedResult
+    | |____________________________________________________^
+142 |
+143 |       client, engine, project, headers = sync_client
+    |
+help: Organize imports
+    |
+139 |     from datetime import datetime
+140 +
+141 |     from sqlmodel import select
+142 +
+143 |     from app.models.workspace import CollectedResult
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:173:5
+    |
+172 |   def test_pooled_missing_invalid_and_zero(sync_client):
+173 | /     from sqlmodel import select
+174 | |     from app.models.workspace import CollectedResult
+    | |____________________________________________________^
+175 |
+176 |       client, engine, project, headers = sync_client
+    |
+help: Organize imports
+    |
+173 |     from sqlmodel import select
+174 +
+175 |     from app.models.workspace import CollectedResult
+    |
+
+E501 Line too long (163 > 120)
+   --> tests\test_indicator_reliability.py:197:121
+    |
+197 | …"manual_insert", "manual_update", "manual_delete", "definition", "forged", "proposal"])
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+198 | …
+199 | …
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:199:5
+    |
+197 |   @pytest.mark.parametrize("change", ["answer", "review", "insert", "delete", "manual_insert", "manual_update", "manual_delete", "def…
+198 |   def test_stale_confirmation_is_atomic(analysis_client, change):
+199 | /     from sqlmodel import select
+200 | |     from app.models.operations import Submission
+201 | |     from app.models.workspace import CollectedResult
+    | |____________________________________________________^
+202 |
+203 |       client, engine, project, headers = analysis_client
+    |
+help: Organize imports
+    |
+199 |     from sqlmodel import select
+200 +
+201 |     from app.models.operations import Submission
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:262:5
+    |
+261 |   def test_provider_metadata_does_not_invalidate_preview(analysis_client):
+262 | /     from sqlmodel import select
+263 | |     from app.models.operations import Submission
+    | |________________________________________________^
+264 |
+265 |       client, engine, project, headers = analysis_client
+    |
+help: Organize imports
+    |
+262 |     from sqlmodel import select
+263 +
+264 |     from app.models.operations import Submission
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:327:5
+    |
+326 |   def test_cross_organization_preview_evidence_and_confirmation_are_denied(sync_client):
+327 | /     from datetime import UTC, datetime, timedelta
+328 | |     from app.core.config import Settings
+329 | |     from app.core.security import create_access_token
+330 | |     from app.models.identity import Organization, OrganizationMembership, RefreshSession, Role, User
+    | |____________________________________________________________________________________________________^
+331 |
+332 |       client, engine, project, headers = sync_client
+    |
+help: Organize imports
+    |
+327 |     from datetime import UTC, datetime, timedelta
+328 +
+329 |     from app.core.config import Settings
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:353:5
+    |
+352 |   def test_mapping_and_targets_previews_bind_proposal_and_evidence(analysis_client):
+353 | /     from sqlmodel import select
+354 | |     from app.models.operations import Submission
+    | |________________________________________________^
+355 |
+356 |       client, engine, project, headers = analysis_client
+    |
+help: Organize imports
+    |
+353 |     from sqlmodel import select
+354 +
+355 |     from app.models.operations import Submission
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:387:5
+    |
+386 |   def test_schema_display_metadata_does_not_invalidate_preview(analysis_client):
+387 | /     from sqlmodel import select
+388 | |     from app.models.operations import SurveySchema
+    | |__________________________________________________^
+389 |       client, engine, project, headers = analysis_client
+390 |       indicator = create(client, project, headers, mapping={
+    |
+help: Organize imports
+    |
+387 |     from sqlmodel import select
+388 +
+389 |     from app.models.operations import SurveySchema
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_indicator_reliability.py:404:5
+    |
+403 |   def test_broken_mapping_retains_excluded_evidence(analysis_client):
+404 | /     from sqlmodel import select
+405 | |     from app.models.operations import SurveySchema
+    | |__________________________________________________^
+406 |       client, engine, project, headers = analysis_client
+407 |       indicator = create(client, project, headers, mapping={
+    |
+help: Organize imports
+    |
+404 |     from sqlmodel import select
+405 +
+406 |     from app.models.operations import SurveySchema
+    |
+
+E501 Line too long (122 > 120)
+   --> tests\test_indicator_results.py:201:121
+    |
+199 |     item = create_indicator(analysis_client)
+200 |     preview = api.post(f"/indicators/{item['id']}/period-targets-preview", headers=headers,
+201 |                        json=[{"period": "2026-10", "target_value": 40}, {"period": "2026-11", "target_value": 80}]).json()
+    |                                                                                                                         ^^
+202 |     response = api.put(
+203 |         f"/indicators/{item['id']}/period-targets?confirm_change=true&change_reason=Reviewed%20targets&expected_version=0&preview_tok…
+    |
+
+E501 Line too long (220 > 120)
+   --> tests\test_indicator_results.py:233:121
+    |
+231 | …
+232 | …n()
+233 | …20targets&expected_version=1&preview_token={preview['preview_token']}", headers=headers, json=[]).status_code == 200
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+234 | …
+235 | …
+    |
+
+E501 Line too long (179 > 120)
+   --> tests\test_indicator_results.py:443:121
+    |
+441 | …tus_code == 404
+442 | …us_code == 404
+443 | …nge_reason=Reviewed%20targets&expected_version=1", headers=headers, json=[]).status_code == 404
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+444 | …
+445 | …
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+   --> tests\test_migrations.py:113:5
+    |
+112 |   def test_auth_migration_preserves_legacy_users_and_sessions(tmp_path: Path, monkeypatch) -> None:
+113 | /     from datetime import UTC, datetime, timedelta
+114 | |     from sqlmodel import Session, create_engine
+115 | |     from app.models.identity import RefreshSession, User
+    | |________________________________________________________^
+116 |
+117 |       path = tmp_path / "legacy-auth.db"
+    |
+help: Organize imports
+    |
+113 |     from datetime import UTC, datetime, timedelta
+114 +
+115 |     from sqlmodel import Session, create_engine
+116 +
+117 |     from app.models.identity import RefreshSession, User
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests\test_migrations.py:126:21
+    |
+124 |     with Session(engine) as db:
+125 |         user = User(email="legacy@example.com", password_hash="synthetic-unchanged")
+126 |         db.add(user); db.flush()
+    |                     ^
+127 |         session = RefreshSession(user_id=user.id, token_hash="synthetic-legacy-hash",
+128 |                                  expires_at=datetime.now(UTC) + timedelta(days=3))
+    |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests\test_migrations.py:129:24
+    |
+127 |         session = RefreshSession(user_id=user.id, token_hash="synthetic-legacy-hash",
+128 |                                  expires_at=datetime.now(UTC) + timedelta(days=3))
+129 |         db.add(session); db.commit()
+    |                        ^
+130 |     engine.dispose()
+131 |     with connect(path) as db:
+    |
+
+E501 Line too long (149 > 120)
+   --> tests\test_migrations.py:136:121
+    |
+134 | …lumn}")
+135 | …
+136 | …pires_at,revoked_at,replaced_by_id,created_at FROM refresh_sessions").fetchall()
+    |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+137 | …
+138 | …
+    |
+
+E501 Line too long (157 > 120)
+   --> tests\test_migrations.py:140:121
+    |
+138 | …
+139 | …rs
+140 | …d_at,replaced_by_id,created_at FROM refresh_sessions").fetchall() == before_sessions
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+141 | …fresh_sessions").fetchone() == (None, 1, None)
+142 | …
+    |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> tests\test_pooled_results.py:53:5
+   |
+51 |       definition = {"name": "Legacy percentage", "code": "LEGACY", "unit": "percentage"}
+52 |       indicator = client.post(f"/projects/{project}/indicators", headers=headers, json=definition).json()["id"]
+53 | /     from uuid import UUID
+54 | |     from sqlmodel import Session
+55 | |     from app.models.operations import Indicator
+   | |_______________________________________________^
+56 |
+57 |       with Session(engine) as db:
+   |
+help: Organize imports
+   |
+53 |     from uuid import UUID
+54 +
+55 |     from sqlmodel import Session
+56 +
+57 |     from app.models.operations import Indicator
+   |
+
+E501 Line too long (129 > 120)
+  --> tests\test_workspace.py:26:121
+   |
+24 | def indicator(client, project, headers, **values):
+25 |     unit = values.get("unit", "number")
+26 |     values.setdefault("manual_aggregation", "unweighted_mean" if unit == "percentage" else "latest" if unit == "text" else "sum")
+   |                                                                                                                         ^^^^^^^^^
+27 |     response = client.post(
+28 |         f"/projects/{project}/indicators",
+   |
+
+Found 24 errors.
+[*] 13 fixable with `--fix`.

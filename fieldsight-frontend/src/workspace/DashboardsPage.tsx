@@ -10,11 +10,13 @@ import {
   ArrowDown,
   ArrowUp,
   BarChart3,
+  ChevronDown,
   Copy,
   LayoutDashboard,
   Maximize2,
   GripVertical,
   RefreshCw,
+  SlidersHorizontal,
   Pencil,
   Plus,
   Printer,
@@ -72,6 +74,27 @@ export function DashboardsPage() {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const pointerCleanup = useRef<(() => void) | null>(null);
+  const filtersRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeFilters = (event: PointerEvent) => {
+      const filters = filtersRef.current;
+      if (filters?.open && event.target instanceof Node && !filters.contains(event.target)) {
+        filters.open = false;
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && filtersRef.current?.open) {
+        filtersRef.current.open = false;
+        filtersRef.current.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeFilters);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeFilters);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
   useEffect(() => () => pointerCleanup.current?.(), []);
   const [widgetEditor, setWidgetEditor] = useState(false);
   const [kind, setKind] = useState<DashboardWidget["kind"]>("indicator");
@@ -325,7 +348,7 @@ export function DashboardsPage() {
                     ))}
                   </select>
                   {dashboard.description && (
-                    <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">
+                    <p className="mb-0 mt-0.5 text-xs text-[var(--fs-muted)]">
                       {dashboard.description}
                     </p>
                   )}
@@ -389,7 +412,14 @@ export function DashboardsPage() {
                   </Button>
                 </div>
               </header>
-              <div className="flex flex-wrap items-end gap-3 px-5 py-4 print:hidden">
+              <div className="flex flex-wrap items-center gap-3 px-5 py-4 print:hidden">
+                <details ref={filtersRef} className="group relative">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-xs font-medium text-[#3f7a86] hover:bg-[#f7fafb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] [&::-webkit-details-marker]:hidden">
+                    <SlidersHorizontal size={15} aria-hidden="true" />
+                    Filters
+                    <ChevronDown size={14} className="transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </summary>
+                  <div className="absolute left-0 top-full z-30 mt-2 flex w-[min(340px,calc(100vw-3rem))] flex-wrap items-end gap-3 rounded-lg border border-[var(--fs-border)] bg-white p-4 shadow-lg [&>label]:w-full">
                 <Field label="Results from">
                   <input
                     type="date"
@@ -431,6 +461,8 @@ export function DashboardsPage() {
                 >
                   Save filters
                 </Button>
+                  </div>
+                </details>
                 <Tool
                   title="Refresh dashboard data"
                   onClick={() =>
@@ -439,33 +471,22 @@ export function DashboardsPage() {
                 >
                   <RefreshCw size={14} />
                 </Tool>
-                <span className="mb-2 ml-auto text-[12px] text-[var(--fs-muted)]">
+                <span className="ml-auto text-[12px] text-[var(--fs-muted)]">
                   Saved within {project?.name}
                 </span>
               </div>
-              <p className="m-0 px-5 pb-4 text-xs leading-5 text-[var(--fs-muted)]">
-                Dates filter results, not overall indicator targets. Dashboard
-                dates override each saved chart's date bounds; unset bounds keep
-                that chart's saved dates. Other chart filters stay unchanged.
-                Changes preview immediately; Save filters keeps them after
-                reload.
-              </p>
             </Panel>
             {save.isPending && (
               <p role="status" className="text-xs text-[var(--fs-muted)]">
                 Saving dashboard…
               </p>
             )}
-            <p className="text-xs text-[#637580]">Project: {project?.name}. Active dates: {from || "All dates"} through {through || "Present"} (UTC). Last successful sync: {syncStatus.data?.last_successful_sync ? new Date(syncStatus.data.last_successful_sync).toLocaleString() : "Not recorded"}. Values use current saved data; review exclusions are shown on each indicator.</p>
             {syncStatus.error && (
               <p role="status" className="text-xs text-[var(--fs-muted)]">
                 Automatic refresh status is unavailable. Use Refresh dashboard
                 data to load current results.
               </p>
             )}
-            <p className="text-xs text-[var(--fs-muted)]">
-              Widgets grow to fit on small screens; saved heights apply on larger screens. Drag a widget by its grip or use the move buttons to reorder.
-            </p>
             {invalid ? (
               <Notice error>Start date must be on or before end date.</Notice>
             ) : filterDashboard !== dashboard.id ? (

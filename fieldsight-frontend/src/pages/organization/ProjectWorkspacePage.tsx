@@ -1,519 +1,139 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, useParams } from "react-router-dom";
-import {
-  Building2,
-  ChevronRight,
-  Clock3,
-  Database,
-  FileCheck2,
-  RefreshCw,
-  Users,
-  MapPin,
-  ChevronDown,
-  ArrowRight,
-  ShieldCheck,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Building2, Clock3, Database, FileCheck2, RefreshCw, Target } from "lucide-react";
 import { Card, CardHeader } from "../../components/ui/Card";
 import { Badge, Button, LoadingState, MetricCard } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { apiClient, ApiError, type ApiSubmission } from "../../services/apiClient";
-import { SubmissionActivityPanel } from "../../components/dashboard/SubmissionActivityPanel";
+import { apiClient, type Indicator } from "../../services/apiClient";
+import { indicatorLink, overviewIssues, reportingCompleteness } from "./projectOverview";
 
-
-function relativeTime(value: string | null | undefined) {
-  if (!value) return "Never";
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (seconds < 60) return "Just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+const linkClass = "inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-brand underline underline-offset-2";
+const formatNumber = (number: number) => number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+function resultValue(item: Indicator) {
+  if (item.unit === "text") return item.qualitative_value || "Awaiting data";
+  if (item.current_value === null) return "Awaiting data";
+  return `${formatNumber(item.current_value)}${item.unit === "percentage" ? "%" : ""}`;
 }
-
-export function ProjectKPIGrid({
-  project,
-}: {
-  project: {
-    totalSubmissions?: number;
-    target?: number | null;
-    readyRecords?: number;
-    needsAttentionCount?: number;
-    activeEnumerators?: number;
-  };
-}) {
-  const needsAttention = project.needsAttentionCount ?? 0;
-
-  return (
-    <section className="grid grid-cols-3 gap-3 max-[1050px]:grid-cols-3 max-[820px]:grid-cols-1 mb-5">
-      <MetricCard
-        label="Total Submissions"
-        value={project.totalSubmissions || 0}
-        context={
-          project.target ? (
-            `Target: ${project.target.toLocaleString()}`
-          ) : (
-            <span className="text-brand font-medium hover:underline">+ Set target</span>
-          )
-        }
-        icon={Database}
-        tone="brand"
-      />
-      <MetricCard
-        label="Records Ready"
-        value={project.readyRecords || 0}
-        context={`${needsAttention} record${needsAttention === 1 ? "" : "s"} need attention`}
-        icon={FileCheck2}
-        tone={needsAttention > 0 ? "warning" : "brand"}
-      />
-      <MetricCard
-        label="Active Enumerators"
-        value={project.activeEnumerators || 0}
-        context="Contributing to this project"
-        icon={Users}
-        tone="brand"
-      />
-    </section>
-  );
+function timestamp(value: string | null | undefined) {
+  return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value)) + " UTC" : "Not recorded";
 }
 
 export function ProjectWorkspacePage() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const queryClient = useQueryClient();
+  const { projectId = "" } = useParams<{ projectId: string }>();
+  const cache = useQueryClient();
   const { user, loading: authLoading } = useAuth();
-  const [syncMessage, setSyncMessage] = useState("");
-  const organizationId = user?.memberships[0]?.organization_id;
+  const organizationId = user?.memberships.find(member => member.role === "organization_admin")?.organization_id;
+  const enabled = Boolean(!authLoading && organizationId && projectId);
+  const scope = `project_id=${encodeURIComponent(projectId)}`;
+  const [syncMessage, setSyncMessage] = useState<{ projectId: string; text: string } | null>(null);
   const projectQuery = useQuery({
     queryKey: ["project", organizationId, projectId],
-    queryFn: () => apiClient.getProject(organizationId!, projectId!),
-    enabled: Boolean(!authLoading && organizationId && projectId),
+    queryFn: () => apiClient.getProject(organizationId!, projectId), enabled,
   });
-  const overviewQuery = useQuery({
-    queryKey: ["project-overview", projectId],
-    queryFn: () => apiClient.analyticsOverview({ projectId: projectId!, period: "30d" }),
-    enabled: Boolean(!authLoading && projectId),
-  });
+  // Child requests wait for the authorized project. No organization-wide raw data fetch.
+  const authorized = enabled && projectQuery.isSuccess;
   const submissionsQuery = useQuery({
-    queryKey: ["submissions", projectId],
-    queryFn: apiClient.submissions,
-    enabled: Boolean(!authLoading && projectId),
+    queryKey: ["project-overview", organizationId, projectId, "submissions"],
+    queryFn: () => apiClient.submissionPage(new URLSearchParams({ project_id: projectId, limit: "5" })), enabled: authorized,
+  });
+  const syncQuery = useQuery({
+    queryKey: ["project-overview", organizationId, projectId, "sync"],
+    queryFn: () => apiClient.syncSettings(projectId), enabled: authorized, refetchInterval: 15000,
+  });
+  const indicatorsQuery = useQuery({
+    queryKey: ["indicators", projectId, "overview", organizationId],
+    queryFn: () => apiClient.indicators(projectId), enabled: authorized,
+  });
+  const qualityQuery = useQuery({
+    queryKey: ["quality-issues", organizationId, projectId, "overview"],
+    queryFn: () => apiClient.qualityQueue(new URLSearchParams({ project_id: projectId, limit: "1" })), enabled: authorized,
   });
   const syncMutation = useMutation({
-    mutationFn: () => apiClient.syncProjectKoboForm(projectId!),
-    onSuccess: async (result) => {
-      setSyncMessage(
-        `Sync complete: ${result.received} received, ${result.created} new, ${result.updated} updated, ${result.skipped} unchanged.`,
-      );
-      await queryClient.invalidateQueries({ queryKey: ["submissions"] });
-      await queryClient.invalidateQueries({ queryKey: ["sync-runs"] });
-      await queryClient.invalidateQueries({ queryKey: ["project-overview", projectId] });
-      await queryClient.invalidateQueries({ queryKey: ["kobo-pending-sync"] });
+    mutationFn: (id: string) => apiClient.syncProjectKoboForm(id),
+    onSuccess: async (result, id) => {
+      setSyncMessage({ projectId: id, text: `Sync complete: ${result.received} received, ${result.created} new, ${result.updated} updated.` });
+      await Promise.all(["project-overview", "submissions", "sync-settings", "sync-runs", "kobo-pending-sync", "indicators", "quality-issues", "dashboard-widget"].map(key => cache.invalidateQueries({ queryKey: [key] })));
     },
   });
-  const projectSubmissions = useMemo(
-    () => (submissionsQuery.data ?? []).filter((item) => item.project_id === projectId),
-    [submissionsQuery.data, projectId],
-  );
+  const refresh = () => Promise.all([projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), qualityQuery.refetch()]);
 
-  if (authLoading || projectQuery.isLoading || overviewQuery.isLoading) return <LoadingState variant="page" label="Loading project…" />;
-  if (projectQuery.error)
-    return (
-      <div className="rounded-xl border border-[#f7cfd4] bg-[#fff3f4] p-6 text-sm text-[#b42318]">
-        {projectQuery.error instanceof ApiError ? projectQuery.error.message : "Unable to load project."}
-      </div>
-    );
+  if (authLoading || (enabled && projectQuery.isPending)) return <LoadingState variant="page" label="Loading project…" />;
+  if (!organizationId) return <div role="alert">An active organization administrator membership is required to view this project.</div>;
+  if (projectQuery.error || !projectQuery.data) return <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">Unable to load project. <Button variant="secondary" onClick={() => void projectQuery.refetch()}>Retry project</Button></div>;
   const project = projectQuery.data;
-  if (!project) return <div className="p-6 text-sm">Project unavailable. <button className="min-h-11 px-3 font-semibold underline" onClick={() => void projectQuery.refetch()}>Retry project</button></div>;
-  const overview = overviewQuery.data;
-  const totalSubmissions = projectSubmissions.length;
-  const readyRecords = projectSubmissions.filter((item) => item.review_status === "ready").length;
-  const activeEnumerators = new Set(projectSubmissions.map((item) => item.enumerator).filter(Boolean)).size;
+  const connected = Boolean(project.kobo_connection_id && project.kobo_form_id);
+  const activeIndicators = indicatorsQuery.data?.filter(item => item.is_active);
+  const issues = overviewIssues({ projectId, connected, counts: submissionsQuery.data?.counts, sync: syncQuery.data, indicators: indicatorsQuery.data, findings: qualityQuery.data?.total });
+  const attentionLoading = [submissionsQuery, syncQuery, indicatorsQuery, qualityQuery].some(query => query.isPending);
+  const attentionError = [submissionsQuery, syncQuery, indicatorsQuery, qualityQuery].some(query => query.isError);
 
-  return (
-    <div className="flex flex-col gap-[18px] pb-5">
-      <div className="mb-2 flex items-end justify-between gap-[14px] max-[720px]:flex-col max-[720px]:items-start">
-        <div>
-          <NavLink
-            className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-[#748299] no-underline hover:text-brand"
-            to="/projects"
-          >
-            <ChevronRight size={14} className="rotate-180" /> All projects
-          </NavLink>
-          <div className="flex items-center gap-3.5">
-            <span className="grid size-12 place-items-center rounded-xl bg-[#e8f1ff] text-brand shadow-[inset_0_0_0_1px_#dce9fb]">
-              <Building2 size={21} />
-            </span>
-            <div>
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <h1 className="m-0 text-[2rem] font-bold leading-tight tracking-[-.05em] text-[#1d2a38]">
-                  {project.name}
-                </h1>
-                <Badge value={project.status} />
-              </div>
-              <p className="m-0 text-[0.875rem] text-[#77869b]">
-                Project project <span className="mx-1 text-[#c6ced8]"> / </span>
-                {project.kobo_form_name ? `Kobo form: ${project.kobo_form_name} • Last sync: ${relativeTime(overview?.last_synced_at)}` : "No form connected"}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={!project.kobo_form_id || syncMutation.isPending}
-            onClick={() => {
-              setSyncMessage("");
-              syncMutation.mutate();
-            }}
-          >
-            <RefreshCw size={15} /> {syncMutation.isPending ? "Syncing…" : "Sync data"}
-          </Button>
+  return <div className="flex flex-col gap-5 pb-5">
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <NavLink to="/projects" className={linkClass}>All projects</NavLink>
+        <div className="flex items-center gap-3">
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-blue-50 text-brand" aria-hidden="true"><Building2 size={22} /></span>
+          <div><h1 className="m-0 text-2xl font-bold text-[var(--fs-text)]">{project.name}</h1><p className="mb-0 mt-1 text-sm text-[var(--fs-muted)]">Project overview</p></div>
+          <Badge value={project.status} />
         </div>
       </div>
-      {syncMessage && (
-        <p className="m-0 rounded-[5px] border border-[#bfe4cf] bg-[#f0fbf5] px-3 py-2 text-xs text-[#18794e]">
-          {syncMessage}
-        </p>
-      )}
-      {syncMutation.error && (
-        <p className="m-0 rounded-[5px] bg-[#fff0f2] px-3 py-2 text-xs text-[#b42318]">
-          {syncMutation.error instanceof ApiError
-            ? syncMutation.error.message
-            : "Unable to sync Kobo data. Please try again."}
-        </p>
-      )}
-      <nav className="mb-1 flex gap-1 overflow-x-auto border-b border-[#e5eaf0]">
-        <span className="shrink-0 border-b-2 border-brand px-3.5 py-3 text-[14px] font-semibold text-brand">
-          Overview
-        </span>
-        <NavLink to={`/projects/${project.id}/indicators`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[14px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Indicators</NavLink>
-        <NavLink to={`/projects/${project.id}/indicators?view=results`} className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[14px] font-semibold text-[#75849a] no-underline hover:text-[#344562]">Monitoring</NavLink>
-        <NavLink
-          to={`/analytics?project_id=${project.id}`}
-          className="shrink-0 border-b-2 border-transparent px-3.5 py-3 text-[14px] font-semibold text-[#75849a] no-underline hover:text-[#344562]"
-        >
-          Analytics
-        </NavLink>
-      </nav>
-      <ProjectKPIGrid
-        project={{
-          totalSubmissions,
-          target: project.target_sample_size,
-          readyRecords,
-          needsAttentionCount: overview?.blocked_records ?? projectSubmissions.filter((item) => item.review_status === "needs_review" || item.review_status === "rejected").length,
-          activeEnumerators,
-        }}
-      />
-      <div className="grid grid-cols-[minmax(0,1.85fr)_minmax(300px,.85fr)] gap-[14px] max-[1100px]:grid-cols-[1fr]">
-        <SubmissionActivityPanel
-          submissions={projectSubmissions}
-          target={project.target_sample_size}
-          startDate={project.start_date}
-          endDate={project.end_date}
-        />
-        <TopLocationsPanel submissions={(submissionsQuery.data ?? []).filter((s) => s.project_id === projectId)} />
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={() => void refresh()}><RefreshCw size={15} aria-hidden="true" />Refresh overview</Button>
+        <Button disabled={!connected || project.status === "archived" || syncMutation.isPending} onClick={() => { setSyncMessage(null); syncMutation.mutate(projectId); }}><RefreshCw size={15} aria-hidden="true" />{syncMutation.isPending ? "Syncing…" : "Sync data"}</Button>
       </div>
-      <section className="grid grid-cols-[minmax(0,1.8fr)_minmax(320px,.8fr)] gap-[14px] max-[1050px]:grid-cols-1">
-        <ProjectLeaderboard submissions={projectSubmissions} />
-        <ProjectExceptionAlerts submissions={projectSubmissions} projectName={project.name} />
-      </section>
-    </div>
-  );
-}
+    </header>
+    {syncMessage?.projectId === projectId && <p role="status" className="m-0 text-sm text-[var(--fs-success)]">{syncMessage.text}</p>}
+    {syncMutation.error && syncMutation.variables === projectId && <p role="alert" className="m-0 text-sm text-[var(--fs-danger)]">Synchronization failed. Check the source connection and try again.</p>}
+    <nav aria-label="Project sections" className="flex flex-wrap gap-x-5 border-b border-[var(--fs-border)]">
+      <span aria-current="page" className="min-h-11 border-b-2 border-brand py-3 text-sm font-semibold text-brand">Overview</span>
+      <NavLink className={linkClass} to={`/projects/${projectId}/indicators`}>Indicators</NavLink>
+      <NavLink className={linkClass} to={`/dashboards?${scope}`}>Dashboards</NavLink>
+      <NavLink className={linkClass} to={`/analytics?${scope}`}>Analytics</NavLink>
+      <NavLink className={linkClass} to={`/reports?${scope}`}>Reports</NavLink>
+    </nav>
 
+    <section aria-labelledby="collection-heading">
+      <h2 id="collection-heading" className="mb-1 mt-0 text-lg font-semibold">Data collection</h2>
+      <p className="mb-4 mt-0 text-sm text-[var(--fs-muted)]">All saved project records, including records awaiting review. These counts are operational, not approved M&E results.</p>
+      {submissionsQuery.isPending ? <LoadingState variant="panel" label="Loading collection counts…" /> : submissionsQuery.error ? <LoadError label="collection counts" retry={() => void submissionsQuery.refetch()} /> : <div className="grid gap-3 sm:grid-cols-3">
+        <MetricCard label="Submitted records" value={submissionsQuery.data!.total} icon={Database} context={<NavLink to={`/submissions?${scope}`} className={linkClass}>View submissions</NavLink>} />
+        <MetricCard label="Awaiting review" value={submissionsQuery.data!.counts.needs_review ?? 0} icon={Clock3} context={<NavLink to={`/submissions?${scope}&review=needs_review`} className={linkClass}>Review records</NavLink>} />
+        <MetricCard label="Ready records" value={submissionsQuery.data!.counts.ready ?? 0} icon={FileCheck2} context="Ready is a data-review status, not result approval." />
+      </div>}
+      <Card className="mt-3 p-4">
+        <h3 className="m-0 text-sm font-semibold">Latest successful synchronization</h3>
+        {syncQuery.isPending ? <p role="status">Loading synchronization status…</p> : syncQuery.error ? <LoadError label="synchronization status" retry={() => void syncQuery.refetch()} /> : <p className="mb-0 mt-2 text-sm text-[var(--fs-muted)]"><time>{timestamp(syncQuery.data?.last_successful_sync)}</time>{syncQuery.data?.pending ? " · Synchronization queued" : ""}</p>}
+        {!connected && <p className="mb-0 mt-2 text-sm">No Kobo data source is configured. <NavLink className={linkClass} to={`/forms?${scope}`}>Connect a data source</NavLink></p>}
+        {connected && submissionsQuery.data?.total === 0 && <p className="mb-0 mt-2 text-sm">No submissions saved yet. Synchronize the connected form to load records.</p>}
+      </Card>
+    </section>
 
-function TopLocationsPanel({ submissions }: { submissions: ApiSubmission[] }) {
-  const [view, setView] = useState<"counties" | "communities">("counties");
-  const hasCountyData = submissions.some((item) => {
-    const value = item.raw_answers["household/county"];
-    return typeof value === "string" && Boolean(value.trim());
-  });
-  const hasCommunityData = submissions.some((item) => {
-    const raw = item.raw_answers;
-    const value = raw["household/community"] ?? raw["household/community_or_settlement"];
-    return typeof value === "string" && Boolean(value.trim());
-  });
-
-  useEffect(() => {
-    if (view === "counties" && !hasCountyData && hasCommunityData) setView("communities");
-    if (view === "communities" && !hasCommunityData && hasCountyData) setView("counties");
-  }, [view, hasCountyData, hasCommunityData]);
-
-  const locationCounts = new Map<string, number>();
-  for (const s of submissions) {
-    const raw = s.raw_answers as Record<string, unknown>;
-    const key =
-      view === "counties"
-        ? (raw["household/county"] as string | undefined)
-        : ((raw["household/community"] as string | undefined) ??
-          (raw["household/community_or_settlement"] as string | undefined));
-    if (key && typeof key === "string" && key.trim()) {
-      locationCounts.set(key.trim(), (locationCounts.get(key.trim()) ?? 0) + 1);
-    }
-  }
-  const top3 = [...locationCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-  const COLORS = ["#0b51b7", "#5c9af5", "#93bbfb"];
-
-  return (
-    <Card>
-      <CardHeader
-        title={
-          <>
-            <MapPin size={15} className="text-brand" /> Top 3 locations
-          </>
-        }
-        subtitle={`Leading 3 ${view} by submission count`}
-      >
-        <div className="relative">
-          <select
-            value={view}
-            onChange={(e) => setView(e.target.value as "counties" | "communities")}
-            className="appearance-none rounded-lg border border-[#dce4ed] bg-white py-1.5 pl-3 pr-7 text-[14px] font-medium text-[#344562] focus:outline-none focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="counties">Counties</option>
-            <option value="communities">Communities</option>
-          </select>
-          <ChevronDown
-            size={13}
-            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#748299]"
-          />
-        </div>
-      </CardHeader>
-
-      {top3.length === 0 ? (
-        <p className="py-10 text-center text-xs text-[#8491a3]">No location data yet. Sync Kobo data to populate.</p>
-      ) : (
+    <section aria-labelledby="attention-heading">
+      <Card>
+        <CardHeader title={<span id="attention-heading">Needs Your Attention</span>} subtitle="Actions based on saved project data and configured indicator rules." />
         <div className="p-5">
-          <LocationDonutChart segments={top3} total={submissions.length} colors={COLORS} />
-          <table className="mt-5 w-full text-left">
-            <thead>
-              <tr className="border-b border-[#edf0f4] text-[12px] font-semibold uppercase tracking-[.06em] text-[#8491a3]">
-                <th className="pb-2">Location</th>
-                <th className="pb-2 text-right">%</th>
-                <th className="pb-2 text-right">Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {top3.map(([name, count], i) => (
-                <tr key={name} className="border-b border-[#f4f6f9] last:border-0">
-                  <td className="py-2.5 text-[14px] text-[#2e4364]">
-                    <span className="flex items-center gap-2">
-                      <i className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                      {name}
-                    </span>
-                  </td>
-                  <td className="py-2.5 text-right text-[14px] font-semibold text-[#2e4364]">
-                    {submissions.length ? Math.round((count / submissions.length) * 100) : 0}%
-                  </td>
-                  <td className="py-2.5 text-right text-[14px] text-[#8491a3]">{count.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {attentionLoading && <LoadingState variant="inline" label="Checking project issues…" />}
+          {attentionError && <LoadError label="some attention checks" retry={() => void refresh()} />}
+          {issues.length > 0 && <ul className="m-0 list-none divide-y divide-[var(--fs-border)] p-0">{issues.map(issue => <li key={issue.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"><div><h3 className="m-0 text-sm font-semibold">{issue.title}</h3><p className="mb-0 mt-1 text-sm text-[var(--fs-muted)]">{issue.detail}</p></div><NavLink to={issue.to} className={linkClass} aria-label={`${issue.action}: ${issue.title}`}>{issue.action}<ArrowRight size={14} aria-hidden="true" /></NavLink></li>)}</ul>}
+          {!attentionLoading && !attentionError && !issues.length && <p className="m-0 text-sm text-[var(--fs-muted)]">No actionable issues found in the loaded checks. Saved quality findings reflect the last validation run.</p>}
         </div>
-      )}
+      </Card>
+    </section>
+
+    <section aria-labelledby="results-heading">
+      <h2 id="results-heading" className="mb-1 mt-0 text-lg font-semibold">Configured M&E results</h2>
+      <p className="mb-4 mt-0 text-sm text-[var(--fs-muted)]">All dates. Current calculations use each indicator's saved definition and eligibility rules. These are not frozen, approved reporting results.</p>
+      {indicatorsQuery.isPending ? <LoadingState variant="panel" label="Loading indicator results…" /> : indicatorsQuery.error ? <LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /> : !activeIndicators?.length ? <Card className="p-5"><h3 className="m-0 text-base font-semibold">No active indicators configured</h3><p className="mb-0 mt-2 text-sm text-[var(--fs-muted)]">Configure indicators and their data sources to show project performance here.</p><NavLink to={`/projects/${projectId}/indicators`} className={linkClass}>Configure indicators</NavLink></Card> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{activeIndicators.map(item => <MetricCard key={item.id} label={item.name} value={resultValue(item)} icon={Target} context={<><span className="block">{item.result_source === "manual" ? "Manual results" : item.result_source === "table" ? "Linked source data" : "Source not configured"}{item.target_value !== null ? ` · Target: ${formatNumber(item.target_value)}${item.unit === "percentage" ? "%" : ""}` : " · No target set"}</span><span className="mt-1 block">{item.quality_excluded_records} excluded by data review</span><NavLink to={indicatorLink(projectId, item.id)} className={linkClass}>View {item.name}</NavLink></>} />)}</div>}
+    </section>
+
+    <Card className="p-5">
+      <h2 className="m-0 text-lg font-semibold">School reporting completeness</h2>
+      <p className="mb-0 mt-2 text-sm text-[var(--fs-muted)]">Not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
     </Card>
-  );
+  </div>;
 }
 
-function LocationDonutChart({
-  segments,
-  total,
-  colors,
-}: {
-  segments: [string, number][];
-  total: number;
-  colors: string[];
-}) {
-  let cum = 0;
-  const stops = segments.map(([, count], i) => {
-    const pct = total ? (count / total) * 100 : 0;
-    const stop = `${colors[i]} ${cum}% ${cum + pct}%`;
-    cum += pct;
-    return stop;
-  });
-  if (cum < 100) stops.push(`#e8edf3 ${cum}% 100%`);
-
-  return (
-    <div className="flex justify-center py-2">
-      <div
-        className="relative size-[175px] rounded-full shadow-sm"
-        style={{ background: `conic-gradient(${stops.join(", ")})` }}
-      >
-        <span className="absolute inset-[28px] grid place-items-center rounded-full bg-white text-center shadow-inner">
-          <div>
-            <strong className="block text-[22px] font-bold leading-none text-[#1d2a38]">{total}</strong>
-            <span className="mt-1 block text-[12px] font-medium uppercase tracking-[.06em] text-[#8491a3]">total</span>
-          </div>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ProjectLeaderboard({ submissions }: { submissions: ApiSubmission[] }) {
-  const contributorsData = useMemo(() => {
-    const map = new Map<string, { count: number; lastSubmission?: string }>();
-    for (const item of submissions) {
-      const name = item.enumerator?.trim() || "Unassigned";
-      const existing = map.get(name) ?? { count: 0 };
-      const lastSub =
-        !existing.lastSubmission ||
-        (item.submitted_at && new Date(item.submitted_at).getTime() > new Date(existing.lastSubmission).getTime())
-          ? (item.submitted_at ?? existing.lastSubmission)
-          : existing.lastSubmission;
-      map.set(name, { count: existing.count + 1, lastSubmission: lastSub });
-    }
-    return [...map.entries()].map(([name, data]) => ({ name, ...data })).sort((a, b) => b.count - a.count);
-  }, [submissions]);
-
-  const total = submissions.length;
-
-  return (
-    <Card className="flex h-full flex-col justify-between p-[17px]">
-      <div>
-        <CardHeader title="Enumerator leaderboard" subtitle="Contributions to this project">
-          <span className="rounded-[5px] border border-[#dce4ed] bg-[#f8fafc] px-2 py-1 text-[12px] font-semibold text-[#536177]">
-            Top 5
-          </span>
-        </CardHeader>
-
-        <div className="mt-2.5 space-y-2">
-          {contributorsData.slice(0, 5).map((item, index) => {
-            const pct = total ? Math.round((item.count / total) * 100) : 0;
-            const badgeStyles = [
-              "bg-[#fef3c7] text-[#92400e] border-[#fde68a]",
-              "bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]",
-              "bg-[#ffedd5] text-[#9a3412] border-[#fed7aa]",
-            ];
-            const badgeClass = badgeStyles[index] ?? "bg-[#f8fafc] text-[#64748b] border-[#e2e8f0]";
-
-            return (
-              <div
-                key={item.name}
-                className="flex flex-col gap-1 rounded-md border border-[#f0f3f7] bg-[#fbfcfd] p-2.5 transition-colors hover:bg-white hover:shadow-sm"
-              >
-                <div className="flex items-center justify-between gap-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className={`grid size-5 shrink-0 place-items-center rounded-full border text-[11px] font-bold ${badgeClass}`}
-                    >
-                      {index + 1}
-                    </span>
-                    <span className="truncate text-xs font-semibold text-[#1e293b]" title={item.name}>
-                      {item.name}
-                    </span>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2.5 text-xs">
-                    <span className="text-[12px] font-medium text-[#64748b]">{pct}% share</span>
-                    <strong className="text-[14px] font-bold text-[#0b51b7]">{item.count.toLocaleString()}</strong>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e2e8f0]">
-                    <div
-                      className="h-full rounded-full bg-brand transition-all duration-300"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  {item.lastSubmission && (
-                    <span className="shrink-0 text-[12px] text-[#94a3b8]">
-                      Active {relativeTime(item.lastSubmission)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {!contributorsData.length && (
-            <div className="py-6 text-center text-xs text-[#84909b]">
-              No project contributions yet. Sync Kobo submissions to track team rankings.
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
-        <NavLink
-          to="/field-enumerators"
-          className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand hover:underline"
-        >
-          View field team <ArrowRight size={12} />
-        </NavLink>
-      </div>
-    </Card>
-  );
-}
-
-function ProjectExceptionAlerts({ submissions, projectName }: { submissions: ApiSubmission[]; projectName: string }) {
-  const anomalies = useMemo(() => {
-    return submissions
-      .map((sub) => {
-        const issues: string[] = [];
-        if (sub.review_status === "invalid") issues.push("Invalid record");
-        else if (sub.review_status === "needs_review") issues.push("Needs review");
-        if (!sub.location || sub.location === "Not captured") issues.push("Missing location");
-        if (!sub.enumerator) issues.push("Unassigned enumerator");
-        return { sub, issues };
-      })
-      .filter((item) => item.issues.length > 0);
-  }, [submissions]);
-
-  return (
-    <Card className="flex h-full flex-col justify-between p-[17px]">
-      <div>
-        <CardHeader title="Automated Exception Alerts" subtitle="Flagged data & rule anomalies">
-          <span
-            className={`rounded-[5px] border px-2 py-1 text-[12px] font-bold ${anomalies.length > 0 ? "border-[#f8cbad] bg-[#fff3e5] text-[#c05621]" : "border-[#b8e6d8] bg-[#e8f6f4] text-[#0b51b7]"}`}
-          >
-            {anomalies.length} {anomalies.length === 1 ? "exception" : "exceptions"}
-          </span>
-        </CardHeader>
-        <div className="mt-2 max-h-[320px] space-y-2.5 overflow-y-auto pr-1">
-          {anomalies.map(({ sub, issues }) => (
-            <div key={sub.id} className="rounded-md border border-[#fee4e2] bg-[#fff5f5] p-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <strong className="font-semibold text-[#991b1b]">{sub.external_id}</strong>
-                <time className="text-[12px] text-[#7f1d1d]">{relativeTime(sub.submitted_at)}</time>
-              </div>
-              <p className="mb-1 mt-0.5 text-[12px] text-[#7f1d1d]">
-                {sub.enumerator ?? "Unassigned"} {sub.location ? `• ${sub.location}` : ""}
-              </p>
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {issues.map((issue) => (
-                  <span
-                    key={issue}
-                    className="rounded bg-[#fee2e2] px-1.5 py-0.5 text-[12px] font-medium text-[#991b1b]"
-                  >
-                    {issue}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-          {!anomalies.length && (
-            <div className="my-4 flex flex-col items-center justify-center py-6 text-center">
-              <span className="grid size-10 place-items-center rounded-full bg-[#e8f6f4] text-[#0b51b7]">
-                <ShieldCheck size={20} />
-              </span>
-              <strong className="mt-2 block text-xs font-semibold text-[#1f2937]">No active exceptions</strong>
-              <p className="m-0 mt-1 max-w-[240px] text-[12px] text-[#6b7280]">
-                All submissions for {projectName} passed automated validation rules.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="mt-3 border-t border-[#f0f2f5] pt-2.5 text-right">
-        <NavLink
-          to="/submissions"
-          className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand hover:underline"
-        >
-          Manage all submissions <ArrowRight size={12} />
-        </NavLink>
-      </div>
-    </Card>
-  );
+function LoadError({ label, retry }: { label: string; retry: () => void }) {
+  return <div role="alert" className="mb-3 text-sm text-[var(--fs-danger)]">Unable to load {label}. <button type="button" onClick={retry} className="min-h-11 px-2 font-semibold underline">Retry {label}</button></div>;
 }
