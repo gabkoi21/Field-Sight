@@ -36,3 +36,7 @@ imports exercised through pytest; no active-service smoke test claimed.
 
 
 Final Sprint 0 frontend verification: 119 tests passed in 24 files with --maxWorkers=1 (134.94s). No test assertions were weakened. Disposable migration and post-fix Ruff/mypy pass.
+
+Follow-up inventory: five residual backend test-output files and two local database backup snapshots under outputs/demo-enumerators-backup were also untracked without deletion. Treat historical backup blobs as potentially sensitive. They remain in prior Git history; any history rewrite or credential rotation requires a separately coordinated procedure. No credential values were inspected.
+
+Connected GitHub check: dev starting SHA has no returned Actions workflow runs and Vercel status failure, target https://vercel.com/gabkoi21s-projects/fieldsight/Enfrw6wd7jWMmdxLUkkbfbkuoQqk . Detailed Vercel account logs remain unavailable; exact hosted failure cause unverified.

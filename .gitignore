@@ -26,3 +26,7 @@ sqlite-merge-backup-*/
 # Local authentication test reports.
 /tmp/auth-*.txt
 /tmp/auth-*.json
+
+# Generated backend verification outputs and local backup snapshots.
+/fieldsight-backend/outputs/
+/outputs/demo-enumerators-backup/
