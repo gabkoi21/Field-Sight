@@ -69,4 +69,5 @@ Vercel/backend/worker validation; PostgreSQL execution; assistive technology tes
 with actual screen readers. Visible focus and DOM semantics are verified locally,
 not a complete accessibility conformance audit.
 
-[Verified Overview after one review](verification/pilot-overview-verified.jpg) shows the persisted post-review state. Temporary browser tabs and test servers were closed/stopped after verification; the initial failed 5173 error tab was left to automatic browser cleanup when its data URL could not be selected by browser policy.
+Temporary test servers were stopped after verification. All persistent changes in
+the browser exercise belong only to the disposable synthetic database.
