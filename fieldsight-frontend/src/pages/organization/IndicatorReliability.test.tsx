@@ -31,3 +31,17 @@ it("saves a new incomplete definition as a draft", () => {
   fireEvent.submit(screen.getByRole("button", {name: "Create indicator"}).closest("form")!);
   expect(save).toHaveBeenCalledWith(expect.objectContaining({is_active: false, manual_aggregation: "legacy"}));
 });
+
+it("allows a configured draft indicator to be activated explicitly", () => {
+  const save = vi.fn();
+  const indicator = {id: "i", name: "Visits", code: "VIS", unit: "number", direction: "increase", reporting_frequency: "monthly", manual_aggregation: "legacy", is_active: false, mapping: {source_field: "visit"}} as Indicator;
+  render(<QueryClientProvider client={new QueryClient()}><IndicatorDefinitionForm indicator={indicator} nodes={[]} error="" saving={false} onClose={vi.fn()} onSave={save} /></QueryClientProvider>);
+  fireEvent.change(screen.getByLabelText("Indicator status"), {target: {value: "active"}});
+  fireEvent.submit(screen.getByRole("button", {name: "Save changes"}).closest("form")!);
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({is_active: true}));
+});
+it("keeps activation unavailable until a result source is configured", () => {
+  const indicator = {id: "i", name: "Visits", code: "VIS", unit: "number", manual_aggregation: "legacy", is_active: false, mapping: null} as Indicator;
+  render(<QueryClientProvider client={new QueryClient()}><IndicatorDefinitionForm indicator={indicator} nodes={[]} error="" saving={false} onClose={vi.fn()} onSave={vi.fn()} /></QueryClientProvider>);
+  expect((screen.getByRole("option", {name: "Active"}) as HTMLOptionElement).disabled).toBe(true);
+});

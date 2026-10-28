@@ -10,7 +10,7 @@ from test_kobo_sync import sync_client as sync_client
 from app.core.indicator_results import calculate
 from app.core.review_evidence import evidence_fingerprint
 from app.core.survey import aggregate
-from app.models.operations import IndicatorMapping, Submission, SubmissionReviewEvent
+from app.models.operations import IndicatorMapping, Submission, SubmissionReviewEvent, SurveySchema
 from app.schemas.analysis import AnalysisQuery, SurveyField
 
 
@@ -185,7 +185,19 @@ def test_indicator_dashboard_report_and_intelligence_drop_changed_evidence(sync_
     client, engine, project, headers = sync_client
     sync(client, project, headers, [payload()])
     with Session(engine) as db:
-        identifier = db.exec(select(Submission)).one().id
+        row = db.exec(select(Submission)).one()
+        identifier = row.id
+        db.add(
+            SurveySchema(
+                project_id=row.project_id,
+                organization_id=row.organization_id,
+                form_id=row.kobo_form_id,
+                fields_json=[
+                    SurveyField(source_field="answer", label="Answer", type="number", source="kobo").model_dump()
+                ],
+            )
+        )
+        db.commit()
     client.patch(
         f"/submissions/{identifier}/review-status",
         headers=headers,

@@ -1,8 +1,10 @@
-import { useEffect, useState, type ReactNode, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import {
   Bookmark,
+  ChevronDown,
   Database,
   Download,
   Filter,
@@ -12,20 +14,7 @@ import {
   Table2,
   Trash2,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { SurveyResultChart as ResultChart, SurveyResultsTable as ResultsTable, surveyChartTypes, defaultSurveyChart } from "../../components/charts/SurveyResultChart";
 import { useAuth } from "../../auth/AuthContext";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
 import {
@@ -55,13 +44,18 @@ const format = (value: number | null | undefined) =>
 
 export function SurveyQuestionExplorer() {
   const workspace = useWorkspace();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const projectId = routeProjectId ?? workspace.projectId;
+  return <ProjectSurveyQuestionExplorer key={projectId} projectId={projectId} />;
+}
+function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
   const { user, loading } = useAuth();
   const org = user?.memberships.find(
     (item) => item.role === "organization_admin",
   )?.organization_id;
   const cache = useQueryClient();
-  const projectState = workspace.projectId;
-  const setProject = workspace.selectProject;
+  const questionList = useRef<HTMLDivElement>(null);
+  const selectedQuestion = useRef<HTMLButtonElement>(null);
   const [formState, setForm] = useState<string | null>(null);
   const [fieldState, setField] = useState("");
   const [search, setSearch] = useState("");
@@ -81,27 +75,56 @@ export function SurveyQuestionExplorer() {
     queryFn: () => apiClient.organizationProjects(org!),
     enabled: Boolean(org),
   });
-  const projectId = projects.data?.some((item) => item.id === projectState)
-    ? projectState
-    : workspace.projectId;
-  useEffect(() => {
-    setForm(null);
-    setField("");
-    setGroupBy(null);
-    setFilters(initialFilters);
-    setError("");
-    setNotice("");
-  }, [projectId]);
+  const project = projects.data?.find(item => item.id === projectId);
+  const authorized = Boolean(!loading && org && project && projects.isSuccess);
   const catalogue = useQuery({
     queryKey: ["survey-fields", projectId, formState],
-    queryFn: () => apiClient.surveyFields(projectId, formState),
-    enabled: Boolean(org && projectId),
+    queryFn: async () => {
+      const current = await apiClient.surveyFields(projectId, formState);
+      if (current.form_id && !current.fields.length) {
+        try {
+          const refreshed = await apiClient.surveyFields(projectId, current.form_id, true);
+          void cache.invalidateQueries({queryKey: ["saved-analysis", projectId]});
+          return refreshed;
+        }
+        catch (failure) { return {...current, warning: failure instanceof Error ? failure.message : "Unable to load current Kobo questions. Refresh Kobo fields to retry."}; }
+      }
+      return current;
+    },
+    enabled: authorized,
   });
-  const fields = catalogue.data?.fields ?? [];
+  const isAdditionalComments = (item: {source_field: string; label: string}) =>
+    /(^|\/)(remarks|additional_comments|comments)$/i.test(item.source_field) || /^additional comments\b/i.test(item.label);
+  const fields = (catalogue.data?.fields ?? []).filter(item => item.source === "kobo").sort((left, right) =>
+    Number(right.source === "kobo") - Number(left.source === "kobo") ||
+    Number(isAdditionalComments(left)) - Number(isAdditionalComments(right)));
+
   const field = fieldState
     ? fields.find((item) => item.source_field === fieldState)
-    : fields.find((item) => item.supported);
+    : catalogue.data?.fields.find((item) => item.source === "kobo" && item.supported);
+  useEffect(() => {
+    const list = questionList.current, button = selectedQuestion.current;
+    if (!list || !button) return;
+    const listBounds = list.getBoundingClientRect(), buttonBounds = button.getBoundingClientRect();
+    if (buttonBounds.top < listBounds.top) list.scrollTop += buttonBounds.top - listBounds.top;
+    else if (buttonBounds.bottom > listBounds.bottom) list.scrollTop += buttonBounds.bottom - listBounds.bottom;
+  }, [field?.source_field]);
+  const categoricalGroup = field?.type === "text" ? fields.find(item => item.source_field === groupBy && item.type === "select_one" && item.supported) : undefined;
+  // A categorical choice selected from a narrative view becomes the response question.
+  // Never query comment text as the response dimension for this categorical view.
+  useEffect(() => {
+    if (!categoricalGroup) return;
+    setField(categoricalGroup.source_field);
+    setGroupBy(null);
+    setMeasure("auto");
+    setChart("pie");
+    setFilters(current => ({...current, categories: []}));
+  }, [categoricalGroup?.source_field]);
+  const visibleFields = fields.filter(item => `${item.label} ${item.source_field}`.toLowerCase().includes(search.toLowerCase()));
+  const fieldGroups = [{ label: "Kobo form questions", fields }];
   const formId = catalogue.data?.form_id ?? null;
+  const activeFilterCount = [filters.date_from, filters.date_to, filters.location, filters.enumerator,
+    filters.categories.length > 0, filters.review_status !== "ready", grain !== "day"].filter(Boolean).length;
   const invalidDates = Boolean(
     filters.date_from && filters.date_to && filters.date_from > filters.date_to,
   );
@@ -118,42 +141,24 @@ export function SurveyQuestionExplorer() {
     queryKey: ["survey-analysis", query, catalogue.dataUpdatedAt],
     queryFn: () => apiClient.queryAnalysis(query),
     enabled: Boolean(
-      org &&
+      authorized &&
         projectId &&
         field?.supported &&
         catalogue.isSuccess &&
+        !categoricalGroup &&
         !invalidDates,
     ),
   });
   const saved = useQuery({
     queryKey: ["saved-analysis", projectId],
     queryFn: () => apiClient.savedAnalyses(projectId),
-    enabled: Boolean(org && projectId),
+    enabled: authorized,
   });
   const result = results.data;
   const requestedChart =
-    chartState ?? (field?.type === "date" && !groupBy ? "line" : "bar");
-  const chart =
-    requestedChart === "donut" &&
-    (groupBy ||
-      field?.type === "select_multiple" ||
-      field?.type === "number" ||
-      field?.type === "date")
-      ? "bar"
-      : requestedChart === "line" && (field?.type !== "date" || groupBy)
-        ? "bar"
-        : requestedChart;
-  const charts: Chart[] = [
-    "bar",
-    ...(field?.type === "date" && !groupBy ? ["line" as const] : []),
-    ...(!groupBy &&
-    field?.type !== "select_multiple" &&
-    field?.type !== "number" &&
-    field?.type !== "date"
-      ? ["donut" as const]
-      : []),
-    "table",
-  ];
+    chartState ?? defaultSurveyChart(field, groupBy);
+  const charts = surveyChartTypes(field, groupBy);
+  const chart: Chart = requestedChart === "donut" && charts.includes("pie") ? "donut" : charts.includes(requestedChart) ? requestedChart : charts[0];
   function dialogKey(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -179,6 +184,7 @@ export function SurveyQuestionExplorer() {
     mutationFn: () => apiClient.surveyFields(projectId, formId, true),
     onSuccess: (data) => {
       cache.setQueryData(["survey-fields", projectId, formState], data);
+      void cache.invalidateQueries({queryKey: ["saved-analysis", projectId]});
       setNotice(data.warning ?? "Kobo question metadata refreshed.");
     },
     onError: (cause: Error) => setError(cause.message),
@@ -229,7 +235,8 @@ export function SurveyQuestionExplorer() {
     setFilters((current) => ({ ...current, [key]: value }));
   }
   function open(view: SavedAnalysis) {
-    setProject(view.query.project_id);
+    if (view.query.project_id !== projectId) { setError("This visualization belongs to a different project."); return; }
+    if (view.query.form_id !== catalogue.data?.form_id) { setError("This visualization does not use the current project form."); return; }
     setForm(view.query.form_id);
     setField(view.query.source_field);
     setMeasure(view.query.measure);
@@ -242,9 +249,10 @@ export function SurveyQuestionExplorer() {
   }
 
   if (loading || projects.isLoading) return <LoadingState variant="panel" label="Loading analysis sources…" />;
+  if (org && projects.isSuccess && !project) return <Panel><Message error>Choose a project you have access to before exploring survey data.</Message><Link to="/projects" className="inline-flex min-h-11 items-center p-4 text-brand">Open projects</Link></Panel>;
   return (
     <div className="space-y-5 text-[#213e47]">
-      <PageHeader eyebrow={`FieldSight / ${workspace.project?.name ?? "Project"}`} title="Explore & analyze" description="Ask a question of your field data. See the evidence behind every result.">
+      <PageHeader eyebrow={`FieldSight / ${project?.name ?? "Project"}`} title="Explore & analyze" description="Ask a question of your field data. See the evidence behind every result.">
         <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
@@ -275,6 +283,7 @@ export function SurveyQuestionExplorer() {
           </Button>
         </div>
       </PageHeader>
+      {project && <WorkspaceTabs />}
       {!org ? (
         <Panel>
           <div className="p-12 text-center">
@@ -329,7 +338,7 @@ export function SurveyQuestionExplorer() {
                       {!catalogue.data?.forms.length && (
                         <option value="">No form</option>
                       )}
-                      {catalogue.data?.forms.map((id) => (
+                      {catalogue.data?.forms.filter(id => id === catalogue.data.form_id).map((id) => (
                         <option key={id} value={id}>
                           {id === formId && catalogue.data?.form_name
                             ? `${catalogue.data.form_name} (${id})`
@@ -358,7 +367,7 @@ export function SurveyQuestionExplorer() {
                     <button
                       key={value}
                       onClick={() => setTab(value)}
-                      className={`flex items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-3 text-xs ${tab === value ? "border-[#0c8593] font-semibold text-[#0c7180]" : "border-transparent text-[var(--fs-muted)]"}`}
+                      className={`flex items-center gap-2 border-0 border-b-2 bg-transparent px-4 py-3 text-xs ${tab === value ? "border-[var(--fs-primary)] font-semibold text-[var(--fs-primary)]" : "border-transparent text-[var(--fs-muted)]"}`}
                     >
                       <Bookmark size={14} />
                       {value === "explore"
@@ -457,16 +466,13 @@ export function SurveyQuestionExplorer() {
                         />
                       </label>
                     </div>
-                    <div className="max-h-[600px] overflow-y-auto p-2">
-                      {fields
-                        .filter((item) =>
-                          `${item.label} ${item.source_field}`
-                            .toLowerCase()
-                            .includes(search.toLowerCase()),
-                        )
-                        .map((item) => (
+                    <div ref={questionList} className="max-h-[600px] overflow-y-auto p-2">
+                      {visibleFields.map((item) => (
+                        <div key={item.source_field}>
                           <button
                             key={item.source_field}
+                            ref={item.source_field === field?.source_field ? selectedQuestion : undefined}
+                            aria-current={item.source_field === field?.source_field ? "true" : undefined}
                             disabled={!item.supported}
                             title={
                               item.supported
@@ -474,9 +480,9 @@ export function SurveyQuestionExplorer() {
                                 : "Repeat groups require a separate repeat dataset"
                             }
                             onClick={() => selectField(item.source_field)}
-                            className={`mb-1 block w-full border-0 px-3 py-3 text-left disabled:opacity-40 ${item.source_field === field?.source_field ? "bg-[#e8f5f3] text-[#086f7d]" : "bg-transparent text-[#4f6871] hover:bg-[#f4f8f8]"}`}
+                            className={`mb-1 block w-full border-0 px-3 py-3 text-left disabled:opacity-40 ${item.source_field === field?.source_field ? "bg-[var(--fs-primary)] text-white" : "bg-transparent text-slate-900 hover:bg-blue-50"}`}
                           >
-                            <span className="block text-xs font-medium leading-5">
+                            <span className="block text-xs font-semibold leading-5">
                               {item.label}
                             </span>
                             <small className="mt-1 block text-[12px] uppercase tracking-wide opacity-65">
@@ -484,6 +490,7 @@ export function SurveyQuestionExplorer() {
                               {!item.supported ? " · unavailable" : ""}
                             </small>
                           </button>
+                        </div>
                         ))}
                       {!fields.length && (
                         <p className="px-3 text-xs leading-5 text-[var(--fs-muted)]">
@@ -506,11 +513,16 @@ export function SurveyQuestionExplorer() {
                         </div>
                         <button
                           onClick={() => setShowFilters(!showFilters)}
+                          type="button"
+                          aria-label="Filters"
                           aria-expanded={showFilters}
-                          className="flex items-center gap-2 border-0 bg-transparent text-xs text-[#0c8593]"
+                          aria-controls="survey-result-filters"
+                          className={`flex min-h-11 shrink-0 items-center gap-2 rounded-md border px-3 text-xs font-semibold transition-colors ${showFilters ? "border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white" : "border-[var(--fs-border)] bg-white text-[var(--fs-primary)] hover:bg-blue-50"}`}
                         >
-                          <Filter size={14} />
+                          <Filter size={15} aria-hidden="true" />
                           Filters
+                          {activeFilterCount > 0 && <span className={`rounded px-1.5 py-0.5 text-[11px] ${showFilters ? "bg-white/20" : "bg-blue-50"}`} aria-hidden="true">{activeFilterCount}</span>}
+                          <ChevronDown size={14} aria-hidden="true" className={showFilters ? "rotate-180" : ""} />
                         </button>
                       </div>
                       <div className="grid grid-cols-3 gap-3 p-4 max-[700px]:grid-cols-1">
@@ -541,26 +553,14 @@ export function SurveyQuestionExplorer() {
                         <Field label="Disaggregate by">
                           <select
                             className={control}
-                            value={groupBy ?? ""}
-                            onChange={(event) =>
-                              setGroupBy(event.target.value || null)
-                            }
+                            value={field?.source_field ?? ""}
+                            onChange={(event) => selectField(event.target.value)}
                           >
-                            <option value="">No disaggregation</option>
-                            {fields
-                              .filter(
-                                (item) =>
-                                  item.supported &&
-                                  item.source_field !== field?.source_field,
-                              )
-                              .map((item) => (
-                                <option
-                                  key={item.source_field}
-                                  value={item.source_field}
-                                >
-                                  {item.label}
-                                </option>
-                              ))}
+                            <option value="" disabled>Select a question</option>
+                            {fieldGroups.map(group => {
+                              const options = group.fields.filter(item => item.supported);
+                              return options.length ? <optgroup key={group.label} label={group.label}>{options.map(item => <option key={item.source_field} value={item.source_field}>{item.label}</option>)}</optgroup> : null;
+                            })}
                           </select>
                         </Field>
                         <Field label="Review status">
@@ -585,8 +585,13 @@ export function SurveyQuestionExplorer() {
                         </Field>
                       </div>
                       {showFilters && (
-                        <div className="grid grid-cols-2 gap-3 border-t border-[#e7edef] bg-[#f8fbfb] p-4 max-[700px]:grid-cols-1">
-                          <Field label="Submitted from (UTC)">
+                        <div id="survey-result-filters" role="region" aria-label="Survey filters" className="space-y-3 border-t border-[var(--fs-border)] bg-[#fcfdff] p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-[var(--fs-muted)]">Submission dates in UTC</span>
+                            <button type="button" disabled={!activeFilterCount} onClick={() => { setFilters(initialFilters); setGrain("day"); }} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--fs-primary)] bg-[var(--fs-primary)] px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[var(--fs-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"><RefreshCw size={13} aria-hidden="true" />Clear all</button>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3 min-[600px]:grid-cols-2 xl:grid-cols-4">
+                          <Field label="From">
                             <input
                               type="date"
                               className={control}
@@ -596,7 +601,7 @@ export function SurveyQuestionExplorer() {
                               }
                             />
                           </Field>
-                          <Field label="Submitted through (UTC)">
+                          <Field label="To">
                             <input
                               type="date"
                               className={control}
@@ -635,7 +640,7 @@ export function SurveyQuestionExplorer() {
                             </select>
                           </Field>
                           {field?.choices.length ? (
-                            <Field label="Include any selected answer">
+                            <Field label="Answers">
                               <select
                                 multiple
                                 className={`${control} min-h-20`}
@@ -662,7 +667,7 @@ export function SurveyQuestionExplorer() {
                             </Field>
                           ) : null}
                           {field?.type === "date" && (
-                            <Field label="Time interval">
+                            <Field label="Interval">
                               <select
                                 className={control}
                                 value={grain}
@@ -679,12 +684,7 @@ export function SurveyQuestionExplorer() {
                               </select>
                             </Field>
                           )}
-                          <button
-                            onClick={() => setFilters(initialFilters)}
-                            className="justify-self-start border-0 bg-transparent py-2 text-xs text-[#0c8593]"
-                          >
-                            Reset filters
-                          </button>
+                          </div>
                         </div>
                       )}
                     </Panel>
@@ -712,19 +712,8 @@ export function SurveyQuestionExplorer() {
                           ))}
                         </div>
                         <Panel>
-                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e7edef] px-5 py-4">
-                            <div>
-                              <h3 className="m-0 text-sm">
-                                {field?.type === "number"
-                                  ? `${result.measure}: ${format(result.value)}`
-                                  : "Response distribution"}
-                              </h3>
-                              <small className="text-[12px] text-[var(--fs-muted)]">
-                                {result.total_records.toLocaleString()} source
-                                records · Review status:{" "}
-                                {filters.review_status.replaceAll("_", " ")}
-                              </small>
-                            </div>
+                          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[#e7edef] px-5 py-4">
+                            {field?.type === "number" && <h3 className="m-0 mr-auto text-sm">{result.measure}: {format(result.value)}</h3>}
                             <div
                               className="flex gap-1"
                               role="group"
@@ -733,11 +722,11 @@ export function SurveyQuestionExplorer() {
                               {charts.map((type) => (
                                 <button
                                   key={type}
-                                  aria-pressed={chart === type}
+                                  aria-pressed={chart === type || (chart === "donut" && type === "pie")}
                                   onClick={() => setChart(type)}
-                                  className={`border px-2 py-1.5 text-[12px] capitalize ${chart === type ? "border-[#0c8593] bg-[#e8f5f3] text-[#08717c]" : "border-[#e0e8eb] bg-white text-[var(--fs-muted)]"}`}
+                                  className={`min-h-9 rounded-md border px-4 py-1 text-xs capitalize ${chart === type || (chart === "donut" && type === "pie") ? "border-[var(--fs-primary)] bg-[var(--fs-primary)] text-white" : "border-[var(--fs-border)] bg-white text-[var(--fs-muted)] hover:bg-blue-50"}`}
                                 >
-                                  {type}
+                                  {type === "pie" ? "Doughnut" : type}
                                 </button>
                               ))}
                             </div>
@@ -764,19 +753,7 @@ export function SurveyQuestionExplorer() {
                               <ResultChart result={result} chart={chart} />
                             </div>
                           )}
-                          <div className="border-t border-[#e7edef] bg-[#f8fbfb] px-5 py-3 text-[12px] leading-5 text-[var(--fs-muted)]">
-                            <strong className="text-[#3d5962]">
-                              Denominator: {result.denominator.toLocaleString()}{" "}
-                              answered submissions.
-                            </strong>{" "}
-                            {result.note}
-                            <br />
-                            Calculated{" "}
-                            {new Date(result.generated_at).toLocaleString()}
-                            {catalogue.data?.form_version
-                              ? ` · Form version ${catalogue.data.form_version}`
-                              : ""}
-                          </div>
+
                         </Panel>
                         {chart !== "table" && (
                           <Panel>
@@ -884,117 +861,5 @@ function Message({
     >
       {children}
     </div>
-  );
-}
-function ResultsTable({ result }: { result: AnalysisResult }) {
-  return (
-    <div className="max-h-[420px] overflow-auto">
-      <table className="w-full min-w-[480px] border-collapse text-left text-xs">
-        <thead className="sticky top-0 bg-[#f8fbfb] text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
-          <tr>
-            {[
-              "Response / period",
-              ...(result.group_by ? ["Group"] : []),
-              "Value",
-              "Records",
-              "% answered",
-            ].map((label) => (
-              <th key={label} className="px-5 py-3 font-medium">
-                {label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {result.series.map((point, index) => (
-            <tr key={index} className="border-t border-[#edf1f2]">
-              <td className="px-5 py-3 text-[#246170]">{point.name}</td>
-              {result.group_by && <td className="px-5 py-3">{point.group}</td>}
-              <td className="px-5 py-3 font-medium">{format(point.value)}</td>
-              <td className="px-5 py-3">{format(point.count)}</td>
-              <td className="px-5 py-3">
-                {point.percent == null ? "—" : `${format(point.percent)}%`}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-function ResultChart({
-  result,
-  chart,
-}: {
-  result: AnalysisResult;
-  chart: Chart;
-}) {
-  const data = result.series.map((point) => ({
-    ...point,
-    label: point.group ? `${point.name} · ${point.group}` : point.name,
-  }));
-  if (data.length > 60)
-    return (
-      <div className="grid h-full place-items-center px-6 text-center text-sm text-[var(--fs-muted)]">
-        This result has {data.length} categories. Use the table or narrow your
-        filters to chart up to 60 categories.
-      </div>
-    );
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      {chart === "donut" ? (
-        <PieChart>
-          <Pie
-            isAnimationActive={false}
-            data={data}
-            dataKey="value"
-            nameKey="label"
-            innerRadius={65}
-            outerRadius={108}
-          >
-            {data.map((_, index) => (
-              <Cell
-                key={index}
-                fill={
-                  ["#0c8593", "#27b7a0", "#91d5cc", "#efb849", "#7895b2"][
-                    index % 5
-                  ]
-                }
-              />
-            ))}
-          </Pie>
-          <Tooltip />
-        </PieChart>
-      ) : chart === "line" ? (
-        <LineChart data={data} margin={{ left: 5, right: 20, bottom: 25 }}>
-          <CartesianGrid vertical={false} stroke="#e9eff0" />
-          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-          <YAxis tick={{ fontSize: 12 }} />
-          <Tooltip />
-          <Line
-            isAnimationActive={false}
-            dataKey="value"
-            name={result.measure}
-            stroke="#0c8593"
-            strokeWidth={2}
-            connectNulls={false}
-          />
-        </LineChart>
-      ) : (
-        <BarChart data={data} margin={{ left: 5, right: 20, bottom: 35 }}>
-          <CartesianGrid vertical={false} stroke="#e9eff0" />
-          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-          <YAxis tick={{ fontSize: 12 }} />
-          <Tooltip />
-          <Bar
-            isAnimationActive={false}
-            dataKey="value"
-            name={result.measure}
-            fill="#0c8593"
-            radius={[3, 3, 0, 0]}
-          />
-        </BarChart>
-      )}
-    </ResponsiveContainer>
   );
 }

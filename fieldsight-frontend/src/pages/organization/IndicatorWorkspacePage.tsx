@@ -159,6 +159,8 @@ export function IndicatorWorkspacePage() {
   const indicators = useQuery({
     queryKey: ["indicators", projectId, dateFrom, dateTo],
     queryFn: () => apiClient.indicators(projectId, dateFrom, dateTo),
+    refetchInterval: 5000,
+    meta: { backgroundRefresh: true },
     enabled: Boolean(org && projectId && !invalidDates),
   });
   const framework = useQuery({
@@ -565,7 +567,6 @@ export function IndicatorWorkspacePage() {
               reporting-period targets are not prorated.
             </Notice>
           )}
-          {((indicators.isFetching && indicators.data) || (framework.isFetching && framework.data)) && <LoadingState variant="inline" label="Updating indicators…" />}
           {indicators.isLoading || framework.isLoading ? (
             <LoadingSkeleton label="Loading indicators…" columns={7} />
           ) : (
@@ -775,7 +776,7 @@ export function IndicatorWorkspacePage() {
                                 />
                                 {selected.source_form_id && (
                                   <Link
-                                    to={`/analytics?project_id=${projectId}`}
+                                    to={`/projects/${projectId}/analytics`}
                                     className="inline-block text-[#0c8593]"
                                   >
                                     View question responses →
@@ -1296,8 +1297,8 @@ function IndicatorResults({
       <div className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "Starting value", value: amount(indicator.baseline_value, indicator.unit), icon: BarChart3 },
-            { label: "Current result", value: indicator.current_value === null ? "Awaiting data" : amount(indicator.current_value, indicator.unit), icon: TrendingUp },
+            { label: "Starting value", value: amount(indicator.baseline_value ?? 0, indicator.unit), icon: BarChart3 },
+            { label: "Actual value", value: amount(indicator.current_value ?? 0, indicator.unit), icon: TrendingUp },
             { label: "Overall target", value: indicator.target_value === null ? "Not set" : amount(indicator.target_value, indicator.unit), icon: Target },
             { label: "Target deadline", value: indicator.target_date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${indicator.target_date}T00:00:00Z`)) : "Not set", icon: CalendarDays },
           ].map(({ label, value, icon: Icon }) => (
@@ -1398,7 +1399,7 @@ function IndicatorResults({
       </div>
       <div className="grid grid-cols-4 gap-3 max-[700px]:grid-cols-2">
         {[
-          ["Total score", indicator.numerator],
+          ["Total score", indicator.numerator ?? 0],
           ["Number of responses", indicator.denominator],
           ["Missing answers", indicator.missing_records],
           ["Invalid answers", indicator.invalid_answers],

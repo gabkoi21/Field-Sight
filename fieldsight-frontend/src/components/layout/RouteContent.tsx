@@ -6,7 +6,7 @@ import { LoadingSkeleton } from "../ui";
 function RouteLoading({ pathname }: { pathname: string }) {
   if (pathname.endsWith("/dashboards") || pathname === "/superadmin") return <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />;
   if (pathname.includes("indicators")) return <LoadingSkeleton label="Loading indicators…" />;
-  return <LoadingSkeleton layout="table-page" label={pathname === "/analytics" ? "Preparing analysis…" : "Loading page…"} />;
+  return <LoadingSkeleton layout="table-page" label={(pathname === "/analytics" || pathname.endsWith("/analytics")) ? "Preparing analysis…" : "Loading page…"} />;
 }
 
 function RefreshSkeleton() {

@@ -170,7 +170,7 @@ export function DataTablesPage() {
               </div>
               <Link
                 className="text-xs text-[#168596]"
-                to={`/analytics?project_id=${projectId}`}
+                to={`/projects/${projectId}/analytics`}
               >
                 Analyze this project →
               </Link>

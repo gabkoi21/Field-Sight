@@ -186,9 +186,16 @@ def build_catalogue(
             type=mapped_types.get(mapping.data_type, "text"),
             source="mapping",
         )
+    # Kobo's survey array is authoritative for both metadata and question order.
+    # Stored-answer key order and mapping insertion order must not reorder the form.
+    ordered: dict[str, SurveyField] = {}
     for field in schema_fields:
-        fields[field.source_field] = field
-    return sorted(fields.values(), key=lambda field: (field.label.casefold(), field.source_field))
+        ordered[field.source_field] = field
+    # Preserve historical/unmapped fields without interleaving them into the form.
+    extras = (field for path, field in fields.items() if path not in ordered)
+    for field in sorted(extras, key=lambda item: (item.label.casefold(), item.source_field)):
+        ordered[field.source_field] = field
+    return list(ordered.values())
 
 
 def categories(value: object, field: SurveyField) -> list[str]:
@@ -294,6 +301,12 @@ def aggregate(query: AnalysisQuery, records: list[Submission], fields: list[Surv
         else:
             result = max(values)
         return result if math.isfinite(result) else None
+
+    # Retain known zero-response choices without inventing submissions or changing the denominator.
+    if field.type == "select_one" and not query.group_by and measure == "count":
+        for choice in field.choices:
+            if not query.filters.categories or choice.value in query.filters.categories:
+                buckets.setdefault((choice.value, None), [])
 
     points = [
         AnalysisPoint(

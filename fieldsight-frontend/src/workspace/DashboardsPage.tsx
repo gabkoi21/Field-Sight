@@ -23,21 +23,7 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { SurveyResultChart, SurveyResultsTable } from "../components/charts/SurveyResultChart";
 import { Button, LoadingSkeleton, LoadingState, MetricCard } from "../components/ui";
 import {
   apiClient,
@@ -870,7 +856,7 @@ export function DashboardsPage() {
             {kind === "analysis" && (
               <p className="text-xs text-[var(--fs-muted)]">
                 Save a visualization in{" "}
-                <Link to="/analytics" className="text-[#0e7180]">
+                <Link to={`/projects/${projectId}/analytics`} className="text-[#0e7180]">
                   Explore & analyze
                 </Link>{" "}
                 to use it here. Dashboard dates override that visualization's
@@ -1072,100 +1058,21 @@ function Widget({
         No answered records match this chart's source and filters.
       </p>
     );
-  const data = result.data.series.map((p) => ({
-    ...p,
-    name: p.group ? `${p.name} · ${p.group}` : p.name,
-  }));
   return (
     <div aria-busy={response.isFetching} className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "p-5"}>
       {feedback}
       <p className="mb-3 mt-0 text-xs text-[var(--fs-muted)]">{currentProject?.name ?? project} · {result.data.filters?.date_from || "All dates"} – {result.data.filters?.date_to || "Present"} (UTC) · Ready records{result.data.filters?.location ? ` · ${result.data.filters.location}` : ""}</p>
       <div style={{ height: presentation ? compactPresentation ? "clamp(250px, 36dvh, 380px)" : "clamp(280px, calc(100dvh - 400px), 540px)" : Math.max(160, (widget.height ?? 420) - 170) }}>
-        {saved.chart === "table" ? (
-          <div className={`overflow-auto ${presentation ? "h-full" : "max-h-[250px]"}`}>
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr>
-                  <th className="py-2">Category</th>
-                  <th>Value</th>
-                  <th>Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((p, i) => (
-                  <tr key={i} className="border-t border-[#edf0f2]">
-                    <td className="py-2">{p.name}</td>
-                    <td>{value(p.value)}</td>
-                    <td>{p.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            {saved.chart === "donut" ? (
-              <PieChart>
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius="40%"
-                  outerRadius="70%"
-                >
-                  {data.map((_, i) => (
-                    <Cell
-                      key={i}
-                      fill={
-                        ["#0b51b7", "#0e7180", "#7756a8", "#a86612", "#ba4055"][
-                          i % 5
-                        ]
-                      }
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-              </PieChart>
-            ) : saved.chart === "line" ? (
-              <LineChart data={data} margin={{ top: 12, right: 16, bottom: 12, left: 0 }}>
-                <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} minTickGap={32} tickMargin={8} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line dataKey="value" stroke="#0e7180" strokeWidth={2} />
-              </LineChart>
-            ) : (
-              <BarChart data={data} margin={{ top: 12, right: 16, bottom: 12, left: 0 }}>
-                <CartesianGrid vertical={false} stroke="#edf0f2" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} minTickGap={32} tickMargin={8} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#0e7180" maxBarSize={presentation ? 80 : undefined} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        )}
+        <SurveyResultChart result={result.data} chart={saved.chart} />
       </div>
-      {saved.chart !== "table" && (
-        <details className="my-3 border-t border-slate-200 pt-2 text-sm text-slate-600">
-          <summary className="cursor-pointer py-2 font-medium text-brand">View chart data</summary>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">Data for {widget.title}</caption>
-              <thead><tr><th scope="col" className="py-2">Category</th><th scope="col" className="px-2 text-right">Value</th><th scope="col" className="px-2 text-right">Count</th></tr></thead>
-              <tbody>{data.map((row, i) => <tr key={i} className="border-t border-slate-100"><th scope="row" className="py-2 font-medium">{row.name}</th><td className="px-2 text-right tabular-nums">{value(row.value)}</td><td className="px-2 text-right tabular-nums">{row.count.toLocaleString()}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </details>
-      )}
+      {saved.chart !== "table" && <details className="my-3 border-t border-slate-200 pt-2 text-sm text-slate-600"><summary className="cursor-pointer py-2 font-medium text-brand">View chart data</summary><SurveyResultsTable result={result.data} /></details>}
       <p className="mb-2 text-[12px] text-[var(--fs-muted)]">
         {result.data.answered_records} answered / {result.data.eligible_records}{" "}
         eligible · {result.data.missing_records} missing ·{" "}
         {result.data.invalid_answers} invalid
       </p>
       <Link
-        to={`/analytics?project_id=${project}`}
+        to={`/projects/${project}/analytics`}
         className="text-xs text-[#0e7180]"
       >
         Explore source data →

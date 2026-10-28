@@ -8,7 +8,7 @@ it("renders the sidebar before the application bundle loads", () => {
   const sidebar = dom.window.document.querySelector(".startup-navigation");
   expect(sidebar.textContent).toContain("Projects");
   expect(sidebar.querySelector('[aria-current="page"]')?.textContent).toBe("Overview");
-  expect(sidebar.querySelectorAll("a").length).toBe(9);
+  expect(sidebar.querySelectorAll("a").length).toBe(8);
   expect(sidebar.querySelector(".startup-skeleton")).toBeNull();
   dom.window.close();
 });

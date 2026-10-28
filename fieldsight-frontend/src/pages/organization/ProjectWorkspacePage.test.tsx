@@ -121,7 +121,7 @@ it("changes scope on project navigation and does not keep the previous project's
   fireEvent.click(screen.getByRole("button", { name: "Switch project" }));
   await screen.findByRole("article", { name: /Active indicators 0/ });
   expect(screen.queryByText("Feeding sessions completed")).toBeNull();
-  await waitFor(() => expect(apiClient.syncSettings).toHaveBeenCalledWith("other"));
+  expect(apiClient.syncSettings).not.toHaveBeenCalled();
   const calls = vi.mocked(apiClient.submissionPage).mock.calls;
   expect(calls.at(-1)?.[0].get("project_id")).toBe("other");
 });
@@ -201,11 +201,10 @@ it("keeps operational counts available when the trend request fails", async () =
   expect(screen.queryByRole("table", { name: "Daily collection counts", hidden: true })).toBeNull();
 });
 
-it("shows the scoped review backlog and source health with navigation", async () => {
+it("keeps the review backlog while hiding the removed attention panel", async () => {
   setup();
   expect(await screen.findByRole("article", { name: "Awaiting review 20" })).toBeTruthy();
-  expect(screen.getByText("Latest sync succeeded")).toBeTruthy();
-  expect(screen.getByRole("link", { name: "Inspect synchronization →" }).getAttribute("href")).toBe("/sync?project_id=school");
+  expect(screen.queryByText("Latest sync succeeded")).toBeNull();
 });
 
 it("shows schedule and compact attention without duplicating indicator analytics", async () => {
@@ -213,7 +212,7 @@ it("shows schedule and compact attention without duplicating indicator analytics
   await screen.findByRole("article", { name: /Active indicators/ });
   expect(screen.queryByRole("region", { name: "Indicator status" })).toBeNull();
   expect(screen.getByRole("region", { name: "Project timeline" })).toBeTruthy();
-  expect(screen.getByRole("region", { name: "Needs attention" })).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Needs attention" })).toBeNull();
   expect(screen.queryByText("Last sync")).toBeNull();
   expect(screen.queryByRole("navigation", { name: "Project sections" })).toBeNull();
 });

@@ -407,7 +407,10 @@ describe("existing saved dashboard builder", () => {
       },
     ];
     const result = {
-      series: [{ name: "North", value: 17, count: 2, group: null }],
+      field: {source_field: "county", label: "County", type: "select_one", choices: [], source: "kobo", supported: true},
+      project_id: "p1", form_id: "form", total_records: 3, value: 17, filters: {review_status: "ready", categories: [], date_from: null, date_to: null, location: null, enumerator: null}, note: "Percentages use answered records", generated_at: "2026-10-28T00:00:00Z",
+      measure: "count", group_by: null, denominator: 2,
+      series: [{ name: "North", value: 17, count: 2, group: null, percent: 100 }],
       answered_records: 2,
       eligible_records: 3,
       missing_records: 1,
@@ -419,7 +422,7 @@ describe("existing saved dashboard builder", () => {
       analysis: result,
     });
     const { cache } = setup();
-    expect(await screen.findByRole("cell", { name: "North" })).toBeTruthy();
+    expect(await screen.findByRole("rowheader", { name: "North" })).toBeTruthy();
     expect(screen.getByRole("cell", { name: "17" })).toBeTruthy();
     vi.mocked(apiClient.dashboardWidgetResult).mockResolvedValue({
       kind: "analysis",

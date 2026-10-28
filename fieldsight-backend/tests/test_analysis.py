@@ -441,6 +441,28 @@ def test_existing_database_upgrades_to_survey_schema_tables(
         assert {"survey_schemas", "saved_analyses"} <= set(inspect(engine).get_table_names())
         with Session(engine) as db:
             assert len(db.exec(select(Submission)).all()) == 7
+        # New migrations do not invent Kobo schema from submission payloads.
+        assert api.get(f"/projects/{project_id}/survey-fields", headers=headers).json()["fields"] == []
+        with (
+            patch("app.routes.analysis.decrypt_kobo_token", return_value="synthetic"),
+            patch(
+                "app.routes.analysis.read_kobo_schema",
+                return_value=(
+                    "restored",
+                    [
+                        SurveyField(
+                            source_field="gender",
+                            label="Gender",
+                            type="select_one",
+                            source="kobo",
+                            choices=[{"value": "f", "label": "Female"}, {"value": "m", "label": "Male"}],
+                        )
+                    ],
+                ),
+            ),
+        ):
+            refreshed = api.get(f"/projects/{project_id}/survey-fields?refresh_schema=true", headers=headers)
+        assert refreshed.status_code == 200
         saved = api.post(
             "/analysis/saved",
             headers=headers,
@@ -452,3 +474,211 @@ def test_existing_database_upgrades_to_survey_schema_tables(
         assert saved.status_code == 201, saved.text
     finally:
         get_settings.cache_clear()
+
+
+def test_water_response_never_uses_unrelated_comment_labels() -> None:
+    from uuid import uuid4
+
+    from app.core.survey import aggregate
+    from app.schemas.analysis import AnalysisQuery
+
+    project_id = uuid4()
+    comment = "Drinking water is available, and the hand pump is functioning properly..."
+    fields = [
+        SurveyField(
+            source_field="water_available",
+            label="Is drinking water available today?",
+            type="select_one",
+            source="kobo",
+            choices=[{"value": "yes", "label": "Yes"}, {"value": "no", "label": "No"}],
+        ),
+        SurveyField(source_field="additional_comments", label="Additional comments", type="text", source="kobo"),
+    ]
+    records = [
+        Submission(
+            project_id=project_id,
+            organization_id=uuid4(),
+            kobo_form_id="wash",
+            external_id="one",
+            review_status="ready",
+            raw_answers={"water_available": "yes", "additional_comments": comment},
+        )
+    ]
+    result = aggregate(AnalysisQuery(project_id=project_id, source_field="water_available"), records, fields)
+    assert [(point.name, point.count, point.percent) for point in result.series] == [("No", 0, 0), ("Yes", 1, 100)]
+    assert result.answered_records == result.denominator == 1
+    assert comment not in str(result.series)
+    grouped = aggregate(
+        AnalysisQuery(project_id=project_id, source_field="additional_comments", group_by="water_available"),
+        records,
+        fields,
+    )
+    assert grouped.series[0].name == comment
+    assert grouped.series[0].group == "Yes"
+    empty = aggregate(AnalysisQuery(project_id=project_id, source_field="water_available"), [], fields)
+    assert empty.denominator == 0
+    assert all(point.count == 0 and point.percent is None for point in empty.series)
+
+
+@pytest.mark.parametrize("chart", ["bar", "pie", "table", "donut"])
+def test_saved_categorical_chart_types_round_trip(analysis_client: Client, chart: str) -> None:
+    api, _, project_id, headers = analysis_client
+    response = api.post(
+        "/analysis/saved",
+        headers=headers,
+        json={"title": "Response chart", "query": {"project_id": project_id, "source_field": "gender"}, "chart": chart},
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["chart"] == chart
+    views = api.get(f"/analysis/saved?project_id={project_id}", headers=headers).json()
+    assert next(view for view in views if view["id"] == response.json()["id"])["chart"] == chart
+
+
+def test_catalogue_preserves_kobo_form_order_and_appends_legacy_fields() -> None:
+    from uuid import uuid4
+
+    from app.core.survey import build_catalogue
+
+    fields = [
+        SurveyField(source_field="visit_date", label="Date of visit", type="date", source="kobo"),
+        SurveyField(source_field="facility/name", label="Name of facility", type="text", source="kobo"),
+        SurveyField(
+            source_field="water_available",
+            label="Water available?",
+            type="select_one",
+            source="kobo",
+            choices=[{"value": "yes", "label": "Yes"}, {"value": "no", "label": "No"}],
+        ),
+        SurveyField(source_field="remarks", label="Additional comments", type="text", source="kobo"),
+    ]
+    records = [
+        Submission(
+            project_id=uuid4(),
+            organization_id=uuid4(),
+            kobo_form_id="wash",
+            external_id="one",
+            raw_answers={
+                "remarks": "Comment",
+                "legacy_z": 0,
+                "water_available": "yes",
+                "facility": {"name": "Test facility"},
+                "legacy_a": "Old field",
+                "visit_date": "2026-10-28",
+            },
+        )
+    ]
+    catalogue = build_catalogue(records, [], fields)
+    assert [field.source_field for field in catalogue] == [
+        "visit_date",
+        "facility/name",
+        "water_available",
+        "remarks",
+        "legacy_a",
+        "legacy_z",
+    ]
+    assert [field.label for field in catalogue[:4]] == [field.label for field in fields]
+    assert [choice.value for choice in catalogue[2].choices] == ["yes", "no"]
+    # Form metadata alone is enough: no submissions are required to recover its order.
+    assert [field.source_field for field in build_catalogue([], [], fields)] == [field.source_field for field in fields]
+    # With no verified Kobo metadata, retain the previous deterministic fallback order.
+    fallback = build_catalogue(records, [], [])
+    assert [field.label.casefold() for field in fallback] == sorted(field.label.casefold() for field in fallback)
+
+
+def test_question_catalogue_api_keeps_cached_schema_order(analysis_client: Client) -> None:
+    api, _, project_id, headers = analysis_client
+    result = api.get(f"/projects/{project_id}/survey-fields", headers=headers)
+    assert result.status_code == 200
+    paths = [field["source_field"] for field in result.json()["fields"]]
+    assert paths[:5] == ["gender", "services", "score", "visit", "group/n"]
+    result = api.get(f"/projects/{project_id}/indicator-fields", headers=headers)
+    assert result.status_code == 200
+    assert [field["source_field"] for field in result.json()][:5] == paths[:5]
+
+
+def test_current_form_catalogue_omits_legacy_fields_and_rejects_old_forms(analysis_client: Client) -> None:
+    api, engine, project_id, headers = analysis_client
+    with Session(engine) as db:
+        row = db.exec(select(Submission).where(Submission.kobo_form_id == "form-1")).first()
+        assert row
+        row.raw_answers = {**row.raw_answers, "obsolete_question": "Keep stored, never list"}
+        db.add(row)
+        db.commit()
+    response = api.get(f"/projects/{project_id}/survey-fields", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["forms"] == ["form-1"]
+    assert [field["source_field"] for field in response.json()["fields"]] == [
+        "gender",
+        "services",
+        "score",
+        "visit",
+        "group/n",
+    ]
+    for path in ["survey-fields", "indicator-fields"]:
+        response = api.get(f"/projects/{project_id}/{path}?form_id=other-form", headers=headers)
+        assert response.status_code == 422
+    for values in [
+        {"source_field": "obsolete_question"},
+        {"source_field": "gender", "group_by": "obsolete_question"},
+        {"source_field": "gender", "form_id": "other-form"},
+    ]:
+        response = api.post("/analysis/query", headers=headers, json={"project_id": project_id, **values})
+        assert response.status_code == 422
+    with Session(engine) as db:
+        assert any("obsolete_question" in row.raw_answers for row in db.exec(select(Submission)).all())
+
+
+def test_current_form_without_schema_does_not_fall_back_to_stored_answers(analysis_client: Client) -> None:
+    api, engine, project_id, headers = analysis_client
+    with Session(engine) as db:
+        schema = db.exec(select(SurveySchema)).one()
+        db.delete(schema)
+        db.commit()
+    response = api.get(f"/projects/{project_id}/survey-fields", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["form_id"] == "form-1"
+    assert response.json()["forms"] == ["form-1"]
+    assert response.json()["fields"] == []
+    assert "Refresh Kobo fields" in response.json()["warning"]
+    response = api.get(f"/projects/{project_id}/indicator-fields", headers=headers)
+    assert response.json() == []
+
+
+def test_saved_views_for_old_forms_are_hidden_but_not_deleted(analysis_client: Client) -> None:
+    api, engine, project_id, headers = analysis_client
+    with Session(engine) as db:
+        project = db.get(Project, UUID(project_id))
+        assert project
+        db.add(
+            SavedAnalysis(
+                project_id=project.id,
+                organization_id=project.organization_id,
+                created_by_id=project.created_by_id,
+                title="Historical form view",
+                chart="table",
+                query_json={"project_id": project_id, "form_id": "other-form", "source_field": "gender"},
+            )
+        )
+        db.commit()
+    response = api.get(f"/analysis/saved?project_id={project_id}", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+    with Session(engine) as db:
+        assert len(db.exec(select(SavedAnalysis)).all()) == 1
+
+
+def test_unassigned_project_never_uses_an_old_submission_form(analysis_client: Client) -> None:
+    api, engine, project_id, headers = analysis_client
+    with Session(engine) as db:
+        project = db.get(Project, UUID(project_id))
+        assert project
+        project.kobo_form_id = None
+        db.add(project)
+        db.commit()
+    response = api.get(f"/projects/{project_id}/survey-fields", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["form_id"] is None
+    assert response.json()["forms"] == []
+    assert response.json()["fields"] == []
+    with Session(engine) as db:
+        assert len(db.exec(select(Submission)).all()) == 7

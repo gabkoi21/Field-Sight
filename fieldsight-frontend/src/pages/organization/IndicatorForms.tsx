@@ -762,6 +762,15 @@ export function IndicatorDefinitionForm({
 
               </FormField></div>
         </details>
+        {indicator && <div className="grid gap-2">
+          <FormField label="Indicator status">
+            <select className={inputClass} value={form.is_active ? "active" : "draft"} onChange={event => update("is_active", event.target.value === "active")}>
+              <option value="draft">Draft</option>
+              <option value="active" disabled={!indicator.is_active && !indicator.mapping && (!form.manual_aggregation || form.manual_aggregation === "legacy")}>Active</option>
+            </select>
+          </FormField>
+          {!indicator.mapping && (!form.manual_aggregation || form.manual_aggregation === "legacy") && !indicator.is_active && <p className="m-0 text-xs text-[var(--fs-muted)]">Save a survey source mapping, or choose a manual calculation method in Collected data, before activating.</p>}
+        </div>}
         <Actions onClose={onClose} saving={saving} label={indicator ? "Save changes" : "Create indicator"} />
       </form>
     </Dialog>
@@ -822,6 +831,8 @@ export function IndicatorMappingForm({
 
   const [match, setMatch] = useState(indicator.mapping?.match_value ?? "");
 
+  const [questionSearch, setQuestionSearch] = useState("");
+
   const cache = useQueryClient();
 
   const catalogue = useQuery({
@@ -878,13 +889,19 @@ export function IndicatorMappingForm({
 
   const field = fields.data?.find((item) => item.source_field === fieldState);
 
+  const choices = field?.choices.length ? field.choices :
+    catalogue.data?.fields.find(item => item.source_field === fieldState)?.choices ?? [];
+  const choiceQuestion = field?.type === "select_one" || field?.type === "select_multiple";
+  const visibleFields = fields.data?.filter(item => item.source_field === fieldState ||
+    `${item.label} ${item.source_field} ${item.type}`.toLocaleLowerCase().includes(questionSearch.trim().toLocaleLowerCase()));
+
   const matching =
 
     operation === "count_matching" || operation === "percentage_matching";
 
   const valid = Boolean(
 
-    field?.supported && operation !== "" && policy.data?.linked[indicator.unit]?.includes(operation) && (!matching || match.trim()),
+    field?.supported && (!matching || !choiceQuestion || choices.length > 0) && operation !== "" && policy.data?.linked[indicator.unit]?.includes(operation) && (!matching || (match.trim() && (!choices.length || choices.some(choice => choice.value === match)))),
 
   );
 
@@ -976,7 +993,7 @@ export function IndicatorMappingForm({
 
                   <Link
 
-                    to={`/analytics?project_id=${projectId}`}
+                    to={`/projects/${projectId}/analytics`}
 
                     className="text-[#0c8593] underline"
 
@@ -1007,6 +1024,7 @@ export function IndicatorMappingForm({
             onChange={(e) => {
 
               setForm(e.target.value);
+              setQuestionSearch("");
 
               setField("");
 
@@ -1042,6 +1060,9 @@ export function IndicatorMappingForm({
 
         </FormField>
 
+        <div className="grid gap-2">
+          <label className="sr-only" htmlFor="indicator-question-search">Search source questions</label>
+          <input id="indicator-question-search" type="search" className={inputClass} value={questionSearch} onChange={event => setQuestionSearch(event.target.value)} placeholder="Search questions by name or field code" disabled={fields.isLoading || refreshQuestions.isPending} />
         <FormField label="Source question">
 
           <select
@@ -1072,7 +1093,7 @@ export function IndicatorMappingForm({
 
             </option>
 
-            {fields.data?.map((item) => (
+            {visibleFields?.map((item) => (
 
               <option
 
@@ -1095,6 +1116,9 @@ export function IndicatorMappingForm({
           </select>
 
         </FormField>
+
+        {fields.isSuccess && visibleFields?.length === 0 && <p role="status" className="text-xs text-[var(--fs-muted)]">No questions match your search.</p>}
+        </div>
 
         <button
 
@@ -1168,9 +1192,9 @@ export function IndicatorMappingForm({
 
         {matching && (
 
-          <FormField label="Expected answer (raw choice code)">
+          <FormField label="Expected answer">
 
-            {field?.choices.length ? (
+            {choices.length ? (
 
               <select
 
@@ -1186,11 +1210,11 @@ export function IndicatorMappingForm({
 
                 <option value="">Choose the answer to match</option>
 
-                {field.choices.map((choice) => (
+                {choices.map((choice) => (
 
                   <option key={choice.value} value={choice.value}>
 
-                    {choice.label} ({choice.value})
+                    {choice.label}
 
                   </option>
 
@@ -1198,6 +1222,8 @@ export function IndicatorMappingForm({
 
               </select>
 
+            ) : choiceQuestion ? (
+              <div className="grid gap-2"><p className="text-xs text-[var(--fs-muted)]">Answer choices are not loaded for this question. Refresh Kobo questions to select an answer from the survey.</p><input className={inputClass} value={match} readOnly placeholder="Refresh questions to load answers" /></div>
             ) : (
 
               <input
@@ -1220,6 +1246,7 @@ export function IndicatorMappingForm({
 
         )}
 
+        {operation !== "count_matching" && (
         <div className="rounded-md bg-[#f0f8f6] p-3 text-xs leading-5 text-[#4d7074]">
 
           {operation === "count_records"
@@ -1232,11 +1259,12 @@ export function IndicatorMappingForm({
 
               : matching
 
-                ? "Counts answered submissions matching your chosen answer. Multi-select responses are matched by option."
+                ? ""
 
                 : "Numeric calculations ignore missing and invalid numeric answers. Select sum or average to reflect your indicator definition."}
 
         </div>
+        )}
 
         {indicator.mapping && (
 

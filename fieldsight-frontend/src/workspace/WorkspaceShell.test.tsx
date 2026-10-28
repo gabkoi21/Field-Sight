@@ -26,7 +26,7 @@ it("shows the project Overview while preserving navigation and context", async (
   expect(within(nav).queryByRole("link", { name: "Data Quality" })).toBeNull();
   expect(within(nav).getByRole("link", { name: "Project dashboards" }).getAttribute("aria-current")).toBe("page");
   expect(within(nav).getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/projects/p2/overview");
-  for (const name of ["Forms", "Indicators", "Field Team", "Actions & Follow-ups"]) {
+  for (const name of ["Forms", "Indicators", "Field Team", "Actions & Follow-ups", "Explore & analyze"]) {
     expect(within(nav).queryByRole("link", { name })).toBeNull();
   }
   expect(within(nav).getByRole("link", { name: "Reports" }).getAttribute("href")).toBe("/reports?project_id=p2");

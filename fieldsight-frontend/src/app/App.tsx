@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { ProjectAnalyticsRedirect } from "./ProjectAnalyticsRedirect";
 import { skipLogin } from "../auth/developmentAccess";
 import {
   RequireOrganizationMember,
@@ -96,7 +97,8 @@ export function App() {
         <Route path="forms/connections" element={<KoboConnectionsPage />} />
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />
-        <Route path="analytics" element={<SurveyQuestionExplorer />} />
+        <Route path="projects/:projectId/analytics" element={<SurveyQuestionExplorer />} />
+        <Route path="analytics" element={<ProjectAnalyticsRedirect />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="projects/:projectId/team" element={<FieldOperationsPage projectEmbedded />} />
         <Route path="team" element={<FieldOperationsPage />} />

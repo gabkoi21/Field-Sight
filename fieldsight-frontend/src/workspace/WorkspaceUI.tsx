@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
-import { ClipboardList, FileText, LayoutDashboard, Table2, Target, Users } from "lucide-react";
+import { Link, NavLink, useParams } from "react-router-dom";
+import { BarChart3, ClipboardList, FileText, LayoutDashboard, Table2, Target, Users } from "lucide-react";
 import { useWorkspace } from "./WorkspaceContext";
 import { LoadingState, PageHeader } from "../components/ui";
 import { controlClass } from "../components/ui/controlStyles";
@@ -91,7 +91,9 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 export function WorkspaceTabs() {
-  const { projectId } = useWorkspace();
+  const { projectId: selectedProjectId } = useWorkspace();
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const projectId = routeProjectId ?? selectedProjectId;
   return (
     <nav
       aria-label="Project sections"
@@ -102,6 +104,7 @@ export function WorkspaceTabs() {
         { label: "Field Team", to: `/projects/${projectId}/team`, icon: Users },
         { label: "Forms", to: `/forms?project_id=${projectId}`, icon: FileText },
         { label: "Data tables", to: `/data-tables?project_id=${projectId}`, icon: Table2 },
+        { label: "Explore & analyze", to: `/projects/${projectId}/analytics`, icon: BarChart3 },
         { label: "Actions & Follow-ups", to: `/projects/${projectId}/actions`, icon: ClipboardList },
         { label: "Indicators", to: `/projects/${projectId}/indicators`, icon: Target },
         { label: "Dashboards", to: `/dashboards?project_id=${projectId}`, icon: LayoutDashboard },

@@ -1,4 +1,3 @@
-import { ProjectActionSummary } from "./ProjectActionSummary";
 import { ProjectTimeline } from "../../workspace/ProjectTimeline";
 import { ProjectCompletionChart } from "../../workspace/ProjectCompletionChart";
 import { useState } from "react";
@@ -24,11 +23,6 @@ function dateLabel(value: string | null | undefined) {
   if (!value) return "Not set";
   const parsed = new Date(`${value}T00:00:00Z`);
   return Number.isNaN(parsed.getTime()) ? "Not set" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: "UTC" }).format(parsed);
-}
-function timestamp(value: string | null | undefined) {
-  if (!value) return "Not recorded";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "Not recorded" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(parsed) + " UTC";
 }
 function locationLabel(project: ApiProject) {
   return project.workspace_details?.countries?.filter(Boolean).join(", ") || project.country || "Location not set";
@@ -61,10 +55,6 @@ export function ProjectWorkspacePage() {
     queryKey: ["project-overview", organizationId, projectId, "submissions"],
     queryFn: () => apiClient.submissionPage(new URLSearchParams({ project_id: projectId, limit: "5" })), enabled: authorized,
   });
-  const syncQuery = useQuery({
-    queryKey: ["project-overview", organizationId, projectId, "sync"],
-    queryFn: () => apiClient.syncSettings(projectId), enabled: authorized, meta: { backgroundRefresh: true }, refetchInterval: 15000,
-  });
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", projectId, "overview", organizationId],
     queryFn: () => apiClient.indicators(projectId), enabled: authorized,
@@ -87,7 +77,7 @@ export function ProjectWorkspacePage() {
     },
   });
   const refresh = () => Promise.all([
-    cache.invalidateQueries({ queryKey: ["project-actions"] }), projectQuery.refetch(), submissionsQuery.refetch(), syncQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
+    cache.invalidateQueries({ queryKey: ["project-actions"] }), projectQuery.refetch(), submissionsQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
     ...(hasSector ? [organizationSectors.refetch(), sectors.refetch()] : []),
   ]);
 
@@ -143,23 +133,6 @@ export function ProjectWorkspacePage() {
       <ProjectCompletionChart project={project} />
       <ProjectTimeline project={project} />
     </div>
-    <section aria-labelledby="attention-heading" className="border border-[var(--fs-border)] bg-white p-5">
-      <h2 id="attention-heading" className="m-0 text-base font-semibold">Needs attention</h2>
-      {(submissionsQuery.isPending || syncQuery.isPending || indicatorsQuery.isPending) && <p role="status">Checking project exceptions…</p>}
-      {(submissionsQuery.isError || indicatorsQuery.isError) && <p>Some exception checks are unavailable. Resolve the errors above before assessing this project.</p>}
-      {!!submissionsQuery.data?.counts.needs_review && <p><NavLink className={textLink} to={`/submissions?${scope}&review_status=needs_review`}>{submissionsQuery.data.counts.needs_review} submissions await review →</NavLink></p>}
-      <div className="mt-3 text-sm">
-        <h3 className="font-semibold">Source synchronization</h3>
-        {!connected ? <p>No source connected. <NavLink className={textLink} to={`/forms?${scope}`}>Connect a test form</NavLink></p> : syncQuery.isError ? <LoadError label="synchronization status" retry={() => void syncQuery.refetch()} /> : syncQuery.data && <>
-          <p>{syncQuery.data.latest_status === "failed" ? "Latest sync failed" : syncQuery.data.pending ? "Synchronization queued" : syncQuery.data.latest_status === "completed" || syncQuery.data.latest_status === "unchanged" ? "Latest sync succeeded" : "No successful synchronization confirmed"}</p>
-          <p>Last successful sync: {timestamp(syncQuery.data.last_successful_sync)}</p>
-          {syncQuery.data.mode === "scheduled" && syncQuery.data.worker_available === false && <p>Worker unavailable; scheduled collection needs attention.</p>}
-          <NavLink className={textLink} to={`/sync?${scope}`}>Inspect synchronization →</NavLink>
-        </>}
-      </div>
-      {!!activeIndicators?.filter(item => item.schedule_status === "overdue").length && <NavLink className={textLink} to={`/projects/${projectId}/indicators`}>{activeIndicators.filter(item => item.schedule_status === "overdue").length} overdue indicator targets →</NavLink>}
-      <ProjectActionSummary projectId={projectId} organizationId={organizationId} />
-    </section>
     <p id="overview-data-note" className="sr-only">Collection counts include all saved records. Ready is a data-review status, not M&E result approval. Indicator results use their saved definitions; they are not frozen, approved reporting results. Reporting completeness is not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>
   </div>;
 }

@@ -71,7 +71,7 @@ export interface SavedAnalysis {
   id: string;
   title: string;
   query: AnalysisQuery;
-  chart: "bar" | "line" | "donut" | "table";
+  chart: "bar" | "line" | "donut" | "pie" | "table";
   created_at: string;
 }
 

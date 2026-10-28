@@ -74,6 +74,21 @@ it("opens the indicator requested by an overview action instead of the first ind
   render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/projects/project/indicators?view=results&indicator_id=1"]}><Routes><Route path="/projects/:projectId/indicators" element={<IndicatorWorkspacePage />} /></Routes></MemoryRouter></QueryClientProvider>);
   await screen.findByRole("combobox", { name: "Indicator" });
   expect((screen.getByRole("combobox", { name: "Indicator" }) as HTMLSelectElement).value).toBe("1");
+  expect(screen.getByRole("article", {name: "Actual value 0"})).toBeTruthy();
+  const current = cache.getQueryData<Indicator[]>(["indicators", "project", "", ""])!;
+  const originalMetric = screen.getByRole("article", {name: "Actual value 0"});
+  const originalSelector = screen.getByRole("combobox", {name: "Indicator"});
+  let complete!: (items: Indicator[]) => void;
+  vi.mocked(apiClient.indicators).mockImplementation(() => new Promise(resolve => {complete = resolve;}));
+  const refreshing = cache.invalidateQueries({queryKey: ["indicators", "project"]});
+  await waitFor(() => expect(cache.isFetching({queryKey: ["indicators", "project"]})).toBe(1));
+  expect(screen.queryByText(/Updating indicators/)).toBeNull();
+  expect(screen.getByRole("article", {name: "Actual value 0"})).toBe(originalMetric);
+  expect(screen.getByRole("combobox", {name: "Indicator"})).toBe(originalSelector);
+  complete(current.map(item => ({...item, current_value: 2})));
+  await refreshing;
+  expect(await screen.findByRole("article", {name: "Actual value 2"})).toBe(originalMetric);
+  expect(screen.getByRole("combobox", {name: "Indicator"})).toBe(originalSelector);
 });
 
 it.each([false, true])("saves mapping without a review dialog and supports retry after stale=%s", async (stale) => {
@@ -267,7 +282,7 @@ it.each([false, true])("saves mapping without a review dialog and supports retry
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });
 
-function renderMapping() {
+function renderMapping(onSave = vi.fn()) {
   render(
     <QueryClientProvider
       client={
@@ -283,7 +298,7 @@ function renderMapping() {
           saving={false}
           error=""
           onClose={vi.fn()}
-          onSave={vi.fn()}
+          onSave={onSave}
           onRemove={vi.fn()}
         />
       </MemoryRouter>
@@ -363,4 +378,23 @@ it("keeps the form selected after metadata failure and lets the user retry", asy
   expect(
     await screen.findByRole("option", { name: "Girls present · number" }),
   ).toBeTruthy();
+});
+
+it("searches questions and saves the selected survey answer code", async () => {
+  const fields = [
+    {source_field: "problem", label: "Was a problem observed?", type: "select_one", supported: true, choices: [{label: "Yes", value: "yes_code"}, {label: "No", value: "no_code"}], form_id: "attendance", source: "kobo"},
+    {source_field: "county", label: "County", type: "text", supported: true, choices: [], form_id: "attendance", source: "kobo"},
+  ];
+  vi.mocked(apiClient.surveyFields).mockResolvedValue({...emptyCatalogue, fields} as SurveyCatalogue);
+  vi.mocked(apiClient.indicatorFields).mockResolvedValue(fields as never);
+  const save = vi.fn(); renderMapping(save);
+  await screen.findByRole("option", {name: /County/});
+  fireEvent.change(screen.getByLabelText("Search source questions"), {target: {value: "problem"}});
+  expect(screen.queryByRole("option", {name: /County/})).toBeNull();
+  fireEvent.change(screen.getByLabelText("Source question"), {target: {value: "problem"}});
+  fireEvent.change(screen.getByLabelText("Calculation"), {target: {value: "count_matching"}});
+  expect(screen.getByRole("option", {name: "Yes"})).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Expected answer"), {target: {value: "yes_code"}});
+  fireEvent.click(screen.getByRole("button", {name: "Save mapping"}));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({source_field: "problem", match_value: "yes_code", calculation: "count_matching"}));
 });

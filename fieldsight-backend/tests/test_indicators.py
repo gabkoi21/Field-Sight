@@ -16,7 +16,7 @@ from app.models.identity import (
     Sector,
     User,
 )
-from app.models.operations import KoboConnection, Project, Submission
+from app.models.operations import KoboConnection, Project, Submission, SurveySchema
 
 
 def test_admin_can_manage_project_indicators(tmp_path: object) -> None:
@@ -83,6 +83,26 @@ def test_admin_can_manage_project_indicators(tmp_path: object) -> None:
                 ),
             ]
         )
+        project.kobo_form_id = "water-form"
+        project.kobo_connection_id = connection.id
+        db.add(project)
+        db.add(
+            SurveySchema(
+                project_id=project.id,
+                organization_id=organization.id,
+                form_id="water-form",
+                fields_json=[
+                    {
+                        "source_field": "safe_water",
+                        "label": "Safe water",
+                        "type": "select_one",
+                        "source": "kobo",
+                        "supported": True,
+                        "choices": [{"value": "Yes", "label": "Yes"}, {"value": "No", "label": "No"}],
+                    }
+                ],
+            )
+        )
         db.commit()
         token = create_access_token(user.id, refresh.id, settings)
         project_id = project.id
@@ -137,11 +157,20 @@ def test_admin_can_manage_project_indicators(tmp_path: object) -> None:
     assert calculated.json()["history"][0]["period"] == "2026-Q3"
     assert {item["location"] for item in calculated.json()["location_breakdown"]} == {"Kajo-Keji", "Yei"}
     assert client.patch(f"/indicators/{indicator_id}", headers=headers, json={"target_value": 75}).status_code == 409
-    preview = client.post(f"/indicators/{indicator_id}/definition-preview", headers=headers,
-                          json={"target_value": 75}).json()
-    updated = client.patch(f"/indicators/{indicator_id}", headers=headers, json={"target_value": 75,
-        "confirm_change": True, "change_reason": "Revised after review",
-        "expected_version": preview["expected_version"], "preview_token": preview["preview_token"]})
+    preview = client.post(
+        f"/indicators/{indicator_id}/definition-preview", headers=headers, json={"target_value": 75}
+    ).json()
+    updated = client.patch(
+        f"/indicators/{indicator_id}",
+        headers=headers,
+        json={
+            "target_value": 75,
+            "confirm_change": True,
+            "change_reason": "Revised after review",
+            "expected_version": preview["expected_version"],
+            "preview_token": preview["preview_token"],
+        },
+    )
     assert updated.status_code == 200
     assert updated.json()["target_value"] == 75
     assert updated.json()["status"] == "in_progress"

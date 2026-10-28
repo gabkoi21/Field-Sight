@@ -624,7 +624,7 @@ def indicator_fields(
     project_id: UUID, user: CurrentUser, db: Database, form_id: str | None = None
 ) -> list[IndicatorFieldRead]:
     project = _project(project_id, user, db)
-    catalogue, _, _ = _catalogue(project, form_id, db)
+    catalogue, _, _ = _catalogue(project, form_id, db, current_only=True)
     return [
         IndicatorFieldRead(
             source_field=field.source_field,

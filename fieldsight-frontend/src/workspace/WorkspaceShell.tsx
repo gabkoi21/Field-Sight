@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  BarChart3,
   Bell,
   BookOpen,
   ClipboardList,
@@ -104,7 +103,6 @@ function Shell({ loading }: { loading: boolean }) {
       title: "Results & reporting",
       items: [
         { name: "Project dashboards", path: "/dashboards", icon: LayoutDashboard },
-        { name: "Explore & analyze", path: "/analytics", icon: BarChart3 },
         { name: "Reports", path: "/reports", icon: FileBarChart },
       ],
     },
@@ -167,7 +165,7 @@ function Shell({ loading }: { loading: boolean }) {
                   title={name}
                   aria-label={name}
                   aria-current={active(path) ? "page" : undefined}
-                  to={workspace.projectId && ["/forms", "/data-tables", "/analytics", "/dashboards", "/submissions", "/reports"].includes(path)
+                  to={workspace.projectId && ["/forms", "/data-tables", "/dashboards", "/submissions", "/reports"].includes(path)
                     ? `${path}?project_id=${workspace.projectId}`
                     : path}
                   onClick={() => setOpen(false)}

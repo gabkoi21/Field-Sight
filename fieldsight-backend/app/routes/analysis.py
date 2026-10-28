@@ -46,15 +46,25 @@ def _catalogue(
     project: Project,
     form_id: str | None,
     db: Session,
+    *,
+    current_only: bool = False,
 ) -> tuple[SurveyCatalogue, list[Submission], SurveySchema | None]:
-    all_records = _records(project, None, db)
-    forms = sorted(
-        {record.kobo_form_id for record in all_records} | ({project.kobo_form_id} if project.kobo_form_id else set())
-    )
-    selected_form = form_id or project.kobo_form_id or (forms[0] if forms else None)
-    if selected_form and selected_form not in forms:
-        raise HTTPException(status_code=422, detail="Choose a form belonging to this project.")
-    records = [record for record in all_records if record.kobo_form_id == selected_form] if selected_form else []
+    if current_only:
+        selected_form = project.kobo_form_id
+        forms = [selected_form] if selected_form else []
+        if form_id and form_id != selected_form:
+            raise HTTPException(status_code=422, detail="Choose the current Kobo form assigned to this project.")
+        records = _records(project, selected_form, db) if selected_form else []
+    else:
+        all_records = _records(project, None, db)
+        forms = sorted(
+            {record.kobo_form_id for record in all_records}
+            | ({project.kobo_form_id} if project.kobo_form_id else set())
+        )
+        selected_form = form_id or project.kobo_form_id or (forms[0] if forms else None)
+        if selected_form and selected_form not in forms:
+            raise HTTPException(status_code=422, detail="Choose a form belonging to this project.")
+        records = [record for record in all_records if record.kobo_form_id == selected_form] if selected_form else []
     cache = (
         db.exec(
             select(SurveySchema).where(
@@ -75,11 +85,13 @@ def _catalogue(
         form_version=cache.version if cache else None,
         forms=forms,
         schema_updated_at=cache.updated_at if cache else None,
-        fields=build_catalogue(records, mappings, schema_fields),
+        fields=schema_fields if current_only else build_catalogue(records, mappings, schema_fields),
         locations=sorted({record.location for record in records if record.location}),
         enumerators=sorted({record.enumerator for record in records if record.enumerator}),
         warning=None
         if cache
+        else "Refresh Kobo fields to load the questions from the current assigned form."
+        if current_only
         else "Question types use field mappings or stored answers. Refresh Kobo fields to verify metadata.",
     )
     return catalogue, records, cache
@@ -95,7 +107,7 @@ def survey_fields(
     refresh_schema: bool = False,
 ) -> SurveyCatalogue:
     project = _project(project_id, user, db)
-    catalogue, _, cache = _catalogue(project, form_id, db)
+    catalogue, _, cache = _catalogue(project, form_id, db, current_only=True)
     if not refresh_schema or not catalogue.form_id:
         return catalogue
     # Only the current assigned form has a verified connection provenance.
@@ -124,12 +136,12 @@ def survey_fields(
     cache.updated_at = datetime.now(UTC)
     db.add(cache)
     db.commit()
-    return _catalogue(project, catalogue.form_id, db)[0]
+    return _catalogue(project, catalogue.form_id, db, current_only=True)[0]
 
 
 def _execute(payload: AnalysisQuery, user: User, db: Session) -> AnalysisResult:
     project = _project(payload.project_id, user, db)
-    catalogue, records, _ = _catalogue(project, payload.form_id, db)
+    catalogue, records, _ = _catalogue(project, payload.form_id, db, current_only=True)
     query = payload.model_copy(update={"form_id": catalogue.form_id})
     try:
         return aggregate(query, records, catalogue.fields)
@@ -184,7 +196,7 @@ def _saved_read(saved: SavedAnalysis) -> SavedAnalysisRead:
         id=saved.id,
         title=saved.title,
         query=AnalysisQuery.model_validate(saved.query_json),
-        chart=cast(Literal["bar", "line", "donut", "table"], saved.chart),
+        chart=cast(Literal["bar", "line", "donut", "pie", "table"], saved.chart),
         created_at=saved.created_at,
     )
 
@@ -200,7 +212,16 @@ def saved_analyses(user: CurrentUser, db: Database, project_id: UUID) -> list[Sa
         )
         .order_by(col(SavedAnalysis.created_at).desc())
     ).all()
-    return [_saved_read(item) for item in saved]
+    catalogue, _, _ = _catalogue(project, None, db, current_only=True)
+    current_fields = {field.source_field for field in catalogue.fields}
+    return [
+        _saved_read(item)
+        for item in saved
+        if project.kobo_form_id
+        and item.query_json.get("form_id") == project.kobo_form_id
+        and item.query_json.get("source_field") in current_fields
+        and (not item.query_json.get("group_by") or item.query_json.get("group_by") in current_fields)
+    ]
 
 
 @router.post("/analysis/saved", response_model=SavedAnalysisRead, status_code=201)
