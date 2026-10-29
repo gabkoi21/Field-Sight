@@ -1,3 +1,4 @@
+import { AdminDialog } from "../../components/superadmin/AdminDialog";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -15,26 +16,29 @@ export function SectorsPage() {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
+  const [success, setSuccess] = useState("");
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [status, setStatus] = useState("All");
   const [error, setError] = useState("");
   const sectorsQuery = useQuery({
-    queryKey: ["sectors"],
-    queryFn: apiClient.sectors,
+    queryKey: ["platform-sectors"],
+    queryFn: apiClient.adminSectors,
   });
   const createMutation = useMutation({
     mutationFn: apiClient.createSector,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+    onSuccess: () => { setSuccess("Sector catalog updated."); void queryClient.invalidateQueries({ queryKey: ["platform-sectors"] }); void queryClient.invalidateQueries({ queryKey: ["sectors"] }); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
       apiClient.updateSector(id, { name }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+    onSuccess: () => { setSuccess("Sector catalog updated."); void queryClient.invalidateQueries({ queryKey: ["platform-sectors"] }); void queryClient.invalidateQueries({ queryKey: ["sectors"] }); },
   });
   const deleteMutation = useMutation({
     mutationFn: apiClient.deleteSector,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sectors"] }),
+    onSuccess: () => { setSuccess("Sector catalog updated."); void queryClient.invalidateQueries({ queryKey: ["platform-sectors"] }); void queryClient.invalidateQueries({ queryKey: ["sectors"] }); },
   });
   const sectors = (sectorsQuery.data ?? []).filter((sector) =>
-    `${sector.name} ${sector.code}`
+    (status === "All" || (sector.is_active ? "Active" : "Inactive") === status) && `${sector.name} ${sector.code}`
       .toLowerCase()
       .includes(query.trim().toLowerCase()),
   );
@@ -58,19 +62,10 @@ export function SectorsPage() {
     }
   }
 
-  async function renameSector(id: string, currentName: string) {
-    const nextName = window.prompt("Sector name", currentName)?.trim();
-    if (!nextName || nextName === currentName) return;
-    setError("");
-    try {
-      await updateMutation.mutateAsync({ id, name: nextName });
-    } catch (requestError) {
-      setError(
-        requestError instanceof ApiError
-          ? requestError.message
-          : "Unable to update the sector.",
-      );
-    }
+  async function saveSector(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!editing) return; setError("");
+    try { await updateMutation.mutateAsync({ id: editing.id, name: editing.name.trim() }); setEditing(null); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "Unable to update sector."); }
   }
 
   async function deactivateSector(id: string, sectorName: string) {
@@ -94,6 +89,8 @@ export function SectorsPage() {
         title="Sector catalog"
         description="Manage the active sectors available to organizations and projects."
       />
+      {success && <p role="status" className="py-3 text-[var(--fs-success)]">{success}</p>}
+      {sectorsQuery.error && <Button variant="secondary" onClick={() => void sectorsQuery.refetch()}>Retry sectors</Button>}
       {(error || sectorsQuery.error) && (
         <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
           {error || "Unable to load sectors from the API."}
@@ -113,7 +110,7 @@ export function SectorsPage() {
             onChange={(event) =>
               setCode(event.target.value.replace(/[^a-z0-9_]/g, ""))
             }
-            placeholder="sector_code"
+            aria-label="Sector code" pattern="[a-z][a-z0-9_]{1,63}" placeholder="sector_code"
             minLength={2}
             maxLength={64}
             required
@@ -122,7 +119,7 @@ export function SectorsPage() {
             className={adminInputClass}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Sector name"
+            aria-label="Sector name" placeholder="Sector name"
             minLength={2}
             maxLength={120}
             required
@@ -134,7 +131,7 @@ export function SectorsPage() {
         </form>
       </AdminPanel>
       <AdminPanel
-        title="Active sectors"
+        title="Sector catalog"
         description="Catalog used during organization and project setup"
         className="mt-[18px]"
       >
@@ -149,6 +146,7 @@ export function SectorsPage() {
             />
           </label>
         </div>
+        <label className="block p-4">Status <select value={status} onChange={e => setStatus(e.target.value)}><option>All</option><option>Active</option><option>Inactive</option></select></label>
         <div className="overflow-x-auto">
           <table className="min-w-[620px]">
             <thead>
@@ -176,14 +174,14 @@ export function SectorsPage() {
                     <code>{sector.code}</code>
                   </td>
                   <td>
-                    <AdminStatus value="Active" />
+                    <AdminStatus value={sector.is_active ? "Active" : "Inactive"} />
                   </td>
                   <td>
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         className="grid size-7 place-items-center rounded border-0 bg-[#f4f7fb] text-[#657182]"
-                        onClick={() => renameSector(sector.id, sector.name)}
+                        onClick={() => setEditing({ id: sector.id, name: sector.name })}
                         aria-label={`Rename ${sector.name}`}
                       >
                         <Pencil size={14} />
@@ -191,7 +189,7 @@ export function SectorsPage() {
                       <button
                         type="button"
                         className="grid size-7 place-items-center rounded border-0 bg-[#fff1f2] text-[#c2414b]"
-                        onClick={() => deactivateSector(sector.id, sector.name)}
+                        disabled={!sector.is_active || deleteMutation.isPending} onClick={() => deactivateSector(sector.id, sector.name)}
                         aria-label={`Deactivate ${sector.name}`}
                       >
                         <Trash2 size={14} />
@@ -213,6 +211,7 @@ export function SectorsPage() {
           total={(sectorsQuery.data ?? []).length}
         />
       </AdminPanel>
+      {editing && <AdminDialog label="Edit sector" onClose={() => setEditing(null)}><form onSubmit={saveSector}><h2 className="text-xl font-semibold">Edit sector</h2><label>Sector name<input autoFocus required minLength={2} maxLength={120} className={adminInputClass} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></label>{error && <p role="alert">{error}</p>}<div className="mt-4 flex gap-3"><Button type="submit" disabled={updateMutation.isPending}>Save sector</Button><Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button></div></form></AdminDialog>}
     </>
   );
 }

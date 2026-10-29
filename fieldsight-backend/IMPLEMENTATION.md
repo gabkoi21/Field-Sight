@@ -230,7 +230,7 @@ Validate normalized email, password policy, IANA time zones, country/locale valu
 
 ### Phase 0 — decisions and contracts
 
-1. Confirm SQLite as the current database (`sqlite:///./fieldsight.db`), plus object storage, mail provider, queue/Redis, and billing-provider choices as those features are introduced. Document the conditions that will trigger a later PostgreSQL migration.
+1. Confirm SQLite as the current database (`sqlite:///./Database/fieldsight.db`), plus object storage, mail provider, queue/Redis, and billing-provider choices as those features are introduced. Document the conditions that will trigger a later PostgreSQL migration.
 2. Convert this guide into API tickets, including acceptance criteria and role/tenant authorization for each endpoint.
 3. Define OpenAPI-first Pydantic schemas and error/pagination conventions; generate or hand-maintain typed frontend client types.
 4. Confirm the missing Quality Center route and whether form authoring is in scope versus Kobo-only connection/management.

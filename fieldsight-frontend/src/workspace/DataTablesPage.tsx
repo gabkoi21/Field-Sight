@@ -98,7 +98,7 @@ export function DataTablesPage() {
     <div className="space-y-5">
       <Link
         to={projectId ? `/projects/${projectId}` : "/projects"}
-        className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+        className="inline-flex items-center gap-2 text-xs font-medium text-[var(--fs-primary)] no-underline hover:underline"
       >
         <ArrowLeft size={15} /> Back to project
       </Link>
@@ -134,7 +134,7 @@ export function DataTablesPage() {
         <WorkspaceTabs />
         <Panel className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <span className="text-sm font-medium">{project?.name}</span>
-          <Link className="text-xs text-[#168596]" to="/forms/connections">
+          <Link className="text-xs text-[var(--fs-primary)]" to="/forms/connections">
             Manage Kobo connections →
           </Link>
         </Panel>
@@ -155,7 +155,7 @@ export function DataTablesPage() {
               <div>
                 <button
                   onClick={() => setSelection(null)}
-                  className="mb-2 flex items-center gap-1 border-0 bg-transparent p-0 text-xs text-[#168596]"
+                  className="mb-2 flex items-center gap-1 border-0 bg-transparent p-0 text-xs text-[var(--fs-primary)]"
                 >
                   <ArrowLeft size={13} />
                   All tables
@@ -163,13 +163,13 @@ export function DataTablesPage() {
                 <h2 className="m-0 text-base font-medium">
                   {chosen?.title ?? form}
                 </h2>
-                <p className="mb-0 mt-1 text-xs text-[#87969d]">
+                <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">
                   Source: {chosen?.source} ·{" "}
                   {rows.data?.total ?? chosen?.records ?? 0} records
                 </p>
               </div>
               <Link
-                className="text-xs text-[#168596]"
+                className="text-xs text-[var(--fs-primary)]"
                 to={`/projects/${projectId}/analytics`}
               >
                 Analyze this project →
@@ -182,7 +182,7 @@ export function DataTablesPage() {
                 <>
                   <div className="max-h-[520px] overflow-auto">
                     <table aria-busy={rows.isFetching} className="w-full border-collapse whitespace-nowrap text-left text-xs">
-                      <thead className="sticky top-0 bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
+                      <thead className="sticky top-0 bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                         <tr>
                           <th className="px-4 py-3 font-medium">
                             Review status
@@ -205,7 +205,7 @@ export function DataTablesPage() {
                           >
                             <td className="px-4 py-3">
                               <span
-                                className={`rounded px-2 py-1 text-[12px] ${row.review_status === "ready" ? "bg-[#ecf7f0] text-[#388567]" : "bg-[#fff7e8] text-[#a6803f]"}`}
+                                className={`rounded px-2 py-1 text-[12px] ${row.review_status === "ready" ? "bg-[var(--fs-primary-soft)] text-[var(--fs-primary)]" : "bg-[#fff7e8] text-[#a6803f]"}`}
                               >
                                 {row.review_status.replaceAll("_", " ")}
                               </span>
@@ -224,7 +224,7 @@ export function DataTablesPage() {
                       </tbody>
                     </table>
                   </div>
-                  <footer className="flex items-center justify-between border-t border-[#e1e7eb] px-5 py-3 text-xs text-[#87969d]">
+                  <footer className="flex items-center justify-between border-t border-[#e1e7eb] px-5 py-3 text-xs text-[var(--fs-muted)]">
                     <span>
                       {rows.data.total ? offset + 1 : 0}–{Math.min(offset + 50, rows.data.total)} of{" "}
                       {rows.data.total}
@@ -257,19 +257,19 @@ export function DataTablesPage() {
             {tables.data.map((table) => (
               <Panel key={table.id} className="flex flex-col p-5">
                 <div className="mb-4 flex items-center justify-between">
-                  <span className="grid size-10 place-items-center rounded-lg bg-[#edf6f7] text-[#168596]">
+                  <span className="grid size-10 place-items-center rounded-lg bg-[var(--fs-primary-soft)] text-[var(--fs-primary)]">
                     <Database size={19} />
                   </span>
-                  <span className="rounded bg-[#f4f7f8] px-2 py-1 text-[12px] text-[#87969d]">
+                  <span className="rounded bg-[#f4f7f8] px-2 py-1 text-[12px] text-[var(--fs-muted)]">
                     {table.source}
                   </span>
                 </div>
                 <h2 className="m-0 text-base font-medium">{table.title}</h2>
-                <p className="mt-2 text-xs text-[#87969d]">
+                <p className="mt-2 text-xs text-[var(--fs-muted)]">
                   {table.records} stored records
                 </p>
                 <button
-                  className="mt-4 self-start border-0 bg-transparent p-0 text-xs font-medium text-[#168596]"
+                  className="mt-4 self-start border-0 bg-transparent p-0 text-xs font-medium text-[var(--fs-primary)]"
                   onClick={() => {
                     selectProject(projectId);
                     setSelection({ project: projectId, id: table.id });
@@ -283,9 +283,9 @@ export function DataTablesPage() {
           </div>
         ) : tables.error ? null : (
           <Panel className="p-12 text-center">
-            <Database className="mx-auto text-[#8aadb5]" size={30} />
+            <Database className="mx-auto text-[var(--fs-muted)]" size={30} />
             <h2 className="text-lg">Bring your evidence into FieldSight</h2>
-            <p className="text-sm text-[#87969d]">
+            <p className="text-sm text-[var(--fs-muted)]">
               Import your first CSV table or connect a Kobo form.
             </p>
             <Button
@@ -309,23 +309,23 @@ export function DataTablesPage() {
           {source === "choose" ? (
             <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
               <button
-                className="rounded-lg border border-[#dce4e8] bg-white p-5 text-left hover:border-[#168596]"
+                className="rounded-lg border border-[#dce4e8] bg-white p-5 text-left hover:border-[var(--fs-primary)]"
                 onClick={() => setSource("csv")}
               >
-                <FileSpreadsheet className="mb-3 text-[#168596]" size={24} />
+                <FileSpreadsheet className="mb-3 text-[var(--fs-primary)]" size={24} />
                 <strong className="block text-sm">Local CSV file</strong>
-                <span className="mt-2 block text-xs leading-5 text-[#87969d]">
+                <span className="mt-2 block text-xs leading-5 text-[var(--fs-muted)]">
                   Preview and import a table from your computer. Up to 2,000
                   rows.
                 </span>
               </button>
               <Link
                 to="/forms/connections"
-                className="rounded-lg border border-[#dce4e8] p-5 text-inherit no-underline hover:border-[#168596]"
+                className="rounded-lg border border-[#dce4e8] p-5 text-inherit no-underline hover:border-[var(--fs-primary)]"
               >
-                <Link2 className="mb-3 text-[#168596]" size={24} />
+                <Link2 className="mb-3 text-[var(--fs-primary)]" size={24} />
                 <strong className="block text-sm">KoboToolbox</strong>
-                <span className="mt-2 block text-xs leading-5 text-[#87969d]">
+                <span className="mt-2 block text-xs leading-5 text-[var(--fs-muted)]">
                   Verify a connection, assign a form and synchronize its
                   responses.
                 </span>
@@ -359,7 +359,7 @@ export function DataTablesPage() {
               </Field>
               {csvText && (
                 <div>
-                  <p className="text-xs text-[#73868d]">
+                  <p className="text-xs text-[var(--fs-muted)]">
                     File preview · first lines
                   </p>
                   <pre className="max-h-40 overflow-auto rounded-md bg-[#f5f8f9] p-3 text-[12px] leading-5">
@@ -385,7 +385,7 @@ export function DataTablesPage() {
                   />
                 </Field>
               </div>
-              <p className="m-0 text-xs leading-5 text-[#87969d]">
+              <p className="m-0 text-xs leading-5 text-[var(--fs-muted)]">
                 Use unique headings and ISO dates such as 2026-10-22. Rows start
                 in Needs review. A missing date remains unreported.
               </p>

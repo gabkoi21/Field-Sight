@@ -338,7 +338,7 @@ export function WorkspacesPage() {
                         {project.id === workspace.projectId && <span className="mt-1 block text-xs font-medium text-[var(--fs-muted)]">Current project</span>}
                       </td>
                       <td className="px-3 py-2 text-[#49515c]">
-                        <span className="font-medium text-green-700" title={`Project ID: ${project.id}`}>
+                        <span className="font-medium text-[var(--fs-primary)]" title={`Project ID: ${project.id}`}>
                           {project.workspace_details?.code ||
                             project.id.slice(0, 8).toUpperCase()}
                         </span>
@@ -586,7 +586,7 @@ export function WorkspacesPage() {
             if (!remove.isPending) setConfirmDelete(false);
           }}
         >
-          <p className="text-sm leading-6 text-[#637d86]">
+          <p className="text-sm leading-6 text-[var(--fs-muted)]">
             {deletingProject.status === "archived" ? "Restore" : "Archive"} <strong>{deletingProject.name}</strong>?
             All FieldSight records and Kobo assets are retained. Archiving stops queued and scheduled synchronization.
             Restoration keeps synchronization manual until you enable it again.

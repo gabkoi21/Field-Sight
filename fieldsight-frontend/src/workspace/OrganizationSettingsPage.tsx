@@ -113,7 +113,7 @@ export function OrganizationSettingsPage() {
                   <option value="es">Spanish</option>
                 </select>
               </Field>
-              <p className="m-0 text-xs leading-5 text-[#87969d]">
+              <p className="m-0 text-xs leading-5 text-[var(--fs-muted)]">
                 These are stored organization defaults. Analytical date filters
                 currently use UTC; the interface is in English.
               </p>
@@ -128,23 +128,23 @@ export function OrganizationSettingsPage() {
               <h2 className="mt-0 text-base font-semibold">
                 Access & account security
               </h2>
-              <p className="text-sm leading-6 text-[#73868d]">
+              <p className="text-sm leading-6 text-[var(--fs-muted)]">
                 Manage active members and invitations from the team screen.
                 Personal profile, password and landing-page settings are in your
                 user menu.
               </p>
-              <div className="flex flex-wrap gap-4 text-xs text-[#168596]">
+              <div className="flex flex-wrap gap-4 text-xs text-[var(--fs-primary)]">
                 <Link to="/settings/admins">Manage administrators →</Link>
                 <Link to="/profile">Profile & security →</Link>
               </div>
             </Panel>
             <Panel className="p-6">
               <h2 className="mt-0 text-base font-semibold">Data sources</h2>
-              <p className="text-sm leading-6 text-[#73868d]">
+              <p className="text-sm leading-6 text-[var(--fs-muted)]">
                 Use a verified Kobo connection for live synchronization, or
                 import local CSV files into data tables.
               </p>
-              <div className="flex flex-wrap gap-4 text-xs text-[#168596]">
+              <div className="flex flex-wrap gap-4 text-xs text-[var(--fs-primary)]">
                 <Link to="/forms/connections">Kobo connections →</Link>
                 <Link to="/data-tables">Data tables →</Link>
               </div>

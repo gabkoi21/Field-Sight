@@ -40,7 +40,8 @@ def _has_workspace_access(user: User, db: Session) -> bool:
         return True
     return (
         db.exec(
-            select(OrganizationMembership).where(
+            select(OrganizationMembership).join(Organization).where(
+                Organization.is_active,
                 OrganizationMembership.user_id == user.id,
                 OrganizationMembership.role == Role.ORGANIZATION_ADMIN,
                 OrganizationMembership.is_active,

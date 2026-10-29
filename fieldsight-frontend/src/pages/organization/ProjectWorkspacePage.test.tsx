@@ -162,8 +162,8 @@ it("uses the project analytics API for chart values and changes only the trend r
   setup();
   const chart = await screen.findByRole("region", { name: "Collection trend" });
   const table = await within(chart).findByRole("table", { name: "Daily collection counts", hidden: true });
-  expect(within(chart).getByText("70% of records ready")).toBeTruthy();
-  expect(within(chart).getByText(/20 submitted · 14 ready for use/)).toBeTruthy();
+  expect(within(chart).queryByText(/% of records ready/)).toBeNull();
+  expect(within(chart).getByText(/20 submitted.*14 ready for use/)).toBeTruthy();
   expect(within(table).getByText("8")).toBeTruthy();
   expect(within(table).getByText("5")).toBeTruthy();
   expect(within(table).getByText("12")).toBeTruthy();

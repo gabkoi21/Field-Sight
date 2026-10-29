@@ -1,3 +1,4 @@
+import { AdminDialog } from "../../components/superadmin/AdminDialog";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -43,7 +44,7 @@ function userRoles(user: ApiUserDirectoryItem): DisplayRole[] {
 }
 
 function displayName(user: ApiUserDirectoryItem) {
-  return user.username?.trim() || user.email.split("@")[0];
+  return user.full_name?.trim() || user.username?.trim() || user.email.split("@")[0];
 }
 
 function initials(value: string) {
@@ -58,14 +59,17 @@ function initials(value: string) {
 
 export function UsersPage() {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState("newest");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [organizationFilter, setOrganizationFilter] = useState("All");
+  const [details, setDetails] = useState<ApiUserDirectoryItem | null>(null);
   const [role, setRole] = useState<RoleFilter>("All");
   const usersQuery = useQuery({
     queryKey: ["platform-users"],
     queryFn: apiClient.users,
   });
-  const users = (usersQuery.data ?? []).filter(
-    (user) => user.platform_role !== "super_admin",
-  );
+  const users = usersQuery.data ?? [];
   const rows = useMemo(
     () =>
       users.map((user) => {
@@ -96,12 +100,17 @@ export function UsersPage() {
     return rows.filter(
       (user) =>
         (role === "All" || user.roles.includes(role)) &&
+        (statusFilter === "All" || user.status === statusFilter) &&
+        (organizationFilter === "All" || user.memberships.some(m => m.organization_id === organizationFilter)) &&
         (!normalizedQuery ||
           `${user.name} ${user.email} ${user.organizationText} ${user.roleText}`
             .toLowerCase()
             .includes(normalizedQuery)),
     );
-  }, [query, role, rows]);
+  }, [query, role, rows, statusFilter, organizationFilter]);
+  const sortedRows = [...filteredUsers].sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "oldest" ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime() : 0);
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(sortedRows.length / 10)));
+  const visibleRows = sortedRows.slice((currentPage - 1) * 10, currentPage * 10);
   const activeUsers = users.filter((user) => user.is_active).length;
   const organizationAdmins = users.filter((user) =>
     user.memberships.some(
@@ -179,18 +188,18 @@ export function UsersPage() {
             <input
               className="w-full border-0 bg-transparent py-[8px] font-sans text-[14px] text-[#4e5e74] outline-none"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search users, email, organization, or role…"
+              onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+              aria-label="Search users" placeholder="Search users, email, organization, or role…"
             />
           </label>
           <label className="relative flex min-h-[38px] min-w-[185px] items-center rounded-[5px] border border-[#dce5ef] bg-white px-[9px]">
             <select
               className="w-full appearance-none border-0 bg-transparent py-[8px] pr-5 font-sans text-[12px] text-[#69798e] outline-none"
-              value={role}
+              aria-label="Role filter" value={role}
               onChange={(event) => setRole(event.target.value as RoleFilter)}
             >
               <option value="All">All roles</option>
-              <option>Organization Admin</option>
+              <option>Super Admin</option><option>Organization Admin</option>
               <option>Enumerator</option>
             </select>
             <ChevronDown
@@ -199,6 +208,7 @@ export function UsersPage() {
             />
           </label>
         </div>
+        <div className="flex flex-wrap gap-3 p-4"><select aria-label="Sort records" value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A-Z</option></select><select aria-label="Account status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}><option>All</option><option>Active</option><option>Suspended</option></select><select aria-label="Organization filter" value={organizationFilter} onChange={e => { setOrganizationFilter(e.target.value); setPage(1); }}><option value="All">All organizations</option>{Array.from(new Map(users.flatMap(u => u.memberships.map(m => [m.organization_id, m.organization_name] as const)))).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
         <div className="overflow-x-auto">
           <table aria-busy={usersQuery.isFetching} className="min-w-[960px] [&_th]:!px-[13px] [&_th]:!py-[10px] [&_td]:!px-[13px] [&_td]:!py-[11px]">
             <thead>
@@ -222,7 +232,7 @@ export function UsersPage() {
                   </td>
                 </tr>
               )}
-              {filteredUsers.map((user) => (
+              {visibleRows.map((user) => (
                 <tr key={user.id} className="hover:bg-[#fbfcfe]">
                   <td>
                     <div className="flex items-center gap-2.5">
@@ -249,7 +259,7 @@ export function UsersPage() {
                   <td>
                     <button
                       type="button"
-                      title="User actions"
+                      onClick={() => setDetails(user)} title="View user details"
                       aria-label={`Actions for ${user.name}`}
                       className="grid size-7 place-items-center rounded-[6px] border-0 bg-[#f7f9fc] text-[#8190a4] hover:bg-[#eef3fa] hover:text-[#43546b]"
                     >
@@ -266,8 +276,9 @@ export function UsersPage() {
             </p>
           )}
         </div>
-        <AdminTableFooter shown={filteredUsers.length} total={users.length} />
+        <AdminTableFooter shown={visibleRows.length} total={filteredUsers.length} page={currentPage} onPageChange={setPage} />
       </AdminPanel>
+      {details && <AdminDialog label="User details" onClose={() => setDetails(null)}><h2 className="text-xl font-semibold">{displayName(details)}</h2><p>{details.email}</p><p>Account: {details.is_active ? "Active" : "Suspended"}</p><p>Platform role: {details.platform_role || "None"}</p><ul>{details.memberships.map(m => <li key={m.organization_id}>{m.organization_name}: {m.role} ({m.is_active ? "Active" : "Inactive"} membership)</li>)}</ul><p className="text-sm">Role changes, invitations and account actions are unavailable in this directory.</p><Button onClick={() => setDetails(null)}>Close details</Button></AdminDialog>}
     </>
   );
 }

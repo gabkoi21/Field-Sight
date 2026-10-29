@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     app_name: str = "FieldSight API"
     environment: str = "development"
     database_url: str = Field(
-        default="sqlite:///./fieldsight.db",
+        default="sqlite:///./Database/fieldsight.db",
         validation_alias=AliasChoices("FIELDSIGHT_DATABASE_URL", "DATABASE_URL"),
     )
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

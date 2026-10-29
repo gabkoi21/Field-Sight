@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import {
   Bookmark,
@@ -49,6 +49,10 @@ export function SurveyQuestionExplorer() {
   return <ProjectSurveyQuestionExplorer key={projectId} projectId={projectId} />;
 }
 function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sourceVisualization = searchParams.get("visualization");
+  const addAfterSave = useRef(false);
   const { user, loading } = useAuth();
   const org = user?.memberships.find(
     (item) => item.role === "organization_admin",
@@ -145,6 +149,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
         projectId &&
         field?.supported &&
         catalogue.isSuccess &&
+        !sourceVisualization &&
         !categoricalGroup &&
         !invalidDates,
     ),
@@ -192,12 +197,19 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
   const save = useMutation({
     mutationFn: () =>
       apiClient.saveAnalysis({ title: title.trim(), query, chart }),
-    onSuccess: async () => {
-      await cache.invalidateQueries({
+    onSuccess: (visualization) => {
+      cache.setQueryData<SavedAnalysis[]>(["saved-analysis", projectId], (current = []) =>
+        [visualization, ...current.filter(item => item.id !== visualization.id)],
+      );
+      void cache.invalidateQueries({
         queryKey: ["saved-analysis", projectId],
       });
       setSaving(false);
-      setNotice("Visualization saved. Reopen it from Saved visualizations.");
+      setTab("saved");
+      setNotice("Visualization saved. It is now available in this project's dashboard widget picker.");
+      if (addAfterSave.current) {
+        navigate(`/projects/${projectId}/dashboards?add_visualization=${encodeURIComponent(visualization.id)}`);
+      }
     },
     onError: (cause: Error) => setError(cause.message),
   });
@@ -247,11 +259,20 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
     setTab("explore");
     setNotice(`Viewing ${view.title}`);
   }
+  useEffect(() => {
+    if (!sourceVisualization || !saved.isSuccess || !catalogue.isSuccess) return;
+    const view = saved.data.find(item => item.id === sourceVisualization);
+    if (view) open(view);
+    else setError("This saved visualization is no longer available in the current project form.");
+    const next = new URLSearchParams(searchParams);
+    next.delete("visualization");
+    setSearchParams(next, {replace: true});
+  }, [sourceVisualization, saved.data, saved.isSuccess, catalogue.isSuccess, catalogue.data?.form_id, searchParams, setSearchParams]);
 
   if (loading || projects.isLoading) return <LoadingState variant="panel" label="Loading analysis sources…" />;
   if (org && projects.isSuccess && !project) return <Panel><Message error>Choose a project you have access to before exploring survey data.</Message><Link to="/projects" className="inline-flex min-h-11 items-center p-4 text-brand">Open projects</Link></Panel>;
   return (
-    <div className="space-y-5 text-[#213e47]">
+    <div className="survey-explorer space-y-5 text-[var(--fs-text)]">
       <PageHeader eyebrow={`FieldSight / ${project?.name ?? "Project"}`} title="Explore & analyze" description="Ask a question of your field data. See the evidence behind every result.">
         <div className="flex flex-wrap gap-2">
           <Button
@@ -275,6 +296,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
             onClick={() => {
               setTitle(field?.label ?? "");
               setSaving(true);
+              addAfterSave.current = false;
               setError("");
             }}
           >
@@ -287,7 +309,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
       {!org ? (
         <Panel>
           <div className="p-12 text-center">
-            <Database className="mx-auto text-[#0c8593]" size={30} />
+            <Database className="mx-auto text-[var(--fs-primary)]" size={30} />
             <h2 className="text-lg">Connect to your project data</h2>
             <p className="text-sm text-[var(--fs-muted)]">
               Sign in with an organization administrator account to explore
@@ -295,7 +317,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
             </p>
             <Link
               to="/sign-in"
-              className="inline-block rounded-md bg-[#0c8593] px-5 py-2.5 text-sm font-semibold text-white no-underline"
+              className="inline-block rounded-md bg-[var(--fs-primary)] px-5 py-2.5 text-sm font-semibold text-white no-underline"
             >
               Sign in to load data
             </Link>
@@ -314,7 +336,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                 </p>
                 <Link
                   to="/projects"
-                  className="text-sm font-semibold text-[#0c8593]"
+                  className="text-sm font-semibold text-[var(--fs-primary)]"
                 >
                   Open projects →
                 </Link>
@@ -324,43 +346,25 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
           {projectId && (
             <>
               <Panel>
-                <div className="flex flex-wrap items-end gap-4 p-4">
-                  <Field label="Survey form">
-                    <select
-                      className={control}
-                      value={formId ?? ""}
-                      onChange={(event) => {
-                        setForm(event.target.value);
-                        selectField("");
-                        setFilters(initialFilters);
-                      }}
-                    >
-                      {!catalogue.data?.forms.length && (
-                        <option value="">No form</option>
-                      )}
-                      {catalogue.data?.forms.filter(id => id === catalogue.data.form_id).map((id) => (
-                        <option key={id} value={id}>
-                          {id === formId && catalogue.data?.form_name
-                            ? `${catalogue.data.form_name} (${id})`
-                            : id}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="m-0 text-xs text-[var(--fs-muted)]">Connected Kobo form</p>
+                    <p className="mb-0 mt-1 break-words text-sm font-semibold text-slate-900">{catalogue.isLoading ? "Loading form..." : catalogue.data?.form_name?.trim() || (formId ? "Assigned project form" : "No form connected")}</p>
+                  </div>
                   <button
                     disabled={!formId || refresh.isPending}
                     onClick={() => {
                       setError("");
                       refresh.mutate();
                     }}
-                    className="inline-flex items-center gap-2 border border-[#dce5e8] bg-white px-3 py-2 text-xs text-[#0c7180] disabled:opacity-40"
+                    className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border border-[var(--fs-border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--fs-primary)] hover:bg-blue-50 disabled:opacity-40"
                   >
                     <RefreshCw size={14} />
                     {refresh.isPending ? "Refreshing…" : "Refresh Kobo fields"}
                   </button>
                 </div>
                 <nav
-                  className="flex border-t border-[#e7edef] px-4"
+                  className="flex border-t border-[var(--fs-border)] px-4"
                   aria-label="Analysis project"
                 >
                   {["explore", "saved"].map((value) => (
@@ -378,7 +382,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                 </nav>
               </Panel>
               {error && <Message error>{error}</Message>}
-              {notice && <Message>{notice}</Message>}
+              {notice && <Message>{notice}{save.isSuccess && <Link className="ml-2 font-semibold underline" to={`/projects/${projectId}/dashboards`}>Open dashboards →</Link>}</Message>}
               {catalogue.error && (
                 <Message error>{catalogue.error.message}</Message>
               )}
@@ -393,7 +397,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
               )}
               {tab === "saved" ? (
                 <Panel>
-                  <h2 className="m-0 border-b border-[#e7edef] px-5 py-4 text-sm">
+                  <h2 className="m-0 border-b border-[var(--fs-border)] px-5 py-4 text-sm">
                     Saved visualizations
                   </h2>
                   {saved.isLoading ? (
@@ -406,7 +410,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                       them here.
                     </p>
                   ) : (
-                    <div className="divide-y divide-[#e7edef]">
+                    <div className="divide-y divide-[var(--fs-border)]">
                       {saved.data.map((view) => (
                         <div
                           key={view.id}
@@ -416,7 +420,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                             onClick={() => open(view)}
                             className="border-0 bg-transparent text-left"
                           >
-                            <strong className="block text-sm text-[#24434c]">
+                            <strong className="block text-sm text-[var(--fs-text)]">
                               {view.title}
                             </strong>
                             <span className="text-xs text-[var(--fs-muted)]">
@@ -448,21 +452,21 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
               ) : (
                 <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-4 max-[1000px]:grid-cols-1">
                   <Panel>
-                    <div className="border-b border-[#e7edef] p-4">
+                    <div className="border-b border-[var(--fs-border)] p-4">
                       <h2 className="m-0 text-sm font-semibold">
                         Survey questions
                       </h2>
                       <label className="relative mt-3 block">
                         <span className="sr-only">Search questions</span>
                         <Search
-                          className="absolute left-2.5 top-2.5 text-[#91a1a6]"
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--fs-muted)]"
                           size={14}
                         />
                         <input
-                          className={`${control} pl-8`}
+                          type="search" autoComplete="off" className="min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-3 text-sm text-slate-900 transition-colors placeholder:text-slate-400 hover:border-blue-300 focus:border-[var(--fs-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
                           value={search}
                           onChange={(event) => setSearch(event.target.value)}
-                          placeholder="Find a question…"
+                          placeholder="Search questions..."
                         />
                       </label>
                     </div>
@@ -502,7 +506,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                   </Panel>
                   <div className="min-w-0 space-y-4">
                     <Panel>
-                      <div className="flex items-center justify-between gap-4 border-b border-[#e7edef] px-5 py-4">
+                      <div className="flex items-center justify-between gap-4 border-b border-[var(--fs-border)] px-5 py-4">
                         <div>
                           <h2 className="m-0 text-sm font-semibold">
                             {field?.label ?? "Choose a question"}
@@ -712,7 +716,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                           ))}
                         </div>
                         <Panel>
-                          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[#e7edef] px-5 py-4">
+                          <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[var(--fs-border)] px-5 py-4">
                             {field?.type === "number" && <h3 className="m-0 mr-auto text-sm">{result.measure}: {format(result.value)}</h3>}
                             <div
                               className="flex gap-1"
@@ -734,7 +738,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                           {!result.answered_records ? (
                             <div className="p-12 text-center">
                               <Database
-                                className="mx-auto text-[#a5b8bd]"
+                                className="mx-auto text-slate-400"
                                 size={28}
                               />
                               <h3 className="text-sm">
@@ -757,7 +761,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                         </Panel>
                         {chart !== "table" && (
                           <Panel>
-                            <h3 className="m-0 flex items-center gap-2 border-b border-[#e7edef] px-5 py-4 text-sm">
+                            <h3 className="m-0 flex items-center gap-2 border-b border-[var(--fs-border)] px-5 py-4 text-sm">
                               <Table2 size={15} />
                               Results summary
                             </h3>
@@ -784,7 +788,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
       )}
       {saving && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-5"
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-900/35 p-5"
           onKeyDown={dialogKey}
           role="dialog"
           aria-modal="true"
@@ -822,6 +826,10 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
               <Button type="submit" disabled={!title.trim() || save.isPending}>
                 {save.isPending ? "Saving…" : "Save"}
               </Button>
+              <Button disabled={!title.trim() || save.isPending} onClick={() => {
+                addAfterSave.current = true;
+                save.mutate();
+              }}>Save & add to dashboard</Button>
             </div>
           </form>
         </div>
@@ -832,7 +840,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
 
 function Panel({ children }: { children: ReactNode }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-md border border-[#e0e8eb] bg-white">
+    <section className="min-w-0 overflow-hidden rounded-md border border-[var(--fs-border)] bg-white">
       {children}
     </section>
   );
@@ -857,7 +865,7 @@ function Message({
   return (
     <div
       role={error ? "alert" : "status"}
-      className={`rounded-md border px-4 py-3 text-xs leading-5 ${error ? "border-red-200 bg-red-50 text-red-700" : "border-[#dcebe9] bg-[#f0f8f6] text-[#486c6f]"}`}
+      className={`rounded-md border px-4 py-3 text-xs leading-5 ${error ? "border-red-200 bg-red-50 text-red-700" : "border-blue-200 bg-blue-50 text-blue-900"}`}
     >
       {children}
     </div>

@@ -62,7 +62,8 @@ Database = Annotated[Session, Depends(get_session)]
 
 def _membership(org_id: UUID, user: User, db: Session) -> OrganizationMembership | None:
     return db.exec(
-        select(OrganizationMembership).where(
+        select(OrganizationMembership).join(Organization).where(
+            Organization.is_active,
             OrganizationMembership.organization_id == org_id,
             OrganizationMembership.user_id == user.id,
             OrganizationMembership.is_active,

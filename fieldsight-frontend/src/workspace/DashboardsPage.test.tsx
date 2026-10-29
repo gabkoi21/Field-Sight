@@ -45,6 +45,7 @@ vi.mock("../services/apiClient", () => ({
     savedAnalyses: vi.fn(),
     syncSettings: vi.fn(),
     dashboardWidgetResult: vi.fn(),
+    dashboardPdf: vi.fn(),
   },
 }));
 
@@ -73,13 +74,13 @@ const indicator = (value: number | null = 20): Indicator =>
     manual_result_count: 0,
   }) as Indicator;
 
-function setup() {
+function setup(path = "/") {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const view = render(
     <QueryClientProvider client={cache}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <DashboardsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -138,11 +139,54 @@ beforeEach(() => {
   });
   vi.stubGlobal("PointerEvent", MouseEvent);
 });
+
+it("opens the saved chart handoff with its source and title prefilled", async () => {
+  vi.mocked(apiClient.savedAnalyses).mockResolvedValue([{id: "chart-one", title: "Water availability", chart: "pie"}] as never);
+  setup("/?add_visualization=chart-one");
+  const dialog = await screen.findByRole("dialog");
+  expect((within(dialog).getByLabelText("Widget title") as HTMLInputElement).value).toBe("Water availability");
+  expect((within(dialog).getByLabelText("Saved visualization") as HTMLSelectElement).value).toBe("chart-one");
+  expect((within(dialog).getByLabelText("Widget type") as HTMLSelectElement).value).toBe("analysis");
+});
+
+it("suggests a source title while preserving a manually entered widget title", async () => {
+  vi.mocked(apiClient.savedAnalyses).mockResolvedValue([{id: "chart-one", title: "Water availability", chart: "pie"}, {id: "chart-two", title: "Soap availability", chart: "pie"}] as never);
+  setup();
+  fireEvent.click(await screen.findByRole("button", {name: "Add widget"}));
+  fireEvent.change(screen.getByLabelText("Widget type"), {target: {value: "analysis"}});
+  await screen.findByRole("option", {name: "Water availability"});
+  fireEvent.change(screen.getByLabelText("Saved visualization"), {target: {value: "chart-one"}});
+  expect((screen.getByLabelText("Widget title") as HTMLInputElement).value).toBe("Water availability");
+  fireEvent.change(screen.getByLabelText("Widget title"), {target: {value: "My custom title"}});
+  fireEvent.change(screen.getByLabelText("Saved visualization"), {target: {value: "chart-two"}});
+  expect((screen.getByLabelText("Widget title") as HTMLInputElement).value).toBe("My custom title");
+});
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("opens the exact linked dashboard rather than the first dashboard", async () => {
+  stored.push({...stored[0], id: "second", title: "Second dashboard", widgets: [note("second-note", "Linked context")]});
+  setup("/?dashboard=second");
+  expect(await screen.findByText("Linked context content")).toBeTruthy();
+  expect((screen.getByRole("combobox", {name: "Dashboard"}) as HTMLSelectElement).value).toBe("second");
+  expect(screen.queryByText("Alpha content")).toBeNull();
+});
+
+it("downloads a PDF for the selected dashboard and active date range", async () => {
+  vi.mocked(apiClient.dashboardPdf).mockResolvedValue(new ArrayBuffer(8));
+  const createUrl = vi.fn().mockReturnValue("blob:dashboard");
+  Object.defineProperty(URL, "createObjectURL", {configurable: true, value: createUrl});
+  Object.defineProperty(URL, "revokeObjectURL", {configurable: true, value: vi.fn()});
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  setup();
+  fireEvent.click(await screen.findByRole("button", {name: "Download PDF"}));
+  await waitFor(() => expect(apiClient.dashboardPdf).toHaveBeenCalledWith("dash", "", ""));
+  await waitFor(() => expect(click).toHaveBeenCalled());
+  expect(createUrl).toHaveBeenCalled();
 });
 
 describe("existing saved dashboard builder", () => {
@@ -153,7 +197,9 @@ describe("existing saved dashboard builder", () => {
     expect(apiClient.dashboardWidgetResult).not.toHaveBeenCalled();
   });
 
-  it("creates, duplicates, renames and deletes persisted dashboards", async () => {
+  it("creates, copies a link, renames and deletes persisted dashboards", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {configurable: true, value: {writeText}});
     stored = [];
     setup();
     fireEvent.click(
@@ -173,21 +219,13 @@ describe("existing saved dashboard builder", () => {
     await waitFor(() => expect(stored[0].title).toBe("Clinic results"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     fireEvent.click(
-      screen.getByRole("button", { name: "Duplicate dashboard" }),
+      screen.getByRole("button", { name: "Copy dashboard link" }),
     );
-    await waitFor(() => expect(stored).toHaveLength(2));
-    await waitFor(() =>
-      expect(
-        (
-          screen.getByRole("combobox", {
-            name: "Dashboard",
-          }) as HTMLSelectElement
-        ).value,
-      ).toBe("new-2"),
-    );
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/projects/p1/dashboards?dashboard=new-1")));
+    expect(stored).toHaveLength(1);
     vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Delete dashboard" }));
-    await waitFor(() => expect(stored).toHaveLength(1));
+    await waitFor(() => expect(stored).toHaveLength(0));
   });
 
   it("persists keyboard ordering and height across a reload", async () => {

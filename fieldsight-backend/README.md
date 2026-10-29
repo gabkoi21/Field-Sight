@@ -78,7 +78,7 @@ docker compose run --rm api alembic upgrade head
 docker compose up -d
 ```
 
-Run migrations after backing up existing data. The Docker volume is separate from the local `fieldsight.db`;
+Run migrations after backing up existing data. The Docker volume is separate from the local `Database/fieldsight.db`;
 these commands do not migrate local records into that volume. TLS, DNS, hosting-provider secret storage and
 the public frontend origin must be configured on the actual deployment host.
 

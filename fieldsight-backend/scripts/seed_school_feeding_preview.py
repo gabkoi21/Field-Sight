@@ -19,7 +19,7 @@ BATCH = "school-preview-20261027"
 def main():
     settings = get_settings()
     url = make_url(settings.database_url)
-    expected = Path(__file__).resolve().parents[1] / "fieldsight.db"
+    expected = Path(__file__).resolve().parents[1] / "Database" / "fieldsight.db"
     path = Path(url.database).resolve() if url.database else None
     if settings.environment != "development" or url.get_backend_name() != "sqlite" or path != expected:
         raise RuntimeError("This sample import is restricted to this workspace's development fieldsight.db.")

@@ -107,7 +107,7 @@ export function FormField({
 
   return (
 
-    <label className="grid min-w-0 gap-1.5 text-xs text-[#526d75]">
+    <label className="grid min-w-0 gap-1.5 text-xs text-[var(--fs-muted)]">
 
       <span className="font-medium">{label}</span>
 
@@ -126,6 +126,7 @@ export function Dialog({
   compact = false,
 
   presentation = false,
+  headerActions,
 
   description,
 
@@ -142,6 +143,7 @@ export function Dialog({
   compact?: boolean;
 
   presentation?: boolean;
+  headerActions?: ReactNode;
 
   description?: string;
 
@@ -251,7 +253,7 @@ export function Dialog({
 
       aria-label={title}
 
-      className="fixed inset-0 z-50 grid place-items-center bg-[#12313c]/35 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/35 p-4"
 
     >
 
@@ -265,7 +267,7 @@ export function Dialog({
 
           <div>
 
-            <h2 className="m-0 text-lg font-semibold text-[#24434c]">
+            <h2 className="m-0 text-lg font-semibold text-[var(--fs-text)]">
 
               {title}
 
@@ -273,7 +275,7 @@ export function Dialog({
 
             {description && (
 
-              <p className="mb-0 mt-1 text-xs leading-5 text-[#73868d]">
+              <p className="mb-0 mt-1 text-xs leading-5 text-[var(--fs-muted)]">
 
                 {description}
 
@@ -283,6 +285,8 @@ export function Dialog({
 
           </div>
 
+          <div className="flex shrink-0 items-center gap-2">
+          {headerActions}
           <button
 
             type="button"
@@ -291,13 +295,14 @@ export function Dialog({
 
             aria-label="Close dialog"
 
-            className="border-0 bg-transparent p-1 text-[#73868d]"
+            className="border-0 bg-transparent p-1 text-[var(--fs-muted)]"
 
           >
 
             <X size={18} />
 
           </button>
+          </div>
 
         </header>
 
@@ -957,7 +962,7 @@ export function IndicatorMappingForm({
 
               role="status"
 
-              className="rounded-md bg-[#f0f8f6] p-3 text-xs leading-5 text-[#4d7074]"
+              className="rounded-md bg-[var(--fs-primary-soft)] p-3 text-xs leading-5 text-[var(--fs-info-text)]"
 
             >
 
@@ -971,7 +976,7 @@ export function IndicatorMappingForm({
 
                     to={`/projects/${projectId}/details`}
 
-                    className="text-[#0c8593] underline"
+                    className="text-[var(--fs-primary)] underline"
 
                   >
 
@@ -995,7 +1000,7 @@ export function IndicatorMappingForm({
 
                     to={`/projects/${projectId}/analytics`}
 
-                    className="text-[#0c8593] underline"
+                    className="text-[var(--fs-primary)] underline"
 
                   >
 
@@ -1128,7 +1133,7 @@ export function IndicatorMappingForm({
 
           onClick={() => refreshQuestions.mutate()}
 
-          className="justify-self-start rounded border border-[#dce5e8] bg-white px-3 py-2 text-xs text-[#3f7a86] disabled:opacity-50"
+          className="justify-self-start rounded border border-[#dce5e8] bg-white px-3 py-2 text-xs text-[var(--fs-primary)] disabled:opacity-50"
 
         >
 
@@ -1247,7 +1252,7 @@ export function IndicatorMappingForm({
         )}
 
         {operation !== "count_matching" && (
-        <div className="rounded-md bg-[#f0f8f6] p-3 text-xs leading-5 text-[#4d7074]">
+        <div className="rounded-md bg-[var(--fs-primary-soft)] p-3 text-xs leading-5 text-[var(--fs-info-text)]">
 
           {operation === "count_records"
 
@@ -1746,7 +1751,7 @@ export function PeriodTargetsForm({
 
                   aria-label={`Remove target row ${index + 1}`}
 
-                  className="border-0 bg-transparent p-2 text-[#73868d]"
+                  className="border-0 bg-transparent p-2 text-[var(--fs-muted)]"
 
                   onClick={() => setEdits(rows.filter((_, i) => i !== index))}
 
@@ -1772,7 +1777,7 @@ export function PeriodTargetsForm({
 
             }
 
-            className="mt-4 inline-flex items-center gap-2 border-0 bg-transparent text-xs text-[#0c8593]"
+            className="mt-4 inline-flex items-center gap-2 border-0 bg-transparent text-xs text-[var(--fs-primary)]"
 
           >
 

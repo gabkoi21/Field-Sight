@@ -39,6 +39,8 @@ class OrganizationListItem(BaseModel):
     timezone: str
     owner_email: EmailStr | None
     sector_ids: list[UUID]
+    user_count: int = 0
+    project_count: int = 0
 
 
 class UserOrganizationAccess(BaseModel):
@@ -57,3 +59,7 @@ class UserDirectoryItem(BaseModel):
     platform_role: str | None
     created_at: datetime
     memberships: list[UserOrganizationAccess]
+
+
+class OrganizationStatusUpdate(BaseModel):
+    is_active: bool

@@ -309,7 +309,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
     <>
       <Link
         to={workspace.hasSelectedProject ? `/projects/${workspace.projectId}` : "/projects"}
-        className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+        className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-[var(--fs-primary)] no-underline hover:underline"
       >
         <ArrowLeft size={15} /> Back to {workspace.hasSelectedProject ? "project" : "projects"}
       </Link>
@@ -419,9 +419,9 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
                   key={enumerator.membership_id}
                   className="border-t border-[#edf0f2] hover:bg-[#fafcfc]"
                 >
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     <div>
-                      <strong className="block text-xs font-medium text-[#24434c]">
+                      <strong className="block text-xs font-medium text-[var(--fs-text)]">
                         {enumerator.full_name ?? enumerator.username ?? "Unnamed enumerator"}
                       </strong>
                       <small className="mt-1.5 block text-[12px] font-normal leading-relaxed text-[#8a99ad]">
@@ -429,32 +429,32 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
                       </small>
                     </div>
                   </td>
-                  <td className="max-w-[180px] px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="max-w-[180px] px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     <span className="block truncate" title={projectNamesByMembershipId.get(enumerator.membership_id)?.join(", ") ?? ""}>
                       {projectNamesByMembershipId.get(enumerator.membership_id)?.join(", ") ?? "—"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     {enumerator.phone_number ?? "—"}
                   </td>
-                  <td className="max-w-[190px] truncate px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="max-w-[190px] truncate px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     {enumerator.address ?? "—"}
                   </td>
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     {enumerator.gender ?? "—"}
                   </td>
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     <span className="inline-flex items-center gap-1.5">
                       <ShieldCheck size={13} className="text-[#8793a2]" /> Enumerator
                     </span>
                   </td>
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     <span className={`rounded px-2 py-1 text-[12px] ${enumerator.is_active ? "bg-[#ecf7f0] text-[#388567]" : "bg-[#fff7e8] text-[#a6803f]"}`}>{enumerator.is_active ? "Active" : "Inactive"}</span>
                   </td>
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c] tabular-nums">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)] tabular-nums">
                     {new Date(enumerator.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-3 align-middle text-xs text-[#24434c]">
+                  <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     <div className="flex justify-end">
                       <button
                         type="button"
@@ -479,7 +479,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
           <span aria-live="polite">{filteredEnumerators.length ? firstIndex + 1 : 0}–{Math.min(firstIndex + pageSize, filteredEnumerators.length)} of {filteredEnumerators.length} enumerators</span>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2">Rows per page
-              <select className="rounded border border-[#dce4e8] bg-white px-2 py-1 text-[#24434c]" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
+              <select className="rounded border border-[#dce4e8] bg-white px-2 py-1 text-[var(--fs-text)]" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>
                 {[5, 10, 25, 50].map((size) => <option key={size} value={size}>{size}</option>)}
               </select>
             </label>

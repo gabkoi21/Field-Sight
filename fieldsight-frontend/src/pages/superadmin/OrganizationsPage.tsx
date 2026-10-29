@@ -40,6 +40,9 @@ interface OrganizationRow {
   sectors: string;
   status: OrganizationStatus;
   created: string;
+  createdAt: string;
+  userCount?: number;
+  projectCount?: number;
 }
 
 export function OrganizationsPage() {
@@ -68,6 +71,8 @@ export function OrganizationsPage() {
     () =>
       apiOrganizations.map((item) => ({
         id: item.id,
+        userCount: item.user_count,
+        projectCount: item.project_count,
         name: item.name,
         slug: item.slug,
         initials: item.name
@@ -85,11 +90,14 @@ export function OrganizationsPage() {
             .map((sectorId) => sectorNames.get(sectorId) ?? sectorId)
             .join(", ") || "—",
         status: (item.is_active ? "Active" : "Suspended") as OrganizationStatus,
+        createdAt: item.created_at,
         created: new Date(item.created_at).toLocaleDateString(),
       })),
     [apiOrganizations, sectorNames],
   );
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [sort, setSort] = useState("newest");
   const [status, setStatus] = useState<"All" | OrganizationStatus>("All");
   const [showCreate, setShowCreate] = useState(
     searchParams.get("create") === "1",
@@ -105,6 +113,7 @@ export function OrganizationsPage() {
   const [sectorId, setSectorId] = useState("");
   const [country, setCountry] = useState("");
   const [timezone, setTimezone] = useState("UTC");
+  const [success, setSuccess] = useState("");
   const [formError, setFormError] = useState("");
   const [editingOrganization, setEditingOrganization] =
     useState<OrganizationRow | null>(null);
@@ -133,7 +142,7 @@ export function OrganizationsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: apiClient.deleteOrganization,
+    mutationFn: (id: string) => apiClient.setOrganizationStatus(id, editingOrganization?.status === "Suspended"),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["platform-organizations"] }),
   });
@@ -153,6 +162,27 @@ export function OrganizationsPage() {
   }, [organizations, query, status]);
 
 
+  const sortedRows = [...filteredOrganizations].sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "oldest" ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() : 0);
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(sortedRows.length / 10)));
+  const visibleRows = sortedRows.slice((currentPage - 1) * 10, currentPage * 10);
+  useEffect(() => {
+    if ((!showCreate && !editingOrganization) || isLoading) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const form = document.querySelector<HTMLElement>('[data-admin-organization-form]');
+    const items = () => Array.from(form?.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled])') || []);
+    items()[0]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { if (editingOrganization) closeEdit(); else closeCreate(); }
+      if (event.key === "Tab") {
+        const controls = items(); const first = controls[0]; const last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); previous?.focus(); };
+  }, [showCreate, editingOrganization, isLoading]);
+
   function openCreate() {
     setDrawerClosing(false);
     setDrawerVisible(false);
@@ -161,6 +191,8 @@ export function OrganizationsPage() {
   }
 
   function closeCreate() {
+    if (createMutation.isPending) return;
+    if ((name || owner || country) && !window.confirm("Discard unsaved organization details?")) return;
     setDrawerClosing(true);
     setDrawerVisible(false);
     setSearchParams({}, { replace: true });
@@ -174,6 +206,7 @@ export function OrganizationsPage() {
       return;
     setFormError("");
     try {
+      new Intl.DateTimeFormat("en", { timeZone: timezone.trim() });
       await createMutation.mutateAsync({
         name: organizationName,
         slug: slug.trim(),
@@ -184,6 +217,7 @@ export function OrganizationsPage() {
         country: country.trim() || undefined,
         timezone: timezone.trim(),
       });
+      setSuccess("Organization and administrator account created.");
       setName("");
       setSlug("");
       setOwner("");
@@ -191,12 +225,13 @@ export function OrganizationsPage() {
       setSectorId("");
       setCountry("");
       setTimezone("UTC");
-      closeCreate();
+      setSearchParams({}, { replace: true });
+      setShowCreate(false);
     } catch (requestError) {
       setFormError(
         requestError instanceof ApiError
           ? requestError.message
-          : "Unable to create the organization.",
+          : requestError instanceof RangeError ? "Enter a valid IANA timezone, such as Africa/Monrovia." : "Unable to create the organization.",
       );
     }
   }
@@ -204,12 +239,13 @@ export function OrganizationsPage() {
   async function deactivateOrganization() {
     if (
       !editingOrganization ||
-      !window.confirm(`Deactivate ${editingOrganization.name}?`)
+      !window.confirm(`${editingOrganization.status === "Suspended" ? "Restore access for" : "Suspend"} ${editingOrganization.name}? Tenant data will be retained.`)
     )
       return;
     setEditError("");
     try {
       await deleteMutation.mutateAsync(editingOrganization.id);
+      setSuccess("Organization updated.");
       setEditingOrganization(null);
     } catch (requestError) {
       setEditError(
@@ -231,7 +267,9 @@ export function OrganizationsPage() {
   }
 
   function closeEdit() {
-    if (!updateMutation.isPending) setEditingOrganization(null);
+    if (updateMutation.isPending || deleteMutation.isPending) return;
+    if (editingOrganization && (editName !== editingOrganization.name || editSlug !== editingOrganization.slug || editTimezone !== editingOrganization.timezone || editCountry !== (editingOrganization.country === "—" ? "" : editingOrganization.country) || editSectorIds.join() !== editingOrganization.sectorIds.join()) && !window.confirm("Discard unsaved organization changes?")) return;
+    setEditingOrganization(null);
   }
 
   async function updateOrganization(event: FormEvent<HTMLFormElement>) {
@@ -239,6 +277,7 @@ export function OrganizationsPage() {
     if (!editingOrganization) return;
     setEditError("");
     try {
+      new Intl.DateTimeFormat("en", { timeZone: editTimezone.trim() });
       await updateMutation.mutateAsync({
         organizationId: editingOrganization.id,
         input: {
@@ -249,12 +288,13 @@ export function OrganizationsPage() {
           sector_ids: editSectorIds,
         },
       });
+      setSuccess("Organization updated.");
       setEditingOrganization(null);
     } catch (requestError) {
       setEditError(
         requestError instanceof ApiError
           ? requestError.message
-          : "Unable to update the organization.",
+          : requestError instanceof RangeError ? "Enter a valid IANA timezone, such as Africa/Monrovia." : "Unable to update the organization.",
       );
     }
   }
@@ -272,6 +312,7 @@ export function OrganizationsPage() {
         </Button>
       </PageHeader>
 
+      {success && <p role="status" className="my-3 text-sm text-[var(--fs-success)]">{success}</p>}
       {isFetching && <LoadingState variant="inline" label="Updating organizations…" />}
       {loadError && (
         <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
@@ -318,21 +359,21 @@ export function OrganizationsPage() {
             <input
               className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name, owner, country, or sector..."
+              onChange={(event) => { setQuery(event.target.value); setPage(1); }}
+              aria-label="Search organizations" placeholder="Search name, owner, country, or sector..."
             />
           </label>
           <label className="relative flex min-h-[38px] min-w-[150px] items-center rounded-[7px] border border-[#dfe4e8] bg-white px-3">
             <select
               className="w-full appearance-none border-0 bg-transparent pr-5 text-xs text-[#455467] outline-none"
-              value={status}
+              aria-label="Organization status" value={status}
               onChange={(event) =>
                 setStatus(event.target.value as "All" | OrganizationStatus)
               }
             >
               <option value="All">All statuses</option>
               <option value="Active">Active</option>
-              <option value="Trial">Trial</option>
+
               <option value="Suspended">Suspended</option>
             </select>
             <ChevronDown
@@ -341,6 +382,7 @@ export function OrganizationsPage() {
             />
           </label>
         </div>
+        <div className="flex flex-wrap gap-3 p-4"><select aria-label="Sort records" value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A-Z</option></select></div>
         <div className="overflow-x-auto">
           <table aria-busy={isFetching} className="min-w-[1050px]">
             <thead>
@@ -366,7 +408,7 @@ export function OrganizationsPage() {
                   </td>
                 </tr>
               )}
-              {filteredOrganizations.map((organization) => (
+              {visibleRows.map((organization) => (
                 <tr key={organization.id} className="hover:bg-[#fbfcfe]">
                   <td>
                     <div className="flex items-center gap-2.5">
@@ -406,8 +448,8 @@ export function OrganizationsPage() {
           )}
         </div>
         <AdminTableFooter
-          shown={filteredOrganizations.length}
-          total={organizations.length}
+          shown={visibleRows.length}
+          total={filteredOrganizations.length} page={currentPage} onPageChange={setPage}
         />
       </AdminPanel>
 
@@ -416,7 +458,7 @@ export function OrganizationsPage() {
           className={`fixed inset-0 z-50 grid place-items-center bg-[rgba(15,23,42,.48)] p-4 backdrop-blur-[1px] transition-opacity ${drawerClosing ? "duration-[180ms] ease-in" : "duration-[220ms] ease-out"} ${drawerVisible ? "opacity-100" : "opacity-0"}`}
           onClick={closeCreate}
         >
-          <form
+          <form data-admin-organization-form role="dialog" aria-modal="true" aria-label="Organization form"
             className={`relative flex max-h-[calc(100vh-32px)] w-full max-w-[720px] flex-col overflow-hidden rounded-[8px] border border-[#dfe4e8] bg-white shadow-[0_24px_70px_rgba(16,42,67,.28)] transition-[opacity,transform] ${drawerClosing ? "translate-y-2 scale-[.985] opacity-0 duration-[180ms] ease-in" : `${drawerVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-3 scale-[.985] opacity-0"} duration-[240ms] ease-out`}`}
             onClick={(event) => event.stopPropagation()}
             onSubmit={createOrganization}
@@ -592,14 +634,14 @@ export function OrganizationsPage() {
           className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4"
           onClick={closeEdit}
         >
-          <form
+          <form data-admin-organization-form role="dialog" aria-modal="true" aria-label="Organization form"
             className="flex max-h-[calc(100vh-32px)] w-full max-w-[520px] flex-col overflow-hidden rounded-[6px] border border-[#dfe4e8] bg-white shadow-[0_12px_32px_rgba(16,42,67,.16)]"
             onClick={(event) => event.stopPropagation()}
             onSubmit={updateOrganization}
           >
             <header className="flex items-center justify-between border-b border-[#e8edf4] px-5 py-4">
               <h2 className="m-0 text-[16px] font-semibold text-[#253342]">
-                Update organization
+                Organization details & settings
               </h2>
               <button
                 type="button"
@@ -611,6 +653,7 @@ export function OrganizationsPage() {
               </button>
             </header>
             <div className="grid flex-1 gap-3 p-5 overflow-y-auto sm:grid-cols-2">
+              <dl className="sm:col-span-2 grid grid-cols-2 gap-3 rounded-lg bg-[var(--fs-primary-soft)] p-4 text-sm"><div><dt>Status</dt><dd>{editingOrganization.status}</dd></div><div><dt>Created</dt><dd>{editingOrganization.created}</dd></div><div><dt>Active memberships</dt><dd>{editingOrganization.userCount ?? "Unavailable"}</dd></div><div><dt>Projects</dt><dd>{editingOrganization.projectCount ?? "Unavailable"}</dd></div></dl>
               <label className="flex flex-col gap-[6px] text-[12px] font-bold text-[#526177] sm:col-span-2">
                 Organization name
                 <input
@@ -710,7 +753,7 @@ export function OrganizationsPage() {
                 <Trash2 size={14} />{" "}
                 {deleteMutation.isPending
                   ? "Deactivating…"
-                  : "Deactivate organization"}
+                  : editingOrganization.status === "Suspended" ? "Restore access" : "Suspend organization"}
               </button>
               <button
                 type="button"
@@ -722,7 +765,7 @@ export function OrganizationsPage() {
               <button
                 type="submit"
                 className="rounded-[5px] border border-brand bg-brand px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
-                disabled={updateMutation.isPending}
+                disabled={updateMutation.isPending || editingOrganization.status === "Suspended"} title={editingOrganization.status === "Suspended" ? "Restore organization access before editing settings" : undefined}
               >
                 {updateMutation.isPending ? "Saving…" : "Save changes"}
               </button>

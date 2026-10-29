@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
-  BookOpen,
   ClipboardList,
   FileBarChart,
   FolderKanban,
@@ -178,16 +177,6 @@ function Shell({ loading }: { loading: boolean }) {
             </div>
           ))}
         </nav>
-        <NavLink
-          to="/guide"
-          title="Quick-start guide"
-          aria-label="Quick-start guide"
-          onClick={() => setOpen(false)}
-          className="m-3 flex items-center gap-2 rounded-md border border-[#234d82] bg-[#103564] px-3 py-2.5 text-xs font-medium text-[#dceaf5] no-underline"
-        >
-          <BookOpen size={15} />
-          <span className="navigation-label">Quick-start guide</span><span className="navigation-label ml-auto">↗</span>
-        </NavLink>
       </aside>
       <main ref={main} className="min-h-screen pt-16 lg:ml-[240px]">
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center gap-2 sm:gap-4 border-b border-[var(--fs-border)] bg-white px-4 sm:px-6">
@@ -228,7 +217,7 @@ function Shell({ loading }: { loading: boolean }) {
                     : `${pending.data?.pending_count ?? 0} submissions waiting to sync.`}
                 </p>
                 <NavLink
-                  className="text-[#117e8f]"
+                  className="text-[var(--fs-primary)]"
                   to="/forms/connections"
                   onClick={() => setNotifications(false)}
                 >
@@ -250,13 +239,13 @@ function Shell({ loading }: { loading: boolean }) {
               aria-label="User menu"
               aria-expanded={menu}
               onClick={() => setMenu(!menu)}
-              className="fieldsight-avatar grid size-11 shrink-0 place-items-center rounded-full border-0 bg-[#e6f1f2] p-0 text-[12px] font-semibold text-[#197b8a]"
+              className="fieldsight-avatar grid size-11 shrink-0 place-items-center rounded-full border-0 bg-blue-50 p-0 text-[12px] font-semibold text-[var(--fs-primary)]"
             >
               {user?.email.slice(0, 2).toUpperCase()}
             </button>
             {menu && (
-              <div className="absolute right-0 top-11 w-60 rounded-lg border border-[#e0e8eb] bg-white p-2 shadow-lg">
-                <p className="truncate border-b border-[#edf0f2] px-2 pb-3 text-xs text-[#73868d]">
+              <div className="absolute right-0 top-11 w-60 rounded-lg border border-[var(--fs-border)] bg-white p-2 shadow-lg">
+                <p className="truncate border-b border-[#edf0f2] px-2 pb-3 text-xs text-[var(--fs-muted)]">
                   {user?.email}
                 </p>
                 {[
@@ -267,7 +256,7 @@ function Shell({ loading }: { loading: boolean }) {
                     key={to}
                     to={to}
                     onClick={() => setMenu(false)}
-                    className="block rounded px-2 py-2 text-xs text-inherit no-underline hover:bg-[#f0f7f8]"
+                    className="block rounded px-2 py-2 text-xs text-inherit no-underline hover:bg-blue-50"
                   >
                     {label}
                   </NavLink>

@@ -293,9 +293,16 @@ def remove_project_member(project_id: UUID, assignment_id: UUID, user: CurrentUs
 @router.get("/projects/{project_id}/tables")
 def tables(project_id: UUID, user: CurrentUser, db: Database) -> list[dict[str, object]]:
     project = _project(project_id, user, db)
-    counts = dict(db.exec(select(Submission.kobo_form_id, func.count()).where(
-        Submission.project_id == project.id, Submission.organization_id == project.organization_id,
-    ).group_by(Submission.kobo_form_id)).all())
+    counts = dict(
+        db.exec(
+            select(Submission.kobo_form_id, func.count())
+            .where(
+                Submission.project_id == project.id,
+                Submission.organization_id == project.organization_id,
+            )
+            .group_by(Submission.kobo_form_id)
+        ).all()
+    )
     schemas = db.exec(select(SurveySchema).where(SurveySchema.project_id == project.id)).all()
     forms = sorted(set(counts) | {s.form_id for s in schemas})
     return [
@@ -329,13 +336,17 @@ def table_rows(
     from app.routes.analysis import _catalogue
 
     statement = select(Submission).where(
-        Submission.project_id == project.id, Submission.organization_id == project.organization_id,
+        Submission.project_id == project.id,
+        Submission.organization_id == project.organization_id,
         Submission.kobo_form_id == form_id,
     )
-    schema = db.exec(select(SurveySchema).where(
-        SurveySchema.project_id == project.id, SurveySchema.organization_id == project.organization_id,
-        SurveySchema.form_id == form_id,
-    )).first()
+    schema = db.exec(
+        select(SurveySchema).where(
+            SurveySchema.project_id == project.id,
+            SurveySchema.organization_id == project.organization_id,
+            SurveySchema.form_id == form_id,
+        )
+    ).first()
     if schema is not None:
         fields = schema.fields_json
     else:
@@ -344,8 +355,9 @@ def table_rows(
         catalogue, _, _ = _catalogue(project, form_id, db)
         fields = [field.model_dump() for field in catalogue.fields]
     total = db.exec(select(func.count()).select_from(statement.subquery())).one()
-    records = db.exec(statement.order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc())
-                      .offset(offset).limit(limit)).all()
+    records = db.exec(
+        statement.order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc()).offset(offset).limit(limit)
+    ).all()
     return dict(
         fields=fields,
         total=total,
@@ -482,8 +494,13 @@ def add_collected_result(
         raise HTTPException(422, "Select an explicit suitable manual aggregation before entering results.")
     values = payload.model_dump()
     if indicator.manual_aggregation == "pooled":
-        if (indicator.unit not in {"percentage", "rate", "ratio"} or payload.numerator is None
-                or payload.denominator is None or payload.value is not None or payload.narrative):
+        if (
+            indicator.unit not in {"percentage", "rate", "ratio"}
+            or payload.numerator is None
+            or payload.denominator is None
+            or payload.value is not None
+            or payload.narrative
+        ):
             raise HTTPException(422, "Pooled results require numerator and denominator, without a separate value.")
         if indicator.unit == "percentage" and payload.numerator > payload.denominator:
             raise HTTPException(422, "Percentage numerator cannot exceed its denominator.")
@@ -491,6 +508,7 @@ def add_collected_result(
         if indicator.unit == "ratio":
             multiplier = 1
         from math import isfinite
+
         computed = payload.numerator / payload.denominator * multiplier
         if not isfinite(computed):
             raise HTTPException(422, "The fraction exceeds the supported numeric range.")
@@ -500,7 +518,7 @@ def add_collected_result(
     if indicator.unit == "text":
         if not (payload.narrative or "").strip() or payload.value is not None:
             raise HTTPException(422, "Qualitative indicators require a narrative and no numeric value.")
-    elif (values["value"] is None or payload.narrative):
+    elif values["value"] is None or payload.narrative:
         raise HTTPException(422, "Numeric indicators require a numeric result; use notes for context.")
     if indicator.unit == "percentage" and payload.value is not None and not 0 <= payload.value <= 100:
         raise HTTPException(422, "Percentage results must be between 0 and 100.")
@@ -645,6 +663,7 @@ def dashboard_widget_result(
     date_from: date | None = None,
     date_to: date | None = None,
     use_saved_filters: bool = True,
+    use_visualization_dates: bool = True,
 ) -> dict[str, object]:
     from app.routes.analysis import _execute
     from app.routes.indicators import _read
@@ -678,6 +697,9 @@ def dashboard_widget_result(
     try:
         query = AnalysisQuery.model_validate(source.query_json)
         filters = query.filters.model_dump()
+        if not use_visualization_dates:
+            filters["date_from"] = None
+            filters["date_to"] = None
         # Diagnostic review-status filters must not enter published dashboard results.
         filters["review_status"] = "ready"
         if start is not None:
@@ -688,6 +710,45 @@ def dashboard_widget_result(
     except ValueError as exc:
         raise HTTPException(422, "The dashboard dates conflict with the saved visualization filters.") from exc
     return {"kind": "analysis", "analysis": _execute(validated, user, db), "chart": source.chart}
+
+
+@router.get("/dashboards/{dashboard_id}/export.pdf")
+def export_dashboard_pdf(
+    dashboard_id: UUID,
+    user: CurrentUser,
+    db: Database,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    use_saved_filters: bool = True,
+    use_visualization_dates: bool = True,
+) -> Response:
+    from app.core.dashboard_report import dashboard_report
+
+    dashboard = _dashboard(dashboard_id, user, db)
+    project = _project(dashboard.project_id, user, db)
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(422, "Start date must be on or before end date.")
+    results = [
+        (
+            widget["title"],
+            dashboard_widget_result(
+                dashboard_id,
+                UUID(widget["id"]),
+                user,
+                db,
+                date_from,
+                date_to,
+                use_saved_filters,
+                use_visualization_dates,
+            ),
+        )
+        for widget in dashboard.widgets
+    ]
+    return Response(
+        dashboard_report(dashboard.title, project.name, dashboard.description, results),
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="fieldsight-dashboard.pdf"', "Cache-Control": "no-store"},
+    )
 
 
 @router.delete("/dashboards/{dashboard_id}", status_code=204)

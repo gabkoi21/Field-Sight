@@ -5,13 +5,14 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDown,
   ArrowUp,
   BarChart3,
   ChevronDown,
   Copy,
+  Download,
   LayoutDashboard,
   Maximize2,
   GripVertical,
@@ -19,7 +20,6 @@ import {
   SlidersHorizontal,
   Pencil,
   Plus,
-  Printer,
   Target,
   Trash2,
 } from "lucide-react";
@@ -48,6 +48,10 @@ const value = (n: number | null | undefined) =>
     ? "Not reported"
     : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 export function DashboardsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedVisualization = searchParams.get("add_visualization");
+  const [titleEdited, setTitleEdited] = useState(false);
+  const [shareNotice, setShareNotice] = useState("");
   const { projectId, project, organizationId } =
     useWorkspace();
   const cache = useQueryClient();
@@ -97,7 +101,19 @@ export function DashboardsPage() {
   });
   const available =
     dashboards.data?.filter((d) => d.project_id === projectId) ?? [];
-  const dashboard = available.find((d) => d.id === selected) ?? available[0];
+  const linkedDashboard = searchParams.get("dashboard");
+  const dashboard = available.find((d) => d.id === (selected || linkedDashboard)) ?? (linkedDashboard && !selected ? undefined : available[0]);
+  const download = useMutation({
+    mutationFn: () => apiClient.dashboardPdf(dashboard!.id, from, through),
+    onSuccess: data => {
+      const url = URL.createObjectURL(new Blob([data], {type: "application/pdf"}));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${dashboard?.title.replace(/[^a-zA-Z0-9_-]+/g, "-") || "dashboard"}.pdf`;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+  });
   const expanded = dashboard?.widgets.find((w) => w.id === expandedWidget);
   const syncStatus = useQuery({
     queryKey: ["sync-settings", projectId],
@@ -127,8 +143,22 @@ export function DashboardsPage() {
   const analyses = useQuery({
     queryKey: ["saved-analysis", projectId],
     queryFn: () => apiClient.savedAnalyses(projectId),
-    enabled: Boolean(projectId && widgetEditor && kind === "analysis"),
+    enabled: Boolean(projectId && ((widgetEditor && kind === "analysis") || requestedVisualization)),
   });
+  useEffect(() => {
+    if (!dashboard || !requestedVisualization || !analyses.data) return;
+    const visualization = analyses.data.find(item => item.id === requestedVisualization);
+    if (!visualization) return;
+    setWidgetEditor(true);
+    setEditingWidget(null);
+    setKind("analysis");
+    setSource(visualization.id);
+    setWidgetTitle(visualization.title);
+    setTitleEdited(false);
+    const next = new URLSearchParams(searchParams);
+    next.delete("add_visualization");
+    setSearchParams(next, {replace: true});
+  }, [dashboard?.id, requestedVisualization, analyses.data, searchParams, setSearchParams]);
   async function refresh(data?: WorkspaceDashboard) {
     if (data) {
       cache.setQueryData<WorkspaceDashboard[]>(
@@ -193,6 +223,7 @@ export function DashboardsPage() {
     persist(widgets);
   }
   function openWidget(widget?: DashboardWidget) {
+    setTitleEdited(Boolean(widget));
     setWidgetEditor(true);
     setEditingWidget(widget?.id ?? null);
     setKind(widget?.kind ?? "indicator");
@@ -269,7 +300,8 @@ export function DashboardsPage() {
     >
       <WorkspaceGate>
         <WorkspaceTabs />
-        {[dashboards.error, create.error, save.error, remove.error]
+        {shareNotice && <p role="status" className="text-sm text-[var(--fs-primary)]">{shareNotice}</p>}
+        {[dashboards.error, create.error, save.error, remove.error, download.error]
           .filter(Boolean)
           .map((e, i) => (
             <Notice error key={i}>
@@ -299,21 +331,22 @@ export function DashboardsPage() {
           <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />
         ) : !dashboard ? (
           <Panel className="grid justify-items-center p-12 text-center">
-            <LayoutDashboard size={32} className="text-[#7ea9b1]" />
-            <h2 className="mb-1 mt-5 text-lg">Your results, together</h2>
+            <LayoutDashboard size={32} className="text-[var(--fs-primary)]" />
+            <h2 className="mb-1 mt-5 text-lg">{linkedDashboard ? "Dashboard unavailable" : "Your results, together"}</h2>
             <p className="max-w-md text-sm leading-6 text-[var(--fs-muted)]">
               Create a dashboard for {project?.name}. Add indicator progress,
               saved survey charts and explanatory notes.
             </p>
+            {requestedVisualization && <p className="text-sm text-[var(--fs-primary)]">Your visualization is saved. Create a dashboard to add it.</p>}
             <Button onClick={() => edit("new")}>Create first dashboard</Button>
-            <Link to="/projects" className="mt-5 text-xs text-[#0e7180]">
+            <Link to="/projects" className="mt-5 text-xs text-[var(--fs-primary)]">
               Manage projects →
             </Link>
           </Panel>
         ) : (
           <>
             <Panel>
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e4ebed] p-4">
+              <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e4ebed] px-4 py-2">
                 <div className="min-w-0 basis-[230px] flex-1">
                   <label className="sr-only" htmlFor="dashboard-picker">
                     Dashboard
@@ -340,43 +373,40 @@ export function DashboardsPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-2 print:hidden">
-                  <Tool
-                    title="Rename dashboard"
-                    onClick={() => edit(dashboard)}
-                  >
-                    <Pencil size={14} />
-                  </Tool>
-                  <Tool
-                    title="Duplicate dashboard"
-                    onClick={() =>
-                      create.mutate({
-                        title: `${dashboard.title} copy`.slice(0, 200),
-                        description: dashboard.description,
-                        project_id: projectId,
-                        date_from: dashboard.date_from,
-                        date_to: dashboard.date_to,
-                        widgets: dashboard.widgets.map((w) => ({
-                          ...w,
-                          id: crypto.randomUUID(),
-                        })),
-                      })
-                    }
-                    disabled={create.isPending}
-                  >
-                    <Copy size={14} />
-                  </Tool>
-                  <Tool title="Print dashboard" onClick={() => window.print()}>
-                    <Printer size={14} />
-                  </Tool>
+                <div className="flex flex-wrap items-center gap-1.5 print:hidden">
                   <Tool
                     title="Expand dashboard"
+                    compact
                     onClick={() => setPresentedDashboard(dashboard.id)}
                   >
                     <Maximize2 size={14} />
                   </Tool>
                   <Tool
+                    title="Rename dashboard"
+                    compact
+                    onClick={() => edit(dashboard)}
+                  >
+                    <Pencil size={14} />
+                  </Tool>
+                  <Tool
+                    title="Copy dashboard link"
+                    compact
+                    onClick={async () => {
+                      const url = new URL(`/projects/${projectId}/dashboards`, window.location.origin);
+                      url.searchParams.set("dashboard", dashboard.id);
+                      try {await navigator.clipboard.writeText(url.toString()); setShareNotice("Dashboard link copied. Project access is required to open it.");}
+                      catch {setShareNotice(`Copy this dashboard link: ${url.toString()}`);}
+                    }}
+                  >
+                    <Copy size={14} />
+                  </Tool>
+                  <Tool title="Download PDF" compact disabled={download.isPending || invalid || save.isPending} onClick={() => download.mutate()}>
+                    <Download size={14} />
+                  </Tool>
+                  {download.isPending && <span role="status" className="text-xs">Preparing PDF…</span>}
+                  <Tool
                     title="Delete dashboard"
+                    compact
                     destructive
                     onClick={() => {
                       if (
@@ -393,15 +423,16 @@ export function DashboardsPage() {
                   <Button
                     disabled={save.isPending}
                     onClick={() => openWidget()}
+                    className="!min-h-8 !rounded-md !px-3 !py-1 !text-xs"
                   >
                     <Plus size={14} />
                     Add widget
                   </Button>
                 </div>
               </header>
-              <div className="flex flex-wrap items-center gap-3 px-5 py-4 print:hidden">
+              <div className="flex flex-wrap items-center gap-2 px-5 py-2 print:hidden">
                 <details ref={filtersRef} className="group relative">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-3 text-xs font-medium text-[#3f7a86] hover:bg-[#f7fafb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] [&::-webkit-details-marker]:hidden">
+                  <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--fs-control-border)] bg-white px-2.5 text-xs font-medium text-[var(--fs-primary)] hover:bg-[var(--fs-primary-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] [&::-webkit-details-marker]:hidden">
                     <SlidersHorizontal size={15} aria-hidden="true" />
                     Filters
                     <ChevronDown size={14} className="transition-transform group-open:rotate-180" aria-hidden="true" />
@@ -452,6 +483,7 @@ export function DashboardsPage() {
                 </details>
                 <Tool
                   title="Refresh dashboard data"
+                  compact
                   onClick={() =>
                     cache.invalidateQueries({ queryKey: ["dashboard-widget"] })
                   }
@@ -484,34 +516,36 @@ export function DashboardsPage() {
                   <div
                     key={widget.id}
                     data-widget-id={widget.id}
-                    className={`max-lg:!h-auto print:!h-auto min-w-0 ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[#168596]" : ""}`}
+                    className={`max-lg:!h-auto print:!h-auto min-w-0 ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[var(--fs-primary)]" : ""}`}
                     style={{
                       height: widget.height ?? 360,
                     }}
                   >
                     <Panel className="flex h-full flex-col overflow-hidden print:overflow-visible">
-                      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#edf0f2] px-5 py-4">
+                      <header className="flex shrink-0 items-center gap-2 border-b border-[#edf0f2] px-3 py-2 max-sm:flex-wrap">
                         <button
                           type="button"
                           aria-label={`Drag ${widget.title}`}
                           disabled={save.isPending}
-                          className="grid size-11 shrink-0 place-items-center touch-none cursor-grab border-0 print:hidden bg-transparent p-1 text-[#78939c] active:cursor-grabbing"
+                          className="grid size-8 shrink-0 place-items-center touch-none cursor-grab border-0 print:hidden bg-transparent p-1 text-[var(--fs-muted)] active:cursor-grabbing"
                           onPointerDown={(event) => startPointer(event, widget)}
                         >
                           <GripVertical size={16} />
                         </button>
-                        <h2 className="m-0 flex-1 text-sm font-medium">
+                        <h2 className="m-0 min-w-0 flex-1 break-words text-sm font-medium leading-5">
                           {widget.title}
                         </h2>
-                        <div className="flex max-w-full flex-wrap gap-1 print:hidden">
+                        <div className="ml-auto flex shrink-0 items-center gap-1 print:hidden">
                           <Tool
                             title={`Expand ${widget.title}`}
+                            compact
                             onClick={() => setExpandedWidget(widget.id)}
                           >
                             <Maximize2 size={16} />
                           </Tool>
                           <Tool
                             title={`Move ${widget.title} up`}
+                            compact
                             disabled={index === 0 || save.isPending}
                             onClick={() => reorder(index, -1)}
                           >
@@ -519,6 +553,7 @@ export function DashboardsPage() {
                           </Tool>
                           <Tool
                             title={`Move ${widget.title} down`}
+                            compact
                             disabled={
                               index === dashboard.widgets.length - 1 ||
                               save.isPending
@@ -529,6 +564,7 @@ export function DashboardsPage() {
                           </Tool>
                           <Tool
                             title={`Edit ${widget.title}`}
+                            compact
                             disabled={save.isPending}
                             onClick={() => openWidget(widget)}
                           >
@@ -536,6 +572,7 @@ export function DashboardsPage() {
                           </Tool>
                           <Tool
                             title={`Remove ${widget.title}`}
+                            compact
                             destructive
                             disabled={save.isPending}
                             onClick={() =>
@@ -607,7 +644,7 @@ export function DashboardsPage() {
             )}
             {!dashboard.widgets.length && (
               <Panel className="p-12 text-center">
-                <BarChart3 className="mx-auto text-[#8aadb5]" size={30} />
+                <BarChart3 className="mx-auto text-[var(--fs-muted)]" size={30} />
                 <h2 className="text-lg">Add your first widget</h2>
                 <p className="text-sm text-[var(--fs-muted)]">
                   Choose an indicator, a saved analysis, or a text note.
@@ -622,6 +659,7 @@ export function DashboardsPage() {
           title={dashboard.title}
           description={dashboard.description || undefined}
           presentation
+          headerActions={<Button variant="secondary" disabled={download.isPending || invalid} onClick={() => download.mutate()} className="!min-h-8 !px-3 !py-1 !text-xs"><Download size={14} />{download.isPending ? "Preparing PDF…" : "Download PDF"}</Button>}
           onClose={() => setPresentedDashboard(null)}
         >
           {from || through ? (
@@ -716,10 +754,6 @@ export function DashboardsPage() {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </Field>
-            <Notice>
-              Visible to organization administrators with access to this
-              project. Public sharing is not enabled.
-            </Notice>
             <Button
               type="submit"
               disabled={!projectId || create.isPending || save.isPending}
@@ -766,6 +800,7 @@ export function DashboardsPage() {
               );
             }}
           >
+            {available.length > 1 && <Field label="Dashboard"><select className={fieldClass} value={dashboard.id} onChange={event => setSelected(event.target.value)}>{available.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></Field>}
             <Field label="Widget type">
               <select
                 className={fieldClass}
@@ -786,7 +821,7 @@ export function DashboardsPage() {
                 maxLength={200}
                 className={fieldClass}
                 value={widgetTitle}
-                onChange={(e) => setWidgetTitle(e.target.value)}
+                onChange={(e) => {setWidgetTitle(e.target.value); setTitleEdited(true);}}
               />
             </Field>
             {kind === "text" ? (
@@ -809,7 +844,11 @@ export function DashboardsPage() {
                   required
                   className={fieldClass}
                   value={source}
-                  onChange={(e) => setSource(e.target.value)}
+                  onChange={(e) => {
+                    setSource(e.target.value);
+                    const item = (kind === "indicator" ? indicators.data : analyses.data)?.find(item => item.id === e.target.value);
+                    if (!titleEdited && item) setWidgetTitle("name" in item ? item.name : item.title);
+                  }}
                 >
                   <option value="">Choose a source</option>
                   {editingWidget &&
@@ -841,6 +880,7 @@ export function DashboardsPage() {
                 </p>
               )}
             {kind !== "text" &&
+              !(kind === "indicator" ? indicators.isError : analyses.isError) &&
               !(kind === "indicator"
                 ? indicators.isLoading
                 : analyses.isLoading) &&
@@ -853,15 +893,11 @@ export function DashboardsPage() {
                   this widget.
                 </p>
               )}
-            {kind === "analysis" && (
-              <p className="text-xs text-[var(--fs-muted)]">
-                Save a visualization in{" "}
-                <Link to={`/projects/${projectId}/analytics`} className="text-[#0e7180]">
-                  Explore & analyze
-                </Link>{" "}
-                to use it here. Dashboard dates override that visualization's
-                date filters; other filters are preserved.
-              </p>
+            {kind === "analysis" && analyses.isError && (
+              <div role="alert" className="text-sm text-red-700">
+                Could not load saved visualizations: {analyses.error.message}
+                <button type="button" className="ml-2 font-semibold underline" onClick={() => void analyses.refetch()}>Retry</button>
+              </div>
             )}
             <Button
               type="submit"
@@ -885,12 +921,14 @@ function Tool({
   children,
   disabled = false,
   destructive = false,
+  compact = false,
 }: {
   title: string;
   onClick: () => void;
   children: React.ReactNode;
   disabled?: boolean;
   destructive?: boolean;
+  compact?: boolean;
 }) {
   return (
     <button
@@ -898,7 +936,7 @@ function Tool({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`grid size-11 place-items-center rounded-lg border border-[var(--fs-control-border)] bg-white hover:bg-[#f1f7f8] disabled:opacity-30 ${destructive ? "text-red-600 hover:text-red-700" : "text-[#78939c]"}`}
+      className={`grid ${compact ? "size-8 rounded-md" : "size-11 rounded-lg"} place-items-center border border-[var(--fs-control-border)] bg-white hover:bg-[#f1f7f8] disabled:opacity-30 ${destructive ? "text-red-600 hover:text-red-700" : "text-[var(--fs-muted)]"}`}
     >
       {children}
     </button>
@@ -925,7 +963,6 @@ function Widget({
   from: string;
   through: string;
 }) {
-  const { project: currentProject } = useWorkspace();
   const response = useQuery({
     queryKey: [
       "dashboard-widget",
@@ -989,7 +1026,6 @@ function Widget({
     return (
       <div className="p-5" aria-busy={response.isFetching}>
         {feedback}
-        <p className="mb-2 text-xs text-[var(--fs-muted)]">{currentProject?.name ?? project} · {from || "All dates"} – {through || "Present"} (UTC)</p>
         {item.result_source === "unconfigured" ||
         !["healthy", "unmapped"].includes(item.mapping_health) ? (
           <p className="text-xs text-amber-700">
@@ -1012,7 +1048,7 @@ function Widget({
             {item.progress_percent !== null && (
               <div className="h-2 overflow-hidden rounded bg-[#edf2f4]">
                 <div
-                  className="h-full bg-[#27a9b7]"
+                  className="h-full bg-[var(--fs-primary)]"
                   style={{
                     width: `${Math.max(0, Math.min(100, item.progress_percent))}%`,
                   }}
@@ -1031,12 +1067,11 @@ function Widget({
             : item.status.replaceAll("_", " ")}
         </p>
         <Link
-          className="text-xs text-[#0e7180]"
+          className="text-xs text-[var(--fs-primary)]"
           to={`/projects/${project}/indicators?view=results`}
         >
           Open indicator results →
         </Link>
-        <p className="text-xs text-[#637580]">Missing: {item.missing_records}; invalid answers: {item.invalid_answers}; excluded by review: {item.quality_excluded_records}. {item.calculation_note}</p>
       </div>
     );
   }
@@ -1061,19 +1096,13 @@ function Widget({
   return (
     <div aria-busy={response.isFetching} className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "p-5"}>
       {feedback}
-      <p className="mb-3 mt-0 text-xs text-[var(--fs-muted)]">{currentProject?.name ?? project} · {result.data.filters?.date_from || "All dates"} – {result.data.filters?.date_to || "Present"} (UTC) · Ready records{result.data.filters?.location ? ` · ${result.data.filters.location}` : ""}</p>
       <div style={{ height: presentation ? compactPresentation ? "clamp(250px, 36dvh, 380px)" : "clamp(280px, calc(100dvh - 400px), 540px)" : Math.max(160, (widget.height ?? 420) - 170) }}>
         <SurveyResultChart result={result.data} chart={saved.chart} />
       </div>
       {saved.chart !== "table" && <details className="my-3 border-t border-slate-200 pt-2 text-sm text-slate-600"><summary className="cursor-pointer py-2 font-medium text-brand">View chart data</summary><SurveyResultsTable result={result.data} /></details>}
-      <p className="mb-2 text-[12px] text-[var(--fs-muted)]">
-        {result.data.answered_records} answered / {result.data.eligible_records}{" "}
-        eligible · {result.data.missing_records} missing ·{" "}
-        {result.data.invalid_answers} invalid
-      </p>
       <Link
-        to={`/projects/${project}/analytics`}
-        className="text-xs text-[#0e7180]"
+        to={`/projects/${project}/analytics?visualization=${encodeURIComponent(widget.source_id ?? "")}`}
+        className="text-xs text-[var(--fs-primary)]"
       >
         Explore source data →
       </Link>

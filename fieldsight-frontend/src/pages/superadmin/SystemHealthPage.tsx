@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -25,7 +25,7 @@ function errorMessage(error: unknown) {
 }
 
 export function SystemHealthPage() {
-  const [lastChecked, setLastChecked] = useState("Just now");
+
   const liveQuery = useQuery({
     queryKey: ["health", "live"],
     queryFn: apiClient.live,
@@ -46,21 +46,16 @@ export function SystemHealthPage() {
   });
   const refreshing =
     liveQuery.isFetching || readyQuery.isFetching || statusQuery.isFetching;
-  const apiHealthy = liveQuery.data?.status === "ok";
-  const databaseReady = readyQuery.data?.database === "ready";
+  const lastChecked = Math.max(liveQuery.dataUpdatedAt, readyQuery.dataUpdatedAt, statusQuery.dataUpdatedAt) ? new Date(Math.max(liveQuery.dataUpdatedAt, readyQuery.dataUpdatedAt, statusQuery.dataUpdatedAt)).toLocaleString() : "No successful checks";
+  const apiHealthy = !liveQuery.error && liveQuery.data?.status === "ok";
+  const databaseReady = !readyQuery.error && readyQuery.data?.database === "ready";
   const platformOperational =
-    apiHealthy && databaseReady && statusQuery.data?.status === "ok";
+    apiHealthy && databaseReady && !statusQuery.error && statusQuery.data?.status === "ok";
+
+  const platformState = liveQuery.isPending || readyQuery.isPending || statusQuery.isPending ? "Unknown" : liveQuery.error && readyQuery.error ? "Unavailable" : platformOperational ? "Healthy" : "Degraded";
 
   async function refreshHealth() {
-    setLastChecked("Checking…");
-    await Promise.all([
-      liveQuery.refetch(),
-      readyQuery.refetch(),
-      statusQuery.refetch(),
-    ]);
-    setLastChecked(
-      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    );
+
   }
 
   const services = [
@@ -70,13 +65,13 @@ export function SystemHealthPage() {
         ? `${statusQuery.data.service} · ${statusQuery.data.api_version}`
         : "Application API",
       detail: statusQuery.data?.environment ?? "Unavailable",
-      status: apiHealthy ? "Healthy" : "Degraded",
+      status: liveQuery.isPending ? "Unknown" : liveQuery.error ? "Unavailable" : apiHealthy ? "Healthy" : "Degraded",
     },
     {
       name: "Primary database",
       description: "Persistence and tenant data",
       detail: readyQuery.data?.database ?? "Unavailable",
-      status: databaseReady ? "Healthy" : "Degraded",
+      status: readyQuery.isPending ? "Unknown" : readyQuery.error ? "Unavailable" : databaseReady ? "Healthy" : "Degraded",
     },
   ];
   const firstError = liveQuery.error ?? readyQuery.error ?? statusQuery.error;
@@ -107,21 +102,21 @@ export function SystemHealthPage() {
       <section className="grid grid-cols-4 gap-[18px] max-[1100px]:grid-cols-2 max-[620px]:grid-cols-1">
         <AdminMetric
           label="Platform status"
-          value={platformOperational ? "Operational" : "Degraded"}
+          value={platformState}
           detail={`Checked ${lastChecked}`}
           icon={Activity}
           tone={platformOperational ? "green" : "orange"}
         />
         <AdminMetric
           label="API service"
-          value={apiHealthy ? "Online" : "Unavailable"}
+          value={liveQuery.isPending ? "Unknown" : apiHealthy ? "Online" : "Unavailable"}
           detail={statusQuery.data?.service ?? "No response"}
           icon={Wifi}
           tone={apiHealthy ? "green" : "orange"}
         />
         <AdminMetric
           label="Database"
-          value={databaseReady ? "Ready" : "Unavailable"}
+          value={readyQuery.isPending ? "Unknown" : databaseReady ? "Ready" : "Unavailable"}
           detail="Readiness query"
           icon={Database}
           tone={databaseReady ? "green" : "orange"}
@@ -140,7 +135,7 @@ export function SystemHealthPage() {
         className="mt-[18px]"
         action={
           <AdminStatus
-            value={platformOperational ? "Operational" : "Degraded"}
+            value={platformState}
           />
         }
       >
@@ -183,6 +178,7 @@ export function SystemHealthPage() {
         </div>
       </AdminPanel>
 
+      <p className="mt-5 text-sm text-[var(--fs-muted)]">Worker heartbeats and synchronization jobs exist, but platform-wide monitoring is not connected here. Queue, scheduler and worker status: Unknown.</p>
       <AdminPanel
         title="Environment"
         description="Metadata reported by the API"

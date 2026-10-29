@@ -76,7 +76,7 @@ export function CollectedDataPanel({
         <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e4ebed] p-5">
           <div>
             <h2 className="m-0 text-base font-semibold">Collected data</h2>
-            <p className="mb-0 mt-1 text-xs text-[#87969d]">
+            <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">
               Enter a dated result or calculate results from a stored table.
             </p>
           </div>
@@ -109,7 +109,7 @@ export function CollectedDataPanel({
             </Button>
           </div>
         </header>
-        <div className="px-5 py-4 text-xs leading-6 text-[#73868d]">
+        <div className="px-5 py-4 text-xs leading-6 text-[var(--fs-muted)]">
           {indicator.manual_aggregation === "legacy" && !indicator.legacy_definition && <p>Choose a calculation method below before adding results.</p>}
           {indicator.mapping ? (
             <>
@@ -119,7 +119,7 @@ export function CollectedDataPanel({
               mapping before switching to manual entry.{" "}
               <button
                 onClick={onMap}
-                className="border-0 bg-transparent text-[#168596] underline"
+                className="border-0 bg-transparent text-[var(--fs-primary)] underline"
               >
                 Edit source mapping
               </button>
@@ -152,14 +152,14 @@ export function CollectedDataPanel({
         </Notice>
       ))}
       {indicator.mapping && (
-        <Panel className="flex items-center gap-3 p-5 text-xs text-[#73868d]">
-          <Database size={19} className="text-[#168596]" />
+        <Panel className="flex items-center gap-3 p-5 text-xs text-[var(--fs-muted)]">
+          <Database size={19} className="text-[var(--fs-primary)]" />
           <span>
             {indicator.eligible_records} ready records ·{" "}
             {indicator.missing_records} missing answers ·{" "}
             {indicator.invalid_answers} invalid answers
           </span>
-          <Link className="ml-auto text-[#168596]" to={`/data-tables?project_id=${indicator.project_id}`}>
+          <Link className="ml-auto text-[var(--fs-primary)]" to={`/data-tables?project_id=${indicator.project_id}`}>
             View stored data →
           </Link>
         </Panel>
@@ -172,7 +172,7 @@ export function CollectedDataPanel({
         ) : results.data?.length ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[650px] text-left text-xs">
-              <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-wide text-[#87969d]">
+              <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
                 <tr>
                   {["Date", "Result", "Location", "Notes", ""].map((h) => (
                     <th key={h} className="px-5 py-3 font-medium">
@@ -218,7 +218,7 @@ export function CollectedDataPanel({
             </table>
           </div>
         ) : results.error ? null : (
-          <div className="p-10 text-center text-sm text-[#87969d]">
+          <div className="p-10 text-center text-sm text-[var(--fs-muted)]">
             {indicator.mapping
               ? "This indicator uses linked table data. No manual entries are stored."
               : "No collected results yet. Add a manual result or link an imported table."}

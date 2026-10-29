@@ -152,7 +152,7 @@ export function ProfilePage() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </Field>
-              <p className="m-0 text-xs leading-5 text-[#87969d]">
+              <p className="m-0 text-xs leading-5 text-[var(--fs-muted)]">
                 Use at least eight characters. Changing your password signs out
                 your existing sessions.
               </p>
@@ -162,7 +162,7 @@ export function ProfilePage() {
                   : "Update password and sign out"}
               </Button>
             </form>
-            <p className="mb-0 mt-6 border-t border-[#e4ebed] pt-4 text-xs leading-5 text-[#87969d]">
+            <p className="mb-0 mt-6 border-t border-[#e4ebed] pt-4 text-xs leading-5 text-[var(--fs-muted)]">
               Authenticator and organization SSO policies are not configured in
               this local application.
             </p>
@@ -187,9 +187,9 @@ export function AcceptInvitationPage() {
       <Panel className="w-full max-w-md p-7">
         <Link
           to="/login"
-          className="mb-6 flex items-center gap-2 text-lg font-bold text-[#17374d] no-underline"
+          className="mb-6 flex items-center gap-2 text-lg font-bold text-[var(--fs-text)] no-underline"
         >
-          <BarChart3 className="text-[#168596]" />
+          <BarChart3 className="text-[var(--fs-primary)]" />
           FieldSight
         </Link>
         <h1 className="text-2xl font-semibold">
@@ -205,7 +205,7 @@ export function AcceptInvitationPage() {
                 : `Team membership created for ${accept.data.email}. Field staff collect through KoboToolbox; this FieldSight portal is for administrators. A Kobo account is managed separately.`}
             </Notice>
             <Link
-              className="mt-5 inline-block text-sm text-[#168596]"
+              className="mt-5 inline-block text-sm text-[var(--fs-primary)]"
               to="/login"
             >
               Return to sign in →
@@ -219,7 +219,7 @@ export function AcceptInvitationPage() {
               accept.mutate();
             }}
           >
-            <p className="text-sm leading-6 text-[#87969d]">
+            <p className="text-sm leading-6 text-[var(--fs-muted)]">
               Set your own password to accept this invitation. Setup links
               expire after seven days.
             </p>
@@ -251,7 +251,7 @@ export function AcceptInvitationPage() {
             </Button>
           </form>
         ) : (
-          <p className="text-sm leading-7 text-[#73868d]">
+          <p className="text-sm leading-7 text-[var(--fs-muted)]">
             Ask your organization administrator for a new invitation link. Open
             that complete link to choose your password and create an account.
           </p>
@@ -266,14 +266,14 @@ export function AccountHelpPage() {
     <div className="grid min-h-screen place-items-center bg-[#f5f7f8] p-5">
       <Panel className="max-w-lg p-7">
         <h1 className="text-2xl font-semibold">Help signing in</h1>
-        <p className="text-sm leading-7 text-[#73868d]">
+        <p className="text-sm leading-7 text-[var(--fs-muted)]">
           Use your invited email address or username. If your invitation
           expired, ask your organization administrator to create a new setup
           link. For an existing account with a forgotten password, contact your
           administrator; automated recovery email is not configured in this
           local application.
         </p>
-        <Link to="/login" className="text-sm text-[#168596]">
+        <Link to="/login" className="text-sm text-[var(--fs-primary)]">
           Return to sign in →
         </Link>
       </Panel>

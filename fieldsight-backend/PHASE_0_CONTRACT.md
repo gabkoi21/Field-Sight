@@ -10,7 +10,7 @@ This is the approved contract for Phase 1 implementation. It turns the decisions
 | --- | --- |
 | Web API | FastAPI REST API, exposed at the API root |
 | Persistence | SQLModel table models with Alembic migrations |
-| Current database | SQLite at `sqlite:///./fieldsight.db` |
+| Current database | SQLite at `sqlite:///./Database/fieldsight.db` |
 | Validation | Pydantic v2 request and response schemas, separate from table models |
 | Authentication | Short-lived JWT access token plus rotating refresh-session token |
 | Password hashing | `pwdlib.PasswordHash.recommended()` |

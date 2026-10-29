@@ -116,7 +116,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
             <button
               key={String(label)}
               aria-pressed={scope === value}
-              className={`min-h-11 border-0 border-b-2 bg-transparent px-4 py-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#0b51b7] ${scope === value ? "border-[#0b51b7] font-semibold text-[#0b51b7]" : "border-transparent text-[#607882] hover:bg-[#f5f9ff] hover:text-[#0b51b7]"}`}
+              className={`min-h-11 border-0 border-b-2 bg-transparent px-4 py-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-[#0b51b7] ${scope === value ? "border-[#0b51b7] font-semibold text-[#0b51b7]" : "border-transparent text-[var(--fs-muted)] hover:bg-[#f5f9ff] hover:text-[#0b51b7]"}`}
               onClick={() => {
                 const next = new URLSearchParams(params);
                 if (value) next.set("scope", "workspace");
@@ -128,8 +128,8 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
             </button>
           ))}
         </div>
-        {!scope && <div className="flex items-start gap-3 p-4 text-xs leading-6 text-[#73868d]">
-          <ShieldCheck className="shrink-0 text-[#168596]" size={18} />
+        {!scope && <div className="flex items-start gap-3 p-4 text-xs leading-6 text-[var(--fs-muted)]">
+          <ShieldCheck className="shrink-0 text-[var(--fs-primary)]" size={18} />
           Field team lists your organization’s enumerators. Project team shows the members assigned to this project.
         </div>}
       </Panel>}
@@ -178,7 +178,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
               members={(team.data ?? []).filter((item) => item.role === memberRole)}
               action={(item) => (
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-[#607882]">{adminOnly ? "Administrator" : "Enumerator"}</span>
+                  <span className="text-sm text-[var(--fs-muted)]">{adminOnly ? "Administrator" : "Enumerator"}</span>
 
                   <button
                     disabled={update.isPending}
@@ -194,7 +194,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
                           is_active: !item.is_active,
                         });
                     }}
-                    className="border-0 bg-transparent text-xs text-[#168596]"
+                    className="border-0 bg-transparent text-xs text-[var(--fs-primary)]"
                   >
                     {item.is_active ? "Deactivate" : "Reactivate"}
                   </button>
@@ -209,7 +209,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
             {invitations.data?.some((item) => item.role === memberRole) ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#87969d]">
+                  <thead className="bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                     <tr>
                       {["Email", "Role", "Status", "Expires", ""].map((h) => (
                         <th key={h} className="px-5 py-3 font-medium">
@@ -350,7 +350,7 @@ function TeamTable({
     <>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse whitespace-nowrap text-left text-sm">
-        <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-[.04em] text-[#73828b]">
+        <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-[.04em] text-[var(--fs-muted)]">
           <tr>
             {["Member", "Email", "Status", "Access"].map((h) => (
               <th key={h} scope="col" className="px-4 py-3 font-medium">
@@ -379,11 +379,11 @@ function TeamTable({
         </tbody>
       </table>
     </div>
-    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e1e7eb] px-5 py-3 text-xs text-[#73828b]">
+    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e1e7eb] px-5 py-3 text-xs text-[var(--fs-muted)]">
       <span aria-live="polite">{members.length ? start + 1 : 0}–{Math.min(start + pageSize, members.length)} of {members.length} members</span>
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2">Rows per page
-          <select className="rounded border border-[#dce4e8] bg-white px-2 py-1 text-[#24434c]" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+          <select className="rounded border border-[#dce4e8] bg-white px-2 py-1 text-[var(--fs-text)]" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
             {[10,25,50].map((size) => <option key={size} value={size}>{size}</option>)}
           </select>
         </label>
@@ -399,7 +399,7 @@ function TeamTable({
 }
 function Empty({ message }: { message: string }) {
   return (
-    <div className="grid justify-items-center gap-3 p-10 text-center text-sm text-[#87969d]">
+    <div className="grid justify-items-center gap-3 p-10 text-center text-sm text-[var(--fs-muted)]">
       <Users size={25} />
       {message}
     </div>

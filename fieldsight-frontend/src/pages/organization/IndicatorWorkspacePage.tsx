@@ -360,7 +360,7 @@ export function IndicatorWorkspacePage() {
                     </Icon>
                   </div>
                 </div>
-                <strong className="block px-3 pt-2 text-xs font-medium leading-5 text-[#24434c]">
+                <strong className="block px-3 pt-2 text-xs font-medium leading-5 text-[var(--fs-text)]">
                   {node.title}
                 </strong>
                 <span className="block px-3 pb-3 pt-1 text-xs text-[var(--fs-muted)]">
@@ -373,7 +373,7 @@ export function IndicatorWorkspacePage() {
                 {node.node_type !== "activity" && (
                   <button
                     onClick={() => addNode(null, node.id)}
-                    aria-label={`Add child result to ${node.title}`} title="Add child result" className="flex min-h-11 w-full items-center justify-center border-0 bg-[#eff5f7] text-[#006b85] hover:bg-[#dfeef2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006b85]"
+                    aria-label={`Add child result to ${node.title}`} title="Add child result" className="flex min-h-11 w-full items-center justify-center border-0 bg-[var(--fs-primary-soft)] text-[var(--fs-primary)] hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--fs-primary)]"
                   >
                     <Plus size={20} aria-hidden="true" />
                   </button>
@@ -390,10 +390,10 @@ export function IndicatorWorkspacePage() {
 
   if (loading || projects.isLoading) return <LoadingState variant="panel" label="Loading indicators…" />;
   return (
-    <div className="space-y-5 text-[#24434c]">
+    <div className="space-y-5 text-[var(--fs-text)]">
       <Link
         to={projectId ? `/projects/${projectId}/overview` : "/projects"}
-        className="inline-flex items-center gap-2 text-xs font-medium text-[#117e8f] no-underline hover:underline"
+        className="inline-flex items-center gap-2 text-xs font-medium text-[var(--fs-primary)] no-underline hover:underline"
       >
         <ArrowLeft size={15} /> Project overview
       </Link>
@@ -410,7 +410,7 @@ export function IndicatorWorkspacePage() {
             title="Sign in to your organization"
             description="An organization administrator account is required to define indicators and view project evidence."
           >
-            <Link to="/login" className="text-sm text-[#0c8593]">
+            <Link to="/login" className="text-sm text-[var(--fs-primary)]">
               Open login →
             </Link>
           </Empty>
@@ -423,7 +423,7 @@ export function IndicatorWorkspacePage() {
             title="Start with a project"
             description="Create a project and assign a Kobo form before defining its results."
           >
-            <Link to="/projects" className="text-sm text-[#0c8593]">
+            <Link to="/projects" className="text-sm text-[var(--fs-primary)]">
               Open projects →
             </Link>
           </Empty>
@@ -433,7 +433,7 @@ export function IndicatorWorkspacePage() {
           <Panel>
             <div className={`flex flex-wrap items-center gap-3 ${routeProject ? "justify-end px-4 py-1.5" : "p-5"}`}>
               <div className="mr-auto flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                  <p className="m-0 text-sm font-medium text-[#24434c]">Indicator filters</p>
+                  <p className="m-0 text-sm font-medium text-[var(--fs-text)]">Indicator filters</p>
                   <p className="m-0 text-xs text-[var(--fs-muted)]">Filter by source mapping, target achievement or submission date.</p>
                 </div>
               <button
@@ -441,11 +441,11 @@ export function IndicatorWorkspacePage() {
                 aria-expanded={filtersOpen}
                 aria-controls="indicator-date-filters"
                 onClick={() => setFiltersOpen((open) => !open)}
-                className="inline-flex min-h-11 shrink-0 self-center items-center justify-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-2.5 py-0 text-xs text-[#3f7a86] hover:bg-[#f7fafb]"
+                className="inline-flex min-h-11 shrink-0 self-center items-center justify-center gap-2 rounded-lg border border-[var(--fs-control-border)] bg-white px-2.5 py-0 text-xs text-[var(--fs-primary)] hover:bg-[var(--fs-primary-soft)]"
               >
                 <SlidersHorizontal size={15} aria-hidden="true" /> Filters
                 {(dateFrom || dateTo || sourceFilter !== "all") && (
-                  <span className="rounded bg-[#eaf5f6] px-1.5 text-xs">
+                  <span className="rounded bg-[var(--fs-primary-soft)] px-1.5 text-xs">
                     Active
                   </span>
                 )}
@@ -516,7 +516,7 @@ export function IndicatorWorkspacePage() {
                         setFrom("");
                         setTo("");
                       }}
-                      className="border-0 bg-transparent p-0 font-medium text-[#0c8593]"
+                      className="border-0 bg-transparent p-0 font-medium text-[var(--fs-primary)]"
                     >
                       Clear dates
                     </button>
@@ -545,7 +545,7 @@ export function IndicatorWorkspacePage() {
                   key={id}
                   onClick={() => tab(id)}
                   aria-current={view === id ? "page" : undefined}
-                  className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3.5 text-sm transition-colors ${view === id ? "border-[#0c8593] bg-[#f0f8f9] font-semibold text-[#0c7180]" : "border-transparent bg-transparent text-[var(--fs-muted)] hover:bg-[#f7fafb]"}`}
+                  className={`flex shrink-0 items-center gap-2 border-0 border-b-2 px-4 py-3.5 text-sm transition-colors ${view === id ? "border-[var(--fs-primary)] bg-[var(--fs-primary-soft)] font-semibold text-[var(--fs-primary)]" : "border-transparent bg-transparent text-[var(--fs-muted)] hover:bg-[var(--fs-primary-soft)]"}`}
                 >
                   <Symbol size={15} />
                   {label}
@@ -667,7 +667,7 @@ export function IndicatorWorkspacePage() {
                                 <button
                                   key={id}
                                   onClick={() => setDetailsTab(id)}
-                                  className={`border-0 border-b-2 bg-transparent px-4 py-3 text-xs capitalize ${detailsTab === id ? "border-[#0c8593] text-[#0c7180]" : "border-transparent text-[var(--fs-muted)]"}`}
+                                  className={`border-0 border-b-2 bg-transparent px-4 py-3 text-xs capitalize ${detailsTab === id ? "border-[var(--fs-primary)] text-[var(--fs-primary)]" : "border-transparent text-[var(--fs-muted)]"}`}
                                 >
                                   {id === "summary"
                                     ? "Results summary"
@@ -777,7 +777,7 @@ export function IndicatorWorkspacePage() {
                                 {selected.source_form_id && (
                                   <Link
                                     to={`/projects/${projectId}/analytics`}
-                                    className="inline-block text-[#0c8593]"
+                                    className="inline-block text-[var(--fs-primary)]"
                                   >
                                     View question responses →
                                   </Link>
@@ -827,7 +827,7 @@ export function IndicatorWorkspacePage() {
                         </Empty>
                       ) : (
                         <div className="indicator-register-container" role="region" aria-label="Scrollable indicator list" tabIndex={0}>
-                          <table className="indicator-register w-full table-auto border-collapse text-left text-xs text-[#24434c]">
+                          <table className="indicator-register w-full table-auto border-collapse text-left text-xs text-[var(--fs-text)]">
                             <colgroup>
                               <col className="w-[24%]" />
                               <col className="w-[22%]" />
@@ -902,11 +902,11 @@ export function IndicatorWorkspacePage() {
                                             return next;
                                           })
                                         }
-                                        className="flex w-full items-center gap-2 border-0 border-l-[3px] bg-transparent px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-[#566970]"
+                                        className="flex w-full items-center gap-2 border-0 border-l-[3px] bg-transparent px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--fs-muted)]"
                                         style={{
                                           borderLeftColor: group.type
                                             ? registerGroups[group.type].border
-                                            : "#9aaeb5",
+                                            : "var(--fs-muted)",
                                           paddingLeft: 12 + group.depth * 12,
                                         }}
                                       >
@@ -956,7 +956,7 @@ export function IndicatorWorkspacePage() {
                                             <button
                                               title={item.name}
                                               onClick={() => showResult(item)}
-                                              className="flex min-h-7 w-full min-w-0 items-center border-0 bg-transparent p-0 text-left font-medium leading-5 text-[#146578] hover:underline"
+                                              className="flex min-h-7 w-full min-w-0 items-center border-0 bg-transparent p-0 text-left font-medium leading-5 text-[var(--fs-primary)] hover:underline"
                                             >
                                               <span className="block break-words">
                                                 {item.name}
@@ -1032,7 +1032,7 @@ export function IndicatorWorkspacePage() {
                           </table>
                           {!visibleItems.length && (
                             <div className="p-10 text-center">
-                              <p className="m-0 text-sm font-medium text-[#24434c]">
+                              <p className="m-0 text-sm font-medium text-[var(--fs-text)]">
                                 No indicators match these filters.
                               </p>
                               <button
@@ -1040,7 +1040,7 @@ export function IndicatorWorkspacePage() {
                                 onClick={() => {
                                   setSourceFilter("all");
                                 }}
-                                className="mt-3 border-0 bg-transparent text-xs font-medium text-[#0c8593]"
+                                className="mt-3 border-0 bg-transparent text-xs font-medium text-[var(--fs-primary)]"
                               >
                                 Clear filters
                               </button>
@@ -1134,7 +1134,7 @@ function Notice({
   return (
     <div
       role={error ? "alert" : "status"}
-      className={`rounded-md border px-4 py-3 text-xs leading-5 ${error ? "border-red-200 bg-red-50 text-red-700" : "border-[#dcebe9] bg-[#f0f8f6] text-[#4d7074]"}`}
+      className={`rounded-md border px-4 py-3 text-xs leading-5 ${error ? "border-red-200 bg-red-50 text-red-700" : "border-[var(--fs-primary-border)] bg-[var(--fs-primary-soft)] text-[var(--fs-info-text)]"}`}
     >
       {children}
     </div>
@@ -1151,7 +1151,7 @@ function Empty({
 }) {
   return (
     <div className="grid justify-items-center px-5 py-12 text-center">
-      <Target className="text-[#0c8593]" size={28} />
+      <Target className="text-[var(--fs-primary)]" size={28} />
       <h2 className="mb-1 mt-4 text-base font-semibold">{title}</h2>
       <p className="mb-5 mt-0 max-w-lg text-xs leading-6 text-[var(--fs-muted)]">
         {description}
@@ -1179,7 +1179,7 @@ function Icon({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`grid size-7 place-items-center rounded border border-[#dce5e8] bg-white p-0 shadow-none transition-colors hover:border-[#b7c7cd] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#73868d] disabled:opacity-40 ${destructive ? "text-red-600 hover:text-red-700" : "text-[var(--fs-muted)] hover:text-[#24434c]"}`}
+      className={`grid size-7 place-items-center rounded border border-[#dce5e8] bg-white p-0 shadow-none transition-colors hover:border-[var(--fs-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-muted)] disabled:opacity-40 ${destructive ? "text-red-600 hover:text-red-700" : "text-[var(--fs-muted)] hover:text-[var(--fs-text)]"}`}
     >
       {children}
     </button>
@@ -1188,10 +1188,10 @@ function Icon({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="mb-1 block text-[12px] uppercase tracking-wide text-[#8a9ba1]">
+      <span className="mb-1 block text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
         {label}
       </span>
-      <span className="leading-5 text-[#24434c]">{value}</span>
+      <span className="leading-5 text-[var(--fs-text)]">{value}</span>
     </div>
   );
 }
@@ -1216,11 +1216,11 @@ function Status({ item }: { item: Indicator }) {
   return (
     <span
       title="Calculated from the indicator's source mapping, results and target."
-      className="inline-flex w-full items-center gap-2 rounded border border-[#e6ebee] bg-white px-2.5 py-1.5 text-[11px] leading-4 text-[#557078]"
+      className="inline-flex w-full items-center gap-2 rounded border border-[#e6ebee] bg-white px-2.5 py-1.5 text-[11px] leading-4 text-[var(--fs-muted)]"
     >
       <span
         aria-hidden="true"
-        className={`size-1.5 shrink-0 rounded-full ${item.target_achieved ? "bg-[#38977a]" : item.schedule_status === "overdue" || item.mapping_health !== "healthy" ? "bg-[#d5ac28]" : "bg-[#6599a5]"}`}
+        className={`size-1.5 shrink-0 rounded-full ${item.target_achieved ? "bg-[#38977a]" : item.schedule_status === "overdue" || item.mapping_health !== "healthy" ? "bg-[#d5ac28]" : "bg-[var(--fs-primary)]"}`}
       />
       {label}
     </span>
@@ -1230,7 +1230,7 @@ function Progress({ indicator }: { indicator: Indicator }) {
   return (
     <div>
       <div className="mb-1.5 text-[12px]">
-        <strong className="font-semibold text-[#0c8593]">
+        <strong className="font-semibold text-[var(--fs-primary)]">
           {amount(indicator.current_value, indicator.unit)}
         </strong>{" "}
         /{" "}
@@ -1242,13 +1242,13 @@ function Progress({ indicator }: { indicator: Indicator }) {
         <>
           <div className="h-1.5 overflow-hidden rounded-full bg-[#e3edf0]">
             <div
-              className="h-full rounded-full bg-[#20a8bd]"
+              className="h-full rounded-full bg-[var(--fs-primary)]"
               style={{
                 width: `${Math.max(0, Math.min(100, indicator.progress_percent))}%`,
               }}
             />
           </div>
-          <span className="mt-1 block text-[11px] text-[#8a9ba1]">
+          <span className="mt-1 block text-[11px] text-[var(--fs-muted)]">
             {indicator.progress_percent}%{" "}
             {indicator.baseline_value !== null &&
             indicator.baseline_value !== indicator.target_value
@@ -1274,7 +1274,7 @@ function IndicatorResults({
           <h2 className="mt-0 text-base font-semibold">
             Latest qualitative result
           </h2>
-          <p className="whitespace-pre-wrap text-sm leading-7 text-[#637d86]">
+          <p className="whitespace-pre-wrap text-sm leading-7 text-[var(--fs-muted)]">
             {indicator.qualitative_value ??
               "No narrative recorded in this reporting window."}
           </p>
@@ -1308,7 +1308,7 @@ function IndicatorResults({
         {indicator.current_value !== null && indicator.progress_percent !== null && (
           <Panel>
             <div className="px-5 py-4">
-              <p className="mt-0 text-xs font-medium text-[#557078]">Progress toward overall target</p>
+              <p className="mt-0 text-xs font-medium text-[var(--fs-muted)]">Progress toward overall target</p>
               <Progress indicator={indicator} />
             </div>
           </Panel>
@@ -1320,8 +1320,8 @@ function IndicatorResults({
             {frequency(indicator.reporting_frequency)} results
           </h3>
           <div className="max-h-[340px] overflow-auto">
-            <table className="w-full min-w-[400px] border-collapse text-left text-sm tabular-nums text-[#24434c]">
-              <thead className="sticky top-0 bg-[#f0f6f8] text-xs text-[#557078]">
+            <table className="w-full min-w-[400px] border-collapse text-left text-sm tabular-nums text-[var(--fs-text)]">
+              <thead className="sticky top-0 bg-[var(--fs-primary-soft)] text-xs text-[var(--fs-muted)]">
                 <tr>
                   {["Period", "Target", "Actual", "Answered / eligible"].map(
                     (label) => (
@@ -1339,13 +1339,13 @@ function IndicatorResults({
                     <td className="px-5 py-5 font-medium">
                       {amount(point.target_value, indicator.unit)}
                     </td>
-                    <td className="px-5 py-5 font-semibold text-[#0c7180]">
+                    <td className="px-5 py-5 font-semibold text-[var(--fs-primary)]">
                       <span className={point.target_achieved === true ? "inline-flex items-center gap-2 rounded-md bg-[#edf8f3] px-2.5 py-1 text-[#247453]" : ""}>
                       {amount(point.value, indicator.unit)}
                       {point.target_achieved === true && <span aria-label="Target achieved">✓</span>}
                       </span>
                     </td>
-                    <td className="px-5 py-5 text-[#557078]">
+                    <td className="px-5 py-5 text-[var(--fs-muted)]">
                       {point.mapped_records} / {point.eligible_records}
                     </td>
                   </tr>
@@ -1413,7 +1413,7 @@ function IndicatorResults({
         </h3>
         <div className="overflow-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#f8fbfb] text-[12px] uppercase text-[#8a9ba1]">
+            <thead className="bg-[#f8fbfb] text-[12px] uppercase text-[var(--fs-muted)]">
               <tr>
                 {["Location", "Actual", "Denominator", "Eligible records"].map(
                   (label) => (

@@ -161,7 +161,7 @@ export function KoboConnectionsPage() {
       {deleting && (
         <Dialog title="Delete Kobo connection?" compact error={deleteMutation.error?.message}
           onClose={() => { if (!deleteMutation.isPending) setDeleting(null); }}>
-          <p className="text-sm leading-6 text-[#637d86]">
+          <p className="text-sm leading-6 text-[var(--fs-muted)]">
             Delete <strong>{deleting.name}</strong> and its saved API token from FieldSight?
             Kobo forms, submissions and imported FieldSight data will remain.
             Projects must use another connection before this one can be deleted.

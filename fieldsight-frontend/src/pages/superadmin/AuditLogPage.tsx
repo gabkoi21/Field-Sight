@@ -1,45 +1,13 @@
-import { useMemo, useState } from "react";
-import { ChevronDown, Download, FileClock, Search, ShieldCheck } from "lucide-react";
-import { Button, PageHeader } from "../../components/ui";
-import { AdminMetric, AdminPanel, AdminStatus, AdminTableFooter } from "../../components/superadmin/AdminUi";
-import { auditEvents, type AuditEvent } from "./data";
-
-type CategoryFilter = "All" | AuditEvent["category"];
-
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Button, PageHeader, LoadingState } from "../../components/ui";
+import { AdminPanel, AdminTableFooter, adminInputClass } from "../../components/superadmin/AdminUi";
+import { apiClient } from "../../services/apiClient";
 export function AuditLogPage() {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<CategoryFilter>("All");
-  const filteredEvents = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return auditEvents.filter((event) =>
-      (category === "All" || event.category === category) &&
-      (!normalizedQuery || `${event.actor} ${event.action} ${event.target} ${event.ip}`.toLowerCase().includes(normalizedQuery)),
-    );
-  }, [category, query]);
-
-  return (
-    <>
-      <PageHeader eyebrow="Security & governance" title="Audit log" description="Review privileged actions, access events, and changes across every organization.">
-        <Button variant="secondary"><Download size={15} /> Export log</Button>
-      </PageHeader>
-
-      <section className="mb-[18px] grid grid-cols-3 gap-[18px] max-[800px]:grid-cols-1">
-        <AdminMetric label="Events today" value="184" detail="18 privileged actions" icon={FileClock} />
-        <AdminMetric label="Blocked events" value="3" detail="All automatically contained" icon={ShieldCheck} tone="red" />
-        <AdminMetric label="Retention" value="365 days" detail="Immutable audit storage" icon={Download} tone="violet" />
-      </section>
-
-      <AdminPanel title="Platform events" description="Security and administrative activity">
-        <div className="flex gap-2 border-b border-line p-4 max-[680px]:flex-col">
-          <label className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[7px] border border-[#dfe4e8] px-3 text-[#8793a2]"><Search size={15} /><input className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search actor, action, target, or IP..." /></label>
-          <label className="relative flex min-h-[38px] min-w-[165px] items-center rounded-[7px] border border-[#dfe4e8] px-3"><select className="w-full appearance-none border-0 bg-transparent pr-5 text-xs text-[#455467] outline-none" value={category} onChange={(event) => setCategory(event.target.value as CategoryFilter)}><option value="All">All categories</option><option value="Access">Access</option><option value="Organization">Organization</option><option value="Billing">Billing</option><option value="Security">Security</option></select><ChevronDown className="pointer-events-none absolute right-3 text-[#8793a2]" size={14} /></label>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-[1020px]"><thead><tr><th>Actor</th><th>Action</th><th>Target</th><th>Category</th><th>IP address</th><th>Time</th><th>Status</th></tr></thead><tbody>{filteredEvents.map((event) => <tr key={event.id}><td><div className="flex items-center gap-2.5"><span className="grid size-8 place-items-center rounded-[7px] bg-[#f0edff] text-[11px] font-bold text-[#6d5bd0]">{event.initials}</span><strong>{event.actor}</strong></div></td><td>{event.action}</td><td>{event.target}</td><td><span className="inline-flex items-center gap-1.5"><ShieldCheck className="text-[#8793a2]" size={13} />{event.category}</span></td><td className="font-mono text-[12px]">{event.ip}</td><td>{event.time}</td><td><AdminStatus value={event.status} /></td></tr>)}</tbody></table>
-          {filteredEvents.length === 0 && <p className="m-0 p-10 text-center text-xs text-[#8793a2]">No audit events match your filters.</p>}
-        </div>
-        <AdminTableFooter shown={filteredEvents.length} total={auditEvents.length} />
-      </AdminPanel>
-    </>
-  );
+  const [q, setQ] = useState(""); const [start, setStart] = useState(""); const [end, setEnd] = useState(""); const [page, setPage] = useState(1);
+  const params = new URLSearchParams({ q, offset: String((page - 1) * 25), limit: "25" });
+  if (start) params.set("start", `${start}T00:00:00Z`);
+  if (end) params.set("end", `${end}T23:59:59.999999Z`);
+  const events = useQuery({ queryKey: ["platform-events", params.toString()], queryFn: () => apiClient.platformEvents(params) });
+  return <><PageHeader eyebrow="Security & governance" title="Audit log" description="Recorded organization administrative events. Authentication, billing, and complete platform security history are not covered." /><AdminPanel title="Recorded administrative activity"><div className="grid gap-4 py-4 md:grid-cols-3"><label>Search<input className={adminInputClass} value={q} onChange={e => { setQ(e.target.value); setPage(1); }} /></label><label>From (UTC)<input type="date" className={adminInputClass} value={start} max={end || undefined} onChange={e => { setStart(e.target.value); setPage(1); }} /></label><label>Through (UTC)<input type="date" className={adminInputClass} value={end} min={start || undefined} onChange={e => { setEnd(e.target.value); setPage(1); }} /></label></div>{events.isLoading && <LoadingState label="Loading recorded events" />}{events.error && <div role="alert">Unable to load audit events. <Button onClick={() => void events.refetch()}>Retry events</Button></div>}{events.data && <><div className="overflow-x-auto"><table className="min-w-[720px]"><thead><tr><th>Actor</th><th>Action</th><th>Organization</th><th>Target</th><th>Timestamp</th></tr></thead><tbody>{events.data.items.map(event => <tr key={event.id}><td>{event.actor}</td><td>{event.action}</td><td>{event.organization}</td><td className="break-all">{event.target}</td><td>{new Date(event.occurred_at).toLocaleString()}</td></tr>)}</tbody></table></div>{!events.data.items.length && <p className="py-8 text-center">No recorded events match these filters.</p>}<AdminTableFooter shown={events.data.items.length} total={events.data.total} page={page} pageSize={25} onPageChange={setPage} /></>}</AdminPanel></>;
 }

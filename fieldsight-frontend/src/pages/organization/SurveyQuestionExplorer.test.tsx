@@ -3,7 +3,7 @@ import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Routes, Route } from "react-router-dom";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import { SurveyQuestionExplorer } from "./SurveyQuestionExplorer";
 import { apiClient, type AnalysisQuery, type AnalysisResult, type SurveyCatalogue } from "../../services/apiClient";
 configure({asyncUtilTimeout: 5000});
@@ -30,11 +30,13 @@ beforeEach(() => {
   vi.mocked(apiClient.surveyFields).mockImplementation(async project => ({project_id: project, form_id: "form", fields: [fields[1], fields[0]], forms: ["form"], locations: [], enumerators: []} as unknown as SurveyCatalogue));
   vi.mocked(apiClient.queryAnalysis).mockImplementation(async query => answer(query));
   vi.mocked(apiClient.savedAnalyses).mockResolvedValue([]);
+  vi.mocked(apiClient.saveAnalysis).mockImplementation(async input => ({...input, id: "saved-water", created_at: "2026-10-28T00:00:00Z"}));
 });
 afterEach(() => {cleanup();vi.resetAllMocks();});
-function setup() {
+function setup(path = "/") {
   const cache = new QueryClient({defaultOptions: {queries: {retry: false}}});
-  function TestApp() {return <QueryClientProvider client={cache}><MemoryRouter><SurveyQuestionExplorer /></MemoryRouter></QueryClientProvider>;}
+  function Location() {const location = useLocation(); return <output aria-label="Current route">{location.pathname}{location.search}</output>;}
+  function TestApp() {return <QueryClientProvider client={cache}><MemoryRouter initialEntries={[path]}><Location /><SurveyQuestionExplorer /></MemoryRouter></QueryClientProvider>;}
   return {...render(<TestApp />), TestApp};
 }
 it("selects the exact Kobo response field, switches charts, and persists Pie with current filters", async () => {
@@ -53,6 +55,36 @@ it("selects the exact Kobo response field, switches charts, and persists Pie wit
   fireEvent.click(screen.getByRole("button", {name: "Save"}));
   await waitFor(() => expect(apiClient.saveAnalysis).toHaveBeenCalledWith(expect.objectContaining({chart: "pie", query: expect.objectContaining({project_id: "wash", source_field: "water_available", group_by: null, filters: expect.objectContaining({review_status: "ready"})})})));
 });
+it("shows a confirmed save immediately and links to the same project's dashboards", async () => {
+  // A slow list reload must not delay confirmation of the successful POST.
+  vi.mocked(apiClient.savedAnalyses).mockImplementationOnce(async () => []).mockImplementation(() => new Promise(() => {}));
+  setup();
+  await screen.findByRole("rowheader", {name: "Yes"});
+  fireEvent.click(screen.getByRole("button", {name: "Save visualization"}));
+  fireEvent.change(screen.getByRole("textbox", {name: "Title"}), {target: {value: "Drinking Water Availability"}});
+  fireEvent.click(screen.getByRole("button", {name: "Save"}));
+  expect(await screen.findByText("Drinking Water Availability")).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("link", {name: /Open dashboards/}).getAttribute("href")).toBe("/projects/wash/dashboards");
+  expect(screen.getByRole("button", {name: "Saved visualizations (1)"})).toBeTruthy();
+});
+it("keeps the save dialog open and displays a failed save without claiming success", async () => {
+  vi.mocked(apiClient.saveAnalysis).mockRejectedValue(new Error("Unable to save visualization"));
+  setup();
+  await screen.findByRole("rowheader", {name: "Yes"});
+  fireEvent.click(screen.getByRole("button", {name: "Save visualization"}));
+  fireEvent.click(screen.getByRole("button", {name: "Save"}));
+  await waitFor(() => expect(screen.getByRole("dialog").textContent).toContain("Unable to save visualization"));
+  expect(screen.queryByRole("link", {name: /Open dashboards/})).toBeNull();
+});
+it("saves before handing the selected visualization to this project's dashboard", async () => {
+  setup();
+  await screen.findByRole("rowheader", {name: "Yes"});
+  fireEvent.click(screen.getByRole("button", {name: "Save visualization"}));
+  fireEvent.click(screen.getByRole("button", {name: "Save & add to dashboard"}));
+  await waitFor(() => expect(screen.getByLabelText("Current route").textContent).toBe("/projects/wash/dashboards?add_visualization=saved-water"));
+  expect(apiClient.saveAnalysis).toHaveBeenCalledTimes(1);
+});
 it("scopes results to a changed project and clears prior question and grouping settings", async () => {
   const view = setup();
   await screen.findByRole("button", {name: /Is drinking water available today/});
@@ -69,6 +101,14 @@ it("defaults to the first question in the assigned Kobo form", async () => {
   expect(screen.getByRole("img", {name: "pie responses"}).textContent).toBe("Yes, No");
   expect(screen.queryByRole("rowheader", {name: comment})).toBeNull();
   expect(apiClient.queryAnalysis).toHaveBeenLastCalledWith(expect.objectContaining({source_field: "water_available", group_by: null}));
+});
+it("opens a dashboard source at its saved field and settings instead of the first question", async () => {
+  const query = {project_id: "wash", form_id: "form", source_field: "additional_comments", measure: "count", group_by: null, time_grain: "month", filters: {review_status: "ready", categories: [], date_from: null, date_to: null, location: "North", enumerator: null}} as AnalysisQuery;
+  vi.mocked(apiClient.savedAnalyses).mockResolvedValue([{id: "comment-chart", title: "Visit comments", chart: "table", query, created_at: "2026-10-28T00:00:00Z"}]);
+  setup("/?visualization=comment-chart");
+  await waitFor(() => expect(apiClient.queryAnalysis).toHaveBeenCalledWith(query));
+  expect(apiClient.queryAnalysis).not.toHaveBeenCalledWith(expect.objectContaining({source_field: "water_available"}));
+  expect(await screen.findByText("Viewing Visit comments")).toBeTruthy();
 });
 
 it("uses the route project even if workspace context still refers to another project", async () => {
@@ -234,4 +274,12 @@ it("provides compact filters, keeps filter values while collapsed, and clears th
   expect((screen.getByLabelText("From") as HTMLInputElement).value).toBe("");
   expect((screen.getByLabelText("To") as HTMLInputElement).value).toBe("");
   await waitFor(() => expect(apiClient.queryAnalysis).toHaveBeenLastCalledWith(expect.objectContaining({filters: expect.objectContaining({date_from: null, date_to: null, review_status: "ready"})})));
+});
+
+it("shows the assigned form as context instead of offering a form switcher", async () => {
+  setup();
+  expect(await screen.findByText("Connected Kobo form")).toBeTruthy();
+  await screen.findByRole("rowheader", {name: "Yes"});
+  expect(screen.queryByRole("combobox", {name: /Survey form/i})).toBeNull();
+  expect(screen.getByRole("button", {name: "Refresh Kobo fields"})).toBeTruthy();
 });

@@ -43,6 +43,36 @@ def endpoint(dashboard, index=0):
     return f"/dashboards/{dashboard['id']}/widgets/{dashboard['widgets'][index]['id']}/results"
 
 
+def test_saved_doughnut_is_listed_and_can_be_used_as_dashboard_widget(analysis_client, tmp_path):
+    client, _, project, headers = analysis_client
+    response = client.post(
+        "/analysis/saved", headers=headers,
+        json={"title": "Response distribution", "chart": "pie",
+              "query": {"project_id": project, "source_field": "gender", "measure": "count"}},
+    )
+    assert response.status_code == 201, response.text
+    saved = response.json()
+    choices = client.get(f"/analysis/saved?project_id={project}", headers=headers)
+    assert choices.status_code == 200
+    assert saved["id"] in {item["id"] for item in choices.json()}
+    dashboard = create(analysis_client, [widget("analysis", saved["id"])])
+    result = client.get(endpoint(dashboard), headers=headers)
+    assert result.status_code == 200, result.text
+    assert result.json()["chart"] == "pie"
+    assert result.json()["analysis"]["field"]["source_field"] == "gender"
+    assert result.json()["analysis"]["answered_records"] > 0
+    exported = client.get(f"/dashboards/{dashboard['id']}/export.pdf", headers=headers)
+    assert exported.status_code == 200, exported.text if exported.status_code != 200 else ""
+    assert exported.content.startswith(b"%PDF-")
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    content = " ".join(page.extract_text() for page in PdfReader(BytesIO(exported.content)).pages)
+    assert "Results" in content and "Records" in content and "Gender" in content
+    (tmp_path / "dashboard.pdf").write_bytes(exported.content)
+
+
 def test_layout_filters_reload_duplicate_delete_and_conflict(sync_client):
     client, engine, _, headers = sync_client
     first, second = widget(), widget(title="Notes", height=480, width=2)
@@ -153,6 +183,11 @@ def test_saved_analysis_filters_source_and_successful_sync_update(analysis_clien
     direct = client.post("/analysis/query", headers=headers, json=saved["query"]).json()
     assert result["analysis"]["value"] == direct["value"] == 10
     assert result["analysis"]["filters"]["location"] == "North" and result["chart"] == "table"
+    cleared = client.get(
+        endpoint(dashboard) + "?use_saved_filters=false&use_visualization_dates=false", headers=headers
+    ).json()["analysis"]
+    assert cleared["filters"]["date_from"] is None and cleared["filters"]["date_to"] is None
+    assert cleared["filters"]["location"] == "North" and cleared["filters"]["review_status"] == "ready"
     # Dashboard bound replaces the saved bound while preserving location and review status.
     filtered = client.get(endpoint(dashboard) + "?date_from=2026-10-03", headers=headers).json()["analysis"]
     assert filtered["value"] is None and filtered["filters"]["location"] == "North"
@@ -236,6 +271,7 @@ def test_cross_project_cross_org_and_query_tampering_cannot_leak(sync_client):
         same_id, foreign_id, corrupt_id = str(same_org.id), str(foreign_dashboard.id), str(corrupt.id)
     for route in (
         f"/dashboards/{foreign_id}",
+        f"/dashboards/{foreign_id}/export.pdf",
         f"/dashboards/{foreign_id}/widgets/{dashboard['widgets'][0]['id']}/results",
     ):
         assert client.get(route, headers=headers).status_code == 404

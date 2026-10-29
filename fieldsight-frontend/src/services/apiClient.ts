@@ -195,6 +195,8 @@ export interface ApiOrganization {
   timezone: string;
   owner_email: string | null;
   sector_ids: string[];
+  user_count?: number;
+  project_count?: number;
 }
 
 export interface Sector {
@@ -967,7 +969,16 @@ export interface SubmissionDetail extends ApiSubmission {
   history: Array<{ id: string; actor_id: string | null; source: string; occurred_at: string; previous_status: string | null; status: string | null; note: string | null; evidence_fingerprint: string | null }>;
   findings: Array<{ id: string; detail: string; field: string | null }>;
 }
+export interface MonthlyOrganizationActivity {
+  year: number;
+  available_years: number[];
+  months: { month: number; organization_id: string | null; organization_name: string | null; submissions: number; tied_organizations: number }[];
+}
+
 export const apiClient = {
+  monthlyOrganizationActivity: (year: number) => request<MonthlyOrganizationActivity>(`/administration/activity/monthly?year=${year}`),
+  setOrganizationStatus: (id: string, is_active: boolean) => request<{ is_active: boolean }>(`/administration/organizations/${id}/status`, { method: "PATCH", body: JSON.stringify({ is_active }) }),
+  platformEvents: (params: URLSearchParams) => request<{ total: number; items: { id: string; actor: string; action: string; target: string; organization: string; occurred_at: string }[] }>(`/administration/events?${params}`),
   projectActions: (project: string, params = new URLSearchParams()) => request<ActionPage>(`/projects/${project}/actions?${params}`),
   actionDetail: (project: string, action: string, offset = 0) => request<ActionDetail>(`/projects/${project}/actions/${action}?history_offset=${offset}`),
   createAction: (project: string, body: ActionInput) => request<ProjectAction>(`/projects/${project}/actions`, { method: "POST", body: JSON.stringify(body) }),
@@ -1101,13 +1112,19 @@ export const apiClient = {
   dashboards: () => request<WorkspaceDashboard[]>("/dashboards"),
   dashboard: (id: string) => request<WorkspaceDashboard>(`/dashboards/${id}`),
   dashboardWidgetResult: (id: string, widget: string, from = "", through = "") => {
-    const params = new URLSearchParams({ use_saved_filters: "false" });
+    const params = new URLSearchParams({ use_saved_filters: "false", use_visualization_dates: "false" });
     if (from) params.set("date_from", from);
     if (through) params.set("date_to", through);
     return request<
       { kind: "indicator"; indicator: Indicator } |
       { kind: "analysis"; analysis: AnalysisResult; chart: SavedAnalysis["chart"] }
     >(`/dashboards/${id}/widgets/${widget}/results?${params}`);
+  },
+  dashboardPdf: (id: string, from = "", through = "") => {
+    const params = new URLSearchParams({use_saved_filters: "false", use_visualization_dates: "false"});
+    if (from) params.set("date_from", from);
+    if (through) params.set("date_to", through);
+    return request<ArrayBuffer>(`/dashboards/${id}/export.pdf?${params}`);
   },
   createDashboard: (input: WorkspaceDashboardInput) =>
     request<WorkspaceDashboard>("/dashboards", {
@@ -1194,6 +1211,7 @@ export const apiClient = {
   me: () => request<CurrentUser>("/auth/me"),
   users: () => request<ApiUserDirectoryItem[]>("/users"),
   organizations: () => request<ApiOrganization[]>("/organizations"),
+  adminSectors: () => request<Sector[]>("/administration/sectors"),
   sectors: () => request<Sector[]>("/sectors"),
   organizationSectors: (organizationId: string) =>
     request<OrganizationSector[]>(`/organizations/${organizationId}/sectors`),

@@ -45,7 +45,7 @@ export function Notice({
   return (
     <div
       role={error ? "alert" : "status"}
-      className={`rounded-md border p-3 text-sm ${error ? "border-red-200 bg-red-50 text-red-700" : "border-[#d4e8e6] bg-[#f1f9f7] text-[#396d69]"}`}
+      className={`rounded-md border p-3 text-sm ${error ? "border-red-200 bg-red-50 text-red-700" : "border-[var(--fs-primary-border)] bg-[var(--fs-primary-soft)] text-[var(--fs-info-text)]"}`}
     >
       {children}
     </div>

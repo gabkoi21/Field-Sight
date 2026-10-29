@@ -173,7 +173,7 @@ const chapters = [
     id: "help",
     title: "Where to get in-app help",
     summary: "Keep the full guide close to the work.",
-    body: "Use Help in the top bar or Quick-start guide in the sidebar to return here. Each chapter links directly to the relevant FieldSight screen.",
+    body: "Use Help in the top bar to return here. Each chapter links directly to the relevant FieldSight screen.",
     steps: [
       "Search this guide for a workflow or issue.",
       "Share the exact error message and project name with your administrator when asking for support.",
@@ -202,7 +202,7 @@ export function QuickStartPage() {
           <div className="relative mb-3">
             <Search
               size={15}
-              className="absolute left-3 top-3 text-[#9aaab1]"
+              className="absolute left-3 top-3 text-[var(--fs-muted)]"
             />
             <input
               aria-label="Search guide"
@@ -223,7 +223,7 @@ export function QuickStartPage() {
                 <button
                   key={c.id}
                   onClick={() => setParams({ chapter: c.id })}
-                  className={`rounded-md border-0 px-3 py-2.5 text-left text-xs leading-5 ${chapter.id === c.id ? "bg-[#eaf5f5] font-semibold text-[#107b8c]" : "bg-transparent text-[#6b7d86] hover:bg-[#f6f8f9]"}`}
+                  className={`rounded-md border-0 px-3 py-2.5 text-left text-xs leading-5 ${chapter.id === c.id ? "bg-[var(--fs-primary-soft)] font-semibold text-[var(--fs-primary)]" : "bg-transparent text-[var(--fs-muted)] hover:bg-[#f6f8f9]"}`}
                 >
                   {c.title}
                 </button>
@@ -231,28 +231,28 @@ export function QuickStartPage() {
           </nav>
         </Panel>
         <Panel className="p-7 max-sm:p-5">
-          <div className="flex items-center gap-2 text-[12px] uppercase tracking-widest text-[#168596]">
+          <div className="flex items-center gap-2 text-[12px] uppercase tracking-widest text-[var(--fs-primary)]">
             <BookOpen size={15} />
             Getting started · {index + 1} of {chapters.length}
           </div>
           <h2 className="mb-3 mt-6 text-2xl font-semibold">{chapter.title}</h2>
-          <p className="text-base text-[#73868d]">{chapter.summary}</p>
-          <p className="mt-6 text-sm leading-7 text-[#576f7b]">
+          <p className="text-base text-[var(--fs-muted)]">{chapter.summary}</p>
+          <p className="mt-6 text-sm leading-7 text-[var(--fs-muted)]">
             {chapter.body}
           </p>
           <ol className="my-7 grid list-none gap-4 p-0">
             {chapter.steps.map((step, i) => (
               <li key={step} className="flex gap-3">
-                <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[#edf5f6] text-xs font-semibold text-[#168596]">
+                <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[var(--fs-primary-soft)] text-xs font-semibold text-[var(--fs-primary)]">
                   {i + 1}
                 </span>
-                <p className="m-0 text-sm leading-6 text-[#576f7b]">{step}</p>
+                <p className="m-0 text-sm leading-6 text-[var(--fs-muted)]">{step}</p>
               </li>
             ))}
           </ol>
           <Link
             to={chapter.to}
-            className="inline-flex items-center gap-2 rounded-md bg-[#147f90] px-4 py-2.5 text-xs font-semibold text-white no-underline"
+            className="inline-flex items-center gap-2 rounded-md bg-[var(--fs-primary)] px-4 py-2.5 text-xs font-semibold text-white no-underline"
           >
             {chapter.action}
             <ArrowRight size={14} />
@@ -267,7 +267,7 @@ export function QuickStartPage() {
             {index > 0 ? (
               <button
                 onClick={() => setParams({ chapter: chapters[index - 1].id })}
-                className="flex items-center gap-2 border-0 bg-transparent text-xs text-[#73868d]"
+                className="flex items-center gap-2 border-0 bg-transparent text-xs text-[var(--fs-muted)]"
               >
                 <ArrowLeft size={13} />
                 Previous
@@ -278,7 +278,7 @@ export function QuickStartPage() {
             {index < chapters.length - 1 && (
               <button
                 onClick={() => setParams({ chapter: chapters[index + 1].id })}
-                className="flex items-center gap-2 border-0 bg-transparent text-xs text-[#168596]"
+                className="flex items-center gap-2 border-0 bg-transparent text-xs text-[var(--fs-primary)]"
               >
                 Next: {chapters[index + 1].title}
                 <ArrowRight size={13} />
@@ -286,7 +286,7 @@ export function QuickStartPage() {
             )}
           </div>
           <a
-            className="mt-8 inline-flex items-center gap-1 text-[12px] text-[#8d9ca3]"
+            className="mt-8 inline-flex items-center gap-1 text-[12px] text-[var(--fs-muted)]"
             href="https://www.toladata.com/docs/quick-start-guide/welcome-to-toladata/"
             target="_blank"
             rel="noreferrer"
