@@ -61,6 +61,7 @@ export function LoginPage() {
       <form
         className="m-auto w-[min(420px,calc(100%_-_48px))]"
         onSubmit={handleSubmit}
+        autoComplete="off"
       >
         <NavLink
           to="/"
@@ -92,9 +93,7 @@ export function LoginPage() {
             type="text"
             value={username}
             onChange={(event) => setUsername(event.target.value)}
-            placeholder="superadmin or name@example.org"
-            autoComplete="username"
-            autoFocus
+            autoComplete="off"
           />
         </label>
 
@@ -105,8 +104,7 @@ export function LoginPage() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="••••••••"
-            autoComplete="current-password"
+            autoComplete="off"
           />
         </label>
 
