@@ -142,6 +142,7 @@ def test_csv_import_catalogue_rows_duplicate_and_quality(sync_client):
     assert tables[0]["title"] == "Training attendance" and tables[0]["records"] == 2
     rows = client.get(f"/projects/{project}/tables/{form}", headers=headers).json()
     assert rows["total"] == 2
+    assert all(row["submitted_by"] is None for row in rows["rows"])
     assert next(f for f in rows["fields"] if f["source_field"] == "participants")["type"] == "number"
     item = indicator(client, project, headers)
     mapping = {"source_form_id": form, "source_field": "participants", "calculation": "sum"}
@@ -161,6 +162,26 @@ def test_csv_import_catalogue_rows_duplicate_and_quality(sync_client):
     assert result["current_value"] == 20 and result["result_source"] == "table"
     with Session(engine) as db:
         assert len(db.exec(select(Submission).where(Submission.project_id == UUID(project))).all()) == 2
+
+
+def test_table_rows_show_stored_kobo_submitter_without_guessing_from_answers(sync_client):
+    client, engine, project, headers, _ = context(sync_client)
+    imported = client.post(
+        f"/projects/{project}/tables/import", headers=headers,
+        json={"title": "Submitters", "csv_text": "name,_submitted_by\nOne,untrusted\nTwo,untrusted\n"},
+    )
+    assert imported.status_code == 201
+    form = imported.json()["form_id"]
+    with Session(engine) as db:
+        record = db.exec(select(Submission).where(Submission.project_id == UUID(project))).first()
+        record.enumerator = "gabakoi_"
+        db.add(record)
+        db.commit()
+    response = client.get(f"/projects/{project}/tables/{form}", headers=headers)
+    assert response.status_code == 200
+    submitters = [row["submitted_by"] for row in response.json()["rows"]]
+    assert "gabakoi_" in submitters and None in submitters
+    assert "untrusted" not in submitters
 
 
 @pytest.mark.parametrize(

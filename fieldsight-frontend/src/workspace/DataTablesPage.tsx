@@ -184,8 +184,12 @@ export function DataTablesPage() {
                     <table aria-busy={rows.isFetching} className="fs-data-table w-full border-collapse whitespace-nowrap text-left text-xs">
                       <thead className="sticky top-0 bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                         <tr>
+                          <th scope="col" className="px-4 py-3 font-medium" aria-label="Row number">Num #</th>
                           <th className="px-4 py-3 font-medium">
                             Review status
+                          </th>
+                          <th scope="col" className="px-4 py-3 font-medium" title="Kobo username recorded in submission metadata">
+                            Submitted by
                           </th>
                           {rows.data.fields.map((f) => (
                             <th
@@ -198,11 +202,12 @@ export function DataTablesPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.data.rows.map((row) => (
+                        {rows.data.rows.map((row, index) => (
                           <tr
                             key={row.id}
                             className="border-t border-[#edf0f2] hover:bg-[#fafcfc]"
                           >
+                            <td className="px-4 py-3 tabular-nums text-[var(--fs-muted)]">{offset + index + 1}</td>
                             <td className="px-4 py-3">
                               <span
                                 className={`rounded px-2 py-1 text-[12px] ${row.review_status === "ready" ? "bg-[var(--fs-primary-soft)] text-[var(--fs-primary)]" : "bg-[#fff7e8] text-[#a6803f]"}`}
@@ -210,6 +215,7 @@ export function DataTablesPage() {
                                 {row.review_status.replaceAll("_", " ")}
                               </span>
                             </td>
+                            <td className="px-4 py-3">{row.submitted_by?.trim() || "Unknown"}</td>
                             {rows.data!.fields.map((f) => (
                               <td
                                 key={f.source_field}

@@ -397,10 +397,17 @@ class FieldAssignment(SQLModel, table=True):
     __tablename__ = "field_assignments"
     __table_args__ = (
         UniqueConstraint("organization_id", "membership_id", "project_id", "location_id", name="uq_assignment_scope"),
+        UniqueConstraint("project_id", "collector_id", name="uq_assignment_project_collector"),
     )
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(sa_column=Column(ForeignKey("organizations.id"), index=True, nullable=False))
-    membership_id: UUID = Field(sa_column=Column(ForeignKey("organization_memberships.id"), index=True, nullable=False))
+    membership_id: UUID | None = Field(
+        default=None, sa_column=Column(ForeignKey("organization_memberships.id"), index=True, nullable=True)
+    )
+    collector_id: UUID | None = Field(
+        default=None,
+        sa_column=Column(ForeignKey("collector_profiles.id", name="fk_assignment_collector"), nullable=True),
+    )
     project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
     location_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("locations.id")))
     daily_target: int = 0
@@ -408,6 +415,38 @@ class FieldAssignment(SQLModel, table=True):
     effective_to: date | None = None
     is_enabled: bool = True
     created_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class CollectorProfile(SQLModel, table=True):
+    """Organization contact, deliberately independent of FieldSight authentication."""
+    __tablename__ = "collector_profiles"
+    __table_args__ = (UniqueConstraint("organization_id", "email", name="uq_collector_org_email"),)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    organization_id: UUID = Field(foreign_key="organizations.id", index=True)
+    membership_id: UUID | None = Field(default=None, foreign_key="organization_memberships.id", unique=True)
+    full_name: str
+    email: str
+    kobo_username: str | None = None
+
+
+class CollectorFormAccess(SQLModel, table=True):
+    __tablename__ = "collector_form_access"
+    __table_args__ = (UniqueConstraint("assignment_id", "connection_id", "form_id", name="uq_collector_form"),)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    assignment_id: UUID = Field(
+        sa_column=Column(ForeignKey("field_assignments.id", ondelete="CASCADE"), nullable=False, index=True)
+    )
+    connection_id: UUID = Field(foreign_key="kobo_connections.id")
+    form_id: str
+    is_selected: bool = True
+    state: str = "not_configured"
+    permission_username: str | None = None
+    last_error: str | None = None
+    last_checked_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    operation_id: str | None = None
+    requested_action: str | None = None
+    updated_by_id: UUID = Field(foreign_key="users.id")
+    updated_at: datetime = Field(default_factory=utc_now, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
 class IndicatorDefinitionVersion(SQLModel, table=True):

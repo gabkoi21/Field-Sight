@@ -125,6 +125,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
     const namesByMembershipId = new Map<string, string[]>();
 
     (assignmentsQuery.data ?? []).forEach((assignment) => {
+      if (!assignment.membership_id) return;
       if (!assignment.is_enabled) return;
       if (projectId && assignment.project_id !== projectId) return;
       const projectName = projectsById.get(assignment.project_id);

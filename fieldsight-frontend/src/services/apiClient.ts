@@ -1,5 +1,25 @@
 export type Role = "super_admin" | "organization_admin" | "enumerator";
 
+export type KoboAccessState = ManualKoboState | "verified_granted" | "failed" | "revoked";
+export type ManualKoboState = "not_configured" | "pending" | "reported_configured_unverified";
+export interface CollectorIdentity {
+  collector_id: string | null; membership_id: string | null; full_name: string | null;
+  email: string; kobo_username: string | null;
+}
+export interface CollectorFormInput { connection_id: string; form_id: string; state: ManualKoboState }
+export interface CollectorAssignmentInput {
+  collector_id?: string; membership_id?: string; full_name?: string; email?: string;
+  kobo_username: string; forms: CollectorFormInput[];
+}
+export interface ProjectCollector extends CollectorIdentity {
+  id: string; is_active: boolean; assigned_at: string;
+  forms: (Omit<CollectorFormInput, "state"> & { state: KoboAccessState; id: string; is_selected: boolean; mapping_current: boolean; updated_at: string; requested_action?: "grant" | "verify" | "revoke" | null; permission_username?: string | null; last_error?: string | null; last_checked_at?: string | null })[];
+}
+export interface ProjectEnumerators {
+  items: ProjectCollector[];
+  connected_forms: { connection_id: string; form_id: string; name: string; server_url: string }[];
+}
+
 export interface SurveyField {
   source_field: string;
   label: string;
@@ -109,6 +129,7 @@ export interface WorkspaceTableRows {
     id: string;
     review_status: string;
     submitted_at: string | null;
+    submitted_by: string | null;
     answers: Record<string, unknown>;
   }>;
 }
@@ -274,7 +295,8 @@ export interface ApiEnumerator {
 
 export interface ApiFieldAssignment {
   id: string;
-  membership_id: string;
+  membership_id: string | null;
+  collector_id?: string | null;
   project_id: string;
   is_enabled: boolean;
 }
@@ -1072,6 +1094,12 @@ export const apiClient = {
     request<(WorkspaceMember & { assignment_id: string })[]>(
       `/projects/${project}/team`,
     ),
+  manageEnumeratorKoboAccess: (project: string, assignment: string, form: string, action: "grant" | "verify" | "revoke") => request<ProjectCollector>(`/projects/${project}/enumerators/${assignment}/forms/${form}/access`, { method: "POST", body: JSON.stringify({ action }) }),
+  projectEnumerators: (project: string) => request<ProjectEnumerators>(`/projects/${project}/enumerators`),
+  eligibleEnumerators: (project: string) => request<CollectorIdentity[]>(`/projects/${project}/enumerators/eligible`),
+  assignEnumerator: (project: string, input: CollectorAssignmentInput) => request<ProjectCollector>(`/projects/${project}/enumerators`, { method: "POST", body: JSON.stringify(input) }),
+  updateEnumeratorAssignment: (project: string, id: string, input: CollectorAssignmentInput) => request<ProjectCollector>(`/projects/${project}/enumerators/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  removeEnumeratorAssignment: (project: string, id: string) => request<void>(`/projects/${project}/enumerators/${id}`, { method: "DELETE" }),
   addProjectMember: (project: string, membership_id: string) =>
     request(`/projects/${project}/team`, {
       method: "POST",

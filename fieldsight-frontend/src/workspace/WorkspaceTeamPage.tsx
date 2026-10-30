@@ -7,8 +7,15 @@ import { Button, LoadingState } from "../components/ui";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
 import { Field, Notice, Page, Panel, WorkspaceTabs, fieldClass } from "./WorkspaceUI";
+import { ProjectEnumerators } from "./ProjectEnumerators";
 
 export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: { workspaceOnly?: boolean; adminOnly?: boolean }) {
+  const { projectId, project } = useWorkspace();
+  if (workspaceOnly && !adminOnly) return <Page title="Project Enumerators" description="Assign collectors and record manual Kobo sharing." breadcrumb={project?.name ?? "Select a project"}><WorkspaceTabs /><ProjectEnumerators key={projectId} projectId={projectId} /></Page>;
+  return <OrganizationTeamPage workspaceOnly={workspaceOnly} adminOnly={adminOnly} />;
+}
+
+function OrganizationTeamPage({ workspaceOnly = false, adminOnly = false }: { workspaceOnly?: boolean; adminOnly?: boolean }) {
   const { organizationId, projectId, project } = useWorkspace();
   const [params, setParams] = useSearchParams();
   const scope = !adminOnly && params.get("scope") === "workspace";

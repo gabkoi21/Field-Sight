@@ -14,11 +14,13 @@ from app.routes.kobo import router as kobo_router
 from app.routes.onboarding import router as onboarding_router
 from app.routes.organizations import enumerator_router
 from app.routes.organizations import router as organizations_router
+from app.routes.project_enumerators import router as project_enumerators_router
 from app.routes.reports import router as reports_router
 from app.routes.sectors import router as sectors_router
 from app.routes.workspace import router as workspace_router
 
 api_router = APIRouter()
+api_router.include_router(project_enumerators_router)
 api_router.include_router(actions_router)
 api_router.include_router(health_router, tags=["system"])
 api_router.include_router(auth_router)

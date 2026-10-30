@@ -367,6 +367,7 @@ def table_rows(
                 id=r.id,
                 review_status=r.review_status,
                 submitted_at=r.submitted_at,
+                submitted_by=r.enumerator,
                 answers=flatten_answers(r.raw_answers),
             )
             for r in records

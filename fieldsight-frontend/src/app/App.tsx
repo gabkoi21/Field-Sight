@@ -100,7 +100,7 @@ export function App() {
         <Route path="projects/:projectId/analytics" element={<SurveyQuestionExplorer />} />
         <Route path="analytics" element={<ProjectAnalyticsRedirect />} />
         <Route path="reports" element={<ReportsPage />} />
-        <Route path="projects/:projectId/team" element={<FieldOperationsPage projectEmbedded />} />
+        <Route path="projects/:projectId/team" element={<WorkspaceTeamPage workspaceOnly />} />
         <Route path="team" element={<FieldOperationsPage />} />
         <Route path="settings" element={<OrganizationSettingsPage />} />
         <Route path="settings/admins" element={<WorkspaceTeamPage adminOnly />} />
