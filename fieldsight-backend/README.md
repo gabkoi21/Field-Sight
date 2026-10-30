@@ -1,6 +1,7 @@
 # FieldSight backend
 
-FastAPI backend for FieldSight. The current foundation uses SQLite and SQLModel. Phase 2 introduces identity, tenant models, roles, sectors, and the first application tables.
+FastAPI backend for FieldSight using SQLModel and Neon PostgreSQL. Local development and the online
+backend use the FieldSight project's `production` branch via `FIELDSIGHT_DATABASE_URL`.
 
 ## Local setup
 
@@ -9,6 +10,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
+# Configure FIELDSIGHT_DATABASE_URL in the private .env before starting the app.
 $env:FIELDSIGHT_ENVIRONMENT = "development"
 $env:FIELDSIGHT_CORS_ORIGINS = "http://localhost:5173"
 alembic upgrade head
@@ -47,7 +49,34 @@ To initialize a new Neon database and create the first administrator, add
 python scripts/setup_neon.py --email "admin@example.org" --username "superadmin" --full-name "Admin Name"
 ```
 
-SQLite is the active database. New data models must use Alembic migrations; do not call `SQLModel.metadata.create_all()` during normal application startup.
+Neon PostgreSQL is the active database. SQLite is retained only as a migration backup and for isolated
+tests. New data models must use Alembic migrations; do not call `SQLModel.metadata.create_all()` during
+normal application startup. Use a direct Neon URL for schema migrations and the pooled URL at runtime.
+
+### Transfer existing SQLite records to Neon
+
+`setup_neon.py` initializes a database; it does not copy SQLite records. For an existing database,
+put the Neon URL in the ignored `.env.neon-migration` file as `NEON_MIGRATION_DATABASE_URL`.
+Keep the existing JWT and Kobo encryption secrets. Pause the local API and sync worker before
+the final transfer, and create a Neon snapshot of the destination first.
+
+```powershell
+# Rehearse: schema upgrades and data changes are verified, then rolled back together.
+python scripts/migrate_sqlite_to_neon.py --account-policy sqlite
+# Commit the verified merge, choosing SQLite profile/password details for matching emails.
+python scripts/migrate_sqlite_to_neon.py --account-policy sqlite --apply
+```
+
+Use `--account-policy neon` instead to retain the destination account details. Matching user emails
+and sector codes reuse the Neon IDs, with incoming foreign keys remapped. Other conflicting records
+stop the transfer. Existing destination records are retained. The tool checks every source table,
+all copied fields, row counts, existing records, and whether SQLite changed during the operation.
+It saves SQLite backups, pre-upgrade Neon public records, and a verification report under ignored
+`backups/neon-transfer-*` directories. Treat these backups as sensitive.
+
+After successful verification and commit, set `FIELDSIGHT_DATABASE_URL` in the private `.env` and
+backend host secrets to the Neon pooled URL, then restart the API and worker. Keep the SQLite backup.
+An older Neon Kobo connection encrypted with a different key needs its original key or reconnection.
 
 ## Deployment configuration
 
@@ -68,9 +97,10 @@ Set `FIELDSIGHT_CORS_ORIGINS` to comma-separated exact HTTPS frontend origins, w
 Its empty default in the private deployment file allows no cross-origin browser access. Configure
 `FIELDSIGHT_UPLOAD_BASE_URL` with your real HTTPS upload service before using upload URLs.
 
-For the included single-host SQLite deployment, place an HTTPS reverse proxy in front of the loopback-only
-API port. Back up the SQLite volume. Compose reads `.env` at runtime and runs as a non-root user.
-An existing volume must allow UID 10001 to write before starting the updated container.
+For the included single-host Compose deployment, place an HTTPS reverse proxy in front of the loopback-only
+API port. Compose reads the Neon URL from `.env` and runs as a non-root user. The historically named
+`fieldsight_sqlite` volume is retained for shared worker telemetry; the database itself is in Neon.
+An existing telemetry volume must allow UID 10001 to write before starting the updated container.
 
 ```sh
 docker compose build
@@ -78,7 +108,7 @@ docker compose run --rm api alembic upgrade head
 docker compose up -d
 ```
 
-Run migrations after backing up existing data. The Docker volume is separate from the local `Database/fieldsight.db`;
-these commands do not migrate local records into that volume. TLS, DNS, hosting-provider secret storage and
+Run migrations with a direct Neon URL after backing up existing data. Database records are stored in Neon;
+these commands do not transfer SQLite records. TLS, DNS, hosting-provider secret storage and
 the public frontend origin must be configured on the actual deployment host.
 

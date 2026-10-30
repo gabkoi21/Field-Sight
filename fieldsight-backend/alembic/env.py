@@ -33,17 +33,26 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def migrate_connection(connection: object) -> None:
+    """Allow maintenance tools to own the surrounding transaction."""
+    context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
-    """Run migrations against the configured SQLite database."""
+    """Run migrations against the configured database."""
+    supplied_connection = config.attributes.get("connection")
+    if supplied_connection is not None:
+        migrate_connection(supplied_connection)
+        return
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
-        with context.begin_transaction():
-            context.run_migrations()
+        migrate_connection(connection)
 
 
 if context.is_offline_mode():

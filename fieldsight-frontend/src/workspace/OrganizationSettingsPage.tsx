@@ -15,7 +15,6 @@ export function OrganizationSettingsPage() {
     queryFn: () => apiClient.organizationSettings(organizationId),
     enabled: Boolean(organizationId),
   });
-  const events = useQuery({ queryKey: ["admin-events", organizationId], queryFn: () => apiClient.adminEvents(organizationId), enabled: Boolean(organizationId) });
   const [country, setCountry] = useState("");
   const [timezone, setTimezone] = useState("UTC");
   const [language, setLanguage] = useState("en");
@@ -51,11 +50,6 @@ export function OrganizationSettingsPage() {
         </Notice>
       ))}
       {saved && <Notice>Organization defaults saved.</Notice>}
-      <Panel className="p-5">
-        <h2 className="text-sm font-semibold">Recent administrative events</h2>
-        <p className="text-xs">Recorded project lifecycle, submission review, and provider-deletion events. Earlier events are not backfilled.</p>
-        {events.isPending ? <p role="status">Loading history…</p> : events.error ? <Notice error>{events.error.message}</Notice> : events.data?.length ? <ul className="text-xs">{events.data.map(event => <li key={event.id}>{new Date(event.occurred_at).toLocaleString()} · {event.action} · Resource {event.resource_id} · Administrator {event.actor_id}</li>)}</ul> : <p className="text-xs">No administrative events recorded.</p>}
-      </Panel>
       {query.isFetching && query.data && <LoadingState variant="inline" label="Updating settings…" />}
       {query.error && <Button variant="secondary" onClick={() => void query.refetch()}>Retry settings</Button>}
       {query.isLoading ? (

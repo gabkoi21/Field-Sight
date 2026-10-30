@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(min_length=32, default="development-only-change-this-secret-before-phase-2", repr=False)
     access_token_minutes: int = 15
     refresh_token_days: int = 14
+    refresh_cookie_path: str = Field(default="/auth", pattern=r"^/[^\s;]*$")
     invitation_days: int = 7
     upload_base_url: str = "http://localhost:8000/local-uploads"
     kobo_token_encryption_key: str | None = Field(default=None, repr=False)

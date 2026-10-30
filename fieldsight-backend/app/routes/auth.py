@@ -74,7 +74,7 @@ def _set_tokens(response: Response, raw: str, record: RefreshSession, settings: 
         secure=not settings.is_development,
         samesite="lax",
         max_age=remaining if record.remembered else None,
-        path="/auth",
+        path=settings.refresh_cookie_path,
     )
     return TokenResponse(
         access_token=create_access_token(record.user_id, record.family_id or record.id, settings),
@@ -270,7 +270,7 @@ def logout(
             record.revoked_at = datetime.now(UTC)
             db.add(record)
             db.commit()
-    response.delete_cookie("refresh_token", path="/auth")
+    response.delete_cookie("refresh_token", path=settings.refresh_cookie_path)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
 

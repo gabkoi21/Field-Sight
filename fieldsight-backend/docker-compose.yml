@@ -7,7 +7,7 @@ services:
       - .env
     environment:
       FIELDSIGHT_ENVIRONMENT: production
-      FIELDSIGHT_DATABASE_URL: sqlite:////data/fieldsight.db
+      FIELDSIGHT_DATABASE_URL: ${FIELDSIGHT_DATABASE_URL:?Set FIELDSIGHT_DATABASE_URL to the Neon connection URL}
       FIELDSIGHT_SYNC_TELEMETRY_DIRECTORY: /data/sync-workers
     restart: unless-stopped
     security_opt:
@@ -24,7 +24,7 @@ services:
       - .env
     environment:
       FIELDSIGHT_ENVIRONMENT: production
-      FIELDSIGHT_DATABASE_URL: sqlite:////data/fieldsight.db
+      FIELDSIGHT_DATABASE_URL: ${FIELDSIGHT_DATABASE_URL:?Set FIELDSIGHT_DATABASE_URL to the Neon connection URL}
       FIELDSIGHT_SYNC_TELEMETRY_DIRECTORY: /data/sync-workers
     restart: unless-stopped
     security_opt:

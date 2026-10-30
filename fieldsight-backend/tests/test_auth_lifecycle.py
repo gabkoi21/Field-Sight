@@ -106,6 +106,27 @@ def test_cookie_attributes_and_restore(auth, remember):
     assert client.get("/auth/me", headers=bearer(renewed)).status_code == 200
 
 
+def test_refresh_cookie_works_through_api_prefix_proxy(auth):
+    from fastapi import FastAPI
+
+    client, engine, uid, app, settings = auth
+    settings.refresh_cookie_path = "/api/auth"
+    proxy = FastAPI()
+    proxy.mount("/api", app)
+    with TestClient(proxy, base_url="https://frontend.example") as browser:
+        login = browser.post(
+            "/api/auth/login", json={"login": "admin@example.com", "password": "SyntheticPassword123!"}
+        )
+        assert login.status_code == 200
+        assert "Path=/api/auth" in login.headers["set-cookie"]
+        assert browser.post("/api/auth/refresh").status_code == 200
+        logout = browser.post("/api/auth/logout")
+        assert logout.status_code == 204
+        assert "Path=/api/auth" in logout.headers["set-cookie"]
+        assert not browser.cookies.get("refresh_token")
+        assert browser.post("/api/auth/refresh").status_code == 401
+
+
 def test_competing_refresh_is_atomic_and_old_cookie_cannot_replay(auth):
     client, engine, uid, app, settings = auth
     first = sign_in(client)
