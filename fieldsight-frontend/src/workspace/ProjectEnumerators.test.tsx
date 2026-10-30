@@ -13,6 +13,24 @@ const item: ProjectCollector = { id: "assignment", collector_id: "collector", me
 function setup() {
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><ProjectEnumerators projectId="project" /></QueryClientProvider>);
 }
+it("uses numbered pagination with the visible result range", async () => {
+  const items = Array.from({ length: 17 }, (_, index) => ({ ...item, id: `assignment-${index}`, full_name: `Enumerator ${index + 1}`, forms: [] }));
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items, connected_forms: [form] });
+  setup();
+  expect(await screen.findByText("Showing 1 to 10 of 17 results")).toBeTruthy();
+  expect((screen.getByRole("button", { name: "Previous" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+  expect(screen.getByText("Showing 11 to 17 of 17 results")).toBeTruthy();
+  expect(screen.getByText("Enumerator 17")).toBeTruthy();
+  expect(screen.queryByText("Enumerator 1")).toBeNull();
+  expect(screen.getByRole("button", { name: "Page 2" }).getAttribute("aria-current")).toBe("page");
+  expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Sort by Enumerator" }));
+  fireEvent.click(screen.getByRole("button", { name: "Sort by Enumerator" }));
+  expect(screen.getByText("Showing 1 to 10 of 17 results")).toBeTruthy();
+  expect(screen.getAllByRole("row")[1].textContent).toContain("Enumerator 17");
+  expect(screen.getByRole("button", { name: "Sort by Enumerator" }).closest("th")?.getAttribute("aria-sort")).toBe("descending");
+});
 it("shows loading and empty states", async () => {
   vi.mocked(apiClient.projectEnumerators).mockReturnValue(new Promise(() => {})); setup();
   expect(screen.getByText("Loading project enumerators…")).toBeTruthy(); cleanup();

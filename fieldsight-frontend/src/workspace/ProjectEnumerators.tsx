@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Check, KeyRound, RefreshCw, ShieldMinus, Pencil, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Check, KeyRound, RefreshCw, ShieldMinus, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, type CollectorAssignmentInput, type KoboAccessState, type ManualKoboState, type ProjectCollector } from "../services/apiClient";
 import { Button, LoadingState } from "../components/ui";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { Field, Notice, Panel, fieldClass } from "./WorkspaceUI";
 
-const compactButton = "!min-h-8 !gap-1.5 !rounded-md !px-2.5 !py-1 !text-xs !font-medium !shadow-none";
+const compactButton = "!min-h-8 !shrink-0 !whitespace-nowrap !gap-1.5 !rounded-md !px-2.5 !py-1 !text-xs !font-medium !shadow-none";
 const blueButton = `${compactButton} !border-blue-200 !bg-blue-50 !text-blue-700 hover:!border-blue-300 hover:!bg-blue-100`;
 const dangerButton = `${compactButton} !border-rose-200 !bg-white !text-rose-700 hover:!border-rose-300 hover:!bg-rose-50 focus-visible:!outline-rose-600`;
 const grantedButton = `${compactButton} !border-emerald-200 !bg-emerald-50 !text-emerald-800 disabled:!opacity-100`;
@@ -19,8 +19,8 @@ const labels: Record<KoboAccessState, string> = {
 
 export function ProjectEnumerators({ projectId }: { projectId: string }) {
   const cache = useQueryClient();
-  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<{ column: number; direction: "ascending" | "descending" } | null>(null);
   const [editing, setEditing] = useState<ProjectCollector | "new" | null>(null);
   const [removing, setRemoving] = useState<ProjectCollector | null>(null);
   const [mode, setMode] = useState("existing");
@@ -62,46 +62,75 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
     const form = item === "new" ? undefined : item.forms.find(f => f.is_selected && f.mapping_current);
     setSelected(!!form); setState(form && ["not_configured", "pending", "reported_configured_unverified"].includes(form.state) ? form.state as ManualKoboState : "not_configured");
   }
-  const filtered = (list.data?.items ?? []).filter(p => `${p.full_name} ${p.email} ${p.kobo_username ?? ""}`.toLowerCase().includes(search.toLowerCase()));
-  const current = Math.min(page, Math.max(1, Math.ceil(filtered.length / 10)));
+  function sortValue(item: ProjectCollector, column: number) {
+    return [
+      item.full_name || item.email,
+      item.kobo_username || "",
+      item.forms.filter(form => form.is_selected).map(form => list.data?.connected_forms.find(connected => connected.connection_id === form.connection_id && connected.form_id === form.form_id)?.name || form.form_id).join(", "),
+      item.is_active ? "Active" : "Inactive",
+      item.forms.map(form => labels[form.state]).join(", "),
+      item.assigned_at,
+    ][column];
+  }
+  const members = [...(list.data?.items ?? [])];
+  if (sort) members.sort((a, b) => sortValue(a, sort.column).localeCompare(sortValue(b, sort.column), undefined, { numeric: true, sensitivity: "base" }) * (sort.direction === "ascending" ? 1 : -1));
+  const pageCount = Math.max(1, Math.ceil(members.length / 10));
+  const current = Math.min(page, pageCount);
+  const pageNumbers = Array.from({ length: pageCount }, (_, index) => index + 1)
+    .filter(number => number === 1 || number === pageCount || Math.abs(number - current) <= 1);
+  const paginationButton = "!min-h-8 !rounded !px-3 !py-1 !text-xs !font-normal !shadow-none";
   return <div className="space-y-4">
     {access.error && <Notice error>{access.error.message}</Notice>}
-    <Panel className="p-4 space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <Field label="Search project enumerators"><input className={fieldClass} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} /></Field>
-        <Button disabled={!list.data || !!list.error} onClick={() => open("new")}>Add Enumerator</Button>
+      <div className="flex justify-end">
+        <Button className="!min-h-9 !gap-1.5 !px-3 !py-1.5 !text-xs" disabled={!list.data || !!list.error} onClick={() => open("new")}><UserPlus size={14} aria-hidden="true" />Add Enumerator</Button>
       </div>
+    <Panel className="overflow-hidden !rounded-lg">
       {list.isLoading && <LoadingState label="Loading project enumerators…" />}
       {list.error && <Notice error>{list.error.message} <Button onClick={() => void list.refetch()}>Retry</Button></Notice>}
       {list.data && !list.error && <>
-        {!filtered.length ? <p>No enumerators found. Add an existing organization enumerator or register a collection-only contact.</p> : <div className="overflow-x-auto rounded-lg border border-[var(--fs-border)]" role="region" aria-label="Project enumerators table" tabIndex={0}>
-          <table className="fs-data-table w-full min-w-[1050px] border-collapse text-left text-sm">
-            <caption className="sr-only">Project enumerators and their manually recorded Kobo access</caption>
-            <thead className="bg-[var(--fs-primary-soft)] text-xs uppercase tracking-wide text-[var(--fs-muted)]"><tr>
-              {["Enumerator", "Kobo username", "Assigned forms", "Assignment status", "Kobo access", "Date assigned", "Actions"].map(heading => <th key={heading} scope="col" className="px-3 py-2 font-semibold">{heading}</th>)}
+        {!members.length ? <p className="m-0 px-4 py-8 text-sm text-[var(--fs-muted)]">No enumerators found. Add an existing organization enumerator or register a collection-only contact.</p> : <div className="fs-table-scroll !rounded-none !border-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--fs-primary)]" role="region" aria-label="Project enumerators table" tabIndex={0}>
+          <table className="fs-data-table w-full min-w-[1440px] table-fixed text-left text-[13px]">
+            <caption className="sr-only">Project enumerators, assigned forms and Kobo access</caption>
+            <colgroup>{[15, 10, 17, 9, 28, 9, 12].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
+            <thead className="bg-[var(--fs-table-heading)] text-[13px] text-[var(--fs-text)]"><tr>
+              {["Enumerator", "Kobo username", "Assigned forms", "Assignment status", "Kobo access", "Date assigned", "Actions"].map((heading, column) => <th key={heading} scope="col" aria-sort={column < 6 ? sort?.column === column ? sort.direction : "none" : undefined} className="border-r border-[var(--fs-table-border)] px-3 py-2 text-[13px] font-medium last:border-r-0">
+                {column === 6 ? heading : <button type="button" aria-label={`Sort by ${heading}`} className="justify-between border-0 bg-transparent text-left text-[var(--fs-text)] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--fs-primary)]" onClick={() => { setSort(previous => ({ column, direction: previous?.column === column && previous.direction === "ascending" ? "descending" : "ascending" })); setPage(1); }}>
+                  <span>{heading}</span>{sort?.column === column ? sort.direction === "ascending" ? <ArrowUp size={12} aria-hidden="true" className="shrink-0 text-[var(--fs-primary)]" /> : <ArrowDown size={12} aria-hidden="true" className="shrink-0 text-[var(--fs-primary)]" /> : <ChevronsUpDown size={12} aria-hidden="true" className="shrink-0 text-slate-500" />}
+                </button>}
+              </th>)}
             </tr></thead>
-            <tbody>{filtered.slice((current - 1) * 10, current * 10).map(item => <tr key={item.id} className="border-t border-[var(--fs-border)] align-top hover:bg-[var(--fs-primary-soft)]">
-            <th scope="row" className="max-w-[240px] break-words px-3 py-2 font-normal"><strong className="block font-semibold">{item.full_name || item.email}</strong><span className="mt-1 block text-xs text-[var(--fs-muted)]">{item.email}</span></th>
+            <tbody>{members.slice((current - 1) * 10, current * 10).map(item => <tr key={item.id} className="align-middle odd:bg-[var(--fs-table-stripe)] even:bg-[var(--fs-surface)] hover:bg-[var(--fs-canvas)]">
+            <th scope="row" className="max-w-[240px] break-words px-3 py-2 font-normal"><strong className="block font-medium">{item.full_name || item.email}</strong><span className="mt-0.5 block text-xs text-[var(--fs-primary)]">{item.email}</span></th>
             <td className="max-w-[180px] break-words px-3 py-2">{item.kobo_username || "Not provided"}</td>
             <td className="max-w-[220px] break-words px-3 py-2">{item.forms.some(form => form.is_selected) ? item.forms.filter(form => form.is_selected).map(form => <div key={form.id} className="mb-2 last:mb-0" title={form.form_id}>{list.data?.connected_forms.find(connected => connected.connection_id === form.connection_id && connected.form_id === form.form_id)?.name || form.form_id}{!form.mapping_current && <span className="block text-xs text-[var(--fs-muted)]">Previous mapping</span>}</div>) : "No forms selected"}</td>
-            <td className="px-3 py-2"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${item.is_active ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{item.is_active ? "Active" : "Inactive"}</span></td>
+            <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-2 py-0.5 text-xs font-medium ${item.is_active ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-700"}`}>{item.is_active ? "Active" : "Inactive"}</span></td>
             <td className="max-w-[320px] px-3 py-2">{!item.forms.length ? "Not configured" : item.forms.map(form => <div key={form.id} className="mb-2 space-y-1 last:mb-0"><span className="block">{labels[form.state]}</span>
               {form.last_checked_at && <span className="block text-xs text-[var(--fs-muted)]">Last checked: {new Date(form.last_checked_at).toLocaleString()}</span>}
               {form.last_error && <p role="alert" className="m-0 text-xs text-red-700">{form.requested_action && `${form.requested_action}: `}{form.last_error}</p>}
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-row flex-nowrap items-center gap-1.5">
                 {item.is_active && form.is_selected && form.mapping_current && <Button className={form.state === "verified_granted" ? grantedButton : blueButton} variant="secondary" disabled={form.state === "verified_granted" || access.isPending || !item.kobo_username} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "grant" }); }}>{form.state === "verified_granted" ? <Check size={14} aria-hidden="true" /> : <KeyRound size={14} aria-hidden="true" />}{form.state === "verified_granted" ? "Granted" : form.state === "failed" && form.requested_action === "grant" ? "Retry grant" : "Grant Kobo access"}</Button>}
                 <Button className={blueButton} variant="secondary" disabled={access.isPending} onClick={() => access.mutate({ assignment: item.id, form: form.id, action: "verify" })}><RefreshCw size={14} aria-hidden="true" className={access.isPending && access.variables?.form === form.id && access.variables.action === "verify" ? "animate-spin motion-reduce:animate-none" : ""} />Check access</Button>
                 <Button className={dangerButton} variant="secondary" disabled={access.isPending} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "revoke" }); }}><ShieldMinus size={14} aria-hidden="true" />{form.state === "failed" && form.requested_action === "revoke" ? "Retry revoke" : "Revoke collection"}</Button>
               </div>
             </div>)}</td>
             <td className="whitespace-nowrap px-3 py-2">{new Date(item.assigned_at).toLocaleDateString()}</td>
-            <td className="px-3 py-2"><div className="flex flex-wrap gap-1.5">
-              {item.is_active ? <><Button className={blueButton} variant="secondary" onClick={() => open(item)}><Pencil size={14} aria-hidden="true" />Edit forms & Kobo access</Button><Button className={dangerButton} variant="secondary" onClick={() => { remove.reset(); setRemoving(item); }}><Trash2 size={14} aria-hidden="true" />Remove</Button></> : <Button className={blueButton} variant="secondary" onClick={() => { open("new"); setIdentity(item.collector_id ?? item.membership_id ?? ""); setUsername(item.kobo_username ?? ""); }}><UserPlus size={14} aria-hidden="true" />Reassign</Button>}
+            <td className="px-3 py-2"><div className="flex flex-row flex-nowrap items-center gap-1.5">
+              {item.is_active ? <><Button className={blueButton} variant="secondary" aria-label="Edit forms & Kobo access" onClick={() => open(item)}><Pencil size={14} aria-hidden="true" />Edit</Button><Button className={dangerButton} variant="secondary" onClick={() => { remove.reset(); setRemoving(item); }}><Trash2 size={14} aria-hidden="true" />Remove</Button></> : <Button className={blueButton} variant="secondary" onClick={() => { open("new"); setIdentity(item.collector_id ?? item.membership_id ?? ""); setUsername(item.kobo_username ?? ""); }}><UserPlus size={14} aria-hidden="true" />Reassign</Button>}
             </div></td>
           </tr>)}</tbody>
           </table>
         </div>}
-        <nav aria-label="Enumerator pagination" className="flex flex-wrap items-center gap-3"><Button variant="secondary" disabled={current <= 1} onClick={() => setPage(current - 1)}>Previous</Button><span>{filtered.length} enumerators · Page {current}</span><Button variant="secondary" disabled={current * 10 >= filtered.length} onClick={() => setPage(current + 1)}>Next</Button></nav>
+        <nav aria-label="Enumerator pagination" className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--fs-table-border)] bg-[var(--fs-table-heading)] px-3 py-2 text-xs text-[var(--fs-muted)]">
+          <span aria-live="polite">Showing {members.length ? (current - 1) * 10 + 1 : 0} to {Math.min(current * 10, members.length)} of {members.length} results</span>
+          <div className="flex items-center gap-1">
+            <Button className={paginationButton} variant="secondary" disabled={current <= 1} onClick={() => setPage(current - 1)}>Previous</Button>
+            {pageNumbers.map((number, index) => <span key={number} className="flex items-center gap-1">
+              {index > 0 && number - pageNumbers[index - 1] > 1 && <span className="px-1" aria-hidden="true">…</span>}
+              <Button className={paginationButton} variant={number === current ? "primary" : "secondary"} aria-label={`Page ${number}`} aria-current={number === current ? "page" : undefined} onClick={() => setPage(number)}>{number}</Button>
+            </span>)}
+            <Button className={paginationButton} variant="secondary" disabled={current >= pageCount} onClick={() => setPage(current + 1)}>Next</Button>
+          </div>
+        </nav>
       </>}
     </Panel>
     {accessConfirm && <Dialog title={accessConfirm.action === "grant" ? "Grant Kobo collection access?" : "Revoke Kobo collection access?"} description={`${accessConfirm.form.permission_username || accessConfirm.item.kobo_username} · ${accessConfirm.form.form_id}`} error={access.error?.message} onClose={() => { if (!access.isPending) setAccessConfirm(null); }}><div className="space-y-4"><p>{accessConfirm.action === "grant" ? "Grant Add submissions using the project's Kobo connection. Kobo also includes View form. Existing unrelated permissions are preserved." : "Remove this account's direct Add submissions permission for this Kobo form. Its FieldSight assignment stays unchanged. Other Kobo permissions are preserved. This affects that Kobo account wherever this form is used."}</p><p className="text-sm text-[var(--fs-muted)]">Checks confirm direct Kobo API permissions at the displayed time; they do not test login, offline copies, or inherited account access.</p><div className="flex gap-3"><Button disabled={access.isPending} onClick={() => setAccessConfirm(null)}>Cancel</Button><Button disabled={access.isPending} onClick={() => access.mutate({ assignment: accessConfirm.item.id, form: accessConfirm.form.id, action: accessConfirm.action })}>{access.isPending ? "Updating Kobo…" : accessConfirm.action === "grant" ? "Confirm grant" : "Confirm revoke"}</Button></div></div></Dialog>}
