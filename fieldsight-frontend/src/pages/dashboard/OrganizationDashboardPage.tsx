@@ -440,7 +440,7 @@ function DashboardSnapshotCards({
         <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
           <summary className="cursor-pointer py-2 font-medium text-brand">View location data</summary>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="fs-data-table w-full text-left text-sm">
               <caption className="sr-only">Submissions by location and quality status</caption>
               <thead><tr><th scope="col" className="py-3">Location</th><th scope="col" className="px-2 text-right">Ready</th><th scope="col" className="px-2 text-right">Review</th><th scope="col" className="px-2 text-right">Invalid</th></tr></thead>
               <tbody>{regionalData.map((row) => <tr key={row.region} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.region}</th><td className="px-2 text-right">{row.ready.toLocaleString()}</td><td className="px-2 text-right">{row.review.toLocaleString()}</td><td className="px-2 text-right">{row.invalid.toLocaleString()}</td></tr>)}</tbody>
@@ -482,7 +482,7 @@ function DashboardSnapshotCards({
         <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
           <summary className="cursor-pointer py-2 font-medium text-brand">View monthly data</summary>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="fs-data-table w-full text-left text-sm">
               <caption className="sr-only">Monthly submissions and projects with submissions for {currentYear}</caption>
               <thead><tr><th scope="col" className="py-3">Month</th><th scope="col" className="px-2 text-right">Submissions</th><th scope="col" className="px-2 text-right">Projects</th></tr></thead>
               <tbody>{annualData.map((row) => <tr key={row.month} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.month}</th><td className="px-2 text-right">{row.submissions.toLocaleString()}</td><td className="px-2 text-right">{row.projects.toLocaleString()}</td></tr>)}</tbody>

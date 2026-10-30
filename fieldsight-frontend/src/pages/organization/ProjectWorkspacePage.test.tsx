@@ -225,3 +225,17 @@ it("shows the selected project lifecycle with a categorical status ring", async 
   expect(within(panel).queryByText(/%/)).toBeNull();
   expect(apiClient.organizationProjects).not.toHaveBeenCalled();
 });
+
+
+it("counts distinct active project enumerators and uses the all-time submission total", async () => {
+  vi.mocked(apiClient.projectTeam).mockResolvedValue([
+    { user_id: "one", role: "enumerator", is_active: true },
+    { user_id: "one", role: "enumerator", is_active: true },
+    { user_id: "two", role: "enumerator", is_active: false },
+    { user_id: "admin", role: "organization_admin", is_active: true },
+  ] as never);
+  setup();
+  await waitFor(() => expect(screen.getByText("Enumerators").closest("li")?.textContent).toContain("1 assigned"));
+  expect(screen.getByText("Data collected so far").closest("li")?.textContent).toContain("123 records");
+  expect(apiClient.projectTeam).toHaveBeenCalledWith("school");
+});

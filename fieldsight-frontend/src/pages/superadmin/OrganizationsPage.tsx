@@ -3,11 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   CheckCircle2,
-  ChevronDown,
   CircleOff,
   MoreVertical,
   Plus,
-  Search,
   Tags,
   Trash2,
   X,
@@ -16,9 +14,12 @@ import { useSearchParams } from "react-router-dom";
 import { Button, LoadingSkeleton, LoadingState, PageHeader, Ring } from "../../components/ui";
 import {
   AdminMetric,
-  AdminPanel,
   AdminStatus,
   AdminTableFooter,
+  AdminTable,
+  AdminTableToolbar,
+  AdminSortHeader,
+  useAdminTableSort,
   adminInputClass,
 } from "../../components/superadmin/AdminUi";
 import { type OrganizationStatus } from "./data";
@@ -97,7 +98,7 @@ export function OrganizationsPage() {
   );
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("newest");
+  const tableSorting = useAdminTableSort(() => setPage(1));
   const [status, setStatus] = useState<"All" | OrganizationStatus>("All");
   const [showCreate, setShowCreate] = useState(
     searchParams.get("create") === "1",
@@ -162,7 +163,7 @@ export function OrganizationsPage() {
   }, [organizations, query, status]);
 
 
-  const sortedRows = [...filteredOrganizations].sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "oldest" ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() : 0);
+  const sortedRows = tableSorting.sortRows([...filteredOrganizations].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)), (row, key) => key === "created" ? Date.parse(row.createdAt) : ({ name: row.name, email: row.ownerEmail, country: row.country, timezone: row.timezone, sectors: row.sectors, status: row.status }[key] ?? ""));
   const currentPage = Math.min(page, Math.max(1, Math.ceil(sortedRows.length / 10)));
   const visibleRows = sortedRows.slice((currentPage - 1) * 10, currentPage * 10);
   useEffect(() => {
@@ -349,52 +350,22 @@ export function OrganizationsPage() {
         />
       </section>
 
-      <AdminPanel
-        title="Platform organizations"
-        description="Owners, location settings, sectors, and tenant access"
-      >
-        <div className="flex gap-2 border-b border-line p-4 max-[680px]:flex-col">
-          <label className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[7px] border border-[#dfe4e8] bg-white px-3 text-[#8793a2]">
-            <Search size={15} />
-            <input
-              className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none"
-              value={query}
-              onChange={(event) => { setQuery(event.target.value); setPage(1); }}
-              aria-label="Search organizations" placeholder="Search name, owner, country, or sector..."
-            />
-          </label>
-          <label className="relative flex min-h-[38px] min-w-[150px] items-center rounded-[7px] border border-[#dfe4e8] bg-white px-3">
-            <select
-              className="w-full appearance-none border-0 bg-transparent pr-5 text-xs text-[#455467] outline-none"
-              aria-label="Organization status" value={status}
-              onChange={(event) =>
-                setStatus(event.target.value as "All" | OrganizationStatus)
-              }
-            >
-              <option value="All">All statuses</option>
-              <option value="Active">Active</option>
-
-              <option value="Suspended">Suspended</option>
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 text-[#8793a2]"
-              size={14}
-            />
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-3 p-4"><select aria-label="Sort records" value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A-Z</option></select></div>
-        <div className="overflow-x-auto">
-          <table aria-busy={isFetching} className="min-w-[1050px]">
+      <section aria-label="Organization directory" className="sa-table-section">
+        <AdminTableToolbar label="organizations" search={query} onSearch={value => { setQuery(value); setPage(1); }}>
+          <label>Organization status<select aria-label="Organization status" value={status} onChange={event => { setStatus(event.target.value as "All" | OrganizationStatus); setPage(1); }}><option value="All">All statuses</option><option>Active</option><option>Suspended</option></select></label>
+        </AdminTableToolbar>
+        <AdminTable label="Organizations">
+          <table aria-busy={isFetching} className="fs-data-table min-w-[1050px]">
             <thead>
               <tr>
-                <th>Organization</th>
-                <th>Owner email</th>
-                <th>Country</th>
-                <th>Time zone</th>
-                <th>Sectors</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th />
+                <AdminSortHeader column="name" sorting={tableSorting}>Organization</AdminSortHeader>
+                <AdminSortHeader column="email" sorting={tableSorting}>Owner email</AdminSortHeader>
+                <AdminSortHeader column="country" sorting={tableSorting}>Country</AdminSortHeader>
+                <AdminSortHeader column="timezone" sorting={tableSorting}>Time zone</AdminSortHeader>
+                <AdminSortHeader column="sectors" sorting={tableSorting}>Sectors</AdminSortHeader>
+                <AdminSortHeader column="status" sorting={tableSorting}>Status</AdminSortHeader>
+                <AdminSortHeader column="created" sorting={tableSorting}>Created</AdminSortHeader>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -411,12 +382,7 @@ export function OrganizationsPage() {
               {visibleRows.map((organization) => (
                 <tr key={organization.id} className="hover:bg-[#fbfcfe]">
                   <td>
-                    <div className="flex items-center gap-2.5">
-                      <span className="grid size-8 place-items-center rounded-[7px] bg-[#e9f1ff] text-[12px] font-bold text-brand">
-                        {organization.initials}
-                      </span>
-                      <strong>{organization.name}</strong>
-                    </div>
+                    <strong>{organization.name}</strong>
                   </td>
                   <td>{organization.ownerEmail}</td>
                   <td>{organization.country}</td>
@@ -446,12 +412,12 @@ export function OrganizationsPage() {
               No organizations match your filters.
             </p>
           )}
-        </div>
+        </AdminTable>
         <AdminTableFooter
           shown={visibleRows.length}
           total={filteredOrganizations.length} page={currentPage} onPageChange={setPage}
         />
-      </AdminPanel>
+      </section>
 
       {showCreate && (
         <div

@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './app/App'
 import { AuthProvider } from './auth/AuthContext'
 import './styles.css'
+import './components/ui/table.css'
 import 'leaflet/dist/leaflet.css'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: false } } })

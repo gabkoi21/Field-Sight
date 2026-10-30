@@ -56,15 +56,17 @@ def _catalogue(
             raise HTTPException(status_code=422, detail="Choose the current Kobo form assigned to this project.")
         records = _records(project, selected_form, db) if selected_form else []
     else:
-        all_records = _records(project, None, db)
-        forms = sorted(
-            {record.kobo_form_id for record in all_records}
-            | ({project.kobo_form_id} if project.kobo_form_id else set())
-        )
+        stored_forms = db.exec(
+            select(Submission.kobo_form_id).where(
+                Submission.project_id == project.id,
+                Submission.organization_id == project.organization_id,
+            ).distinct()
+        ).all()
+        forms = sorted(set(stored_forms) | ({project.kobo_form_id} if project.kobo_form_id else set()))
         selected_form = form_id or project.kobo_form_id or (forms[0] if forms else None)
         if selected_form and selected_form not in forms:
             raise HTTPException(status_code=422, detail="Choose a form belonging to this project.")
-        records = [record for record in all_records if record.kobo_form_id == selected_form] if selected_form else []
+        records = _records(project, selected_form, db) if selected_form else []
     cache = (
         db.exec(
             select(SurveySchema).where(

@@ -397,7 +397,7 @@ export function IndicatorWorkspacePage() {
       >
         <ArrowLeft size={15} /> Project overview
       </Link>
-      <PageHeader eyebrow={`FieldSight / ${project?.name ?? "Project"} / Monitoring & evaluation`} title="Indicators" description="Connect project results to measurable evidence and targets.">
+      <PageHeader eyebrow={project?.name ?? "Project"} eyebrowClassName="text-base font-bold leading-6 text-[var(--fs-text)]" title="Indicators" description="Connect project results to measurable evidence and targets.">
         <Button disabled={!projectId || !org} onClick={() => editItem("new")}>
           <Plus size={15} />
           Add indicator
@@ -434,7 +434,6 @@ export function IndicatorWorkspacePage() {
             <div className={`flex flex-wrap items-center gap-3 ${routeProject ? "justify-end px-4 py-1.5" : "p-5"}`}>
               <div className="mr-auto flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <p className="m-0 text-sm font-medium text-[var(--fs-text)]">Indicator filters</p>
-                  <p className="m-0 text-xs text-[var(--fs-muted)]">Filter by source mapping, target achievement or submission date.</p>
                 </div>
               <button
                 type="button"
@@ -827,7 +826,7 @@ export function IndicatorWorkspacePage() {
                         </Empty>
                       ) : (
                         <div className="indicator-register-container" role="region" aria-label="Scrollable indicator list" tabIndex={0}>
-                          <table className="indicator-register w-full table-auto border-collapse text-left text-xs text-[var(--fs-text)]">
+                          <table className="fs-data-table indicator-register w-full table-auto border-collapse text-left text-xs text-[var(--fs-text)]">
                             <colgroup>
                               <col className="w-[24%]" />
                               <col className="w-[22%]" />
@@ -1320,7 +1319,7 @@ function IndicatorResults({
             {frequency(indicator.reporting_frequency)} results
           </h3>
           <div className="max-h-[340px] overflow-auto">
-            <table className="w-full min-w-[400px] border-collapse text-left text-sm tabular-nums text-[var(--fs-text)]">
+            <table className="fs-data-table w-full min-w-[400px] border-collapse text-left text-sm tabular-nums text-[var(--fs-text)]">
               <thead className="sticky top-0 bg-[var(--fs-primary-soft)] text-xs text-[var(--fs-muted)]">
                 <tr>
                   {["Period", "Target", "Actual", "Answered / eligible"].map(
@@ -1412,7 +1411,7 @@ function IndicatorResults({
           Location breakdown
         </h3>
         <div className="overflow-auto">
-          <table className="w-full text-left text-xs">
+          <table className="fs-data-table w-full text-left text-xs">
             <thead className="bg-[#f8fbfb] text-[12px] uppercase text-[var(--fs-muted)]">
               <tr>
                 {["Location", "Actual", "Denominator", "Eligible records"].map(

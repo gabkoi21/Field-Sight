@@ -6,8 +6,8 @@ function join(...values: Array<string | undefined>) {
 
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
-    <div className="relative w-full min-w-0 overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable data table">
-      <table className={join("w-full text-left text-[14px]", className)} {...props} />
+    <div className="fs-table-scroll relative w-full min-w-0" tabIndex={0} role="region" aria-label="Scrollable data table">
+      <table className={join("fs-data-table w-full text-left", className)} {...props} />
     </div>
   );
 }

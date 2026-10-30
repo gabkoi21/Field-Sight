@@ -139,34 +139,43 @@ def execute_project_sync(
             raise ValueError("The assigned Kobo form changed. Retry synchronization.")
         token = decrypt_kobo_token(connection.token_encrypted, settings)
         payloads = list_kobo_submissions(connection.server_url, token, project.kobo_form_id)
+        # Bound IN parameters for SQLite and fetch only records in this tenant/form.
+        external_ids = list(dict.fromkeys(_external_id(payload) for payload in payloads))
+        if None in external_ids:
+            raise ValueError("Kobo returned a submission without an external ID. Import was not completed.")
+        existing_by_id: dict[str, Submission] = {}
+        for start in range(0, len(external_ids), 400):
+            existing_by_id.update({
+                item.external_id: item
+                for item in db.exec(select(Submission).where(
+                    Submission.organization_id == organization_id,
+                    Submission.project_id == project.id,
+                    Submission.kobo_form_id == project.kobo_form_id,
+                    col(Submission.external_id).in_(external_ids[start:start + 400]),
+                )).all()
+            })
         created = 0
         updated = 0
         for payload in payloads:
             external_id = _external_id(payload)
             if external_id is None:
                 raise ValueError("Kobo returned a submission without an external ID. Import was not completed.")
-            existing = db.exec(
-                select(Submission).where(
-                    Submission.project_id == project.id,
-                    Submission.kobo_form_id == project.kobo_form_id,
-                    Submission.external_id == external_id,
-                )
-            ).first()
+            existing = existing_by_id.get(external_id)
             if existing is None:
-                db.add(
-                    Submission(
-                        organization_id=organization_id,
-                        project_id=project.id,
-                        kobo_connection_id=connection.id,
-                        kobo_form_id=project.kobo_form_id,
-                        external_id=external_id,
-                        submitted_at=_submission_time(payload.get("_submission_time")),
-                        enumerator=str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None,
-                        location=str(payload.get("location")) if payload.get("location") else None,
-                        raw_answers=payload,
-                        evidence_fingerprint=evidence_fingerprint(payload),
-                    )
+                new_submission = Submission(
+                    organization_id=organization_id,
+                    project_id=project.id,
+                    kobo_connection_id=connection.id,
+                    kobo_form_id=project.kobo_form_id,
+                    external_id=external_id,
+                    submitted_at=_submission_time(payload.get("_submission_time")),
+                    enumerator=str(payload.get("_submitted_by")) if payload.get("_submitted_by") else None,
+                    location=str(payload.get("location")) if payload.get("location") else None,
+                    raw_answers=payload,
+                    evidence_fingerprint=evidence_fingerprint(payload),
                 )
+                db.add(new_submission)
+                existing_by_id[external_id] = new_submission
                 created += 1
             else:
                 if canonical_json(existing.raw_answers) == canonical_json(payload):

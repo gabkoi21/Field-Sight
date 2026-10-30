@@ -231,3 +231,23 @@
   border-left: 5px solid;
   background: white;
 }
+
+/* Keep label geometry stable while desktop navigation slides between widths. */
+@media (min-width:1024px) {
+  .fieldsight-workspace #fieldsight-navigation { overflow-x:hidden; transition:width 240ms cubic-bezier(.22,1,.36,1),transform 240ms cubic-bezier(.22,1,.36,1); }
+  .fieldsight-workspace > main { transition:margin-left 240ms cubic-bezier(.22,1,.36,1); }
+  .fieldsight-workspace #fieldsight-navigation svg { flex-shrink:0; }
+  .fieldsight-workspace #fieldsight-navigation :is(a,.navigation-project-hint) { overflow:hidden; white-space:nowrap; transition:padding 240ms cubic-bezier(.22,1,.36,1),gap 240ms cubic-bezier(.22,1,.36,1),background-color 150ms; }
+  .fieldsight-workspace .navigation-label { display:block; min-width:0; max-width:200px; opacity:1; overflow:hidden; white-space:nowrap; transition:max-width 240ms cubic-bezier(.22,1,.36,1),opacity 160ms ease; }
+  .fieldsight-workspace .navigation-section-label { height:16px; overflow:hidden; white-space:nowrap; transition:opacity 160ms ease; }
+  .workspace-collapsed #fieldsight-navigation { width:80px; }
+  .workspace-collapsed > main { margin-left:80px; }
+  .workspace-collapsed .navigation-label { max-width:0; opacity:0; }
+  .workspace-collapsed .navigation-section-label { opacity:0; }
+  .workspace-collapsed #fieldsight-navigation :is(a,.navigation-project-hint) { gap:0; padding-left:19px; padding-right:0; }
+  .fieldsight-workspace #fieldsight-navigation > button svg { transition:transform 240ms cubic-bezier(.22,1,.36,1); }
+  .workspace-collapsed #fieldsight-navigation > button svg { transform:rotate(180deg); }
+}
+
+/* The full-bleed login panel should not reserve an empty scrollbar strip. */
+html:has(.fs-login-page) { scrollbar-gutter:auto; }

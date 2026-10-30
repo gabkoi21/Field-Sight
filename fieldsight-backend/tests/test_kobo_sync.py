@@ -293,3 +293,28 @@ def test_empty_form_and_changed_totals() -> None:
     ]):
         with pytest.raises(ValueError, match="totals changed"):
             list_kobo_submissions(SERVER, "private-token", "form-1")
+
+
+def test_sync_batches_submission_lookups(sync_client):
+    from sqlalchemy import event
+
+    client, engine, project_id, headers = sync_client
+    records = [{"_id": index, "answer": index} for index in range(801)]
+    lookups = []
+
+    def record_lookup(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT") and "FROM submissions" in statement:
+            lookups.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record_lookup)
+    try:
+        for expected in ("completed", "unchanged"):
+            lookups.clear()
+            with patch("app.core.kobo.httpx.get", return_value=page(records, count=801)):
+                response = client.post(f"/projects/{project_id}/sync", headers=headers)
+            assert response.status_code == 200, response.text
+            assert response.json()["status"] == expected
+            assert len(lookups) == 3
+            assert all("submissions.organization_id =" in sql for sql in lookups)
+    finally:
+        event.remove(engine, "before_cursor_execute", record_lookup)

@@ -49,6 +49,17 @@ def decrypt_kobo_token(value: str, settings: Settings) -> str:
         raise ValueError("Stored Kobo credentials cannot be read.") from exc
 
 
+def _response_object(response: httpx.Response) -> dict[str, object]:
+    """Reject malformed provider bodies without surfacing their contents."""
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise ValueError("Kobo returned invalid JSON. Try again later.") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Kobo returned an invalid API response. Try again later.")
+    return payload
+
+
 def _kobo_assets(server_url: str, api_token: str) -> list[dict[str, object]]:
     try:
         response = httpx.get(
@@ -61,11 +72,13 @@ def _kobo_assets(server_url: str, api_token: str) -> list[dict[str, object]]:
         raise ValueError("KoboToolbox could not be reached. Check the server URL and try again.") from exc
     if response.status_code in {401, 403}:
         raise ValueError("Kobo rejected the API token.")
-    if response.status_code >= 400:
+    if not 200 <= response.status_code < 300:
         raise ValueError("KoboToolbox could not complete this request right now.")
-    payload = response.json()
-    results = payload.get("results", []) if isinstance(payload, dict) else []
-    return [item for item in results if isinstance(item, dict)]
+    payload = _response_object(response)
+    results = payload.get("results")
+    if not isinstance(results, list) or any(not isinstance(item, dict) for item in results):
+        raise ValueError("Kobo returned an invalid form list. Try again later.")
+    return results
 
 
 def verify_kobo_token(server_url: str, api_token: str) -> None:
@@ -100,10 +113,10 @@ def list_kobo_form_questions(server_url: str, api_token: str, form_id: str) -> l
         raise ValueError("Kobo rejected the stored API token.")
     if response.status_code == 404:
         raise ValueError("The assigned Kobo form was not found.")
-    if response.status_code >= 400:
+    if not 200 <= response.status_code < 300:
         raise ValueError("KoboToolbox could not read this form right now.")
-    payload = response.json()
-    content = payload.get("content", {}) if isinstance(payload, dict) else {}
+    payload = _response_object(response)
+    content = payload.get("content", {})
     survey = content.get("survey", []) if isinstance(content, dict) else []
     if not isinstance(survey, list):
         return []
@@ -145,7 +158,7 @@ def delete_kobo_form(server_url: str, api_token: str, form_id: str) -> None:
         return
     if response.status_code in {401, 403}:
         raise ValueError("Kobo rejected permission to delete this form. The local project was not deleted.")
-    if response.status_code >= 400:
+    if not 200 <= response.status_code < 300:
         raise ValueError("KoboToolbox could not delete this form. The local project was not deleted.")
 
 

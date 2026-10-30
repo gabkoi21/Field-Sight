@@ -20,7 +20,7 @@ it("renders fast navigation immediately and keeps the shell and focus during a s
   fireEvent.click(link);
   expect(screen.getByRole("status").textContent).toContain("Loading page…");
   expect(screen.getByRole("link", { name: "Organizations" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Open profile settings" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "User menu" })).toBeTruthy();
   await act(async () => { finish({ default: () => <h1>Loaded users</h1> }); });
   expect(await screen.findByRole("heading", { name: "Loaded users" })).toBeTruthy();
   expect(document.activeElement).toBe(link);
@@ -34,6 +34,7 @@ it("replaces a rejected lazy load with a recoverable error and keeps navigation 
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Reload page" })).toBeTruthy();
   expect(screen.queryByRole("status")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "User menu" }));
   fireEvent.click(screen.getByRole("link", { name: "Platform settings" }));
   expect(await screen.findByRole("heading", { name: "Settings ready" })).toBeTruthy();
 });

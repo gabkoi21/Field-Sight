@@ -185,7 +185,7 @@ it.each([false, true])("saves mapping without a review dialog and supports retry
   await screen.findByRole("button", { name: "Map source for Girls present" });
   expect(screen.queryByRole("combobox", { name: "Project" })).toBeNull();
   expect(
-    screen.getByText("FieldSight / School Feed Program / Monitoring & evaluation"),
+    screen.getByText("School Feed Program", { selector: "header p" }),
   ).toBeTruthy();
   expect(apiClient.indicators).toHaveBeenCalledWith("project", "", "");
   expect(

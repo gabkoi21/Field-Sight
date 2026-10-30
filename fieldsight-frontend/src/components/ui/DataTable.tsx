@@ -30,7 +30,7 @@ export function DataTable({
         </button>
       </div>
       <div className="overflow-x-auto">
-        <table>
+        <table className="fs-data-table">
           <thead>
             <tr>
               {headers.map((header) => (

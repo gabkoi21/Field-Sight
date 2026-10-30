@@ -185,7 +185,7 @@ export function WorkspaceReportsPage() {
                   Indicators against overall targets
                 </h2>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[750px] text-left text-xs">
+                  <table className="fs-data-table w-full min-w-[750px] text-left text-xs">
                     <thead className="bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                       <tr>
                         {[

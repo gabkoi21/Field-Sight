@@ -118,7 +118,7 @@ export function WorkspacesPage() {
   }
   return (
     <div className="min-w-0 space-y-6">
-      <PageHeader eyebrow="FieldSight / Organization" title="Projects" description="Manage organization projects. Open a project to view its forms, indicators, and results.">
+      <PageHeader eyebrow="FieldSight / Organization" title="Projects" description="Manage organization projects. Open a project to view its forms, indicators, and results." descriptionClassName="font-medium">
         <Button
           onClick={() => {
             setActionProject(null);
@@ -237,7 +237,7 @@ export function WorkspacesPage() {
           </Panel>
         ) : tab === "workspace" ? (
           <div className="relative max-w-full overflow-x-auto rounded-xl border border-[var(--fs-border)] bg-white" role="region" aria-label="Projects table" tabIndex={0}>
-            <table className="w-full min-w-[970px] border-collapse text-left text-sm">
+            <table className="fs-data-table w-full min-w-[970px] border-collapse text-left text-sm">
               <thead className="bg-[#f6f6f8] text-[12px] uppercase tracking-[.04em] text-[var(--fs-muted)]">
                 <tr>
                   {[
@@ -441,7 +441,7 @@ export function WorkspacesPage() {
                 <Notice error>{submissions.error.message} <button className="min-h-11 px-3 font-semibold underline" onClick={() => void submissions.refetch()}>Retry project sites</button></Notice>
               </div>
             ) : sites.size ? (
-              <table className="w-full text-left text-xs">
+              <table className="fs-data-table w-full text-left text-xs">
                 <thead className="bg-[#f8fafb] text-[12px] uppercase text-[#92949f]">
                   <tr>
                     <th className="px-5 py-3 font-medium">Site / location</th>

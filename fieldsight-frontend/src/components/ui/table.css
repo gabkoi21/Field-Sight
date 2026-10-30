@@ -1,0 +1,97 @@
+/* One compact table presentation for platform and organization workspaces.
+   Screen-only rules leave report printing and hidden chart alternatives intact. */
+:root {
+  --fs-table-border: #e5e7eb;
+  --fs-table-heading: #f5f6f8;
+  --fs-table-stripe: #f5f6f8;
+  --sa-table-line: var(--fs-table-border);
+}
+
+@media screen {
+  .fs-table-scroll,
+  :where(div, section):has(> table.fs-data-table):not(.sr-only) {
+    position: relative;
+    min-width: 0;
+    max-width: 100%;
+    max-height: 520px;
+    overflow: auto;
+    border: 1px solid var(--fs-table-border);
+    border-radius: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #dce0e5 transparent;
+  }
+
+  /* Preserve the indicator register's dedicated viewport height. */
+  .indicator-register-container:has(> table.fs-data-table) { max-height: 65vh; }
+
+  table.fs-data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--fs-surface);
+    color: var(--fs-text);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  table.fs-data-table > :is(thead, tbody, tfoot) > tr > :is(th, td) {
+    height: 44px;
+    padding: 8px 10px;
+    border: 0;
+    border-right: 1px solid var(--fs-table-border);
+    border-bottom: 1px solid var(--fs-table-border);
+    vertical-align: middle;
+    font-size: 13px;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+
+  table.fs-data-table > :is(thead, tbody, tfoot) > tr > :last-child { border-right: 0; }
+  table.fs-data-table > tbody:last-child > tr:last-child > :is(th, td) { border-bottom: 0; }
+
+  table.fs-data-table > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: 40px;
+    background: var(--fs-table-heading);
+    color: var(--fs-text);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  table.fs-data-table > thead > tr > th:not(.text-right):not(.text-center) { text-align: left; }
+  table.fs-data-table > tbody > tr:not([style]):nth-child(odd) { background: var(--fs-table-stripe); }
+  table.fs-data-table > tbody > tr:not([style]):nth-child(even) { background: var(--fs-surface); }
+  table.fs-data-table > tbody > tr:not([style]):hover { background: var(--fs-canvas); }
+  table.fs-data-table > tbody > tr:focus-visible { outline: 2px solid var(--fs-primary); outline-offset: -2px; }
+
+  table.fs-data-table > thead > tr > th:has(> button) { padding: 0; }
+  table.fs-data-table > thead > tr > th > button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    font: inherit;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  table.fs-data-table :is(td, tbody th) :is(strong, a, button, summary) { font-size: inherit; }
+  table.fs-data-table td strong { font-weight: 500; }
+  table.fs-data-table td small { font-size: 12px; }
+  table.fs-data-table :is(td, tbody th) :is(button, summary) { min-height: 32px; min-width: 32px; }
+  table.fs-data-table :is(td, tbody th) :is(button, summary):focus-visible { outline-offset: -2px; }
+
+  @media (max-width: 639px) {
+    table.fs-data-table :is(td, tbody th) :is(button, summary),
+    table.fs-data-table > thead > tr > th > button { min-height: 44px; min-width: 44px; }
+  }
+}
+
+@media print {
+  .fs-table-scroll { max-height: none; overflow: visible; }
+}

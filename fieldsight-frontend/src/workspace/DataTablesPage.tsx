@@ -181,7 +181,7 @@ export function DataTablesPage() {
               rows.data && (
                 <>
                   <div className="max-h-[520px] overflow-auto">
-                    <table aria-busy={rows.isFetching} className="w-full border-collapse whitespace-nowrap text-left text-xs">
+                    <table aria-busy={rows.isFetching} className="fs-data-table w-full border-collapse whitespace-nowrap text-left text-xs">
                       <thead className="sticky top-0 bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                         <tr>
                           <th className="px-4 py-3 font-medium">

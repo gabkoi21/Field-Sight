@@ -2,9 +2,7 @@ import { AdminDialog } from "../../components/superadmin/AdminDialog";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ChevronDown,
   MoreVertical,
-  Search,
   ShieldCheck,
   UserCheck,
   Users,
@@ -13,9 +11,12 @@ import {
 import { Button, LoadingSkeleton, LoadingState, PageHeader, Ring } from "../../components/ui";
 import {
   AdminMetric,
-  AdminPanel,
   AdminStatus,
   AdminTableFooter,
+  AdminTable,
+  AdminTableToolbar,
+  AdminSortHeader,
+  useAdminTableSort,
 } from "../../components/superadmin/AdminUi";
 import {
   apiClient,
@@ -60,7 +61,7 @@ function initials(value: string) {
 export function UsersPage() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("newest");
+  const tableSorting = useAdminTableSort(() => setPage(1));
   const [statusFilter, setStatusFilter] = useState("All");
   const [organizationFilter, setOrganizationFilter] = useState("All");
   const [details, setDetails] = useState<ApiUserDirectoryItem | null>(null);
@@ -69,7 +70,7 @@ export function UsersPage() {
     queryKey: ["platform-users"],
     queryFn: apiClient.users,
   });
-  const users = usersQuery.data ?? [];
+  const users = useMemo(() => (usersQuery.data ?? []).filter(user => user.platform_role !== "super_admin"), [usersQuery.data]);
   const rows = useMemo(
     () =>
       users.map((user) => {
@@ -108,7 +109,7 @@ export function UsersPage() {
             .includes(normalizedQuery)),
     );
   }, [query, role, rows, statusFilter, organizationFilter]);
-  const sortedRows = [...filteredUsers].sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "oldest" ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime() : 0);
+  const sortedRows = tableSorting.sortRows([...filteredUsers].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)), (row, key) => key === "created" ? Date.parse(row.created_at) : ({ name: row.name, email: row.email, organization: row.organizationText, role: row.roleText, status: row.status }[key] ?? ""));
   const currentPage = Math.min(page, Math.max(1, Math.ceil(sortedRows.length / 10)));
   const visibleRows = sortedRows.slice((currentPage - 1) * 10, currentPage * 10);
   const activeUsers = users.filter((user) => user.is_active).length;
@@ -178,53 +179,29 @@ export function UsersPage() {
         />
       </section>
 
-      <AdminPanel
-        title="Platform directory"
-        description="Users, organization membership, and assigned roles"
-      >
-        <div className="flex gap-2 border-b border-[#e9eef4] p-[14px] max-[680px]:flex-col">
-          <label className="flex min-h-[38px] flex-1 items-center gap-2 rounded-[5px] border border-[#dce5ef] bg-white px-[9px] text-[#8492a4]">
-            <Search size={15} />
-            <input
-              className="w-full border-0 bg-transparent py-[8px] font-sans text-[14px] text-[#4e5e74] outline-none"
-              value={query}
-              onChange={(event) => { setQuery(event.target.value); setPage(1); }}
-              aria-label="Search users" placeholder="Search users, email, organization, or role…"
-            />
-          </label>
-          <label className="relative flex min-h-[38px] min-w-[185px] items-center rounded-[5px] border border-[#dce5ef] bg-white px-[9px]">
-            <select
-              className="w-full appearance-none border-0 bg-transparent py-[8px] pr-5 font-sans text-[12px] text-[#69798e] outline-none"
-              aria-label="Role filter" value={role}
-              onChange={(event) => setRole(event.target.value as RoleFilter)}
-            >
-              <option value="All">All roles</option>
-              <option>Super Admin</option><option>Organization Admin</option>
-              <option>Enumerator</option>
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 text-[#8793a2]"
-              size={14}
-            />
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-3 p-4"><select aria-label="Sort records" value={sort} onChange={e => { setSort(e.target.value); setPage(1); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A-Z</option></select><select aria-label="Account status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}><option>All</option><option>Active</option><option>Suspended</option></select><select aria-label="Organization filter" value={organizationFilter} onChange={e => { setOrganizationFilter(e.target.value); setPage(1); }}><option value="All">All organizations</option>{Array.from(new Map(users.flatMap(u => u.memberships.map(m => [m.organization_id, m.organization_name] as const)))).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
-        <div className="overflow-x-auto">
-          <table aria-busy={usersQuery.isFetching} className="min-w-[960px] [&_th]:!px-[13px] [&_th]:!py-[10px] [&_td]:!px-[13px] [&_td]:!py-[11px]">
+      <section aria-label="User directory" className="sa-table-section">
+        <AdminTableToolbar label="users" search={query} onSearch={value => { setQuery(value); setPage(1); }}>
+          <label>Role<select aria-label="Role filter" value={role} onChange={event => { setRole(event.target.value as RoleFilter); setPage(1); }}><option value="All">All roles</option><option>Organization Admin</option><option>Enumerator</option></select></label>
+          <label>Account status<select aria-label="Account status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}><option value="All">All statuses</option><option>Active</option><option>Suspended</option></select></label>
+          <label>Organization<select aria-label="Organization filter" value={organizationFilter} onChange={e => { setOrganizationFilter(e.target.value); setPage(1); }}><option value="All">All organizations</option>{Array.from(new Map(users.flatMap(u => u.memberships.map(m => [m.organization_id, m.organization_name] as const)))).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+        </AdminTableToolbar>
+        <AdminTable label="Platform users">
+          <table aria-busy={usersQuery.isFetching} className="fs-data-table min-w-[960px]">
             <thead>
               <tr>
-                <th>User</th>
-                <th>Organization</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Action</th>
+                <AdminSortHeader column="name" sorting={tableSorting}>User</AdminSortHeader>
+                <AdminSortHeader column="email" sorting={tableSorting}>Email</AdminSortHeader>
+                <AdminSortHeader column="organization" sorting={tableSorting}>Organization</AdminSortHeader>
+                <AdminSortHeader column="role" sorting={tableSorting}>Role</AdminSortHeader>
+                <AdminSortHeader column="status" sorting={tableSorting}>Status</AdminSortHeader>
+                <AdminSortHeader column="created" sorting={tableSorting}>Created</AdminSortHeader>
+                <th scope="col">Action</th>
               </tr>
             </thead>
             <tbody>
               {usersQuery.isLoading && (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center">
+                  <td colSpan={7} className="py-10 text-center">
                     <span className="inline-flex items-center gap-2 text-xs text-[#758092]">
                       <Ring className="size-4 text-brand" aria-hidden="true" />
                       Loading users…
@@ -235,16 +212,9 @@ export function UsersPage() {
               {visibleRows.map((user) => (
                 <tr key={user.id} className="hover:bg-[#fbfcfe]">
                   <td>
-                    <div className="flex items-center gap-2.5">
-                      <span className="grid size-8 place-items-center rounded-[7px] bg-[#f0edff] text-[12px] font-bold text-[#6d5bd0]">
-                        {user.initials}
-                      </span>
-                      <div>
-                        <strong>{user.name}</strong>
-                        <small>{user.email}</small>
-                      </div>
-                    </div>
+                    <strong>{user.name}</strong>
                   </td>
+                  <td><a className="sa-table-email" href={`mailto:${user.email}`}>{user.email}</a></td>
                   <td>{user.organizationText}</td>
                   <td>
                     <span className="inline-flex items-center gap-1.5">
@@ -275,9 +245,9 @@ export function UsersPage() {
               No users match your filters.
             </p>
           )}
-        </div>
+        </AdminTable>
         <AdminTableFooter shown={visibleRows.length} total={filteredUsers.length} page={currentPage} onPageChange={setPage} />
-      </AdminPanel>
+      </section>
       {details && <AdminDialog label="User details" onClose={() => setDetails(null)}><h2 className="text-xl font-semibold">{displayName(details)}</h2><p>{details.email}</p><p>Account: {details.is_active ? "Active" : "Suspended"}</p><p>Platform role: {details.platform_role || "None"}</p><ul>{details.memberships.map(m => <li key={m.organization_id}>{m.organization_name}: {m.role} ({m.is_active ? "Active" : "Inactive"} membership)</li>)}</ul><p className="text-sm">Role changes, invitations and account actions are unavailable in this directory.</p><Button onClick={() => setDetails(null)}>Close details</Button></AdminDialog>}
     </>
   );

@@ -44,7 +44,7 @@ export function CollectionTrend({ data, loading, error, retry, period, onPeriod 
         </AreaChart></ResponsiveContainer>
       </div>
     </>}
-    {!loading && !error && rows.length > 0 && <div className="sr-only"><table className="w-full text-left tabular-nums" aria-label="Daily collection counts"><thead><tr><th scope="col" className="pr-5 py-2">Day (UTC)</th><th scope="col" className="pr-5 py-2">Submitted</th><th scope="col" className="py-2">Ready records</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.day}-${index}`}><th scope="row" className="pr-5 py-1 font-normal">{row.day}</th><td className="pr-5 py-1">{row.submissions}</td><td className="py-1">{row.approved}</td></tr>)}</tbody></table></div>}
+    {!loading && !error && rows.length > 0 && <div className="sr-only"><table className="fs-data-table w-full text-left tabular-nums" aria-label="Daily collection counts"><thead><tr><th scope="col" className="pr-5 py-2">Day (UTC)</th><th scope="col" className="pr-5 py-2">Submitted</th><th scope="col" className="py-2">Ready records</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.day}-${index}`}><th scope="row" className="pr-5 py-1 font-normal">{row.day}</th><td className="pr-5 py-1">{row.submissions}</td><td className="py-1">{row.approved}</td></tr>)}</tbody></table></div>}
 
   </Card></section>;
 }

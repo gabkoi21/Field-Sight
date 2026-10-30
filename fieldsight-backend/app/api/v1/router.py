@@ -21,7 +21,7 @@ from app.routes.workspace import router as workspace_router
 api_router = APIRouter()
 api_router.include_router(actions_router)
 api_router.include_router(health_router, tags=["system"])
-api_router.include_router(auth_router, tags=["authentication"])
+api_router.include_router(auth_router)
 api_router.include_router(sectors_router, tags=["sectors"])
 api_router.include_router(administration_router, tags=["platform administration"])
 api_router.include_router(onboarding_router, tags=["authentication"])

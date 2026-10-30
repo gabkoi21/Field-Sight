@@ -376,7 +376,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       </div>
       <section className="mt-4 overflow-hidden rounded-lg border border-[#e1e7eb] bg-white">
         <div className="overflow-x-auto">
-          <table aria-busy={enumeratorsQuery.isFetching || assignmentsQuery.isFetching} className="w-full min-w-[1040px] border-collapse whitespace-nowrap text-left text-xs">
+          <table aria-busy={enumeratorsQuery.isFetching || assignmentsQuery.isFetching} className="fs-data-table w-full min-w-[1040px] border-collapse whitespace-nowrap text-left text-xs">
             <thead className="bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">

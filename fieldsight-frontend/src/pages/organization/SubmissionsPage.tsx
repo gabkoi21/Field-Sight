@@ -204,7 +204,7 @@ export function SubmissionsPage() {
       {isFetching && data && <div className="my-3"><LoadingState variant="inline" label="Updating submissions…" /></div>}
       {(isLoading || authLoading || outOfRange) ? <div className="mt-4"><LoadingSkeleton label="Loading submissions…" columns={6} /></div> : <Card className="mt-[16px] rounded-none">
         <div className="overflow-x-auto">
-          <table aria-busy={isFetching} className="w-full min-w-[900px] border-separate border-spacing-0 overflow-hidden text-left">
+          <table aria-busy={isFetching} className="fs-data-table w-full min-w-[900px] border-separate border-spacing-0 overflow-hidden text-left">
             <thead>
               <tr>
                 {["Submission", "Project & form", "Enumerator Collector", "Location", "Received", "Review"].map(

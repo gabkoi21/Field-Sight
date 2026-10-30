@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import NoReturn
+from typing import Annotated, NoReturn
 from uuid import UUID
 
 import jwt
@@ -24,7 +24,9 @@ from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, RefreshSession, Role, User
 from app.schemas.auth import LoginRequest, TokenResponse
 
-router = APIRouter(prefix="/auth")
+router = APIRouter(prefix="/auth", tags=["authentication"])
+Database = Annotated[Session, Depends(get_session)]
+Configuration = Annotated[Settings, Depends(get_settings)]
 ROTATION_RECOVERY_SECONDS = 60
 
 
@@ -109,8 +111,8 @@ def login(
     payload: LoginRequest,
     request: Request,
     response: Response,
-    db: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    db: Database,
+    settings: Configuration,
 ) -> TokenResponse:
     _check_origin(request, settings)
     user = db.exec(select(User).where((User.email == payload.login.lower()) | (User.username == payload.login))).first()
@@ -134,9 +136,9 @@ def login(
 def refresh(
     request: Request,
     response: Response,
-    refresh_token: str | None = Cookie(default=None),
-    db: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    db: Database,
+    settings: Configuration,
+    refresh_token: Annotated[str | None, Cookie()] = None,
 ) -> TokenResponse:
     _check_origin(request, settings)
     if not refresh_token:
@@ -217,9 +219,9 @@ def refresh(
 
 
 def get_current_user(
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    db: Database,
+    settings: Configuration,
+    authorization: Annotated[str | None, Header()] = None,
 ) -> User:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication is required.")
@@ -253,9 +255,9 @@ def get_current_user(
 def logout(
     request: Request,
     response: Response,
-    refresh_token: str | None = Cookie(default=None),
-    db: Session = Depends(get_session),
-    settings: Settings = Depends(get_settings),
+    db: Database,
+    settings: Configuration,
+    refresh_token: Annotated[str | None, Cookie()] = None,
 ) -> Response:
     _check_origin(request, settings)
     if refresh_token:
@@ -275,15 +277,15 @@ def logout(
 
 # Why: gives the frontend the signed-in user and tenant membership context.
 @router.get("/me")
-def me(user: User = Depends(get_current_user), db: Session = Depends(get_session)) -> dict[str, object]:
+def me(user: Annotated[User, Depends(get_current_user)], db: Database) -> dict[str, object]:
     memberships = db.exec(
-        select(OrganizationMembership).where(
-            OrganizationMembership.user_id == user.id, OrganizationMembership.is_active
+        select(OrganizationMembership, Organization).join(Organization).where(
+            OrganizationMembership.user_id == user.id, OrganizationMembership.is_active,
+            Organization.is_active,
         )
     ).all()
     membership_data = []
-    for membership in memberships:
-        organization = db.get(Organization, membership.organization_id)
+    for membership, organization in memberships:
         membership_data.append(
             {
                 "organization_id": str(membership.organization_id),

@@ -10,6 +10,7 @@ import {
   Link2,
   LogOut,
   Menu,
+  PanelLeftClose,
   Settings,
   X,
 } from "lucide-react";
@@ -33,6 +34,7 @@ function Shell({ loading }: { loading: boolean }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [menu, setMenu] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const navigation = useRef<HTMLElement>(null);
@@ -127,7 +129,7 @@ function Shell({ loading }: { loading: boolean }) {
     return location.pathname === path;
   }
   return (
-    <div className="fieldsight-workspace min-h-screen bg-[var(--fs-canvas)] text-[var(--fs-text)]">
+    <div className={`fieldsight-workspace min-h-screen bg-[var(--fs-canvas)] text-[var(--fs-text)] ${collapsed ? "workspace-collapsed" : ""}`}>
       <a href="#main-content" className="sr-only fixed left-4 top-2 z-[100] rounded-lg bg-white px-4 py-3 font-semibold text-brand shadow-lg focus:not-sr-only">Skip to main content</a>
       {open && (
         <button
@@ -177,6 +179,7 @@ function Shell({ loading }: { loading: boolean }) {
             </div>
           ))}
         </nav>
+        <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="fieldsight-navigation" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(value => !value)} className="m-3 hidden min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-white hover:bg-white/10 focus-visible:outline-white lg:flex"><PanelLeftClose size={19} className="shrink-0" aria-hidden="true" /></button>
       </aside>
       <main ref={main} className="min-h-screen pt-16 lg:ml-[240px]">
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center gap-2 sm:gap-4 border-b border-[var(--fs-border)] bg-white px-4 sm:px-6">

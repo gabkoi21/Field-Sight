@@ -14,8 +14,6 @@
 .sa-root { min-height:100dvh; background:var(--fs-canvas); --sa-width:250px; --sa-sidebar:#071f47; }
 .sa-collapsed { --sa-width:80px; }
 .sa-sidebar { position:fixed; inset:0 auto 0 0; width:var(--sa-width); display:flex; flex-direction:column; padding:16px 12px; background:var(--sa-sidebar); color:white; overflow-y:auto; z-index:20; }
-.sa-logo { display:flex; align-items:center; gap:12px; padding:12px; color:white; font-size:22px; font-weight:700; text-decoration:none; }
-.sa-context { padding:12px; color:#bed3ed; font-size:11px; letter-spacing:.09em; }
 .sa-sidebar nav { flex:1; }
 .sa-sidebar nav p,.sa-mobile-nav nav p { margin:22px 12px 8px; color:#bed3ed; font-size:12px; font-weight:600; }
 .sa-sidebar nav a,.sa-mobile-nav nav a { display:flex; align-items:center; gap:12px; min-height:44px; padding:10px 12px; margin:4px 0; border-radius:8px; color:#d2e1f3; text-decoration:none; font-size:14px; }
@@ -34,3 +32,84 @@
 .sa-skip:focus { top:12px; }
 @media(max-width:900px) { .sa-sidebar { display:none; } .sa-workspace { margin-left:0; } .sa-menu { display:inline-flex!important; } .sa-content { padding:20px 16px; } .sa-header { padding:10px 16px; } }
 @media(max-width:480px) { .sa-header nav { font-size:12px; } .sa-header { gap:4px; } .sa-header button { min-width:36px; } }
+
+/* Shared Super Admin presentation, scoped to preserve tenant workspaces. */
+.sa-root { line-height:1.5; }
+.sa-content table th { text-align:left; font-weight:600; white-space:nowrap; }
+.sa-content table :is(th,td) { vertical-align:middle; }
+.sa-content table td { font-variant-numeric:tabular-nums; }
+.sa-content table tbody tr { transition:background-color .15s; }
+.sa-content table tbody tr:hover { background:var(--fs-canvas); }
+.sa-content footer button { padding:8px 12px; border:1px solid var(--fs-border); border-radius:8px; background:var(--fs-surface); color:var(--fs-text); font-weight:500; }
+.sa-content footer button:not(:disabled):hover { background:var(--fs-primary-soft); }
+.sa-content article[aria-label] { min-height:128px; display:flex; flex-direction:column; justify-content:center; }
+.sa-root dialog { color:var(--fs-text); background:var(--fs-surface); }
+@media(max-width:560px) { .sa-content table { min-width:640px; } .sa-content :is(input,select) { font-size:16px; } }
+
+/* Full-width header above the blue navigation. */
+.sa-sidebar { top:64px; }
+.sa-workspace { padding-top:64px; }
+.sa-header { position:fixed; inset:0 0 auto; height:64px; min-height:64px; z-index:30; background:#fff; }
+.sa-header > div:first-child { order:1; margin-right:auto; }
+.sa-header > div:last-child { order:2; }
+@media(max-width:900px) {
+  .sa-header > div:first-child { flex:1; justify-content:space-between; }
+}
+
+/* Shared fixed-header tables, matching the Super Admin table reference. */
+.sa-content .sa-table-sort { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:40px; padding:8px 10px; border:0; border-radius:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+.sa-content .sa-table-sort svg { flex-shrink:0; color:var(--fs-muted); }
+.sa-content th[aria-sort]:not([aria-sort="none"]) .sa-table-sort { color:var(--fs-primary); }
+.sa-content .sa-table-sort:hover { background:var(--fs-primary-soft); }
+.sa-content .sa-table-sort:focus-visible { outline-offset:-3px; }
+.sa-content .sa-table-footer { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; color:var(--fs-muted); font-size:13px; }
+.sa-content .sa-table-footer nav,.sa-content .sa-page-item { display:flex; align-items:center; gap:5px; }
+.sa-content .sa-table-footer button { min-width:34px; min-height:34px; padding:5px 12px; border:1px solid var(--sa-table-line); border-radius:4px; background:var(--fs-surface); color:var(--fs-muted); font-size:13px; font-weight:400; cursor:pointer; }
+.sa-content .sa-table-footer button[aria-current="page"] { background:var(--fs-primary); border-color:var(--fs-primary); color:white; }
+.sa-content .sa-table-footer button:disabled { opacity:.55; cursor:not-allowed; }
+.sa-content .sa-page-gap { padding:0 5px; }
+@media(max-width:560px) { .sa-content .sa-table-footer { align-items:flex-start; } .sa-content .sa-table-footer button { min-height:44px; min-width:44px; } }
+.sa-content .sa-table-footer button[aria-current="page"]:hover { background:var(--fs-primary-hover); border-color:var(--fs-primary-hover); color:white; }
+
+/* Header account dropdown follows the organization administrator menu. */
+.sa-account { position:relative; flex-shrink:0; }
+.sa-header .sa-account-dropdown { position:absolute; top:calc(100% + 8px); right:0; width:min(240px,calc(100vw - 32px)); padding:8px; border:1px solid var(--fs-border); border-radius:8px; background:var(--fs-surface); box-shadow:0 8px 24px rgb(15 23 42 / .12); }
+.sa-account-dropdown p { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 4px; padding:0 8px 12px; border-bottom:1px solid var(--fs-border); color:var(--fs-muted); font-size:12px; }
+.sa-header .sa-account-dropdown :is(button,a) { display:flex; align-items:center; justify-content:flex-start; gap:8px; width:100%; min-height:40px; padding:8px; border:0; border-radius:4px; background:transparent; color:var(--fs-text); text-decoration:none; text-align:left; font-size:12px; cursor:pointer; }
+.sa-header .sa-account-dropdown :is(button,a):hover { background:var(--fs-primary-soft); }
+.sa-header .sa-account-dropdown .sa-account-signout { color:var(--fs-danger); }
+@media(max-width:560px) { .sa-header .sa-account-dropdown :is(button,a) { min-height:44px; } }
+
+/* Directory controls mirror the organization project list. */
+.sa-table-section { min-width:0; }
+.sa-table-tools { margin-bottom:20px; }
+.sa-table-search-row { display:flex; align-items:center; gap:8px; }
+.sa-table-search { position:relative; display:block; width:100%; max-width:512px; }
+.sa-table-search > svg { position:absolute; left:12px; top:13px; color:var(--fs-muted); pointer-events:none; }
+.sa-table-search input { width:100%; min-height:44px; padding:10px 12px 10px 40px; border:1px solid var(--fs-control-border); border-radius:8px; background:var(--fs-surface); color:var(--fs-text); font-size:14px; }
+.sa-table-search input::placeholder { color:var(--fs-muted); }
+.sa-table-filter-toggle { display:grid; flex-shrink:0; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--fs-control-border); border-radius:8px; background:var(--fs-surface); color:var(--fs-primary); cursor:pointer; }
+.sa-table-filter-toggle[aria-expanded="true"] { background:var(--fs-primary-soft); }
+.sa-table-filters:not([hidden]) { display:flex; flex-wrap:wrap; align-items:end; gap:16px; margin-top:12px; padding:16px; border:1px solid var(--fs-border); border-radius:8px; background:var(--fs-surface); }
+.sa-table-filters label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:500; }
+.sa-table-filters :is(select,input) { min-width:170px; min-height:44px; padding:8px 12px; border:1px solid var(--fs-control-border); border-radius:6px; background:var(--fs-surface); color:var(--fs-text); font-size:14px; }
+.sa-content .sa-table-email { color:var(--fs-primary); text-decoration:none; }
+.sa-content .sa-table-email:hover { text-decoration:underline; }
+@media(max-width:560px) { .sa-table-filters label,.sa-table-filters :is(select,input) { width:100%; min-width:0; } }
+
+/* Compact table actions retain larger touch targets on small screens. */
+
+/* Animate both sides of the desktop layout together; labels stay mounted. */
+@media(min-width:901px) {
+  .sa-sidebar { overflow-x:hidden; transition:width 240ms cubic-bezier(.22,1,.36,1); }
+  .sa-workspace { transition:margin-left 240ms cubic-bezier(.22,1,.36,1); }
+  .sa-sidebar nav a { overflow:hidden; white-space:nowrap; transition:gap 240ms cubic-bezier(.22,1,.36,1),background-color 150ms; }
+  .sa-sidebar nav a svg { flex-shrink:0; }
+  .sa-navigation-label { display:block; min-width:0; max-width:200px; overflow:hidden; white-space:nowrap; opacity:1; transition:max-width 240ms cubic-bezier(.22,1,.36,1),opacity 160ms ease; }
+  .sa-navigation-heading { overflow:hidden; white-space:nowrap; transition:opacity 160ms ease; }
+  .sa-collapsed .sa-navigation-label { max-width:0; opacity:0; }
+  .sa-collapsed .sa-navigation-heading { opacity:0; }
+  .sa-collapsed .sa-sidebar nav a { gap:0; }
+  .sa-sidebar > button svg { transition:transform 240ms cubic-bezier(.22,1,.36,1); }
+  .sa-collapsed .sa-sidebar > button svg { transform:rotate(180deg); }
+}

@@ -47,6 +47,10 @@ export function ProjectWorkspacePage() {
   });
   // Metadata authorizes every project-scoped child request before it can run.
   const authorized = enabled && projectQuery.isSuccess;
+  const teamQuery = useQuery({
+    queryKey: ["project-team", projectId, organizationId],
+    queryFn: () => apiClient.projectTeam(projectId), enabled: authorized,
+  });
   const trendQuery = useQuery({
     queryKey: ["project-overview", organizationId, projectId, "trend", trendPeriod],
     queryFn: () => apiClient.analyticsOverview({ projectId, period: trendPeriod }), enabled: authorized,
@@ -77,7 +81,7 @@ export function ProjectWorkspacePage() {
     },
   });
   const refresh = () => Promise.all([
-    cache.invalidateQueries({ queryKey: ["project-actions"] }), projectQuery.refetch(), submissionsQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
+    cache.invalidateQueries({ queryKey: ["project-actions"] }), projectQuery.refetch(), teamQuery.refetch(), submissionsQuery.refetch(), indicatorsQuery.refetch(), trendQuery.refetch(),
     ...(hasSector ? [organizationSectors.refetch(), sectors.refetch()] : []),
   ]);
 
@@ -130,7 +134,7 @@ export function ProjectWorkspacePage() {
       <ReviewBreakdown counts={submissionsQuery.data?.counts} loading={submissionsQuery.isPending} error={submissionsQuery.isError} retry={() => void submissionsQuery.refetch()} scope={scope} />
     </div>
     <div className="grid items-stretch gap-5 lg:grid-cols-2">
-      <ProjectCompletionChart project={project} />
+      <ProjectCompletionChart project={project} enumerators={teamQuery.data ? new Set(teamQuery.data.filter(member => member.role === "enumerator" && member.is_active).map(member => member.user_id)).size : undefined} collected={submissionsQuery.data?.total} teamLoading={teamQuery.isPending} teamError={teamQuery.isError} dataLoading={submissionsQuery.isPending} dataError={submissionsQuery.isError} retryTeam={() => void teamQuery.refetch()} retryData={() => void submissionsQuery.refetch()} />
       <ProjectTimeline project={project} />
     </div>
     <p id="overview-data-note" className="sr-only">Collection counts include all saved records. Ready is a data-review status, not M&E result approval. Indicator results use their saved definitions; they are not frozen, approved reporting results. Reporting completeness is not available. {reportingCompleteness.state === "unavailable" ? reportingCompleteness.reason : ""}</p>

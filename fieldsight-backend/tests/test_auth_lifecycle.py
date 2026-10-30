@@ -209,3 +209,18 @@ def test_lost_refresh_response_recovers_same_successor_within_grace(auth):
     assert recovered.cookies.get("refresh_token") == first.cookies.get("refresh_token")
     with Session(engine) as db:
         assert len(db.exec(select(RefreshSession)).all()) == 2
+
+
+def test_me_omits_disabled_organizations_and_sensitive_fields(auth):
+    client, engine, uid, _, _ = auth
+    with Session(engine) as db:
+        disabled = Organization(name="Disabled", slug="disabled", is_active=False)
+        db.add(disabled)
+        db.flush()
+        db.add(OrganizationMembership(user_id=uid, organization_id=disabled.id, role=Role.ORGANIZATION_ADMIN))
+        db.commit()
+    response = client.get("/auth/me", headers=bearer(sign_in(client)))
+    assert response.status_code == 200
+    assert [item["organization_name"] for item in response.json()["memberships"]] == ["Synthetic"]
+    assert "password_hash" not in response.json()
+    assert "token_hash" not in response.json()

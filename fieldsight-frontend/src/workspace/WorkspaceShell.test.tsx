@@ -79,3 +79,14 @@ it("shows a red zero notification badge and updates the count without remounting
   expect(await screen.findByLabelText("3 pending sync notifications")).toBeTruthy();
   expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(nav);
 });
+
+it("collapses and expands desktop navigation without changing project links", async () => {
+  setup("/projects/p1/overview");
+  const toggle = screen.getByRole("button", { name: "Collapse sidebar" });
+  fireEvent.click(toggle);
+  expect(document.querySelector(".workspace-collapsed")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Expand sidebar" }).getAttribute("aria-expanded")).toBe("false");
+  await waitFor(() => expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/projects/p1/overview"));
+  fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+  expect(document.querySelector(".workspace-collapsed")).toBeNull();
+});

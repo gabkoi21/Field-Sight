@@ -171,7 +171,7 @@ export function CollectedDataPanel({
           <LoadingSkeleton label="Loading collected records…" />
         ) : results.data?.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-left text-xs">
+            <table className="fs-data-table w-full min-w-[650px] text-left text-xs">
               <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-wide text-[var(--fs-muted)]">
                 <tr>
                   {["Date", "Result", "Location", "Notes", ""].map((h) => (

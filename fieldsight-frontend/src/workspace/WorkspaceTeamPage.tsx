@@ -208,7 +208,7 @@ export function WorkspaceTeamPage({ workspaceOnly = false, adminOnly = false }: 
             </h2>
             {invitations.data?.some((item) => item.role === memberRole) ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="fs-data-table w-full text-left text-xs">
                   <thead className="bg-[#f8fafb] text-[12px] uppercase text-[var(--fs-muted)]">
                     <tr>
                       {["Email", "Role", "Status", "Expires", ""].map((h) => (
@@ -349,7 +349,7 @@ function TeamTable({
   return (
     <>
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] border-collapse whitespace-nowrap text-left text-sm">
+      <table className="fs-data-table w-full min-w-[760px] border-collapse whitespace-nowrap text-left text-sm">
         <thead className="bg-[#f8fafb] text-[12px] uppercase tracking-[.04em] text-[var(--fs-muted)]">
           <tr>
             {["Member", "Email", "Status", "Access"].map((h) => (

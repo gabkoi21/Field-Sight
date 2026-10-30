@@ -57,7 +57,7 @@ export function LoginPage() {
     "mt-2 block w-full rounded-[7px] border border-[#dfe4e8] p-3 text-sm text-ink outline-none transition-colors focus:border-[#aeb8c4] focus:ring-0 focus:shadow-none";
 
   return (
-    <div className="grid min-h-screen grid-cols-2 bg-white max-[700px]:grid-cols-1">
+    <div className="fs-login-page grid min-h-screen grid-cols-2 bg-white max-[700px]:grid-cols-1">
       <form
         className="m-auto w-[min(420px,calc(100%_-_48px))]"
         onSubmit={handleSubmit}

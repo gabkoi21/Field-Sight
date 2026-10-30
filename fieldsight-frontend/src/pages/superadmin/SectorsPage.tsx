@@ -1,18 +1,24 @@
 import { AdminDialog } from "../../components/superadmin/AdminDialog";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button, PageHeader } from "../../components/ui";
 import {
   AdminPanel,
   AdminStatus,
   AdminTableFooter,
+  AdminTable,
+  AdminTableToolbar,
+  AdminSortHeader,
+  useAdminTableSort,
   adminInputClass,
 } from "../../components/superadmin/AdminUi";
 import { apiClient, ApiError } from "../../services/apiClient";
 
 export function SectorsPage() {
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const tableSorting = useAdminTableSort(() => setPage(1));
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
@@ -43,9 +49,13 @@ export function SectorsPage() {
       .includes(query.trim().toLowerCase()),
   );
 
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(sectors.length / 10)));
+  const sortedSectors = tableSorting.sortRows(sectors, (row, key) => key === "status" ? (row.is_active ? "Active" : "Inactive") : key === "code" ? row.code : row.name);
+  const visibleSectors = sortedSectors.slice((currentPage - 1) * 10, currentPage * 10);
+
   async function createSector(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
+    setError(""); setSuccess("");
     try {
       await createMutation.mutateAsync({
         code: code.trim().toLowerCase(),
@@ -70,7 +80,7 @@ export function SectorsPage() {
 
   async function deactivateSector(id: string, sectorName: string) {
     if (!window.confirm(`Deactivate ${sectorName}?`)) return;
-    setError("");
+    setError(""); setSuccess("");
     try {
       await deleteMutation.mutateAsync(id);
     } catch (requestError) {
@@ -92,7 +102,7 @@ export function SectorsPage() {
       {success && <p role="status" className="py-3 text-[var(--fs-success)]">{success}</p>}
       {sectorsQuery.error && <Button variant="secondary" onClick={() => void sectorsQuery.refetch()}>Retry sectors</Button>}
       {(error || sectorsQuery.error) && (
-        <p className="mb-4 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
+        <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-[var(--fs-danger)]">
           {error || "Unable to load sectors from the API."}
         </p>
       )}
@@ -104,57 +114,44 @@ export function SectorsPage() {
           className="grid grid-cols-[180px_1fr_auto] gap-3 p-4 max-[680px]:grid-cols-1"
           onSubmit={createSector}
         >
-          <input
+          <label htmlFor="sector-code" className="space-y-2 text-sm font-medium">Sector code<input
             className={adminInputClass}
             value={code}
             onChange={(event) =>
               setCode(event.target.value.replace(/[^a-z0-9_]/g, ""))
             }
-            aria-label="Sector code" pattern="[a-z][a-z0-9_]{1,63}" placeholder="sector_code"
+            id="sector-code" aria-label="Sector code" pattern="[a-z][a-z0-9_]{1,63}" placeholder="sector_code"
             minLength={2}
             maxLength={64}
             required
-          />
-          <input
+          /></label>
+          <label htmlFor="sector-name" className="space-y-2 text-sm font-medium">Sector name<input
             className={adminInputClass}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            aria-label="Sector name" placeholder="Sector name"
+            id="sector-name" aria-label="Sector name" placeholder="Sector name"
             minLength={2}
             maxLength={120}
             required
-          />
-          <Button type="submit" disabled={createMutation.isPending}>
+          /></label>
+          <Button className="self-end" type="submit" disabled={createMutation.isPending}>
             <Plus size={15} />{" "}
             {createMutation.isPending ? "Creating…" : "Create sector"}
           </Button>
         </form>
       </AdminPanel>
-      <AdminPanel
-        title="Sector catalog"
-        description="Catalog used during organization and project setup"
-        className="mt-[18px]"
-      >
-        <div className="border-b border-line p-4">
-          <label className="flex min-h-[38px] max-w-[420px] items-center gap-2 rounded-[7px] border border-[#dfe4e8] bg-white px-3 text-[#8793a2]">
-            <Search size={15} />
-            <input
-              className="w-full border-0 bg-transparent text-xs text-[#324158] outline-none"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search sectors…"
-            />
-          </label>
-        </div>
-        <label className="block p-4">Status <select value={status} onChange={e => setStatus(e.target.value)}><option>All</option><option>Active</option><option>Inactive</option></select></label>
-        <div className="overflow-x-auto">
-          <table className="min-w-[620px]">
+      <section aria-label="Sector directory" className="sa-table-section mt-[18px]">
+        <AdminTableToolbar label="sectors" search={query} onSearch={value => { setQuery(value); setPage(1); }}>
+          <label>Status<select aria-label="Sector status" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option>All</option><option>Active</option><option>Inactive</option></select></label>
+        </AdminTableToolbar>
+        <AdminTable label="Sector catalog">
+          <table className="fs-data-table min-w-[620px]">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Code</th>
-                <th>Status</th>
-                <th />
+                <AdminSortHeader column="name" sorting={tableSorting}>Name</AdminSortHeader>
+                <AdminSortHeader column="code" sorting={tableSorting}>Code</AdminSortHeader>
+                <AdminSortHeader column="status" sorting={tableSorting}>Status</AdminSortHeader>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +162,7 @@ export function SectorsPage() {
                   </td>
                 </tr>
               )}
-              {sectors.map((sector) => (
+              {visibleSectors.map((sector) => (
                 <tr key={sector.id}>
                   <td>
                     <strong>{sector.name}</strong>
@@ -205,12 +202,12 @@ export function SectorsPage() {
               No sectors match your search.
             </p>
           )}
-        </div>
+        </AdminTable>
         <AdminTableFooter
-          shown={sectors.length}
-          total={(sectorsQuery.data ?? []).length}
+          shown={visibleSectors.length}
+          total={sectors.length} page={currentPage} onPageChange={setPage}
         />
-      </AdminPanel>
+      </section>
       {editing && <AdminDialog label="Edit sector" onClose={() => setEditing(null)}><form onSubmit={saveSector}><h2 className="text-xl font-semibold">Edit sector</h2><label>Sector name<input autoFocus required minLength={2} maxLength={120} className={adminInputClass} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></label>{error && <p role="alert">{error}</p>}<div className="mt-4 flex gap-3"><Button type="submit" disabled={updateMutation.isPending}>Save sector</Button><Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button></div></form></AdminDialog>}
     </>
   );

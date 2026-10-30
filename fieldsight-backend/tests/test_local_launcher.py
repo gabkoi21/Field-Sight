@@ -15,6 +15,7 @@ def test_service_failure_stops_the_other_service():
     api.poll.return_value = None
     with (
         patch("scripts.start_local.get_settings", return_value=SimpleNamespace(environment="development")),
+        patch("scripts.start_local.socket.socket"),
         patch("scripts.start_local.subprocess.Popen", side_effect=[worker, api]) as popen,
     ):
         assert main() == 1
@@ -30,6 +31,7 @@ def test_startup_failure_cleans_up_already_started_worker():
     worker.poll.return_value = None
     with (
         patch("scripts.start_local.get_settings", return_value=SimpleNamespace(environment="development")),
+        patch("scripts.start_local.socket.socket"),
         patch("scripts.start_local.subprocess.Popen", side_effect=[worker, OSError("API startup failed")]),
         pytest.raises(OSError),
     ):
@@ -45,4 +47,16 @@ def test_production_cannot_use_local_launcher():
         pytest.raises(SystemExit, match="local development only"),
     ):
         main()
+    popen.assert_not_called()
+
+
+def test_occupied_port_starts_no_services():
+    with (
+        patch("scripts.start_local.get_settings", return_value=SimpleNamespace(environment="development")),
+        patch("scripts.start_local.socket.socket") as socket_factory,
+        patch("scripts.start_local.subprocess.Popen") as popen,
+    ):
+        socket_factory.return_value.__enter__.return_value.bind.side_effect = OSError("address in use")
+        with pytest.raises(SystemExit, match="Port 8000 is already in use"):
+            main()
     popen.assert_not_called()

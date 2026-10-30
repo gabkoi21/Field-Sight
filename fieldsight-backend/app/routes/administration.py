@@ -12,12 +12,12 @@ from sqlmodel import Session, col, select
 from app.core.security import password_hasher
 from app.db.session import get_session
 from app.models.identity import Organization, OrganizationMembership, OrganizationSector, Role, Sector, User
-from app.models.operations import OrganizationSettings, OrganizationAdminEvent, Project, Submission
+from app.models.operations import OrganizationAdminEvent, OrganizationSettings, Project, Submission
 from app.routes.auth import get_current_user
 from app.schemas.administration import (
     OrganizationCreate,
-    OrganizationStatusUpdate,
     OrganizationListItem,
+    OrganizationStatusUpdate,
     SectorCreate,
     SectorUpdate,
     UserDirectoryItem,
@@ -33,6 +33,32 @@ def require_super_admin(user: CurrentUser) -> User:
     if user.platform_role != Role.SUPER_ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Super administrator permission is required.")
     return user
+
+
+@router.get("/administration/overview")
+def platform_overview(_: Annotated[User, Depends(require_super_admin)], db: Database) -> dict[str, int]:
+    """Count stored accounts once, including inactive/unassigned and Super Admin accounts.
+
+    Projects include every status and organization, including private projects and
+    suspended tenants. No tenant records or private project details are returned.
+    """
+    from sqlalchemy import func
+
+    totals = db.exec(
+        select(
+            select(func.count()).select_from(Organization).scalar_subquery(),
+            select(func.count()).select_from(User).scalar_subquery(),
+            select(func.count()).select_from(Organization).where(Organization.is_active).scalar_subquery(),
+            select(func.count()).select_from(Project).scalar_subquery(),
+        )
+    ).one()
+    return dict(
+        zip(
+            ("total_organizations", "total_platform_users", "active_organizations", "total_projects"),
+            totals,
+            strict=True,
+        )
+    )
 
 
 # Users: platform-wide directory for Super Admin access management.
@@ -151,7 +177,13 @@ def list_organizations(_: Annotated[User, Depends(require_super_admin)], db: Dat
                 timezone=settings.timezone if settings else "UTC",
                 owner_email=owner.email if owner else None,
                 sector_ids=list(sector_ids),
-                user_count=len(db.exec(select(OrganizationMembership.user_id).where(OrganizationMembership.organization_id == organization.id, OrganizationMembership.is_active)).all()),
+                user_count=len(
+                    db.exec(
+                        select(OrganizationMembership.user_id).where(
+                            OrganizationMembership.organization_id == organization.id, OrganizationMembership.is_active
+                        )
+                    ).all()
+                ),
                 project_count=len(db.exec(select(Project.id).where(Project.organization_id == organization.id)).all()),
             )
         )
@@ -222,70 +254,110 @@ def deactivate_organization(org_id: UUID, _: Annotated[User, Depends(require_sup
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+
 @router.get("/administration/events")
 def platform_events(
-    _: Annotated[User, Depends(require_super_admin)], db: Database,
-    q: str = "", start: datetime | None = None, end: datetime | None = None,
-    offset: int = Query(default=0, ge=0), limit: int = Query(default=25, ge=1, le=100),
+    _: Annotated[User, Depends(require_super_admin)],
+    db: Database,
+    q: str = "",
+    start: datetime | None = None,
+    end: datetime | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=25, ge=1, le=100),
 ) -> dict[str, object]:
     """Recorded organization administration only; no secrets or invented history."""
     from sqlalchemy import func, or_
-    statement = (select(OrganizationAdminEvent, User.email, Organization.name)
-                 .join(User, User.id == OrganizationAdminEvent.actor_id)
-                 .join(Organization, Organization.id == OrganizationAdminEvent.organization_id))
+
+    statement = (
+        select(OrganizationAdminEvent, User.email, Organization.name)
+        .join(User, User.id == OrganizationAdminEvent.actor_id)
+        .join(Organization, Organization.id == OrganizationAdminEvent.organization_id)
+    )
     if q.strip():
         pattern = "%" + q.strip() + "%"
-        statement = statement.where(or_(col(User.email).ilike(pattern),
-            col(Organization.name).ilike(pattern), col(OrganizationAdminEvent.action).ilike(pattern),
-            col(OrganizationAdminEvent.resource_id).ilike(pattern)))
+        statement = statement.where(
+            or_(
+                col(User.email).ilike(pattern),
+                col(Organization.name).ilike(pattern),
+                col(OrganizationAdminEvent.action).ilike(pattern),
+                col(OrganizationAdminEvent.resource_id).ilike(pattern),
+            )
+        )
     if start is not None:
         statement = statement.where(OrganizationAdminEvent.occurred_at >= start)
     if end is not None:
         statement = statement.where(OrganizationAdminEvent.occurred_at <= end)
     total = db.exec(select(func.count()).select_from(statement.subquery())).one()
-    rows = db.exec(statement.order_by(col(OrganizationAdminEvent.occurred_at).desc(),
-        col(OrganizationAdminEvent.id).desc()).offset(offset).limit(limit)).all()
-    return {"total": total, "items": [{"id": str(event.id), "actor": email,
-        "action": event.action, "target": event.resource_id, "organization": name,
-        "occurred_at": event.occurred_at} for event, email, name in rows]}
+    rows = db.exec(
+        statement.order_by(col(OrganizationAdminEvent.occurred_at).desc(), col(OrganizationAdminEvent.id).desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return {
+        "total": total,
+        "items": [
+            {
+                "id": str(event.id),
+                "actor": email,
+                "action": event.action,
+                "target": event.resource_id,
+                "organization": name,
+                "occurred_at": event.occurred_at,
+            }
+            for event, email, name in rows
+        ],
+    }
 
 
 @router.patch("/administration/organizations/{org_id}/status")
-def change_organization_status(org_id: UUID, payload: OrganizationStatusUpdate,
-    actor: Annotated[User, Depends(require_super_admin)], db: Database) -> dict[str, bool]:
+def change_organization_status(
+    org_id: UUID, payload: OrganizationStatusUpdate, actor: Annotated[User, Depends(require_super_admin)], db: Database
+) -> dict[str, bool]:
     organization = db.get(Organization, org_id)
     if organization is None:
         raise HTTPException(status_code=404, detail="Organization was not found.")
     if organization.is_active != payload.is_active:
         organization.is_active = payload.is_active
         db.add(organization)
-        db.add(OrganizationAdminEvent(organization_id=org_id, actor_id=actor.id,
-            action="organization.restored" if payload.is_active else "organization.suspended", resource_id=str(org_id)))
+        db.add(
+            OrganizationAdminEvent(
+                organization_id=org_id,
+                actor_id=actor.id,
+                action="organization.restored" if payload.is_active else "organization.suspended",
+                resource_id=str(org_id),
+            )
+        )
         db.commit()
     return {"is_active": organization.is_active}
 
 
 @router.get("/administration/activity/monthly")
 def monthly_organization_activity(
-    _: Annotated[User, Depends(require_super_admin)], db: Database,
+    _: Annotated[User, Depends(require_super_admin)],
+    db: Database,
     year: int = Query(ge=2000, le=2100),
 ) -> dict[str, object]:
     """Monthly leaders by dated submission count; ties use organization ID."""
     from sqlalchemy import extract, func
 
-    dated_at = func.timezone("UTC", Submission.submitted_at) if db.get_bind().dialect.name == "postgresql" else Submission.submitted_at
+    dated_at = (
+        func.timezone("UTC", Submission.submitted_at)
+        if db.get_bind().dialect.name == "postgresql"
+        else Submission.submitted_at
+    )
     month = extract("month", dated_at)
     count = func.count(Submission.id)
     rows = db.exec(
         select(month, Organization.id, Organization.name, count)
         .join(Organization, Organization.id == Submission.organization_id)
-        .where(Submission.submitted_at >= datetime(year, 1, 1, tzinfo=UTC),
-               Submission.submitted_at < datetime(year + 1, 1, 1, tzinfo=UTC))
+        .where(
+            Submission.submitted_at >= datetime(year, 1, 1, tzinfo=UTC),
+            Submission.submitted_at < datetime(year + 1, 1, 1, tzinfo=UTC),
+        )
         .group_by(month, Organization.id, Organization.name)
         .order_by(month, count.desc(), Organization.id)
     ).all()
-    years = db.exec(select(extract("year", dated_at)).where(
-        Submission.submitted_at.is_not(None)).distinct()).all()
+    years = db.exec(select(extract("year", dated_at)).where(Submission.submitted_at.is_not(None)).distinct()).all()
     by_month: dict[int, list[tuple[object, ...]]] = {}
     for row in rows:
         by_month.setdefault(int(row[0]), []).append(row)
@@ -293,12 +365,19 @@ def monthly_organization_activity(
     for number in range(1, 13):
         activity = by_month.get(number, [])
         leader = activity[0] if activity else None
-        months.append({
-            "month": number,
-            "organization_id": str(leader[1]) if leader else None,
-            "organization_name": leader[2] if leader else None,
-            "submissions": int(leader[3]) if leader else 0,
-            "tied_organizations": sum(row[3] == leader[3] for row in activity) if leader else 0,
-        })
-    return {"year": year, "available_years": sorted({int(value) for value in years
-        if value is not None and 2000 <= int(value) <= 2100} | {year}, reverse=True), "months": months}
+        months.append(
+            {
+                "month": number,
+                "organization_id": str(leader[1]) if leader else None,
+                "organization_name": leader[2] if leader else None,
+                "submissions": int(leader[3]) if leader else 0,
+                "tied_organizations": sum(row[3] == leader[3] for row in activity) if leader else 0,
+            }
+        )
+    return {
+        "year": year,
+        "available_years": sorted(
+            {int(value) for value in years if value is not None and 2000 <= int(value) <= 2100} | {year}, reverse=True
+        ),
+        "months": months,
+    }

@@ -978,6 +978,7 @@ export interface MonthlyOrganizationActivity {
 export const apiClient = {
   monthlyOrganizationActivity: (year: number) => request<MonthlyOrganizationActivity>(`/administration/activity/monthly?year=${year}`),
   setOrganizationStatus: (id: string, is_active: boolean) => request<{ is_active: boolean }>(`/administration/organizations/${id}/status`, { method: "PATCH", body: JSON.stringify({ is_active }) }),
+  platformOverview: () => request<{ total_organizations: number; total_platform_users: number; active_organizations: number; total_projects: number }>("/administration/overview"),
   platformEvents: (params: URLSearchParams) => request<{ total: number; items: { id: string; actor: string; action: string; target: string; organization: string; occurred_at: string }[] }>(`/administration/events?${params}`),
   projectActions: (project: string, params = new URLSearchParams()) => request<ActionPage>(`/projects/${project}/actions?${params}`),
   actionDetail: (project: string, action: string, offset = 0) => request<ActionDetail>(`/projects/${project}/actions/${action}?history_offset=${offset}`),
