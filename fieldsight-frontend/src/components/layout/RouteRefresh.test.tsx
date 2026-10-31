@@ -24,3 +24,18 @@ it.each([false, true])("handles refresh skeletons with background polling set to
   await waitFor(() => expect(screen.queryByText("Refreshing page data…")).toBeNull());
   client.clear();
 });
+
+it("shows loading feedback for initial page requests and clears it when data arrives", async () => {
+  let finish!: (value: string) => void;
+  function Page() {
+    const query = useQuery({ queryKey: ["initial-page"], queryFn: () => new Promise<string>(resolve => { finish = resolve; }) });
+    return <p>{query.data ?? "Waiting for records"}</p>;
+  }
+  const client = new QueryClient();
+  render(<QueryClientProvider client={client}><MemoryRouter><Routes><Route element={<RouteContent />}><Route path="/" element={<Page />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+  expect(await screen.findByText(/Loading page data/)).toBeTruthy();
+  await act(async () => { finish("Loaded records"); });
+  expect(await screen.findByText("Loaded records")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByText(/Loading page data/)).toBeNull());
+  client.clear();
+});

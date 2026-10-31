@@ -29,6 +29,8 @@ export function SyncControls({ projectId, connected }: { projectId: string; conn
   const retryScheduled = Boolean(settings.data?.pending && settings.data.attempts && nextAttempt && new Date(nextAttempt).getTime() > now);
   useEffect(() => { if (last) void refresh(); }, [last]);
   const running = settings.data?.pending && settings.data.execution_state === "running";
+  if (settings.isLoading) return <Panel className="space-y-4 p-5"><h2 className="m-0 text-base font-semibold">Synchronization</h2><LoadingState variant="panel" label="Loading synchronization settings..." /></Panel>;
+  if (settings.isError && !settings.data) return <Panel className="space-y-4 p-5"><h2 className="m-0 text-base font-semibold">Synchronization</h2><Notice error>{settings.error.message}</Notice><Button variant="secondary" onClick={() => void settings.refetch()}>Retry synchronization settings</Button></Panel>;
   return <Panel className="space-y-4 p-5">
     <h2 className="m-0 text-base font-semibold">Synchronization</h2>
     <p className="text-xs text-[var(--fs-muted)]">Last successful sync: {last ? new Date(last).toLocaleString() : "Never"}</p>
@@ -43,10 +45,10 @@ export function SyncControls({ projectId, connected }: { projectId: string; conn
         onChange={event => save.mutate(event.target.checked ? "scheduled" : "manual")} />Automatic synchronization</label>
       <label>Interval (seconds) <input aria-label="Sync interval in seconds" type="number" min={1.6} max={604800} step={0.1} value={interval}
         className="w-24 rounded border border-[#dce4e8] p-2" onChange={event => setInterval(Number(event.target.value))} /></label>
-      <Button variant="secondary" disabled={save.isPending || !Number.isFinite(interval) || interval < 1.6 || interval > 604800} onClick={() => save.mutate(settings.data!.mode)}>Save interval</Button>
+      <Button variant="secondary" disabled={save.isPending || !Number.isFinite(interval) || interval < 1.6 || interval > 604800} onClick={() => save.mutate(settings.data!.mode)}>{save.isPending ? "Saving interval..." : "Save interval"}</Button>
       <Button disabled={!connected || sync.isPending || settings.data.pending} onClick={() => sync.mutate()}>{settings.data.pending ? (running ? "Sync running…" : retryScheduled ? "Retry scheduled…" : "Sync pending…") : "Sync now"}</Button>
     </div>}
-    {settings.isLoading && <LoadingState variant="panel" label="Loading synchronization settings…" />}
+    {settings.isError && <Button variant="secondary" onClick={() => void settings.refetch()}>Retry synchronization settings</Button>}
     {[settings.error, save.error, sync.error].filter(Boolean).map((error, index) => <Notice error key={index}>{error!.message}</Notice>)}
   </Panel>;
 }

@@ -65,7 +65,7 @@ it("selects existing contacts, shows honest reports and confirms removal", async
   expect(screen.getByRole("cell", { name: "WASH Survey" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
   expect(apiClient.removeEnumeratorAssignment).not.toHaveBeenCalled();
-  expect(screen.getByText(/Kobo access is not automatically revoked/)).toBeTruthy();
+  expect(screen.getByText(/Kobo collection access is retained/)).toBeTruthy();
   fireEvent.change(screen.getByLabelText('To confirm, type “Alice”'), { target: { value: "Alice" } });
   fireEvent.change(screen.getByLabelText('To confirm, type “remove enumerator”'), { target: { value: "remove enumerator" } });
   fireEvent.click(screen.getByRole("button", { name: "Remove enumerator" }));

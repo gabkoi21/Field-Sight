@@ -143,7 +143,7 @@ export function CollectedDataPanel({
               </select>
             </Field>
             {indicator.unit === "rate" && method === "pooled" && <Field label="Rate per population (e.g. 1000)"><input className={fieldClass} type="number" min={0.000001} max={1000000} step="any" value={multiplier} onChange={event => setMultiplier(Number(event.target.value))} /></Field>}
-            <div><Button disabled={aggregation.isPending || method === "legacy" || policy.isPending || policy.isError || !Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 1000000} onClick={() => aggregation.mutate()}>Save manual settings</Button></div>
+            <div><Button disabled={aggregation.isPending || method === "legacy" || policy.isPending || policy.isError || !Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 1000000} onClick={() => aggregation.mutate()}>{aggregation.isPending ? "Saving settings..." : "Save manual settings"}</Button></div>
           </div>
         </details>
       </Panel>}

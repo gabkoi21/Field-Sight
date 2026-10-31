@@ -83,6 +83,7 @@ export function SubmissionsPage() {
   if (reviewStatus) params.set("review_status", reviewStatus);
   const scopeResolved = queryProjectId !== "";
   const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading && scopeResolved });
+  const pageLoading = authLoading || isLoading || (!scopeResolved && projectsQuery.isLoading);
   const rows: Row[] = (data?.items ?? []).map(toRow);
   const total = data?.total ?? 0;
   const counts = data?.counts ?? {};
@@ -143,7 +144,7 @@ export function SubmissionsPage() {
       <p className="text-xs">Exports include every matching submission across all pages, filtered by the selected project, search and UTC period.</p>
       <div className="mb-6"><PageHeader eyebrow="FieldSight / Data collection" title="Submissions" description="Browse every completed form sent from your field teams and connected sources." /></div>
 
-      {(isLoading || authLoading) ? <div className="mb-5"><LoadingSkeleton layout="metrics" metricCount={3} announce={false} label="Loading submission counts…" /></div> : data && <section className="mb-[18px] grid grid-cols-1 gap-[14px]">
+      {pageLoading ? <div className="mb-5"><LoadingSkeleton layout="metrics" metricCount={3} announce={false} label="Loading submission counts…" /></div> : data && <section className="mb-[18px] grid grid-cols-1 gap-[14px]">
         <MetricCard label="All submissions" value={Object.values(counts).reduce((sum, n) => sum + n, 0)} context={projectId ? `For ${selectedProjectName}` : "Across active organization projects"} icon={Database} />
       </section>}
 
@@ -205,7 +206,7 @@ export function SubmissionsPage() {
       </div>
 
       {isFetching && data && <div className="my-3"><LoadingState variant="inline" label="Updating submissions…" /></div>}
-      {(isLoading || authLoading || outOfRange) ? <div className="mt-4"><LoadingSkeleton label="Loading submissions…" columns={6} /></div> : <Card className="mt-[16px] rounded-none">
+      {(pageLoading || outOfRange) ? <div className="mt-4"><LoadingSkeleton label="Loading submissions…" columns={6} /></div> : <Card className="mt-[16px] rounded-none">
         <div className="overflow-x-auto">
           <table aria-busy={isFetching} className="fs-data-table w-full min-w-[900px] border-separate border-spacing-0 overflow-hidden text-left">
             <thead>

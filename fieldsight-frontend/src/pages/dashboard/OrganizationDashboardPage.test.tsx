@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { apiClient } from "../../services/apiClient";
@@ -71,7 +71,10 @@ it("shows KPIs and charts without the removed dashboard filter bar", async () =>
   expect(screen.queryByRole("region", { name: "Application areas" })).toBeNull();
   expect(screen.queryByRole("heading", { name: "Collection trend" })).toBeNull();
   expect(screen.getByRole("heading", { name: "Project Status" })).toBeTruthy();
-  expect(screen.getByText("Data readiness")).toBeTruthy();
+  expect(screen.getByText("Total projects")).toBeTruthy();
+  expect(screen.getByText("Total submissions")).toBeTruthy();
+  expect(screen.getByText("Active enumerators")).toBeTruthy();
+  expect(screen.getByText("Completed projects")).toBeTruthy();
   expect(screen.queryByText("Collection performance and data quality across your organization.")).toBeNull();
   expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
   expect(screen.queryByText("Filter dashboard")).toBeNull();
@@ -129,4 +132,51 @@ it("keeps a neutral doughnut visible when no projects are active or completed", 
   expect(chart.querySelector("svg circle")).toBeTruthy();
   expect(within(chart).getByText("0")).toBeTruthy();
   expect(screen.getByText("No active or completed projects yet.")).toBeTruthy();
+});
+
+it("keeps the dashboard skeleton visible when projects finish before the overview", async () => {
+  let finish!: (value: unknown) => void;
+  vi.mocked(apiClient.dashboardOverview).mockImplementation(() => new Promise(resolve => { finish = resolve as never; }));
+  setup();
+  await waitFor(() => expect(apiClient.organizationProjects).toHaveBeenCalled());
+  expect(screen.getByRole("status").textContent).toContain("Preparing overview");
+  expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
+  await act(async () => { finish({ total_submissions: 0, ready_records: 0, needs_review: 0, invalid_records: 0, active_projects: 0, projects: [], trend: [] }); });
+  expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeTruthy();
+});
+
+it("shows a monthly chart skeleton instead of zero data while submissions load", async () => {
+  let finish!: (value: never[]) => void;
+  vi.mocked(apiClient.submissions).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  setup();
+  await screen.findByRole("heading", { name: "Dashboard" });
+  expect(screen.getByText("Loading monthly collection data...")).toBeTruthy();
+  expect(screen.queryByRole("table", { name: /Monthly collection performance for/ })).toBeNull();
+  await act(async () => { finish([]); });
+  expect(await screen.findByRole("table", { name: /Monthly collection performance for/ })).toBeTruthy();
+});
+it("shows a retryable monthly chart error rather than fabricated empty data", async () => {
+  vi.mocked(apiClient.submissions).mockRejectedValue(new Error("Unavailable"));
+  setup();
+  expect(await screen.findByRole("button", { name: "Retry monthly data" })).toBeTruthy();
+  expect(screen.queryByRole("table", { name: /Monthly collection performance for/ })).toBeNull();
+});
+
+it("counts distinct named enumerators with submissions in the last seven days", async () => {
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86400000).toISOString();
+  vi.mocked(apiClient.submissions).mockResolvedValue([
+    { enumerator: " Alice ", submitted_at: daysAgo(1) },
+    { enumerator: "alice", submitted_at: daysAgo(2) },
+    { enumerator: "Bob", submitted_at: daysAgo(6) },
+    { enumerator: "Older collector", submitted_at: daysAgo(8) },
+    { enumerator: "Future collector", submitted_at: daysAgo(-1) },
+    { enumerator: " ", submitted_at: daysAgo(1) },
+    { enumerator: null, submitted_at: daysAgo(1) },
+    { enumerator: "Undated", submitted_at: null },
+  ] as never);
+  setup();
+  const label = await screen.findByText("Active enumerators");
+  const card = label.closest("article")!;
+  await waitFor(() => expect(within(card).getByText("2")).toBeTruthy());
+  expect(within(card).getByText("Submitted data in the last 7 days")).toBeTruthy();
 });

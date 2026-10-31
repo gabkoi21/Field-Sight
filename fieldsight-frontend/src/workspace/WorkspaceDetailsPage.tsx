@@ -36,6 +36,7 @@ export function WorkspaceDetailsPage() {
   const cache = useQueryClient();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<ApiProject["status"]>("draft");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [details, setDetails] = useState<WorkspaceDetails>({
@@ -53,6 +54,7 @@ export function WorkspaceDetailsPage() {
   function reset() {
     if (!project) return;
     setName(project.name);
+    setStatus(project.status ?? "draft");
     setDescription(project.description);
     setStart(project.start_date ?? "");
     setEnd(project.end_date ?? "");
@@ -68,6 +70,7 @@ export function WorkspaceDetailsPage() {
       apiClient.updateProject(organizationId, projectId, {
         name: name.trim(),
         description,
+        status,
         start_date: start || null,
         end_date: end || null,
         workspace_details: details,
@@ -94,8 +97,9 @@ export function WorkspaceDetailsPage() {
   }
   const changed =
     project &&
-    JSON.stringify({ name, description, start, end, details }) !==
+    JSON.stringify({ name, description, status, start, end, details }) !==
       JSON.stringify({
+        status: project.status ?? "draft",
         name: project.name,
         description: project.description,
         start: project.start_date ?? "",
@@ -210,36 +214,22 @@ export function WorkspaceDetailsPage() {
                 />
               </DetailField>
               <DetailField label="Status">
-                <div className="relative">
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute left-3 top-3 size-2.5 rounded-full"
-                    style={{
-                      backgroundColor: {
-                        red: "#e34e4e",
-                        amber: "#e9b34b",
-                        green: "#48ad83",
-                        "": "#c2c6cf",
-                      }[details.health_status],
-                    }}
-                  />
-                  <select
-                    aria-label="Status"
-                    className={input + " pl-8"}
-                    value={details.health_status}
-                    onChange={(event) =>
-                      update(
-                        "health_status",
-                        event.target.value as WorkspaceDetails["health_status"],
-                      )
-                    }
-                  >
-                    <option value="">Not set</option>
-                    <option value="red">Red</option>
-                    <option value="amber">Amber</option>
-                    <option value="green">Green</option>
-                  </select>
-                </div>
+                <select
+                  aria-label="Status"
+                  className={input}
+                  value={status}
+                  onChange={(event) => {
+                    setStatus(event.target.value as ApiProject["status"]);
+                    setMessage("");
+                  }}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="in_review">In review</option>
+                  <option value="paused">Paused</option>
+                  <option value="completed">Completed</option>
+                  <option value="archived">Archived</option>
+                </select>
               </DetailField>
               <div className="col-span-2 max-md:col-span-1">
                 <DetailField label="Description">

@@ -10,7 +10,7 @@ import {
   TriangleAlert,
   Wifi,
 } from "lucide-react";
-import { Button, PageHeader } from "../../components/ui";
+import { Button, LoadingSkeleton, PageHeader } from "../../components/ui";
 import {
   AdminMetric,
   AdminPanel,
@@ -55,7 +55,7 @@ export function SystemHealthPage() {
   const platformState = liveQuery.isPending || readyQuery.isPending || statusQuery.isPending ? "Unknown" : liveQuery.error && readyQuery.error ? "Unavailable" : platformOperational ? "Healthy" : "Degraded";
 
   async function refreshHealth() {
-
+    await Promise.all([liveQuery.refetch(), readyQuery.refetch(), statusQuery.refetch()]);
   }
 
   const services = [
@@ -76,6 +76,7 @@ export function SystemHealthPage() {
   ];
   const firstError = liveQuery.error ?? readyQuery.error ?? statusQuery.error;
 
+  if (liveQuery.isLoading || readyQuery.isLoading || statusQuery.isLoading) return <div className="space-y-6"><PageHeader eyebrow="Platform operations" title="System health" /><LoadingSkeleton layout="table-page" metricCount={4} label="Checking system health..." /></div>;
   return (
     <>
       <PageHeader

@@ -29,6 +29,8 @@ export function WorkspaceReportsPage() {
     queryFn: () => apiClient.tables(projectId),
     enabled: Boolean(projectId),
   });
+  const reportLoading = indicators.isLoading || tables.isLoading;
+  const reportUnavailable = Boolean((indicators.isError && !indicators.data) || (tables.isError && !tables.data));
   const pdf = useMutation({ mutationFn: () => apiClient.projectReportPdf(projectId, from, through), onSuccess: data => {
     const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
     const link = document.createElement("a"); link.href = url; link.download = "fieldsight-project-report.pdf";
@@ -106,15 +108,15 @@ export function WorkspaceReportsPage() {
           <Button
             variant="secondary"
             onClick={exportCsv}
-            disabled={!indicators.data || indicators.isFetching || indicators.isError || invalid}
+            disabled={!indicators.data || reportLoading || indicators.isFetching || reportUnavailable || invalid}
           >
             <Download size={14} />
             Export CSV
           </Button>
-          <Button variant="secondary" onClick={() => pdf.mutate()} disabled={invalid || pdf.isPending || !projectId}>
+          <Button variant="secondary" onClick={() => pdf.mutate()} disabled={invalid || pdf.isPending || !projectId || reportLoading || reportUnavailable}>
             <Download size={14} />{pdf.isPending ? "Generating PDF…" : "Download PDF"}
           </Button>
-          <Button onClick={() => window.print()} disabled={invalid || indicators.isFetching || indicators.isError}>
+          <Button onClick={() => window.print()} disabled={invalid || reportLoading || indicators.isFetching || reportUnavailable}>
             <Printer size={14} />
             Print / save PDF
           </Button>
@@ -154,10 +156,10 @@ export function WorkspaceReportsPage() {
         ))}
         {indicators.isFetching && indicators.data && <LoadingState variant="inline" label="Updating report…" />}
         {(indicators.error || tables.error) && <Button variant="secondary" onClick={() => { void indicators.refetch(); void tables.refetch(); }}>Retry report data</Button>}
-        {indicators.isLoading ? (
+        {reportLoading && !invalid ? (
           <LoadingState variant="panel" label="Preparing project report…" />
         ) : (
-          !invalid && (!indicators.error || indicators.data) && (
+          !invalid && !reportUnavailable && (
             <>
               <Panel className="p-6">
                 <p className="text-[12px] uppercase tracking-widest text-[var(--fs-muted)]">

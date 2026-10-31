@@ -4,14 +4,16 @@ import { Outlet, useLocation } from "react-router-dom";
 import { LoadingSkeleton } from "../ui";
 
 function RouteLoading({ pathname }: { pathname: string }) {
-  if (pathname.endsWith("/dashboards") || pathname === "/superadmin") return <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />;
+  if (pathname === "/dashboard" || pathname.endsWith("/dashboards") || pathname === "/overview" || pathname.endsWith("/overview") || pathname === "/superadmin") return <LoadingSkeleton metricCount={4} layout="dashboard" label="Preparing dashboard…" />;
+  if (["/details", "/settings", "/profile", "/superadmin/settings"].includes(pathname) || pathname.endsWith("/details")) return <LoadingSkeleton layout="details" label="Loading page details..." />;
   if (pathname.includes("indicators")) return <LoadingSkeleton label="Loading indicators…" />;
   return <LoadingSkeleton layout="table-page" label={(pathname === "/analytics" || pathname.endsWith("/analytics")) ? "Preparing analysis…" : "Loading page…"} />;
 }
 
-function RefreshSkeleton() {
-  const refreshing = useIsFetching({ predicate: query => query.getObserversCount() > 0 && query.state.status === "success" && !query.meta?.backgroundRefresh && query.queryKey[0] !== "kobo-pending-sync" });
-  return refreshing ? <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5" aria-busy="true"><span className="sr-only">Refreshing page data…</span><span aria-hidden="true" className="block h-full bg-[var(--fs-primary)] motion-safe:animate-pulse" /></div> : null;
+function PageLoadingIndicator() {
+  const fetching = useIsFetching({ predicate: query => query.getObserversCount() > 0 && !query.meta?.backgroundRefresh && query.queryKey[0] !== "kobo-pending-sync" });
+  const loading = useIsFetching({ predicate: query => query.getObserversCount() > 0 && query.state.data === undefined && !query.meta?.backgroundRefresh && query.queryKey[0] !== "kobo-pending-sync" });
+  return fetching ? <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5" aria-busy="true"><span className="sr-only">{loading ? "Loading page data…" : "Refreshing page data…"}</span><span aria-hidden="true" className="block h-full bg-[var(--fs-primary)] motion-safe:animate-pulse" /></div> : null;
 }
 
 class PageLoadBoundary extends Component<{ path: string; children: ReactNode }, { failed: boolean }> {
@@ -30,5 +32,5 @@ class PageLoadBoundary extends Component<{ path: string; children: ReactNode }, 
 export function RouteContent() {
   const { pathname } = useLocation();
   const queryClient = useContext(QueryClientContext);
-  return <PageLoadBoundary path={pathname}><div className="relative min-w-0 w-full">{queryClient && <RefreshSkeleton />}<Suspense key={pathname} fallback={<RouteLoading pathname={pathname} />}><Outlet /></Suspense></div></PageLoadBoundary>;
+  return <PageLoadBoundary path={pathname}><div className="relative min-w-0 w-full">{queryClient && <PageLoadingIndicator />}<Suspense key={pathname} fallback={<RouteLoading pathname={pathname} />}><Outlet /></Suspense></div></PageLoadBoundary>;
 }

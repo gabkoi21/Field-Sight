@@ -114,7 +114,7 @@ export function KoboConnectionsPage() {
         </div>
         {connectionsQuery.isLoading ? (
           <LoadingState variant="panel" label="Loading Kobo connections…" />
-        ) : connections.length ? (
+        ) : connectionsQuery.isError && !connectionsQuery.data ? null : connections.length ? (
           connections.map((connection) => (
             <div className="flex flex-wrap items-center gap-3 border-b border-[#edf0f2] p-5 last:border-b-0" key={connection.id}>
               <span className="grid size-9 place-items-center rounded-lg bg-[#e9f8ef] text-[#21834c]">

@@ -113,7 +113,7 @@ export function OrganizationSettingsPage() {
               </p>
               <Button type="submit" disabled={save.isPending}>
                 <Save size={14} />
-                Save settings
+                {save.isPending ? "Saving settings..." : "Save settings"}
               </Button>
             </form>
           </Panel>

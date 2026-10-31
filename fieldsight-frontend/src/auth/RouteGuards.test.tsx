@@ -20,8 +20,8 @@ it("keeps navigation mounted during session restoration and gates protected cont
   expect(screen.queryByRole("heading", {name: "Protected projects"})).toBeNull();
   expect(navigation.textContent).not.toContain("Choose a project first");
   const placeholders = navigation.querySelectorAll(".navigation-project-hint");
-  expect(placeholders.length).toBe(2);
-  for (const row of placeholders) expect(row.classList.contains("min-h-11")).toBe(true);
+  expect(placeholders.length).toBe(0);
+  expect(screen.getByRole("link", { name: "Dashboard" })).toBeTruthy();
   expect(document.getElementById("main-content")?.textContent).toContain("Loading your session");
   expect(apiClient.organizationProjects).not.toHaveBeenCalled();
   expect(apiClient.pendingKoboSync).not.toHaveBeenCalled();
@@ -32,12 +32,11 @@ it("keeps navigation mounted during session restoration and gates protected cont
   expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(navigation);
 });
 
-it("keeps the current project highlight during session restoration", () => {
+it("keeps project content gated without restoring removed sidebar links", () => {
   auth.user = null; auth.loading = true; auth.status = "checking";
   const cache = new QueryClient();
   render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/projects/p1/overview"]}><Routes><Route element={<RequireOrganizationMember><WorkspaceShell /></RequireOrganizationMember>}><Route path="projects/:projectId/overview" element={<h1>Overview data</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
-  const overview = screen.getByRole("link", {name: "Overview"});
-  expect(overview.getAttribute("aria-current")).toBe("page");
-  expect(overview.getAttribute("href")).toBe("/projects/p1/overview");
+  expect(screen.queryByRole("link", {name: "Overview"})).toBeNull();
+  expect(screen.getByRole("navigation", {name: "Main navigation"})).toBeTruthy();
   expect(screen.queryByRole("heading", {name: "Overview data"})).toBeNull();
 });

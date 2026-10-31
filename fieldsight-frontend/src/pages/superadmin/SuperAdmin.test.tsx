@@ -174,3 +174,20 @@ it("hides Super Admin accounts from directory rows, counts, filters, and search"
   expect(screen.getByText("No users match your filters.")).toBeTruthy();
   expect(screen.getByText("Showing 0 to 0 of 0 results")).toBeTruthy();
 });
+
+it("shows a system-health skeleton until all initial checks settle", async () => {
+  vi.spyOn(apiClient, "live").mockResolvedValue({ status: "ok" } as never);
+  vi.spyOn(apiClient, "ready").mockResolvedValue({ database: "ready" } as never);
+  vi.spyOn(apiClient, "status").mockImplementation(() => new Promise(() => {}));
+  setup(<SystemHealthPage />);
+  expect(await screen.findByText("Checking system health...")).toBeTruthy();
+  expect(screen.queryByText("No successful checks")).toBeNull();
+});
+it("refreshes every system health endpoint on demand", async () => {
+  const live = vi.spyOn(apiClient, "live").mockResolvedValue({ status: "ok" } as never);
+  const ready = vi.spyOn(apiClient, "ready").mockResolvedValue({ database: "ready" } as never);
+  const status = vi.spyOn(apiClient, "status").mockResolvedValue({ status: "ok" } as never);
+  setup(<SystemHealthPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Refresh status" }));
+  await waitFor(() => { expect(live).toHaveBeenCalledTimes(2); expect(ready).toHaveBeenCalledTimes(2); expect(status).toHaveBeenCalledTimes(2); });
+});

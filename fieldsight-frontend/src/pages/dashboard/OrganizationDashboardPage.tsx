@@ -2,7 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
-  Clock3,
+  Users,
   Database,
   FolderKanban,
   CheckCircle2,
@@ -102,7 +102,6 @@ export function OrganizationDashboardPage() {
     refetchOnWindowFocus: false,
   });
 
-  const enumeratorsQuery = useQuery({ queryKey: ["organization-enumerators"], queryFn: apiClient.enumerators });
   const submissionsQuery = useQuery({
     queryKey: ["dashboard-recent-submissions"],
     queryFn: apiClient.submissions,
@@ -110,10 +109,10 @@ export function OrganizationDashboardPage() {
     staleTime: 30_000,
   });
 
-  const isLoading = authLoading || (overviewQuery.isLoading && projectsQuery.isLoading);
+  const isLoading = authLoading || overviewQuery.isLoading;
 
   if (isLoading) {
-    return <LoadingSkeleton layout="dashboard" label="Preparing overview…" />;
+    return <LoadingSkeleton layout="dashboard" metricCount={4} label="Preparing overviewâ€¦" />;
   }
 
   if (overviewQuery.isError && !overviewQuery.data) return <div className="space-y-6"><PageHeader eyebrow="FieldSight / Organization" title="Dashboard" /><div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800"><p>Unable to load overview: {overviewQuery.error.message}</p><button className="min-h-11 rounded-lg px-3 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></div></div>;
@@ -135,8 +134,15 @@ export function OrganizationDashboardPage() {
   const projectOptions = (projectsQuery.data ?? []).map((item) => ({ label: item.name, value: item.id }));
 
 
-  const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
-  const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
+  const activityNow = Date.now();
+  const activityCutoff = activityNow - 7 * 86400000;
+  const activeEnumerators = new Set(
+    (submissionsQuery.data ?? []).flatMap((submission) => {
+      const name = submission.enumerator?.trim().toLowerCase();
+      const submittedAt = submission.submitted_at ? new Date(submission.submitted_at).getTime() : NaN;
+      return name && submittedAt >= activityCutoff && submittedAt <= activityNow ? [name] : [];
+    }),
+  ).size;
   const totalSubmissionsVal = overview?.total_submissions ?? 0;
   const qualityRate = overview?.total_submissions
     ? Math.round((overview.ready_records / overview.total_submissions) * 100)
@@ -211,29 +217,17 @@ export function OrganizationDashboardPage() {
       <PageHeader eyebrow="FieldSight / Organization" title="Dashboard" />
 
       {overviewQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load overview: {overviewQuery.error.message}. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></p>}
-      {submissionsQuery.isLoading && <LoadingState variant="panel" label="Loading chart and ranking data…" />}
       {submissionsQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load chart and ranking data. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => void submissionsQuery.refetch()}>Retry chart data</button></p>}
-      {overviewQuery.isLoading ? <LoadingSkeleton layout="dashboard" label="Loading overview for selected filters…" /> : <>
+      {overviewQuery.isLoading ? <LoadingSkeleton layout="dashboard" label="Loading overview for selected filtersâ€¦" /> : <>
       <section aria-label="Organization summary" className="workspace-metrics">
-        <MetricCard label="Submissions in period" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
-        <MetricCard
-          label="Needs review"
-          value={overview?.needs_review ?? 0}
-          context={`${overview?.invalid_records ?? 0} invalid • ${qualityRate}% ready in period`}
-          icon={Clock3}
-          tone={(overview?.needs_review ?? 0) > 0 || (overview?.invalid_records ?? 0) > 0 ? "warning" : "brand"}
-        />
-        <MetricCard
-          label="Active projects"
-          value={activeProjectsDisplay}
-          context={`${scopeLabel} · Current project status, independent of dates`}
-          icon={FolderKanban}
-        />
-        <MetricCard label="Data readiness" value={`${qualityRate}%`} context={`${overview?.ready_records ?? 0} records ready for analysis`} icon={CheckCircle2} />
+        <MetricCard label="Total projects" value={projectsQuery.isError ? "Unavailable" : projectsQuery.isLoading ? "…" : (projectsQuery.data ?? []).length} context="Across your organization" icon={FolderKanban} />
+        <MetricCard label="Total submissions" value={submissionsQuery.isError ? "Unavailable" : submissionsQuery.isLoading ? "…" : (submissionsQuery.data ?? []).length} context="All submissions across your organization" icon={Database} />
+        <MetricCard label="Active enumerators" value={submissionsQuery.isError ? "Unavailable" : submissionsQuery.isLoading ? "…" : activeEnumerators} context="Submitted data in the last 7 days" icon={Users} />
+        <MetricCard label="Completed projects" value={projectsQuery.isError ? "Unavailable" : projectsQuery.isLoading ? "…" : (projectsQuery.data ?? []).filter(project => project.status === "completed").length} context="Projects marked completed" icon={CheckCircle2} />
       </section>
 
       <section aria-label="Collection charts" className="organization-chart-pair items-stretch">
-        <MonthlyCollectionPerformance allSubmissions={scopedSubmissions} />
+        <MonthlyCollectionPerformance allSubmissions={scopedSubmissions} loading={submissionsQuery.isLoading} error={submissionsQuery.isError && !submissionsQuery.data} retry={() => void submissionsQuery.refetch()} />
         <ProjectStatusChart projects={projectsQuery.data ?? []} loading={projectsQuery.isLoading} error={projectsQuery.isError} retry={() => void projectsQuery.refetch()} />
       </section>
 
@@ -253,7 +247,7 @@ function ProjectStatusChart({ projects, loading, error, retry }: {
   const total = rows.reduce((sum, row) => sum + row.value, 0);
   const slices = rows.filter(row => row.value > 0);
   return <Panel title="Project Status" subtitle={null} className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none">
-    {loading ? <LoadingState variant="panel" label="Loading project status�" /> : error ? <p role="alert" className="py-8 text-sm text-[var(--fs-danger)]">Unable to load project status. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={retry}>Retry project status</button></p> : <>
+    {loading ? <LoadingState variant="panel" label="Loading project status…" /> : error ? <p role="alert" className="py-8 text-sm text-[var(--fs-danger)]">Unable to load project status. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={retry}>Retry project status</button></p> : <>
       <div className="relative h-[250px]" role="img" aria-label={`Project status: Active ${rows[0].value}, Completed ${rows[1].value}.`}>
         {total > 0 ? <><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={slices} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={72} outerRadius={96} startAngle={90} endAngle={-270} paddingAngle={slices.length > 1 ? 4 : 0} stroke="none" isAnimationActive={false}>{slices.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--fs-border)", fontSize: 12 }} /></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><strong className="text-4xl font-semibold tabular-nums">{total.toLocaleString()}</strong><span className="mt-1 text-xs text-[var(--fs-muted)]">Active + completed</span></div></> : <>
           <svg viewBox="0 0 240 250" className="h-full w-full" aria-hidden="true"><circle cx="120" cy="125" r="84" fill="none" stroke="var(--fs-border)" strokeWidth="24" /></svg>
@@ -268,9 +262,12 @@ function ProjectStatusChart({ projects, loading, error, retry }: {
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function MonthlyCollectionPerformance({ allSubmissions }: {
+function MonthlyCollectionPerformance({ allSubmissions, loading, error, retry }: {
+  loading: boolean; error: boolean; retry: () => void;
   allSubmissions: Array<{ submitted_at?: string | null; review_status?: string }>;
 }) {
+  if (loading) return <Panel title="Monthly Collection Performance" subtitle={null} className="h-full !rounded-none !shadow-none"><LoadingSkeleton layout="chart" label="Loading monthly collection data..." /></Panel>;
+  if (error) return <Panel title="Monthly Collection Performance" subtitle={null} className="h-full !rounded-none !shadow-none"><p role="alert" className="py-8 text-sm text-[var(--fs-danger)]">Monthly collection data is unavailable. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={retry}>Retry monthly data</button></p></Panel>;
   // Group records by submission month and count their current ready status.
   const currentYear = new Date().getUTCFullYear();
   const currentMonth = new Date().getUTCMonth(); // 0-indexed
@@ -298,7 +295,7 @@ function MonthlyCollectionPerformance({ allSubmissions }: {
             <h2 className="m-0 text-lg font-semibold text-[#1e293b]">Monthly Collection Performance</h2>
           </div>
           <div className="flex items-center gap-1">
-            {/* ── Period: Year only ── */}
+            {/* â”€â”€ Period: Year only â”€â”€ */}
             <span className="rounded-md border border-[#bdd0eb] bg-[#f3f8ff] px-3 py-1.5 text-xs font-semibold text-brand">
               Year
             </span>
@@ -314,7 +311,7 @@ function MonthlyCollectionPerformance({ allSubmissions }: {
             align="center"
             items={[
               { label: "Monthly Submissions", color: "#0b51b7" },
-              { label: "Ready for Analysis", color: "#10b981" },
+              { label: "Ready for Analysis", color: "#3b82f6" },
             ]}
           />
         </div>
@@ -332,7 +329,7 @@ function MonthlyCollectionPerformance({ allSubmissions }: {
   );
 }
 
-// ─── Annual macro chart — custom tooltip ────────────────────────────────────
+// â”€â”€â”€ Annual macro chart â€” custom tooltip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function AnnualTooltip({
   active,
   payload,
@@ -345,7 +342,7 @@ function AnnualTooltip({
   if (!active || !payload?.length) return null;
   const meta: Record<string, { color: string; label: string; suffix?: string }> = {
     submissions: { color: "#0b51b7", label: "Monthly Submissions" },
-    ready: { color: "#10b981", label: "Ready for Analysis" },
+    ready: { color: "#3b82f6", label: "Ready for Analysis" },
   };
   return (
     <div
@@ -398,7 +395,7 @@ function AnnualSubmissionReportChart({ data, currentMonth }: {
       <Tooltip content={<AnnualTooltip />} />
       <ReferenceLine x={data[currentMonth]?.month} stroke="var(--fs-primary)" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: "Now", position: "insideTopRight", fontSize: 11, fill: "var(--fs-muted)" }} />
       <Area type="monotone" dataKey="submissions" name="Monthly Submissions" stroke="#0b51b7" strokeWidth={2.5} fill="url(#monthlySubmissionArea)" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
-      <Line type="monotone" dataKey="ready" name="Ready for Analysis" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+      <Line type="monotone" dataKey="ready" name="Ready for Analysis" stroke="#3b82f6" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
     </ComposedChart>
   </ResponsiveContainer>;
 }
@@ -450,7 +447,7 @@ function TopEnumerators({
   return (
     <Panel className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none" title="Top three enumerators" subtitle={null} action={<label className="ml-auto w-full sm:w-60"><span className="sr-only">Enumerator project</span><FilterSelect value={projectId} placeholder="All Project" options={projects} onChange={onProjectChange} /></label>}>
       {loading ? (
-        <div className="p-4"><LoadingSkeleton columns={3} rows={3} label="Loading enumerator rankings�" /></div>
+        <div className="p-4"><LoadingSkeleton columns={3} rows={3} label="Loading enumerator rankings…" /></div>
       ) : enumerators.length ? (
         <div className="overflow-x-auto">
           <table className="fs-data-table w-full text-left text-sm tabular-nums">

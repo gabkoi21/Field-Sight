@@ -12,6 +12,7 @@ vi.mock("../auth/RouteGuards", () => ({
 vi.mock("../workspace/WorkspaceShell", () => ({ WorkspaceShell: () => <Outlet /> }));
 vi.mock("../pages/organization/ProjectWorkspacePage", () => ({ ProjectWorkspacePage: () => <h1>Action-focused project overview</h1> }));
 vi.mock("../workspace/WorkspaceDetailsPage", () => ({ WorkspaceDetailsPage: () => <h1>Existing project details</h1> }));
+vi.mock("../pages/dashboard/OrganizationDashboardPage", () => ({ OrganizationDashboardPage: () => <h1>Dashboard</h1> }));
 vi.mock("../workspace/WorkspacesPage", () => ({ WorkspacesPage: () => <h1>Projects</h1> }));
 vi.mock("../pages/organization/SurveyQuestionExplorer", () => ({SurveyQuestionExplorer: () => { const params = useParams(); const [search] = useSearchParams(); return <h1>Project analysis {params.projectId ?? search.get("project_id") ?? "selected"}</h1>; }}));
 vi.mock("../workspace/DashboardsPage", () => ({ DashboardsPage: () => <h1>Project dashboards {useParams().projectId}</h1> }));
@@ -33,9 +34,9 @@ it("keeps project editing accessible through Details & activity", () => {
   expect(screen.getByRole("heading", { name: "Existing project details" })).toBeTruthy();
 });
 
-it("redirects the removed Data Quality page to projects", async () => {
+it("redirects the removed Data Quality page to Dashboard", async () => {
   render(<MemoryRouter initialEntries={["/quality"]}><App /></MemoryRouter>);
-  expect(await screen.findByRole("heading", { name: "Projects" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeTruthy();
 });
 
 it("opens survey analysis with the project in the route", async () => {

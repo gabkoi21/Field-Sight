@@ -8,7 +8,7 @@ import { apiClient } from "../services/apiClient";
 
 vi.mock("./WorkspaceContext", () => ({ useWorkspace: () => ({
   projectId: "p1", organizationId: "org", project: {
-    id: "p1", name: "Water project", description: "Water monitoring",
+    id: "p1", status: "draft", name: "Water project", description: "Water monitoring",
     start_date: "2026-10-27", end_date: "2026-12-31", updated_at: "2026-10-31",
     workspace_details: { countries: ["Liberia"], topics: ["WASH"] },
   },
@@ -45,4 +45,16 @@ it("locks the details after a successful save", async () => {
   await waitFor(() => expect(screen.getByRole("button", { name: "Edit profile" })).toBeTruthy());
   expect(screen.getByRole("textbox", { name: "Name" }).matches(":disabled")).toBe(true);
   expect(apiClient.updateProject).toHaveBeenCalledWith("org", "p1", expect.objectContaining({ name: "Edited project" }));
+});
+
+it("saves lifecycle status instead of traffic-light health metadata", async () => {
+  vi.mocked(apiClient.updateProject).mockResolvedValue({ id: "p1", status: "completed" } as never);
+  setup();
+  expect(screen.queryByRole("option", { name: "Red" })).toBeNull();
+  expect(screen.queryByRole("option", { name: "Amber" })).toBeNull();
+  expect(screen.queryByRole("option", { name: "Green" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Edit profile" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "Status" }), { target: { value: "completed" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(apiClient.updateProject).toHaveBeenCalledWith("org", "p1", expect.objectContaining({ status: "completed" })));
 });

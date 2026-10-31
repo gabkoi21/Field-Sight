@@ -101,3 +101,17 @@ it("reports heartbeat loss without claiming the queued job is running", async ()
   expect(screen.queryByRole("button", { name: "Sync running…" })).toBeNull();
   expect(screen.getByRole("button", { name: "Sync pending…" })).toBeTruthy();
 });
+
+it("does not display never-synced or worker defaults before settings load", async () => {
+  vi.mocked(apiClient.syncSettings).mockImplementation(() => new Promise(() => {}));
+  render(<QueryClientProvider client={new QueryClient()}><SyncControls projectId="slow" connected /></QueryClientProvider>);
+  expect(screen.getByText("Loading synchronization settings...")).toBeTruthy();
+  expect(screen.queryByText(/Last successful sync/)).toBeNull();
+  expect(screen.queryByText(/Health unavailable/)).toBeNull();
+});
+it("offers retry without displaying default sync values after a load failure", async () => {
+  vi.mocked(apiClient.syncSettings).mockRejectedValue(new Error("Unavailable"));
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><SyncControls projectId="failed" connected /></QueryClientProvider>);
+  expect(await screen.findByRole("button", { name: "Retry synchronization settings" })).toBeTruthy();
+  expect(screen.queryByText(/Last successful sync/)).toBeNull();
+});
