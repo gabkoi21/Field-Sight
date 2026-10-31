@@ -516,7 +516,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
             </header>
             <div className="grid min-h-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 overflow-y-auto px-6 py-5 sm:grid-cols-2">
               {enumeratorQuery.isLoading && (
-                <p className="m-0 text-xs text-[#7b8794] sm:col-span-2">Loading enumerator…</p>
+                <LoadingState variant="panel" label="Loading enumerator…" />
               )}
               {enumeratorQuery.error && (
                 <p className="m-0 text-xs text-[#b42318] sm:col-span-2">

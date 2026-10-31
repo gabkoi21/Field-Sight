@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Link2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -95,7 +96,7 @@ export function SyncHistoryPage() {
 
       <DataTable headers={["Project", "Source", "Received", "New", "Updated", "Status", "Completed"]}>
         {runsQuery.isLoading ? (
-          <tr><td colSpan={7} className="py-10 text-center text-xs text-[#758092]">Loading synchronization history…</td></tr>
+          <tr><td colSpan={7} className="py-10 text-center text-xs text-[#758092]"><LoadingSkeleton rows={5} columns={7} label="Loading synchronization history..." /></td></tr>
         ) : runs.length ? (
           runs.map((run) => (
             <tr key={run.id}>

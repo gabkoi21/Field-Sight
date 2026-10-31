@@ -1,3 +1,4 @@
+import { LoadingState } from "../components/ui/LoadingState";
 import { useId } from "react";
 import type { ApiProject } from "../services/apiClient";
 
@@ -39,7 +40,7 @@ export function ProjectCompletionChart({ project, enumerators, collected, teamLo
       <ul aria-label="Project status and collection totals" className="m-0 list-none divide-y divide-dashed divide-[var(--fs-border)] p-0">
         {rows.map(row => <li key={row.label} aria-current={row.current ? "true" : undefined} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
           <span className="flex items-center gap-3"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ background: row.color }} />{row.label}</span>
-          <span className="text-right text-xs text-[var(--fs-muted)]">{row.loading ? "Loading…" : row.error ? <span role="alert">Unavailable{row.retry && <button type="button" className="ml-2 min-h-8 text-[var(--fs-primary)] underline" onClick={row.retry}>Retry {row.label.toLowerCase()}</button>}</span> : row.value == null ? "Not available" : <><strong className="font-medium tabular-nums text-[var(--fs-text)]">{row.value.toLocaleString()}</strong> {row.unit}</>}</span>
+          <span className="text-right text-xs text-[var(--fs-muted)]">{row.loading ? <LoadingState variant="inline" label={`Loading ${row.label.toLowerCase()}...`} /> : row.error ? <span role="alert">Unavailable{row.retry && <button type="button" className="ml-2 min-h-8 text-[var(--fs-primary)] underline" onClick={row.retry}>Retry {row.label.toLowerCase()}</button>}</span> : row.value == null ? "Not available" : <><strong className="font-medium tabular-nums text-[var(--fs-text)]">{row.value.toLocaleString()}</strong> {row.unit}</>}</span>
         </li>)}
       </ul>
     </div>

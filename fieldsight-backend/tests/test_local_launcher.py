@@ -5,7 +5,36 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from scripts.start_local import main
+from scripts.start_local import main, stop_service
+
+
+@pytest.fixture(autouse=True)
+def portable_process_cleanup():
+    with patch("scripts.start_local.sys.platform", "linux"):
+        yield
+
+
+def test_windows_cleanup_stops_venv_process_tree():
+    child = Mock(pid=1234)
+    child.poll.return_value = None
+    with (
+        patch("scripts.start_local.sys.platform", "win32"),
+        patch("scripts.start_local.subprocess.run", return_value=SimpleNamespace(returncode=0)) as run,
+    ):
+        stop_service(child)
+    run.assert_called_once_with(["taskkill", "/PID", "1234", "/T", "/F"], capture_output=True, check=False)
+    child.terminate.assert_not_called()
+
+
+def test_windows_cleanup_falls_back_if_tree_stop_fails():
+    child = Mock(pid=1234)
+    child.poll.return_value = None
+    with (
+        patch("scripts.start_local.sys.platform", "win32"),
+        patch("scripts.start_local.subprocess.run", return_value=SimpleNamespace(returncode=1)),
+    ):
+        stop_service(child)
+    child.terminate.assert_called_once()
 
 
 def test_service_failure_stops_the_other_service():

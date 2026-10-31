@@ -67,6 +67,7 @@ it("uses four source-linked project-scoped summary cards", async () => {
   expect(params.has("date_from")).toBe(false);
   expect(apiClient.indicators).toHaveBeenCalledWith("school");
   expect(screen.getByRole("link", { name: /Edit project/ }).getAttribute("href")).toBe("/projects/school/details");
+  expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/projects/school/details");
   expect(screen.queryByRole("navigation", { name: "Project sections" })).toBeNull();
   expect(screen.getByText(/not frozen, approved/)).toBeTruthy();
   expect(screen.getByText(/school roster and reporting schedule/)).toBeTruthy();
@@ -144,6 +145,7 @@ it("keeps real project context in the header and links to the editable details",
   expect(screen.getByText("SFP-26")).toBeTruthy();
   expect(screen.queryByText("Daily feeding monitoring across partner schools.")).toBeNull();
   expect(screen.getByRole("link", { name: /Edit project/ }).getAttribute("href")).toBe("/projects/school/details");
+  expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/projects/school/details");
   expect(apiClient.organizationSectors).toHaveBeenCalledWith("org");
 
 });

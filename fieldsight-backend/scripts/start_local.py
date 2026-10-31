@@ -9,6 +9,22 @@ from pathlib import Path
 from app.core.config import get_settings
 
 
+def stop_service(child: subprocess.Popen) -> None:
+    if child.poll() is not None:
+        return
+    if sys.platform == "win32":
+        # Windows venv python.exe can forward to another Python process.
+        # terminate() stops only the wrapper, leaving the API port occupied.
+        result = subprocess.run(
+            ["taskkill", "/PID", str(child.pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode == 0 or child.poll() is not None:
+            return
+    child.terminate()
+
+
 def main() -> int:
     if get_settings().environment.lower() not in {"development", "dev", "local"}:
         raise SystemExit("This launcher is for local development only. Use supervised services in production.")
@@ -40,8 +56,7 @@ def main() -> int:
         return 0
     finally:
         for child in children:
-            if child.poll() is None:
-                child.terminate()
+            stop_service(child)
         for child in children:
             try:
                 child.wait(timeout=10)

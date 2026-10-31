@@ -1,3 +1,4 @@
+import { confirmDeletion } from "../components/ui/DeleteConfirmation";
 import {
   useEffect,
   useRef,
@@ -409,14 +410,7 @@ export function DashboardsPage() {
                     title="Delete dashboard"
                     compact
                     destructive
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete dashboard “${dashboard.title}”? The source data will remain.`,
-                        )
-                      )
-                        remove.mutate(dashboard.id);
-                    }}
+                    onClick={() => void confirmDeletion({ title: "Delete dashboard", name: dashboard.title, description: "Delete this saved dashboard and its widgets. The source data will remain.", phrase: "delete dashboard", actionLabel: "Delete dashboard", onConfirm: () => remove.mutateAsync(dashboard.id) })}
                     disabled={remove.isPending}
                   >
                     <Trash2 size={14} />
@@ -576,13 +570,7 @@ export function DashboardsPage() {
                             compact
                             destructive
                             disabled={save.isPending}
-                            onClick={() =>
-                              persist(
-                                dashboard.widgets.filter(
-                                  (w) => w.id !== widget.id,
-                                ),
-                              )
-                            }
+                            onClick={() => void confirmDeletion({ title: "Remove dashboard widget", name: widget.title, description: "Remove this widget from the saved dashboard. Source data will remain.", phrase: "remove widget", actionLabel: "Remove widget", warning: "This removes the saved widget. You can add a new widget later.", onConfirm: () => save.mutateAsync({ id: dashboard.id, input: { ...dashboard, widgets: dashboard.widgets.filter(w => w.id !== widget.id) } }) })}
                           >
                             <Trash2 size={16} />
                           </Tool>
@@ -876,9 +864,7 @@ export function DashboardsPage() {
               (kind === "indicator"
                 ? indicators.isLoading
                 : analyses.isLoading) && (
-                <p className="text-xs text-[var(--fs-muted)]">
-                  Loading widget sources…
-                </p>
+                <LoadingState variant="panel" label="Loading widget sources…" />
               )}
             {kind !== "text" &&
               !(kind === "indicator" ? indicators.isError : analyses.isError) &&

@@ -66,7 +66,9 @@ it("selects existing contacts, shows honest reports and confirms removal", async
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
   expect(apiClient.removeEnumeratorAssignment).not.toHaveBeenCalled();
   expect(screen.getByText(/Kobo access is not automatically revoked/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Confirm removal" }));
+  fireEvent.change(screen.getByLabelText('To confirm, type “Alice”'), { target: { value: "Alice" } });
+  fireEvent.change(screen.getByLabelText('To confirm, type “remove enumerator”'), { target: { value: "remove enumerator" } });
+  fireEvent.click(screen.getByRole("button", { name: "Remove enumerator" }));
   await waitFor(() => expect(apiClient.removeEnumeratorAssignment).toHaveBeenCalledWith("project", "assignment"));
   fireEvent.click(screen.getByRole("button", { name: "Add Enumerator" }));
   await screen.findByRole("option", { name: "Alice — alice@example.com" });

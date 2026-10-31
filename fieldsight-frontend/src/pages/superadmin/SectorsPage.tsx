@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { AdminDialog } from "../../components/superadmin/AdminDialog";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -157,9 +158,7 @@ export function SectorsPage() {
             <tbody>
               {sectorsQuery.isLoading && (
                 <tr>
-                  <td colSpan={4} className="text-center">
-                    Loading sectors…
-                  </td>
+                  <td colSpan={4} className="text-center"><LoadingSkeleton rows={5} columns={4} label="Loading sectors..." /></td>
                 </tr>
               )}
               {visibleSectors.map((sector) => (

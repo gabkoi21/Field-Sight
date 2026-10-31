@@ -223,9 +223,13 @@ describe("existing saved dashboard builder", () => {
     );
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/projects/p1/dashboards?dashboard=new-1")));
     expect(stored).toHaveLength(1);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Delete dashboard" }));
+    const confirmation = await screen.findByRole("dialog", { name: "Delete dashboard" });
+    fireEvent.change(within(confirmation).getByLabelText('To confirm, type “Clinic results”'), { target: { value: "Clinic results" } });
+    fireEvent.change(within(confirmation).getByLabelText('To confirm, type “delete dashboard”'), { target: { value: "delete dashboard" } });
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Delete dashboard" }));
     await waitFor(() => expect(stored).toHaveLength(0));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("persists keyboard ordering and height across a reload", async () => {

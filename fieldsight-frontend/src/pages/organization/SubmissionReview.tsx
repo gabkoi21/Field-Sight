@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { ProjectLink as Link } from "../../workspace/projectRouting";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +21,7 @@ export function SubmissionReview({ id, onClose }: { id: string; onClose: () => v
   const record = detail.data;
   return <section ref={panel} tabIndex={-1} aria-label="Submission review" className="mt-6 min-w-0 rounded-lg border border-[var(--fs-border)] bg-white p-5 focus-visible:outline focus-visible:outline-2">
     <header className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">Review submission {record?.external_id}</h2><button type="button" className="min-h-11 px-3 underline" onClick={onClose}>Close review</button></header>
-    {detail.isPending && <p role="status">Loading submission…</p>}
+    {detail.isPending && <LoadingSkeleton layout="details" rows={3} label="Loading submission…" />}
     {detail.error && <p role="alert">{detail.error.message} <button className="min-h-11 underline" onClick={() => void detail.refetch()}>Reload evidence</button></p>}
     {record && <>
       <dl className="grid gap-3 sm:grid-cols-2"><div><dt>Source</dt><dd>{record.form_name ?? "Form not named"} · {record.external_id}</dd></div><div><dt>Review status</dt><dd>{record.review_status.replaceAll("_", " ")}</dd></div><div><dt>Received (UTC)</dt><dd>{record.submitted_at ? new Date(record.submitted_at).toISOString() : "Not recorded"}</dd></div><div><dt>Collector</dt><dd>{record.enumerator ?? "Not recorded"}</dd></div></dl>

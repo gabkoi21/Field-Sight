@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import type { SurveyField } from "../../services/apiClient";
 
 export function displayEvidence(value: unknown): string {
@@ -34,7 +35,7 @@ export function SubmissionEvidence({ answers, field, fields = [], loading, error
   answers?: Record<string, unknown>; field?: string | null; fields?: SurveyField[];
   loading: boolean; error: boolean;
 }) {
-  if (loading) return <p role="status" className="mt-4 text-xs">Loading submission evidence…</p>;
+  if (loading) return <LoadingSkeleton layout="details" rows={3} label="Loading submission evidence…" />;
   if (error) return <p role="alert" className="mt-4 text-xs text-[#b42318]">Unable to load submission evidence. Reload before making a decision.</p>;
   const labels = new Map(fields.map(item => [item.source_field, item.label]));
   function title(path: string) {

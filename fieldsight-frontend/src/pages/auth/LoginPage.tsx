@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { ApiError, apiClient } from "../../services/apiClient";
+import { ApiError } from "../../services/apiClient";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -39,23 +39,10 @@ export function LoginPage() {
     try {
       const user = await login(username.trim(), password, remember);
 
-      const profile =
-        user.platform_role === "super_admin"
-          ? null
-          : await apiClient.profile().catch(() => null);
-      const allowed = [
-        "/",
-        "/projects",
-        "/indicators",
-        "/dashboards",
-        "/guide",
-      ];
       navigate(
         user.platform_role === "super_admin"
           ? "/superadmin"
-          : profile && allowed.includes(profile.landing_page)
-            ? profile.landing_page
-            : "/projects",
+          : "/dashboard",
         { replace: true },
       );
     } catch (requestError) {

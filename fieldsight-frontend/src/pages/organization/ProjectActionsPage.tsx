@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "../../workspace/projectRouting";
@@ -34,7 +35,7 @@ export function ProjectActionsPage() {
   function open(id?: string) { const next = new URLSearchParams(params); next.delete("new"); next.delete("action_id"); next.delete("submission_id"); if (id) next.set("action_id", id); else next.set("new", "1"); setParams(next); }
   function close() { const next = new URLSearchParams(params); next.delete("new"); next.delete("action_id"); next.delete("submission_id"); setParams(next); }
   const eligible = [...new Map([...(members.data ?? []).filter(item => item.role === "organization_admin"), ...(team.data ?? [])].filter(item => item.is_active).map(item => [item.user_id, item])).values()];
-  if (loading || project.isPending && organization) return <p role="status">Loading project…</p>;
+  if (loading || project.isPending && organization) return <LoadingSkeleton layout="table-page" label="Loading project…" />;
   if (!organization || project.error) return <p role="alert">This project is unavailable or requires an organization administrator. <Link to="/projects">Back to projects</Link></p>;
   return <div className="space-y-5">
     <Link className="inline-flex min-h-11 items-center text-[var(--fs-primary)] underline" to={`/projects/${projectId}/overview`}>Back to project overview</Link>
@@ -53,7 +54,7 @@ export function ProjectActionsPage() {
       </div>
       {(members.error || team.error) && <p role="alert">Team options unavailable. <button className={button} onClick={() => { void members.refetch(); void team.refetch(); }}>Retry team</button></p>}
     </Card>
-    {actions.isPending && <p role="status">Loading actions…</p>}
+    {actions.isPending && <LoadingSkeleton columns={5} label="Loading actions…" />}
     {actions.error && <p role="alert">Unable to load actions: {actions.error.message} <button className={button} onClick={() => void actions.refetch()}>Retry actions</button></p>}
     {actions.data && <>
       <p className="text-sm">Project totals: {actions.data.summary.unresolved} unresolved · {actions.data.summary.overdue} overdue · {actions.data.summary.high_priority} unresolved high priority</p>
@@ -74,7 +75,7 @@ function ActionEditor({ projectId, id, initialSubmission, archived, members, onC
   useEffect(() => { const previous = document.activeElement as HTMLElement; panel.current?.focus(); return () => previous?.focus(); }, []);
   return <section ref={panel} tabIndex={-1} aria-label={id ? "Action details" : "New action"} className="min-w-0 rounded-lg border border-[var(--fs-border)] bg-white p-5 focus-visible:outline focus-visible:outline-2">
     <header className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">{id ? "Action details" : "New action"}</h2><button className={button} onClick={onClose}>Close action</button></header>
-    {id && detail.isPending && <p role="status">Loading action details…</p>}
+    {id && detail.isPending && <LoadingSkeleton layout="details" rows={3} label="Loading action details…" />}
     {detail.error && <p role="alert">{detail.error.message} <button className={button} onClick={() => void detail.refetch()}>Reload action</button></p>}
     {(!id || detail.data) && <ActionForm key={detail.data ? `${id}:${detail.data.version}` : "new"} projectId={projectId} action={detail.data} initialSubmission={initialSubmission} archived={archived} members={members} onSaved={onSaved} reload={() => void detail.refetch()} />}
     {detail.data && <><h3 className="mt-6 font-semibold">Audit timeline ({detail.data.history_total})</h3><ol className="space-y-4">{detail.data.history.map(event => <li key={event.id} className="border-l-2 pl-3 [overflow-wrap:anywhere]"><p><time>{new Date(event.occurred_at).toISOString()}</time> · {label(event.event_type)} · Actor {event.actor_id}</p><p>{event.note}</p><details><summary className="min-h-11 cursor-pointer">Recorded changes</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({ previous: event.previous_values, current: event.new_values }, null, 2)}</pre></details></li>)}</ol><div className="mt-3 flex gap-3"><button className={button} disabled={!historyOffset} onClick={() => setHistoryOffset(Math.max(0, historyOffset-50))}>Newer events</button><button className={button} disabled={historyOffset+50 >= detail.data.history_total} onClick={() => setHistoryOffset(historyOffset+50)}>Older events</button></div></>}

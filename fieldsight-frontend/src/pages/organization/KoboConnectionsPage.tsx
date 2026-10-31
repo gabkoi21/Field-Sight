@@ -1,10 +1,10 @@
+import { DeleteConfirmation } from "../../components/ui/DeleteConfirmation";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ExternalLink, FileText, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { controlClass } from "../../components/ui/controlStyles";
 import { Button, LoadingState, PageHeader, Ring } from "../../components/ui";
 import { apiClient, ApiError, type KoboConnection } from "../../services/apiClient";
-import { Dialog } from "./IndicatorForms";
 
 export function KoboConnectionsPage() {
   const queryClient = useQueryClient();
@@ -158,23 +158,7 @@ export function KoboConnectionsPage() {
         )}
       </section>
 
-      {deleting && (
-        <Dialog title="Delete Kobo connection?" compact error={deleteMutation.error?.message}
-          onClose={() => { if (!deleteMutation.isPending) setDeleting(null); }}>
-          <p className="text-sm leading-6 text-[var(--fs-muted)]">
-            Delete <strong>{deleting.name}</strong> and its saved API token from FieldSight?
-            Kobo forms, submissions and imported FieldSight data will remain.
-            Projects must use another connection before this one can be deleted.
-          </p>
-          <div className="mt-5 flex justify-end gap-3 border-t border-[#e8edf4] pt-4">
-            <Button variant="secondary" disabled={deleteMutation.isPending} onClick={() => setDeleting(null)}>Cancel</Button>
-            <button type="button" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(deleting.id)}
-              className="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
-              {deleteMutation.isPending ? "Deleting…" : "Delete connection"}
-            </button>
-          </div>
-        </Dialog>
-      )}
+      {deleting && <DeleteConfirmation title="Delete Kobo connection" name={deleting.name} description="Delete this connection and its saved API token from FieldSight. Kobo forms, submissions, and imported FieldSight data remain. Projects must use another connection first." phrase="delete connection" actionLabel="Delete connection" onConfirm={() => deleteMutation.mutateAsync(deleting.id)} onClose={() => setDeleting(null)} />}
       {showConnectionForm && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#102a4340] p-4" onClick={closeConnectionForm}>
           <form className="w-full max-w-[520px] overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]" onClick={(event) => event.stopPropagation()} onSubmit={saveConnection}>

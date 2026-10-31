@@ -18,6 +18,7 @@ import { QuickStartPage } from "../workspace/QuickStartPage";
 import { WorkspaceTeamPage } from "../workspace/WorkspaceTeamPage";
 import { DataTablesPage } from "../workspace/DataTablesPage";
 import { WorkspaceFormsPage } from "../workspace/WorkspaceFormsPage";
+const OrganizationDashboardPage = lazy(() => import("../pages/dashboard/OrganizationDashboardPage").then(module => ({ default: module.OrganizationDashboardPage })));
 const DashboardsPage = lazy(() => import("../workspace/DashboardsPage").then(module => ({ default: module.DashboardsPage })));
 import {
   ProfilePage,
@@ -78,7 +79,8 @@ export function App() {
           </RequireOrganizationMember>
         }
       >
-        <Route index element={<Navigate replace to="/projects" />} />
+        <Route index element={<Navigate replace to="/dashboard" />} />
+        <Route path="dashboard" element={<OrganizationDashboardPage />} />
         <Route path="projects" element={<WorkspacesPage />} />
         <Route
           path="workspaces"

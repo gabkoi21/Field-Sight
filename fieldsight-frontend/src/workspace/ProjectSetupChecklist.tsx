@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../components/ui/LoadingSkeleton";
 import { useQuery } from "@tanstack/react-query";
 import { ProjectLink as Link } from "./projectRouting";
 import { apiClient } from "../services/apiClient";
@@ -12,7 +13,7 @@ export function ProjectSetupChecklist() {
   if (!project) return null;
   const error = sync.error ?? indicators.error ?? dashboards.error;
   if (error) return <Notice error>Unable to load project setup: {error.message}</Notice>;
-  if (sync.isPending || indicators.isPending || dashboards.isPending) return <Notice>Loading project setup…</Notice>;
+  if (sync.isPending || indicators.isPending || dashboards.isPending) return <LoadingSkeleton layout="details" rows={3} label="Loading project setup..." />;
   const steps = [
     { label: "Project created", complete: true, to: `/projects/${projectId}` },
     { label: "Kobo form connected", complete: Boolean(project.kobo_connection_id && project.kobo_form_id), to: `/forms?project_id=${projectId}` },

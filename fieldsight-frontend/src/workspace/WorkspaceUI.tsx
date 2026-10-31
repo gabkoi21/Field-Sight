@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ProjectLink as Link, ProjectNavLink as NavLink } from "./projectRouting";
 import { projectUrlKey, useProjectRouteId } from "./projectRouting";
-import { BarChart3, ClipboardList, FileText, LayoutDashboard, Table2, Target, Users } from "lucide-react";
+import { ArrowLeft, BarChart3, ClipboardList, FileText, LayoutDashboard, Table2, Target, Users } from "lucide-react";
 import { useWorkspace } from "./WorkspaceContext";
 import { LoadingState, PageHeader } from "../components/ui";
 import { controlClass } from "../components/ui/controlStyles";
@@ -57,16 +57,19 @@ export function Page({
   description,
   actions,
   breadcrumb = "FieldSight / Project",
+  backTo,
   children,
 }: {
   title: string;
   description: string;
   actions?: ReactNode;
   breadcrumb?: string;
+  backTo?: string;
   children: ReactNode;
 }) {
   return (
     <div className="min-w-0 space-y-6">
+      {backTo && <Link to={backTo} className="inline-flex min-h-11 items-center gap-2 text-sm text-[var(--fs-muted)] no-underline hover:text-[var(--fs-primary)]"><ArrowLeft size={16} aria-hidden="true" />Back</Link>}
       <PageHeader eyebrow={breadcrumb} title={title} description={description}>{actions}</PageHeader>
       {children}
     </div>
@@ -99,7 +102,7 @@ export function WorkspaceTabs() {
   return (
     <nav
       aria-label="Project sections"
-      className="flex flex-wrap items-center gap-1 rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] p-1"
+      className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-[var(--fs-border)] bg-[var(--fs-surface)] p-1 xl:flex-wrap"
     >
       {[
         { label: "Details", to: `/projects/${projectId}/details`, icon: ClipboardList },
@@ -116,7 +119,7 @@ export function WorkspaceTabs() {
           to={to}
           end
           className={({ isActive }) =>
-            `flex min-h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] ${isActive ? "bg-[var(--fs-primary)] text-white shadow-sm" : "text-[var(--fs-muted)] hover:bg-blue-50 hover:text-[var(--fs-primary)] active:bg-blue-100"}`
+            `flex min-h-11 min-w-0 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold no-underline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] ${isActive ? "bg-[var(--fs-primary)] text-white shadow-sm" : "text-[var(--fs-muted)] hover:bg-blue-50 hover:text-[var(--fs-primary)] active:bg-blue-100"}`
           }
         >
           <Icon size={17} strokeWidth={1.8} className="shrink-0" aria-hidden="true" />

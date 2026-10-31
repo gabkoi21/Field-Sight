@@ -3,7 +3,7 @@ import { metricBody, metricIcon, metricSurface } from "./metricStyles";
 type LoadingSkeletonProps = {
   label: string;
   announce?: boolean;
-  layout?: "dashboard" | "metrics" | "table" | "table-page" | "chart";
+  layout?: "dashboard" | "metrics" | "table" | "table-page" | "chart" | "details";
   rows?: number;
   columns?: number;
   metricCount?: 3 | 4;
@@ -26,6 +26,9 @@ export function LoadingSkeleton({ label, layout = "table", rows = 5, columns = 5
         )}
         {layout === "dashboard" && (
           <div className="grid gap-5 lg:grid-cols-2">{[0, 1].map(i => <div key={i} className="space-y-5 rounded-xl border border-[var(--fs-border)] bg-white p-5"><Block className="h-5 w-1/2" /><Block className="h-3 w-3/4" /><Block className="h-64 w-full" /></div>)}</div>
+        )}
+        {layout === "details" && (
+          <div className="space-y-5 py-4">{Array.from({ length: rows }, (_, i) => <div key={i} className="space-y-2"><Block className="h-3 w-1/4" /><Block className="h-9 w-full" /></div>)}</div>
         )}
         {layout === "chart" && <div className="space-y-4 p-5"><Block className="h-4 w-1/2" /><Block className="h-52 w-full" /></div>}
         {(layout === "table" || layout === "table-page") && (

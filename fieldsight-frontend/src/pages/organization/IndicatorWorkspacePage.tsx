@@ -1,3 +1,4 @@
+import { confirmDeletion } from "../../components/ui/DeleteConfirmation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -344,14 +345,7 @@ export function IndicatorWorkspacePage() {
                       label={`Delete ${node.title}`}
                       destructive
                       disabled={removeNode.isPending}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Delete framework item “${node.title}”? Linked children and indicators must be moved first.`,
-                          )
-                        )
-                          removeNode.mutate(node.id);
-                      }}
+                      onClick={() => void confirmDeletion({ title: "Delete framework item", name: node.title, description: "Delete this framework item. Linked children and indicators must be moved first.", phrase: "delete framework item", actionLabel: "Delete item", onConfirm: () => removeNode.mutateAsync(node.id) })}
                     >
                       <Trash2 size={12} />
                     </Icon>
@@ -1008,14 +1002,7 @@ export function IndicatorWorkspacePage() {
                                                 label={`Delete ${item.name}`}
                                                 destructive
                                                 disabled={remove.isPending}
-                                                onClick={() => {
-                                                  if (
-                                                    window.confirm(
-                                                      `Delete indicator “${item.name}” and its saved targets?`,
-                                                    )
-                                                  )
-                                                    remove.mutate(item.id);
-                                                }}
+                                                onClick={() => void confirmDeletion({ title: "Delete indicator", name: item.name, description: "Permanently delete this indicator and its saved targets.", phrase: "delete indicator", actionLabel: "Delete indicator", onConfirm: () => remove.mutateAsync(item.id) })}
                                               >
                                                 <Trash2 size={15} />
                                               </Icon>
@@ -1452,7 +1439,7 @@ export function IndicatorEvidence({ indicator, from, to }: { indicator: Indicato
     <p>{evidence.data?.source === "table" ? indicator.mapping_health === "healthy" ? "Linked table" : "Broken mapping" : evidence.data?.source === "manual" ? "Manual results" : "Not configured"} · {evidence.data?.method}</p>
     <p>{evidence.data?.notice}</p>
     {evidence.data && <p>Contributes: {evidence.data.contributing_count ?? "—"} · Superseded: {evidence.data.superseded_count ?? 0} · Total considered and excluded: {evidence.data.total} · Actual: {evidence.data.actual ?? "—"} · Numerator / denominator: {evidence.data.numerator ?? "—"} / {evidence.data.denominator ?? "—"}</p>}
-    {evidence.isPending && <p role="status">Loading evidence…</p>}
+    {evidence.isPending && <LoadingState variant="panel" label="Loading evidence…" />}
     {(evidence.error || versions.error) && <div role="alert"><p>{evidence.error?.message || versions.error?.message}</p><Button variant="secondary" onClick={() => { void evidence.refetch(); void versions.refetch(); }}>Retry evidence</Button></div>}
     {evidence.data && !evidence.data.items.length && <p>No evidence in this scope.</p>}
     {evidence.data?.items.map(item => <article className="rounded border p-3" key={String(item.id)}>

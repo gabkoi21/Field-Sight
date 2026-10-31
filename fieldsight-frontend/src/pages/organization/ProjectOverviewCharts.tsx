@@ -49,8 +49,8 @@ export function CollectionTrend({ data, loading, error, retry, period, onPeriod 
   </Card></section>;
 }
 
-export function ReviewBreakdown({ counts, loading, error, retry, scope }: {
-  counts?: Record<string, number>; loading: boolean; error: boolean; retry: () => void; scope: string;
+export function ReviewBreakdown({ counts, loading, error, retry, scope, subtitle = "All saved records · all dates" }: {
+  counts?: Record<string, number>; loading: boolean; error: boolean; retry: () => void; scope: string; subtitle?: string;
 }) {
   const rows = [
     { name: "Ready", value: counts?.ready ?? 0, color: "var(--fs-primary)", status: "ready" },

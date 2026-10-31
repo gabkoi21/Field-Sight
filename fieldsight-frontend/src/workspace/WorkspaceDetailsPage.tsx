@@ -104,6 +104,7 @@ export function WorkspaceDetailsPage() {
       });
   return (
     <Page
+      backTo="/overview"
       title={project?.name ?? "Project details"}
       description="Manage the details of this project."
     >

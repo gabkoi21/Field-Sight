@@ -92,12 +92,14 @@ it("requires confirmation, warns about Kobo, supports cancel and deletes the sel
   fireEvent.click(screen.getByRole("button", { name: "Archive" }));
   dialog = await screen.findByRole("dialog", { name: "Archive project?" });
   fireEvent.change(
-    within(dialog).getByLabelText("Type the project name to confirm"),
-    { target: { value: "  School Feed Program  " } },
+    within(dialog).getByLabelText('To confirm, type “School Feed Program”'),
+    { target: { value: "School Feed Program" } },
   );
+  fireEvent.change(within(dialog).getByLabelText('To confirm, type “archive project”'), { target: { value: "archive project" } });
   expect((within(dialog).getByRole("button", { name: "Archive project" }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.blur(within(dialog).getByLabelText("Type the project name to confirm"));
-  expect((within(dialog).getByLabelText("Type the project name to confirm") as HTMLInputElement).value).toBe("School Feed Program");
+  fireEvent.blur(within(dialog).getByLabelText('To confirm, type “School Feed Program”'));
+  expect((within(dialog).getByLabelText('To confirm, type “School Feed Program”') as HTMLInputElement).value).toBe("School Feed Program");
+  fireEvent.change(within(dialog).getByLabelText('To confirm, type “archive project”'), { target: { value: "archive project" } });
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Archive project" }),
   );
@@ -113,9 +115,10 @@ it("keeps a readable failure in the confirmation modal", async () => {
   setup();
   const dialog = await openDelete();
   fireEvent.change(
-    within(dialog).getByLabelText("Type the project name to confirm"),
+    within(dialog).getByLabelText('To confirm, type “School Feed Program”'),
     { target: { value: "School Feed Program" } },
   );
+  fireEvent.change(within(dialog).getByLabelText('To confirm, type “archive project”'), { target: { value: "archive project" } });
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Archive project" }),
   );

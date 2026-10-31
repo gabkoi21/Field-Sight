@@ -1,3 +1,4 @@
+import { confirmDeletion } from "../../components/ui/DeleteConfirmation";
 import { useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -366,7 +367,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                   </button>
                 </div>
                 <nav
-                  className="flex border-t border-[var(--fs-border)] px-4"
+                  className="flex flex-wrap border-t border-[var(--fs-border)] px-4"
                   aria-label="Analysis project"
                 >
                   {["explore", "saved"].map((value) => (
@@ -432,14 +433,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                           <button
                             aria-label={`Delete ${view.title}`}
                             disabled={remove.isPending}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Delete saved visualization “${view.title}”?`,
-                                )
-                              )
-                                remove.mutate(view.id);
-                            }}
+                            onClick={() => void confirmDeletion({ title: "Delete saved visualization", name: view.title, description: "Delete this saved visualization. Source submissions will remain.", phrase: "delete visualization", actionLabel: "Delete visualization", onConfirm: () => remove.mutateAsync(view.id) })}
                             className="border-0 bg-transparent p-2 text-[var(--fs-muted)]"
                           >
                             <Trash2 size={16} />
@@ -452,9 +446,9 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
               ) : catalogue.isLoading ? (
                 <LoadingState variant="panel" label="Loading analysis sources…" />
               ) : (
-                <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-4 max-[1000px]:grid-cols-1">
-                  <Panel>
-                    <div className="border-b border-[var(--fs-border)] p-4">
+                <div className="survey-layout items-stretch">
+                  <Panel className="survey-questions">
+                    <div className="shrink-0 border-b border-[var(--fs-border)] p-4">
                       <h2 className="m-0 text-sm font-semibold">
                         Survey questions
                       </h2>
@@ -472,7 +466,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                         />
                       </label>
                     </div>
-                    <div ref={questionList} className="max-h-[600px] overflow-y-auto p-2">
+                    <div ref={questionList} className="survey-question-list">
                       {visibleFields.map((item) => (
                         <div key={item.source_field}>
                           <button
@@ -508,7 +502,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                   </Panel>
                   <div className="min-w-0 space-y-4">
                     <Panel>
-                      <div className="flex items-center justify-between gap-4 border-b border-[var(--fs-border)] px-5 py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--fs-border)] px-5 py-4">
                         <div>
                           <h2 className="m-0 text-sm font-semibold">
                             {field?.label ?? "Choose a question"}
@@ -531,7 +525,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                           <ChevronDown size={14} aria-hidden="true" className={showFilters ? "rotate-180" : ""} />
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-3 p-4 max-[700px]:grid-cols-1">
+                      <div className="survey-controls p-4">
                         <Field label="Calculation">
                           <select
                             className={control}
@@ -596,7 +590,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                             <span className="text-xs text-[var(--fs-muted)]">Submission dates in UTC</span>
                             <button type="button" disabled={!activeFilterCount} onClick={() => { setFilters(initialFilters); setGrain("day"); }} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--fs-primary)] bg-[var(--fs-primary)] px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[var(--fs-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"><RefreshCw size={13} aria-hidden="true" />Clear all</button>
                           </div>
-                          <div className="grid grid-cols-1 gap-3 min-[600px]:grid-cols-2 xl:grid-cols-4">
+                          <div className="survey-filters">
                           <Field label="From">
                             <input
                               type="date"
@@ -707,7 +701,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                       <LoadingSkeleton layout="chart" label="Calculating survey results…" />
                     ) : result && !invalidDates ? (
                       <>
-                        <div className="grid grid-cols-4 gap-3 max-[700px]:grid-cols-2">
+                        <div className="workspace-metrics">
                           {[
                             ["Eligible records", result.eligible_records],
                             ["Answered", result.answered_records],
@@ -721,7 +715,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                           <div className="flex flex-wrap items-center justify-end gap-3 border-b border-[var(--fs-border)] px-5 py-4">
                             {field?.type === "number" && <h3 className="m-0 mr-auto text-sm">{result.measure}: {format(result.value)}</h3>}
                             <div
-                              className="flex gap-1"
+                              className="flex flex-wrap gap-1"
                               role="group"
                               aria-label="Visualization type"
                             >
@@ -821,7 +815,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
               Reopening uses the latest synchronized data.
             </p>
             {error && <Message error>{error}</Message>}
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
               <Button variant="secondary" onClick={() => setSaving(false)}>
                 Cancel
               </Button>
@@ -840,9 +834,9 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
   );
 }
 
-function Panel({ children }: { children: ReactNode }) {
+function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-md border border-[var(--fs-border)] bg-white">
+    <section className={`min-w-0 overflow-hidden rounded-md border border-[var(--fs-border)] bg-white ${className}`}>
       {children}
     </section>
   );

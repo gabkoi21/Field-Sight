@@ -35,32 +35,25 @@ function setup(path = "/") {
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><OrganizationDashboardPage /></MemoryRouter></QueryClientProvider>);
 }
 
-it("keeps API metrics, location data, and rankings in the overview project and period scope", async () => {
+it("keeps API metrics and rankings in the overview project and period scope", async () => {
   setup("/?overview_project=p1");
-  await screen.findByRole("heading", { name: "Overview" });
+  await screen.findByRole("heading", { name: "Dashboard" });
   await screen.findByText("Recent collector");
   expect(screen.queryByText("Older collector")).toBeNull();
   expect(screen.queryByText("Other collector")).toBeNull();
-  fireEvent.click(screen.getByText("View location data"));
-  const table = screen.getByRole("table", { name: "Submissions by location and quality status" });
-  expect(within(table).getByText("Recent site")).toBeTruthy();
-  expect(within(table).queryByText("Older site")).toBeNull();
-  expect(screen.getByText("Actual: 3")).toBeTruthy();
-  expect(screen.getByText("Target: 100")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("Reporting period"), { target: { value: "30d" } });
-  await screen.findByText("Older collector");
-  await waitFor(() => expect(apiClient.dashboardOverview).toHaveBeenLastCalledWith({ projectId: "p1", location: undefined, period: "30d" }));
-  expect(screen.queryByText("Other collector")).toBeNull();
-  expect(screen.getByText(/Jan 1 – Dec 31/).textContent).toContain("independent of reporting period");
+  expect(screen.queryByRole("heading", { name: "Submissions by location" })).toBeNull();
+  expect(screen.queryByText("View location data")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Top projects" })).toBeNull();
+  const rankings = screen.getByRole("table", { name: "Top three enumerators ranked by period submissions" });
+  expect(within(rankings).getByRole("rowheader", { name: "Recent collector" })).toBeTruthy();
+  expect(within(rankings).getByRole("columnheader", { name: "Last active" })).toBeTruthy();
+
 });
 
 it("uses organization-wide filtering independently of the current-project URL", async () => {
   setup("/?project_id=p1");
   await screen.findByText("Other collector");
-  expect((screen.getByLabelText("Overview project filter") as HTMLSelectElement).value).toBe("");
-  fireEvent.change(screen.getByLabelText("Overview project filter"), { target: { value: "p2" } });
-  await waitFor(() => expect(apiClient.dashboardOverview).toHaveBeenLastCalledWith({ projectId: "p2", location: undefined, period: "7d" }));
-  expect(screen.queryByText("Recent collector")).toBeNull();
+  expect(apiClient.dashboardOverview).toHaveBeenCalledWith({ projectId: undefined, location: undefined, period: "7d" });
 });
 
 it("shows a retryable failure instead of zero-valued metrics when overview loading fails", async () => {
@@ -69,4 +62,71 @@ it("shows a retryable failure instead of zero-valued metrics when overview loadi
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Retry overview" })).toBeTruthy();
   expect(screen.queryByText("Submissions in period")).toBeNull();
+});
+
+
+it("shows KPIs and charts without the removed dashboard filter bar", async () => {
+  setup("/dashboard");
+  await screen.findByRole("heading", { name: "Dashboard" });
+  expect(screen.queryByRole("region", { name: "Application areas" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Collection trend" })).toBeNull();
+  expect(screen.getByRole("heading", { name: "Project Status" })).toBeTruthy();
+  expect(screen.getByText("Data readiness")).toBeTruthy();
+  expect(screen.queryByText("Collection performance and data quality across your organization.")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+  expect(screen.queryByText("Filter dashboard")).toBeNull();
+  expect(screen.queryByRole("region", { name: "Organization overview filters" })).toBeNull();
+});
+
+it("filters the enumerator table with its own project dropdown", async () => {
+  setup("/dashboard");
+  const select = await screen.findByLabelText("Enumerator project");
+  await screen.findByText("Recent collector");
+  expect(within(select).getByRole("option", { name: "All Project" })).toBeTruthy();
+  expect(within(select).getByRole("option", { name: "Health" })).toBeTruthy();
+  expect(within(select).getByRole("option", { name: "Education" })).toBeTruthy();
+  expect(screen.queryByText(/Ranked by period submissions/)).toBeNull();
+  fireEvent.change(select, { target: { value: "p2" } });
+  await waitFor(() => expect(screen.queryByText("Recent collector")).toBeNull());
+  expect(screen.getByText("Other collector")).toBeTruthy();
+  fireEvent.change(select, { target: { value: "" } });
+  await screen.findByText("Recent collector");
+  expect(screen.getByText("Other collector")).toBeTruthy();
+});
+
+it("compares monthly submissions with records currently ready for analysis", async () => {
+  setup("/dashboard");
+  await screen.findByRole("heading", { name: "Monthly Collection Performance" });
+  expect(screen.queryByText("Projects with submissions")).toBeNull();
+  expect(screen.queryByText("View monthly data")).toBeNull();
+  const table = screen.getByRole("table", { name: /Monthly collection performance for/ });
+  expect(within(table).getByRole("columnheader", { name: "Ready for Analysis" })).toBeTruthy();
+  const month = new Date(Date.now() - 2 * 86400000).toLocaleString("en", { month: "short", timeZone: "UTC" });
+  const row = within(table).getByRole("rowheader", { name: month }).closest("tr")!;
+  const counts = within(row).getAllByRole("cell").map(cell => cell.textContent);
+  expect(Number(counts[0])).toBeGreaterThanOrEqual(2);
+  expect(counts[1]).toBe(counts[0]);
+});
+
+it("charts only active and completed projects using saved project statuses", async () => {
+  vi.mocked(apiClient.organizationProjects).mockResolvedValue([
+    { id: "p1", name: "Health", status: "active" },
+    { id: "p2", name: "Education", status: "completed" },
+    { id: "p3", name: "Draft", status: "draft" },
+    { id: "p4", name: "Archived", status: "archived" },
+  ] as never);
+  setup();
+  expect(await screen.findByRole("img", { name: "Project status: Active 1, Completed 1." })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "Review status" })).toBeNull();
+  const panel = screen.getByRole("heading", { name: "Project Status" }).closest("article")!;
+  expect(within(panel).getAllByRole("listitem")).toHaveLength(2);
+  expect(within(panel).getByText("2")).toBeTruthy();
+});
+
+it("keeps a neutral doughnut visible when no projects are active or completed", async () => {
+  setup();
+  const chart = await screen.findByRole("img", { name: "Project status: Active 0, Completed 0." });
+  expect(chart.querySelector("svg circle")).toBeTruthy();
+  expect(within(chart).getByText("0")).toBeTruthy();
+  expect(screen.getByText("No active or completed projects yet.")).toBeTruthy();
 });

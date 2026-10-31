@@ -17,10 +17,12 @@ function setup() {
 it("confirms connection removal, supports cancel and refreshes the account list", async () => {
   setup();
   fireEvent.click(await screen.findByRole("button", { name: "Delete Offline account" }));
-  expect(screen.getByText(/Kobo forms, submissions and imported FieldSight data will remain/)).toBeTruthy();
+  expect(screen.getByText(/Kobo forms, submissions, and imported FieldSight data remain/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(apiClient.deleteKoboConnection).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Delete Offline account" }));
+  fireEvent.change(screen.getByLabelText('To confirm, type “Offline account”'), { target: { value: "Offline account" } });
+  fireEvent.change(screen.getByLabelText('To confirm, type “delete connection”'), { target: { value: "delete connection" } });
   fireEvent.click(screen.getByRole("button", { name: "Delete connection" }));
   await screen.findByText("No Kobo account connected");
   expect(apiClient.deleteKoboConnection).toHaveBeenCalledWith("connection", expect.anything());
@@ -29,7 +31,9 @@ it("keeps a failed deletion visible for retry", async () => {
   setup();
   vi.mocked(apiClient.deleteKoboConnection).mockRejectedValue(new Error("Connection is used by a project."));
   fireEvent.click(await screen.findByRole("button", { name: "Delete Offline account" }));
+  fireEvent.change(screen.getByLabelText('To confirm, type “Offline account”'), { target: { value: "Offline account" } });
+  fireEvent.change(screen.getByLabelText('To confirm, type “delete connection”'), { target: { value: "delete connection" } });
   fireEvent.click(screen.getByRole("button", { name: "Delete connection" }));
   expect(await screen.findByText("Connection is used by a project.")).toBeTruthy();
-  await waitFor(() => expect(screen.getByRole("dialog", { name: "Delete Kobo connection?" })).toBeTruthy());
+  await waitFor(() => expect(screen.getByRole("dialog", { name: "Delete Kobo connection" })).toBeTruthy());
 });

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
-  ClipboardList,
   FileBarChart,
   FolderKanban,
   HelpCircle,
@@ -22,6 +21,7 @@ import { WorkspaceProvider, useWorkspace } from "./WorkspaceContext";
 import { cleanProjectPath, projectUrlKey } from "./projectRouting";
 import { LoadingState } from "../components/ui";
 import { RouteContent } from "../components/layout/RouteContent";
+import { SidebarScrollArea } from "../components/ui/SidebarScrollArea";
 
 export function WorkspaceShell({ loading = false }: { loading?: boolean }) {
   return (
@@ -59,7 +59,7 @@ function Shell({ loading }: { loading: boolean }) {
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
     }
-    const desktop = window.matchMedia("(min-width: 1024px)");
+    const desktop = window.matchMedia("(min-width: 768px)");
     const resize = () => { if (desktop.matches) setOpen(false); };
     document.addEventListener("keydown", keyboard);
     desktop.addEventListener("change", resize);
@@ -80,28 +80,15 @@ function Shell({ loading }: { loading: boolean }) {
     refetchOnWindowFocus: true,
     meta: { backgroundRefresh: true },
   });
-  // The URL still identifies the current page while project data is loading.
-  const navigationHasProject = workspace.hasSelectedProject ||
-    Boolean((workspace.projectId || pendingProjectKey) && (loading || workspace.loading));
   const sections = [
+    {
+      title: "",
+      items: [{ name: "Dashboard", path: "/dashboard", icon: LayoutDashboard }],
+    },
     {
       title: "Project",
       items: [
         { name: "Projects", path: "/projects", icon: FolderKanban },
-        {
-          name: "Overview",
-          path: navigationHasProject
-            ? `/projects/${projectKey}/overview`
-            : "/projects",
-          icon: LayoutDashboard,
-        },
-        {
-          name: "Details & activity",
-          path: navigationHasProject
-            ? `/projects/${projectKey}/details`
-            : "/projects",
-          icon: ClipboardList,
-        },
       ],
     },
     {
@@ -140,7 +127,7 @@ function Shell({ loading }: { loading: boolean }) {
       {open && (
         <button
           aria-label="Close navigation overlay"
-          className="fixed inset-0 z-30 border-0 bg-black/20 lg:hidden"
+          className="fixed inset-0 z-30 border-0 bg-black/20 md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -150,23 +137,19 @@ function Shell({ loading }: { loading: boolean }) {
         role={open ? "dialog" : undefined}
         aria-modal={open ? true : undefined}
         aria-label={open ? "Navigation" : undefined}
-        className={`fixed bottom-0 left-0 top-16 z-40 w-[240px] flex-col border-r border-[#173d6e] bg-[#071f47] text-[#b5c7d5] transition-transform ${open ? "flex translate-x-0" : "hidden lg:flex"}`}
+        className={`fixed bottom-0 left-0 top-16 z-40 w-[min(280px,calc(100vw-2rem))] md:w-[240px] flex-col border-r border-[#173d6e] bg-[#071f47] text-[#b5c7d5] transition-transform ${open ? "flex translate-x-0" : "hidden md:flex"}`}
       >
-        {open && <button className="m-3 flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-white lg:hidden" onClick={() => setOpen(false)}><X size={18} aria-hidden="true" />Close navigation</button>}
-        <nav
+        {open && <button className="m-3 flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-white md:hidden" onClick={() => setOpen(false)}><X size={18} aria-hidden="true" />Close navigation</button>}
+        <SidebarScrollArea><nav
           aria-label="Main navigation"
-          className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-5"
+          className="px-3 pb-3 pt-5"
         >
           {sections.map((section) => (
-            <div key={section.title} className="mb-4">
-              <p className="navigation-section-label mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
+            <div key={section.title || "dashboard"} className="mb-4">
+              {section.title && <p className="navigation-section-label mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[.12em] text-[#91a9bb]">
                 {section.title}
-              </p>
-              {section.items.map(({ name, path, icon: Icon }) => ["Overview", "Details & activity"].includes(name) && !navigationHasProject ? (
-                <div key={name} aria-disabled="true" className="navigation-project-hint my-0.5 flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#91a9bb] opacity-60">
-                  <Icon size={17} aria-hidden="true" /><span className="navigation-label">{name}</span>
-                </div>
-              ) : (
+              </p>}
+              {section.items.map(({ name, path, icon: Icon }) => (
                 <Link
                   key={name}
                   title={name}
@@ -184,17 +167,17 @@ function Shell({ loading }: { loading: boolean }) {
               ))}
             </div>
           ))}
-        </nav>
-        <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="fieldsight-navigation" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(value => !value)} className="m-3 hidden min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-white hover:bg-white/10 focus-visible:outline-white lg:flex"><PanelLeftClose size={19} className="shrink-0" aria-hidden="true" /></button>
+        </nav></SidebarScrollArea>
+        <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="fieldsight-navigation" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(value => !value)} className="m-3 hidden min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-white hover:bg-white/10 focus-visible:outline-white md:flex"><span className="navigation-label">Collapse</span><PanelLeftClose size={19} className="shrink-0" aria-hidden="true" /></button>
       </aside>
-      <main ref={main} className="min-h-screen pt-16 lg:ml-[240px]">
+      <main ref={main} className="min-h-screen pt-16 md:ml-[240px]">
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center gap-2 sm:gap-4 border-b border-[var(--fs-border)] bg-white px-4 sm:px-6">
           <button
             ref={navigationToggle}
             aria-label="Toggle navigation"
             aria-expanded={open}
             aria-controls="fieldsight-navigation"
-            className="grid size-11 shrink-0 place-items-center border-0 bg-transparent lg:hidden"
+            className="grid size-11 shrink-0 place-items-center border-0 bg-transparent md:hidden"
             onClick={() => setOpen(!open)}
           >
             <Menu size={20} />
@@ -218,7 +201,7 @@ function Shell({ loading }: { loading: boolean }) {
               </span>
             </button>
             {notifications && (
-              <div className="absolute right-0 top-11 w-64 rounded-lg border border-[#dce4e8] bg-white p-4 text-xs shadow-lg">
+              <div className="fixed right-4 top-16 sm:absolute sm:right-0 sm:top-11 w-[min(256px,calc(100vw-2rem))] rounded-lg border border-[#dce4e8] bg-white p-4 text-xs shadow-lg">
                 <strong>Collection sync</strong>
                 <p>
                   {pending.isError
@@ -284,7 +267,7 @@ function Shell({ loading }: { loading: boolean }) {
             )}
           </div>
         </header>
-        <div id="main-content" tabIndex={-1} className="mx-auto min-w-0 max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div id="main-content" tabIndex={-1} className="mx-auto min-w-0 max-w-[1600px] px-3 py-4 sm:px-5 sm:py-6 2xl:px-8 2xl:py-8">
           {loading ? <LoadingState label="Loading your session..." /> : workspace.invalidProject ? (
             <section role="alert" className="rounded-xl border border-[var(--fs-border)] bg-white p-6">
               <h1 className="text-xl font-semibold">Project not found</h1>

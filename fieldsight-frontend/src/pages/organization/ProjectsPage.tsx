@@ -1,3 +1,4 @@
+import { DeleteConfirmation } from "../../components/ui/DeleteConfirmation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -558,11 +559,6 @@ export function ProjectsPage() {
     }
   }
 
-  function confirmDeleteProject() {
-    if (!deletingProject || deleteMutation.isPending) return;
-    setDeleteError("");
-    deleteMutation.mutate(deletingProject);
-  }
 
   return (
     <div className="flex flex-col gap-[18px]">
@@ -693,80 +689,7 @@ export function ProjectsPage() {
         </section>
       )}
 
-      {deletingProject && (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[#102a4352] p-4"
-          onClick={closeDeleteModal}
-          role="presentation"
-        >
-          <section
-            className="w-full max-w-[460px] overflow-hidden rounded-[8px] border border-[#e5e9ed] bg-white shadow-[0_20px_55px_rgba(16,42,67,.24)]"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-project-title"
-          >
-            <div className="flex items-start gap-4 p-6">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#fff0f2] text-[#b42318]">
-                <Trash2 size={20} />
-              </span>
-              <div className="min-w-0">
-                <h2
-                  id="delete-project-title"
-                  className="m-0 text-[17px] font-semibold text-[#253342]"
-                >
-                  Delete project?
-                </h2>
-                <p className="mb-0 mt-2 text-[14.5px] leading-relaxed text-[#64748b]">
-                  You are about to permanently delete{" "}
-                  <strong className="text-[#253342]">
-                    {deletingProject.name}
-                  </strong>
-                  .
-                </p>
-                {deletingProject.kobo_form_name && (
-                  <p className="mb-0 mt-3 rounded-md border border-[#f0c8cd] bg-[#fff7f8] p-3 text-[13.5px] leading-relaxed text-[#9f2d38]">
-                    The Kobo form{" "}
-                    <strong>{deletingProject.kobo_form_name}</strong> and all of
-                    its Kobo submissions will also be permanently deleted.
-                  </p>
-                )}
-                <p className="mb-0 mt-3 text-[14px] font-semibold text-[#b42318]">
-                  This action cannot be undone.
-                </p>
-                {deleteError && (
-                  <p className="mb-0 mt-3 rounded-md bg-[#fff0f2] p-3 text-xs text-[#b42318]">
-                    {deleteError}
-                  </p>
-                )}
-              </div>
-            </div>
-            <footer className="flex justify-end gap-2 border-t border-[#e8edf4] bg-[#fbfcfd] px-6 py-4">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={closeDeleteModal}
-                disabled={deleteMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <button
-                type="button"
-                className="inline-flex h-10 items-center gap-2 rounded-[6px] border border-[#b42318] bg-[#b42318] px-4 text-[13.5px] font-semibold text-white hover:bg-[#941f15] disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={confirmDeleteProject}
-                disabled={deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? (
-                  <Ring className="size-4" aria-hidden="true" />
-                ) : (
-                  <Trash2 size={14} />
-                )}
-                {deleteMutation.isPending ? "Deleting…" : "Delete project"}
-              </button>
-            </footer>
-          </section>
-        </div>
-      )}
+      {deletingProject && <DeleteConfirmation title="Delete Project" name={deletingProject.name} description={`Permanently delete this project and its related FieldSight records.${deletingProject.kobo_form_name ? ` The Kobo form ${deletingProject.kobo_form_name} and all of its Kobo submissions will also be permanently deleted.` : ""}`} phrase="delete my project" actionLabel="Delete Project" onConfirm={() => deleteMutation.mutateAsync(deletingProject)} onClose={closeDeleteModal} />}
       {showCreate && organizationId && (
         <CreateProjectModal
           organizationId={organizationId}

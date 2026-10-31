@@ -1,3 +1,4 @@
+import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Check, KeyRound, RefreshCw, ShieldMinus, Pencil, Trash2, UserPlus } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -151,20 +152,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
         <div className="flex justify-end gap-3"><Button type="button" variant="secondary" disabled={save.isPending} onClick={() => setEditing(null)}>Cancel</Button><Button type="submit" disabled={save.isPending || (editing === "new" && mode === "existing" && (!identity || !!eligible.error))}>{save.isPending ? "Saving…" : "Confirm assignment"}</Button></div>
       </form>
     </Dialog>}
-    {removing && <Dialog compact title="Remove enumerator?" description="Please confirm before removing this person from the project." error={remove.error?.message} onClose={() => { if (!remove.isPending) setRemoving(null); }}>
-      <div className="space-y-5">
-        <div className="flex items-center gap-3 rounded-lg border border-rose-100 bg-rose-50 p-4">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-rose-700"><Trash2 size={20} aria-hidden="true" /></span>
-          <div className="min-w-0"><strong className="block break-words text-sm">{removing.full_name || removing.email}</strong><span className="block break-words text-xs text-[var(--fs-muted)]">{removing.email}</span></div>
-        </div>
-        <p className="text-sm text-[var(--fs-muted)]">Their project assignment will become inactive. You can reassign them later.</p>
-        <Notice>Kobo access is not automatically revoked. Use Revoke collection on the assigned form here, or remove access in KoboToolbox separately. Manual access reports and audit history are retained.</Notice>
-        <div className="flex justify-end gap-2 border-t border-[var(--fs-border)] pt-4">
-          <Button variant="secondary" disabled={remove.isPending} onClick={() => setRemoving(null)}>Cancel</Button>
-          <Button className="!border-rose-600 !bg-rose-600 !text-white hover:!border-rose-700 hover:!bg-rose-700 focus-visible:!outline-rose-600" disabled={remove.isPending} onClick={() => remove.mutate(removing.id)}><Trash2 size={15} aria-hidden="true" />{remove.isPending ? "Removing…" : "Confirm removal"}</Button>
-        </div>
-      </div>
-    </Dialog>}
+    {removing && <DeleteConfirmation title="Remove enumerator" name={removing.full_name || removing.email} description="Deactivate assignment; Kobo access and history remain." phrase="remove enumerator" actionLabel="Remove enumerator" warning="This deactivates the project assignment. Kobo collection access is retained." onConfirm={() => remove.mutateAsync(removing.id)} onClose={() => setRemoving(null)} />}
   </div>;
 }
 

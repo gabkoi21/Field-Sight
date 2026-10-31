@@ -1,3 +1,4 @@
+import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
@@ -259,22 +260,7 @@ function OrganizationTeamPage({ workspaceOnly = false, adminOnly = false }: { wo
           </Panel>
         </>
       )}
-      {removing && (
-        <Dialog
-          title="Remove team member?"
-          compact
-          description={`Remove ${removing.full_name ?? removing.email} from ${project?.name ?? "this project"}? Their organization account will remain active.`}
-          error={remove.error?.message}
-          onClose={() => { if (!remove.isPending) setRemoving(null); }}
-        >
-          <div className="flex justify-end gap-3">
-            <Button disabled={remove.isPending} onClick={() => setRemoving(null)}>Cancel</Button>
-            <Button disabled={remove.isPending} onClick={() => remove.mutate(removing.assignment_id)}>
-              {remove.isPending ? "Removing…" : "Remove member"}
-            </Button>
-          </div>
-        </Dialog>
-      )}
+      {removing && <DeleteConfirmation title="Remove team member" name={removing.full_name || removing.email} description={`Remove this member from ${project?.name ?? "this project"}. Their organization account remains active.`} phrase="remove member" actionLabel="Remove member" warning="This removes the project assignment. Their organization account is retained." onConfirm={() => remove.mutateAsync(removing.assignment_id)} onClose={() => setRemoving(null)} />}
       {inviting && (
         <Dialog
           title="Invite a team member"

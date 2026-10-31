@@ -11,21 +11,21 @@ vi.mock("../services/apiClient", () => ({ apiClient: {
   organizationProjects: async () => [{ id: "p1", name: "Health" }, { id: "p2", name: "Education" }],
   pendingKoboSync: async () => ({ pending_count: 0 }),
 } }));
-afterEach(() => { cleanup(); sessionStorage.clear(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
 function Location() { const location = useLocation(); return <p data-testid="location">{location.pathname}{location.search}</p>; }
 function setup(path: string) {
   render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[path]}><Routes><Route element={<WorkspaceShell />}><Route path="*" element={<Location />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
 }
 
-it("shows the project Overview while preserving navigation and context", async () => {
+it("preserves navigation and context without an Overview sidebar link", async () => {
   setup("/dashboards?project_id=p2");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview"));
+  expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
   expect(screen.queryByLabelText("Current project")).toBeNull();
   const nav = screen.getByRole("navigation", { name: "Main navigation" });
-  expect(within(nav).getAllByRole("link").slice(0, 3).map(link => link.textContent)).toEqual(["Projects", "Overview", "Details & activity"]);
+  expect(within(nav).getAllByRole("link").slice(0, 2).map(link => link.textContent)).toEqual(["Dashboard", "Projects"]);
   expect(within(nav).queryByRole("link", { name: "Data Quality" })).toBeNull();
   expect(within(nav).getByRole("link", { name: "Project dashboards" }).getAttribute("aria-current")).toBe("page");
-  expect(within(nav).getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview");
+  expect(within(nav).queryByRole("link", { name: "Overview" })).toBeNull();
   for (const name of ["Forms", "Indicators", "Field Team", "Actions & Follow-ups", "Explore & analyze"]) {
     expect(within(nav).queryByRole("link", { name })).toBeNull();
   }
@@ -38,7 +38,7 @@ it("shows the project Overview while preserving navigation and context", async (
 
 it("preserves nested project navigation without the header selector", async () => {
   setup("/projects/p1/indicators?project_id=p1&view=results&page=3&offset=50");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/details"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "Projects" }).getAttribute("href")).toBe("/projects"));
   expect(screen.queryByLabelText("Current project")).toBeNull();
 });
 
@@ -80,13 +80,42 @@ it("shows a red zero notification badge and updates the count without remounting
   expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(nav);
 });
 
-it("collapses and expands desktop navigation without changing project links", async () => {
+it.each([1024, 1366])("collapses and expands navigation at %ipx without changing project links", async (width) => {
+  vi.stubGlobal("innerWidth", width);
   setup("/projects/p1/overview");
+  expect(document.querySelector(".workspace-collapsed")).toBeNull();
   const toggle = screen.getByRole("button", { name: "Collapse sidebar" });
   fireEvent.click(toggle);
   expect(document.querySelector(".workspace-collapsed")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Expand sidebar" }).getAttribute("aria-expanded")).toBe("false");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview"));
+  expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
   expect(document.querySelector(".workspace-collapsed")).toBeNull();
+});
+
+it("opens the application Dashboard without a project filter", async () => {
+  setup("/projects");
+  const dashboard = screen.getByRole("link", { name: "Dashboard" });
+  expect(dashboard.getAttribute("href")).toBe("/dashboard");
+  fireEvent.click(dashboard);
+  expect(screen.getByTestId("location").textContent).toBe("/dashboard");
+  expect(dashboard.getAttribute("aria-current")).toBe("page");
+  expect(screen.getByRole("link", { name: "Project dashboards" }).getAttribute("aria-current")).toBeNull();
+});
+
+it("hides Overview on organization pages even with a remembered project", async () => {
+  sessionStorage.setItem("fieldsight.selected-project::org", "p1");
+  setup("/dashboard");
+  await waitFor(() => expect(screen.getByRole("link", { name: "Projects" }).getAttribute("href")).toBe("/projects"));
+  expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
+  fireEvent.click(screen.getByRole("link", { name: "Projects" }));
+  expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
+});
+
+it("keeps Overview out of the sidebar after opening a particular project", async () => {
+  setup("/projects/p2/overview");
+  expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
+  expect(screen.getByTestId("location").textContent).toMatch(/overview/);
+  fireEvent.click(screen.getByRole("link", { name: "Dashboard" }));
+  expect(screen.queryByRole("link", { name: "Overview" })).toBeNull();
 });

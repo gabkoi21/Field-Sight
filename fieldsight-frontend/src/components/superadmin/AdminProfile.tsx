@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, type WorkspaceProfile } from "../../services/apiClient";
@@ -17,7 +18,7 @@ export function AdminProfile({ onClose }: { onClose: () => void }) {
     if (profile.data) save.mutate({ ...profile.data, full_name: (name ?? profile.data.full_name ?? "").trim() || null });
   }} className="space-y-5">
     <div><h2 className="text-xl font-semibold">Administrator profile</h2><p className="mt-1 text-sm text-[var(--fs-muted)]">Update the name associated with your account.</p></div>
-    {profile.isLoading && <p role="status">Loading profile…</p>}
+    {profile.isLoading && <LoadingSkeleton layout="details" rows={3} label="Loading profile…" />}
     {profile.error && <div role="alert">Unable to load your profile. <Button variant="secondary" onClick={() => void profile.refetch()}>Retry profile</Button></div>}
     {profile.data && <><div><span className="text-sm font-medium">Email</span><p className="break-words text-sm text-[var(--fs-muted)]">{profile.data.email}</p></div>
       <label className="block text-sm font-medium">Full name<input className={`${adminInputClass} mt-2`} autoComplete="name" maxLength={200} value={name ?? profile.data.full_name ?? ""} disabled={save.isPending} onChange={event => { setName(event.target.value); save.reset(); }} /></label>

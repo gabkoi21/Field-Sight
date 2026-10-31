@@ -1,3 +1,4 @@
+import { confirmDeletion } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProjectLink as Link } from "./projectRouting";
@@ -200,14 +201,7 @@ export function CollectedDataPanel({
                         aria-label={`Delete result from ${row.result_date}`}
                         disabled={remove.isPending}
                         className="border-0 bg-transparent text-[#bb6370]"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              "Delete this manually entered result?",
-                            )
-                          )
-                            remove.mutate(row.id);
-                        }}
+                        onClick={() => void confirmDeletion({ title: "Delete manual result", name: row.result_date, description: "Delete this manually entered result from FieldSight.", phrase: "delete result", actionLabel: "Delete result", onConfirm: () => remove.mutateAsync(row.id) })}
                       >
                         <Trash2 size={14} />
                       </button>

@@ -1,3 +1,4 @@
+import { LoadingState } from "../components/ui/LoadingState";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../services/apiClient";
@@ -45,7 +46,7 @@ export function SyncControls({ projectId, connected }: { projectId: string; conn
       <Button variant="secondary" disabled={save.isPending || !Number.isFinite(interval) || interval < 1.6 || interval > 604800} onClick={() => save.mutate(settings.data!.mode)}>Save interval</Button>
       <Button disabled={!connected || sync.isPending || settings.data.pending} onClick={() => sync.mutate()}>{settings.data.pending ? (running ? "Sync running…" : retryScheduled ? "Retry scheduled…" : "Sync pending…") : "Sync now"}</Button>
     </div>}
-    {settings.isLoading && <p>Loading synchronization settings…</p>}
+    {settings.isLoading && <LoadingState variant="panel" label="Loading synchronization settings…" />}
     {[settings.error, save.error, sync.error].filter(Boolean).map((error, index) => <Notice error key={index}>{error!.message}</Notice>)}
   </Panel>;
 }

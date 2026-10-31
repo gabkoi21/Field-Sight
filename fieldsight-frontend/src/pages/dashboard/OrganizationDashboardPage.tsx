@@ -1,21 +1,19 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowRight,
   ChevronDown,
   Clock3,
   Database,
   FolderKanban,
-  RefreshCw,
+  CheckCircle2,
 } from "lucide-react";
 import {
-  Area,
-  Bar,
-  BarChart,
-  CartesianGrid,
   Cell,
+  Pie,
+  PieChart,
+  Area,
+  CartesianGrid,
   ComposedChart,
-  Legend,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -28,9 +26,8 @@ import { LoadingSkeleton, LoadingState, MetricCard, PageHeader, Panel } from "..
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
 import { controlClass } from "../../components/ui/controlStyles";
-import { formatLocation } from "../../utils/location";
 
-const periodLabels: Record<string, string> = { today: "Last 24 hours", "7d": "Last 7 days", "30d": "Last 30 days" };
+const periodLabels: Record<string, string> = { "7d": "Last 7 days", "30d": "Last 30 days" };
 function FilterSelect({
   value,
   options,
@@ -65,13 +62,14 @@ function FilterSelect({
 }
 
 export function OrganizationDashboardPage() {
-  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [filters, setFilters] = useSearchParams();
   // Overview filters never change the workspace's current project.
   const projectId = filters.get("overview_project") ?? "";
-  const period = ["today", "7d", "30d"].includes(filters.get("period") ?? "") ? filters.get("period")! : "7d";
+  const period = ["7d", "30d"].includes(filters.get("period") ?? "") ? filters.get("period")! : "7d";
   const location = filters.get("location") ?? "";
+  const enumeratorProjectFilter = filters.get("enumerator_project") ?? projectId;
+  const enumeratorProjectId = enumeratorProjectFilter === "all" ? "" : enumeratorProjectFilter;
   function setFilter(key: string, value: string) {
     setFilters((current) => {
       const next = new URLSearchParams(current);
@@ -118,7 +116,7 @@ export function OrganizationDashboardPage() {
     return <LoadingSkeleton layout="dashboard" label="Preparing overview…" />;
   }
 
-  if (overviewQuery.isError && !overviewQuery.data) return <div className="space-y-6"><PageHeader eyebrow="FieldSight / Organization" title="Overview" description="Track collection progress and data quality across projects." /><div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800"><p>Unable to load overview: {overviewQuery.error.message}</p><button className="min-h-11 rounded-lg px-3 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></div></div>;
+  if (overviewQuery.isError && !overviewQuery.data) return <div className="space-y-6"><PageHeader eyebrow="FieldSight / Organization" title="Dashboard" /><div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800"><p>Unable to load overview: {overviewQuery.error.message}</p><button className="min-h-11 rounded-lg px-3 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></div></div>;
 
   const storedOverview = overviewQuery.data;
   const pendingSync = pendingSyncQuery.data;
@@ -134,15 +132,8 @@ export function OrganizationDashboardPage() {
         },
       }
       : storedOverview;
-  const projectListLoading = projectsQuery.isLoading;
-  const enumeratorsLoading = enumeratorsQuery.isLoading;
-  const showSecondaryLoading = projectListLoading || enumeratorsLoading || pendingSyncQuery.isFetching;
-  const projectSummary = overview?.projects ?? [];
   const projectOptions = (projectsQuery.data ?? []).map((item) => ({ label: item.name, value: item.id }));
-  const locationOptions = (overview?.available_locations ?? []).map((item) => ({
-    label: formatLocation(item),
-    value: item,
-  }));
+
 
   const activeEnumerators = (enumeratorsQuery.data ?? []).filter((item) => item.is_active).length;
   const totalEnumeratorsCount = (enumeratorsQuery.data ?? []).length;
@@ -157,39 +148,21 @@ export function OrganizationDashboardPage() {
 
   const activeProjectsDisplay = overview?.active_projects ?? 0;
   const scopeLabel = projectId ? (projectsQuery.data?.find((item) => item.id === projectId)?.name ?? "Selected project") : "All organization projects";
-  const locationLabel = location ? formatLocation(location) : "All locations";
   const updatedAt = overviewQuery.dataUpdatedAt || Date.now();
   const cutoff = updatedAt - ({ today: 1, "7d": 7, "30d": 30 }[period] ?? 7) * 86400000;
-  const dateLabel = `${new Date(cutoff).toLocaleDateString(undefined, { timeZone: "UTC" })} – ${new Date(updatedAt).toLocaleDateString(undefined, { timeZone: "UTC" })} (UTC)`;
   const scopedSubmissions = (submissionsQuery.data ?? []).filter((item) => (!projectId || item.project_id === projectId) && (!location || item.location === location));
-  const periodSubmissions = scopedSubmissions.filter((item) => item.submitted_at && new Date(item.submitted_at).getTime() >= cutoff);
   const submissionReportData = (overview?.trend ?? []).map((item) => ({
     label: item.day,
     received: item.submissions,
     ready: item.approved,
     issues: Math.max(0, item.submissions - item.approved),
   }));
-  const regionalBreakdownData = Object.values(
-    periodSubmissions
-      .reduce<Record<string, { region: string; ready: number; review: number; invalid: number }>>((acc, submission) => {
-        const region = formatLocation(submission.location || "Unspecified location");
-        const current = acc[region] ?? { region, ready: 0, review: 0, invalid: 0 };
-        if (submission.review_status === "ready") current.ready += 1;
-        else if (submission.review_status === "needs_review") current.review += 1;
-        else if (submission.review_status === "invalid") current.invalid += 1;
-        else current.review += 1;
-        acc[region] = current;
-        return acc;
-      }, {}),
-  )
-    .sort((a, b) => b.ready + b.review + b.invalid - (a.ready + a.review + a.invalid) || a.region.localeCompare(b.region))
-    .slice(0, 5);
-  const leadingProjects = [...projectSummary]
-    .sort((a, b) => b.actual - a.actual || a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
-    .slice(0, 5);
-
+  const enumeratorSubmissions = (submissionsQuery.data ?? []).filter(item =>
+    (!enumeratorProjectId || item.project_id === enumeratorProjectId) &&
+    (!location || item.location === location) &&
+    item.submitted_at && new Date(item.submitted_at).getTime() >= cutoff);
   const topEnumerators = Object.values(
-    periodSubmissions
+    enumeratorSubmissions
       .reduce<
         Record<
           string,
@@ -218,7 +191,7 @@ export function OrganizationDashboardPage() {
         if (submission.review_status === "ready") current.ready += 1;
         if (submission.review_status === "needs_review") current.review += 1;
         if (submission.review_status === "invalid") current.invalid += 1;
-        if (submission.project_name) current.projects.add(submission.project_name);
+        if (submission.project_id) current.projects.add(submission.project_id);
         if (
           submission.submitted_at &&
           (!current.lastSubmitted || new Date(submission.submitted_at).getTime() > new Date(current.lastSubmitted).getTime())
@@ -232,46 +205,16 @@ export function OrganizationDashboardPage() {
     .sort((a, b) => b.total - a.total || b.ready - a.ready || a.name.localeCompare(b.name))
     .slice(0, 3)
     .map((item) => ({ ...item, projectCount: item.projects.size }));
-  const refreshDashboard = () => void Promise.all([overviewQuery.refetch(), pendingSyncQuery.refetch(), submissionsQuery.refetch(), projectsQuery.refetch()]);
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 text-[var(--fs-text)]">
-      <PageHeader
-        eyebrow="FieldSight / Organization"
-        title="Overview"
-        description="Track collection progress, data quality, sync status, and recent activity across projects."
-      >
-        {showSecondaryLoading && (
-          <span className="rounded-full border border-[#dfe8f5] bg-[#f3f8ff] px-2.5 py-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#3667c8]">
-            Updating data…
-          </span>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={refreshDashboard}
-            disabled={overviewQuery.isFetching || pendingSyncQuery.isFetching}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#dce5ef] bg-white px-2.5 py-2 text-[12px] font-semibold text-brand hover:bg-[#f3f8ff] disabled:opacity-50"
-          >
-            <RefreshCw size={13} className={overviewQuery.isFetching ? "animate-spin" : ""} /> Refresh
-          </button>
+    <div className="flex min-w-0 flex-col gap-5 pb-6 text-[var(--fs-text)]">
+      <PageHeader eyebrow="FieldSight / Organization" title="Dashboard" />
 
-        </div>
-      </PageHeader>
-
-      <section aria-label="Organization overview filters" className="rounded-xl border border-[var(--fs-border)] bg-white p-4">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <label className="grid min-w-0 gap-1.5 text-sm font-medium">Overview project filter<FilterSelect value={projectId} placeholder="All organization projects" options={projectOptions} onChange={(id) => setFilter("overview_project", id)} /></label>
-          <label className="grid min-w-0 gap-1.5 text-sm font-medium">Reporting period<FilterSelect value={period} placeholder="Reporting period" options={Object.entries(periodLabels).map(([value, label]) => ({ value, label }))} onChange={(value) => setFilter("period", value)} /></label>
-          <label className="grid min-w-0 gap-1.5 text-sm font-medium">Location<FilterSelect value={location} placeholder="All locations" options={locationOptions} onChange={(value) => setFilter("location", value)} /></label>
-        </div>
-        <p className="mb-0 mt-3 text-xs text-[var(--fs-muted)]">{scopeLabel} · {locationLabel} · {periodLabels[period]} · {dateLabel}. These filters apply to this overview only; the annual report keeps its full-year range.</p>
-      </section>
-      {overviewQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load overview: {overviewQuery.error.message}. Use Refresh to retry.</p>}
-      {submissionsQuery.isLoading && <p role="status" className="text-sm text-[var(--fs-muted)]">Loading chart and ranking data…</p>}
-      {submissionsQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load chart and ranking data. Use Refresh to retry.</p>}
+      {overviewQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load overview: {overviewQuery.error.message}. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></p>}
+      {submissionsQuery.isLoading && <LoadingState variant="panel" label="Loading chart and ranking data…" />}
+      {submissionsQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load chart and ranking data. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => void submissionsQuery.refetch()}>Retry chart data</button></p>}
       {overviewQuery.isLoading ? <LoadingSkeleton layout="dashboard" label="Loading overview for selected filters…" /> : <>
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section aria-label="Organization summary" className="workspace-metrics">
         <MetricCard label="Submissions in period" value={totalSubmissionsVal} context={submissionsTrendContext} icon={Database} />
         <MetricCard
           label="Needs review"
@@ -286,177 +229,73 @@ export function OrganizationDashboardPage() {
           context={`${scopeLabel} · Current project status, independent of dates`}
           icon={FolderKanban}
         />
+        <MetricCard label="Data readiness" value={`${qualityRate}%`} context={`${overview?.ready_records ?? 0} records ready for analysis`} icon={CheckCircle2} />
       </section>
 
-      <DashboardSnapshotCards
-        regionalData={regionalBreakdownData}
-        reportData={submissionReportData}
-        allSubmissions={scopedSubmissions}
-        scopeLabel={`${scopeLabel} · ${locationLabel}`}
-        dateLabel={`${periodLabels[period]} · ${dateLabel}`}
-        allProjects={projectsQuery.data ?? []}
-      />
-
-      <section className="grid grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] gap-4 max-[1000px]:grid-cols-1">
-        <TopEnumerators enumerators={topEnumerators} loading={submissionsQuery.isLoading} scopeLabel={`${scopeLabel} · ${locationLabel} · ${periodLabels[period]}`} />
-
-        <Panel
-          title="Top projects"
-          subtitle={`${scopeLabel} · ${periodLabels[period]} · ${dateLabel}. Period submissions compared with the overall project target.`}
-          action={
-            <button className="min-h-11 rounded-lg px-2 text-sm font-semibold text-brand hover:bg-blue-50" onClick={() => navigate("/projects")}>
-              View all <ArrowRight className="inline" size={13} />
-            </button>
-          }
-        >
-          {leadingProjects.length > 0 ? (
-            <ol className="m-0 list-none divide-y divide-slate-100 p-0">
-              {leadingProjects.map((project, index) => (
-                <li key={project.id} className="flex items-center gap-3 py-4 first:pt-2 last:pb-2">
-                  <span
-                    className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${index === 0 ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}
-                  >
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0 break-words text-sm font-semibold text-slate-800">{project.name}</span>
-                    </div>
-                    <p className="mb-0 mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-[var(--fs-muted)]"><span>Actual: {project.actual.toLocaleString()}</span><span>Target: {project.target > 0 ? project.target.toLocaleString() : "Not set"}</span></p>
-                    <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-blue-500 transition-[width] duration-500"
-                        style={{
-                          width: `${project.target > 0 ? Math.min(100, Math.max(0, (project.actual / project.target) * 100)) : 0}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="flex h-[180px] items-center justify-center text-xs text-[var(--fs-muted)]">
-              No projects for the selected filters.
-            </div>
-          )}
-        </Panel>
+      <section aria-label="Collection charts" className="organization-chart-pair items-stretch">
+        <MonthlyCollectionPerformance allSubmissions={scopedSubmissions} />
+        <ProjectStatusChart projects={projectsQuery.data ?? []} loading={projectsQuery.isLoading} error={projectsQuery.isError} retry={() => void projectsQuery.refetch()} />
       </section>
+
+      <TopEnumerators enumerators={topEnumerators} loading={submissionsQuery.isLoading} projectId={enumeratorProjectId} projects={projectOptions} onProjectChange={id => setFilter("enumerator_project", id || "all")} />
       </>}
     </div>
   );
 }
 
+function ProjectStatusChart({ projects, loading, error, retry }: {
+  projects: Array<{ status: string }>; loading: boolean; error: boolean; retry: () => void;
+}) {
+  const rows = [
+    { name: "Active", value: projects.filter(project => project.status === "active").length, color: "var(--fs-primary)" },
+    { name: "Completed", value: projects.filter(project => project.status === "completed").length, color: "#10b981" },
+  ];
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const slices = rows.filter(row => row.value > 0);
+  return <Panel title="Project Status" subtitle={null} className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none">
+    {loading ? <LoadingState variant="panel" label="Loading project status�" /> : error ? <p role="alert" className="py-8 text-sm text-[var(--fs-danger)]">Unable to load project status. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={retry}>Retry project status</button></p> : <>
+      <div className="relative h-[250px]" role="img" aria-label={`Project status: Active ${rows[0].value}, Completed ${rows[1].value}.`}>
+        {total > 0 ? <><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={slices} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={72} outerRadius={96} startAngle={90} endAngle={-270} paddingAngle={slices.length > 1 ? 4 : 0} stroke="none" isAnimationActive={false}>{slices.map(row => <Cell key={row.name} fill={row.color} />)}</Pie><Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--fs-border)", fontSize: 12 }} /></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><strong className="text-4xl font-semibold tabular-nums">{total.toLocaleString()}</strong><span className="mt-1 text-xs text-[var(--fs-muted)]">Active + completed</span></div></> : <>
+          <svg viewBox="0 0 240 250" className="h-full w-full" aria-hidden="true"><circle cx="120" cy="125" r="84" fill="none" stroke="var(--fs-border)" strokeWidth="24" /></svg>
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><strong className="text-4xl font-semibold tabular-nums">0</strong><span className="mt-1 text-xs text-[var(--fs-muted)]">Active + completed</span></div>
+        </>}
+      </div>
+      {total === 0 && <p className="mb-3 mt-0 text-center text-xs text-[var(--fs-muted)]">No active or completed projects yet.</p>}
+      <ul className="m-0 list-none space-y-1 p-0">{rows.map(row => <li key={row.name} className="flex min-h-11 items-center justify-between gap-3 px-3 text-sm"><span className="inline-flex items-center gap-2.5 text-[var(--fs-muted)]"><span className="size-2.5 rounded-full" style={{ backgroundColor: row.color }} aria-hidden="true" />{row.name}</span><strong className="min-w-8 rounded-md bg-[var(--fs-canvas)] px-2 py-1 text-center text-xs tabular-nums">{row.value.toLocaleString()}</strong></li>)}</ul>
+    </>}
+  </Panel>;
+}
+
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function DashboardSnapshotCards({
-  regionalData,
-  allSubmissions,
-  scopeLabel,
-  dateLabel,
-}: {
-  regionalData: Array<{ region: string; ready: number; review: number; invalid: number }>;
-  scopeLabel: string;
-  dateLabel: string;
-  reportData?: Array<{ label: string; received: number; ready: number; issues: number }>;
-  allSubmissions: Array<{ submitted_at?: string | null; project_id?: string }>;
-  allProjects?: Array<{ id: string }>;
+function MonthlyCollectionPerformance({ allSubmissions }: {
+  allSubmissions: Array<{ submitted_at?: string | null; review_status?: string }>;
 }) {
-  const hasRegionalData = regionalData.some((item) => item.ready > 0 || item.review > 0 || item.invalid > 0);
-
-  // ── Annual data: aggregate submissions + active projects per month ──────
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth(); // 0-indexed
+  // Group records by submission month and count their current ready status.
+  const currentYear = new Date().getUTCFullYear();
+  const currentMonth = new Date().getUTCMonth(); // 0-indexed
   const annualData = MONTH_LABELS.map((month, idx) => {
     const monthSubs = allSubmissions.filter((s) => {
       if (!s.submitted_at) return false;
       const d = new Date(s.submitted_at);
-      return d.getFullYear() === currentYear && d.getMonth() === idx;
+      return d.getUTCFullYear() === currentYear && d.getUTCMonth() === idx;
     });
-    const activeProjects = new Set(monthSubs.map((s) => s.project_id).filter(Boolean)).size;
+    const readyRecords = monthSubs.filter(record => record.review_status === "ready").length;
     return {
       month,
       submissions: monthSubs.length,
-      projects: activeProjects,         // always real count — 0 if nothing submitted
+      ready: readyRecords,
       isCurrent: idx === currentMonth,
       isFuture: idx > currentMonth,
     };
   });
 
   return (
-    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(320px,.7fr)_minmax(0,1fr)]">
-      <article className="min-w-0 rounded-xl border border-[var(--fs-border)] bg-white p-5 shadow-[0_2px_8px_rgba(23,40,70,.03)]">
-        <div>
-          <h2 className="m-0 text-lg font-semibold text-[#1e293b]">Submissions by location</h2>
-          <p className="m-0 mt-1 text-xs text-[#64748b]">{scopeLabel} · {dateLabel} · Top five locations</p>
-        </div>
-        <ChartLegend
-          items={[
-            { label: "Ready", color: "#0b51b7" },
-            { label: "Review", color: "#a86612" },
-            { label: "Invalid", color: "#ba4055" },
-          ]}
-        />
-        <div className="mt-5 h-[270px]">
-          {hasRegionalData ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={regionalData} layout="vertical" margin={{ top: 4, right: 12, left: 8, bottom: 0 }}>
-                <XAxis
-                  type="number"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  allowDecimals={false}
-                />
-                <YAxis
-                  dataKey="region"
-                  type="category"
-                  width={112}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }}
-                />
-                <Tooltip
-                  cursor={{ fill: "rgba(11, 81, 183, .04)" }}
-                  formatter={(value: number, name: string) => [
-                    Number(value).toLocaleString(),
-                    name === "ready" ? "Ready" : name === "review" ? "Needs review" : "Invalid",
-                  ]}
-                  contentStyle={{
-                    border: "1px solid #e3e9f1",
-                    borderRadius: "8px",
-                    boxShadow: "0 8px 22px rgba(23, 40, 70, .08)",
-                  }}
-                />
-                <Bar dataKey="ready" stackId="quality" fill="#0b51b7" barSize={12} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="review" stackId="quality" fill="#a86612" barSize={12} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="invalid" stackId="quality" fill="#ba4055" barSize={12} radius={[0, 6, 6, 0]} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyChartState label="No location submissions yet." />
-          )}
-        </div>
-        <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
-          <summary className="cursor-pointer py-2 font-medium text-brand">View location data</summary>
-          <div className="overflow-x-auto">
-            <table className="fs-data-table w-full text-left text-sm">
-              <caption className="sr-only">Submissions by location and quality status</caption>
-              <thead><tr><th scope="col" className="py-3">Location</th><th scope="col" className="px-2 text-right">Ready</th><th scope="col" className="px-2 text-right">Review</th><th scope="col" className="px-2 text-right">Invalid</th></tr></thead>
-              <tbody>{regionalData.map((row) => <tr key={row.region} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.region}</th><td className="px-2 text-right">{row.ready.toLocaleString()}</td><td className="px-2 text-right">{row.review.toLocaleString()}</td><td className="px-2 text-right">{row.invalid.toLocaleString()}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </details>
-      </article>
-
-      {/* ── Submission Report card ─────────────────────────────────────────── */}
-      <article className="min-w-0 rounded-xl border border-[var(--fs-border)] bg-white p-5 shadow-[0_2px_8px_rgba(23,40,70,.03)]">
+    <section aria-label="Monthly collection performance" className="min-w-0">
+      <article className="h-full min-w-0 rounded-none border border-[#d8e0e9] bg-[var(--fs-surface)] p-5 shadow-none">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="m-0 text-lg font-semibold text-[#1e293b]">Submission report</h2>
-            <p className="m-0 mt-1 text-xs text-[#64748b]">
-              {scopeLabel} · Jan 1 – Dec 31, {currentYear} · Monthly submissions and projects with submissions; independent of reporting period
-            </p>
+            <h2 className="m-0 text-lg font-semibold text-[#1e293b]">Monthly Collection Performance</h2>
           </div>
           <div className="flex items-center gap-1">
             {/* ── Period: Year only ── */}
@@ -474,21 +313,20 @@ function DashboardSnapshotCards({
           <ChartLegend
             align="center"
             items={[
-              { label: "Total Submissions", color: "#0b51b7" },
-              { label: "Projects with submissions", color: "#a86612" },
+              { label: "Monthly Submissions", color: "#0b51b7" },
+              { label: "Ready for Analysis", color: "#10b981" },
             ]}
           />
         </div>
-        <details className="mt-4 border-t border-slate-200 pt-3 text-sm text-slate-600">
-          <summary className="cursor-pointer py-2 font-medium text-brand">View monthly data</summary>
+        <div className="sr-only">
           <div className="overflow-x-auto">
             <table className="fs-data-table w-full text-left text-sm">
-              <caption className="sr-only">Monthly submissions and projects with submissions for {currentYear}</caption>
-              <thead><tr><th scope="col" className="py-3">Month</th><th scope="col" className="px-2 text-right">Submissions</th><th scope="col" className="px-2 text-right">Projects</th></tr></thead>
-              <tbody>{annualData.map((row) => <tr key={row.month} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.month}</th><td className="px-2 text-right">{row.submissions.toLocaleString()}</td><td className="px-2 text-right">{row.projects.toLocaleString()}</td></tr>)}</tbody>
+              <caption className="sr-only">Monthly collection performance for {currentYear}</caption>
+              <thead><tr><th scope="col" className="py-3">Month</th><th scope="col" className="px-2 text-right">Submissions</th><th scope="col" className="px-2 text-right">Ready for Analysis</th></tr></thead>
+              <tbody>{annualData.map((row) => <tr key={row.month} className="border-t border-slate-100"><th scope="row" className="py-3 font-medium">{row.month}</th><td className="px-2 text-right">{row.submissions.toLocaleString()}</td><td className="px-2 text-right">{row.ready.toLocaleString()}</td></tr>)}</tbody>
             </table>
           </div>
-        </details>
+        </div>
       </article>
     </section>
   );
@@ -506,8 +344,8 @@ function AnnualTooltip({
 }) {
   if (!active || !payload?.length) return null;
   const meta: Record<string, { color: string; label: string; suffix?: string }> = {
-    submissions: { color: "#0b51b7", label: "Total Submissions" },
-    projects: { color: "#a86612", label: "Projects with submissions", suffix: "active" },
+    submissions: { color: "#0b51b7", label: "Monthly Submissions" },
+    ready: { color: "#10b981", label: "Ready for Analysis" },
   };
   return (
     <div
@@ -546,135 +384,24 @@ function AnnualTooltip({
   );
 }
 
-// ─── Annual macro view: line across all 12 months + project bars ─────────────
-function AnnualSubmissionReportChart({
-  data,
-  currentMonth,
-}: {
-  data: Array<{ month: string; submissions: number; projects: number; isCurrent: boolean; isFuture: boolean }>;
+// Compare both monthly record counts on the same axis.
+function AnnualSubmissionReportChart({ data, currentMonth }: {
+  data: Array<{ month: string; submissions: number; ready: number; isCurrent: boolean; isFuture: boolean }>;
   currentMonth: number;
 }) {
-  const currentLabel = data[currentMonth]?.month ?? "";
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 12, right: 20, left: -8, bottom: 4 }} barCategoryGap="40%">
-        <defs>
-          <linearGradient id="gradSubsArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0b51b7" stopOpacity={0.18} />
-            <stop offset="100%" stopColor="#0b51b7" stopOpacity={0.02} />
-          </linearGradient>
-          <linearGradient id="gradProjects" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#a86612" stopOpacity={1} />
-            <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.85} />
-          </linearGradient>
-          <linearGradient id="gradProjectsFuture" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#a86612" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#a86612" stopOpacity={0.10} />
-          </linearGradient>
-          <filter id="annualDotGlow" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        <CartesianGrid vertical={false} stroke="#edf1f5" strokeDasharray="3 3" />
-
-        <XAxis
-          dataKey="month"
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 12, fill: "#64748b", fontWeight: 600 }}
-          tickMargin={8}
-          minTickGap={24}
-        />
-        <YAxis
-          yAxisId="subs"
-          domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }}
-          allowDecimals={false}
-          width={30}
-        />
-        <YAxis
-          yAxisId="proj"
-          orientation="right"
-          domain={[0, (dataMax: number) => Math.max(dataMax || 0, 5)]}
-          axisLine={false}
-          tickLine={false}
-          tick={{ fontSize: 12, fill: "#d97706", fontWeight: 500 }}
-          allowDecimals={false}
-          width={26}
-        />
-
-        <Tooltip
-          content={<AnnualTooltip />}
-          cursor={{ stroke: "#c8d6e8", strokeWidth: 1, strokeDasharray: "4 3", fill: "rgba(11,81,183,0.035)" }}
-        />
-
-        {currentLabel && (
-          <ReferenceLine
-            yAxisId="subs"
-            x={currentLabel}
-            stroke="#4338ca"
-            strokeDasharray="4 3"
-            strokeOpacity={0.4}
-            strokeWidth={1.5}
-            label={{ value: "Now", position: "insideTopRight", fontSize: 12, fill: "#4338ca", opacity: 0.6, dy: -4 }}
-          />
-        )}
-
-        {/* Total Projects — slim bars on right axis */}
-        <Bar
-          yAxisId="proj"
-          dataKey="projects"
-          name="Total Projects"
-          radius={[4, 4, 0, 0]}
-          maxBarSize={14}
-          isAnimationActive
-          animationDuration={900}
-          animationEasing="ease-out"
-        >
-          {data.map((entry) => (
-            <Cell
-              key={entry.month}
-              fill={entry.isFuture ? "url(#gradProjectsFuture)" : "url(#gradProjects)"}
-              opacity={entry.isCurrent ? 1 : entry.isFuture ? 0.45 : 0.85}
-            />
-          ))}
-        </Bar>
-
-        {/* Total Submissions — continuous line spanning all 12 months; sits at 0 for empty months */}
-        <Area
-          yAxisId="subs"
-          type="monotone"
-          dataKey="submissions"
-          name="Total Submissions"
-          stroke="#0b51b7"
-          strokeWidth={2.5}
-          fill="url(#gradSubsArea)"
-          dot={(props) => {
-            const { cx, cy, payload } = props as { cx: number; cy: number; payload: { isFuture: boolean } };
-            if (payload.isFuture) {
-              return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill="#0b51b7" fillOpacity={0.25} stroke="none" />;
-            }
-            return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={3} fill="#0b51b7" stroke="#fff" strokeWidth={1.5} />;
-          }}
-          activeDot={{ r: 5, fill: "#0b51b7", stroke: "#fff", strokeWidth: 2, filter: "url(#annualDotGlow)" }}
-          isAnimationActive
-          animationDuration={1100}
-          animationEasing="ease-out"
-          connectNulls
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
-  );
+  return <ResponsiveContainer width="100%" height="100%">
+    <ComposedChart data={data} margin={{ top: 12, right: 16, left: -8, bottom: 4 }} accessibilityLayer>
+      <defs><linearGradient id="monthlySubmissionArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#0b51b7" stopOpacity={0.14} /><stop offset="100%" stopColor="#0b51b7" stopOpacity={0.01} /></linearGradient></defs>
+      <CartesianGrid vertical={false} stroke="var(--fs-border)" strokeDasharray="3 4" />
+      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--fs-muted)" }} minTickGap={24} />
+      <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--fs-muted)" }} width={38} domain={[0, (max: number) => Math.max(max, 5)]} />
+      <Tooltip content={<AnnualTooltip />} />
+      <ReferenceLine x={data[currentMonth]?.month} stroke="var(--fs-primary)" strokeDasharray="4 4" strokeOpacity={0.4} label={{ value: "Now", position: "insideTopRight", fontSize: 11, fill: "var(--fs-muted)" }} />
+      <Area type="monotone" dataKey="submissions" name="Monthly Submissions" stroke="#0b51b7" strokeWidth={2.5} fill="url(#monthlySubmissionArea)" dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+      <Line type="monotone" dataKey="ready" name="Ready for Analysis" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+    </ComposedChart>
+  </ResponsiveContainer>;
 }
-
 
 function ChartLegend({
   items,
@@ -702,7 +429,9 @@ function EmptyChartState({ label }: { label: string }) {
 function TopEnumerators({
   enumerators,
   loading,
-  scopeLabel,
+  projectId,
+  projects,
+  onProjectChange,
 }: {
   enumerators: Array<{
     name: string;
@@ -714,48 +443,33 @@ function TopEnumerators({
     projectCount: number;
   }>;
   loading: boolean;
-  scopeLabel: string;
+  projectId: string;
+  projects: Array<{ label: string; value: string }>;
+  onProjectChange: (id: string) => void;
 }) {
   return (
-    <Panel title="Top three enumerators" subtitle={`${scopeLabel} · Ranked by period submissions`}>
+    <Panel className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none" title="Top three enumerators" subtitle={null} action={<label className="ml-auto w-full sm:w-60"><span className="sr-only">Enumerator project</span><FilterSelect value={projectId} placeholder="All Project" options={projects} onChange={onProjectChange} /></label>}>
       {loading ? (
-        <div className="grid h-[200px] place-items-center text-xs text-[var(--fs-muted)]">Loading enumerator rankings...</div>
+        <div className="p-4"><LoadingSkeleton columns={3} rows={3} label="Loading enumerator rankings�" /></div>
       ) : enumerators.length ? (
-        <ol className="m-0 list-none divide-y divide-[#edf1f5] p-0">
-          {enumerators.map((enumerator, index) => {
-            const readyRate = enumerator.total ? Math.round((enumerator.ready / enumerator.total) * 100) : 0;
-            return (
-              <li key={enumerator.name} className="flex items-center gap-3 py-2.5 first:pt-1 last:pb-1">
-                <span className={`grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold ${index === 0 ? "bg-brand text-white" : "bg-[#f1f5f9] text-[#607086]"}`}>
-                  {index + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <div className="min-w-0">
-                      <strong className="block truncate text-sm font-semibold text-[#1e293b]">{enumerator.name}</strong>
-                      <span className="block text-xs text-[#64748b]">
-                        {enumerator.projectCount} project{enumerator.projectCount === 1 ? "" : "s"} • Last active{" "}
-                        {formatSubmissionDate(enumerator.lastSubmitted)}
-                      </span>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <strong className="block text-sm font-bold text-[#1e293b]">{enumerator.total}</strong>
-                      <span className="text-xs text-[#64748b]">submissions</span>
-                    </div>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#edf2f7]">
-                    <div className="h-full rounded-full bg-brand" style={{ width: `${readyRate}%` }} />
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#64748b]">
-                    <span>{readyRate}% ready</span>
-                    <span>{enumerator.review} review</span>
-                    <span>{enumerator.invalid} invalid</span>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        <div className="overflow-x-auto">
+          <table className="fs-data-table w-full text-left text-sm tabular-nums">
+            <caption className="sr-only">Top three enumerators ranked by period submissions</caption>
+            <thead><tr className="border-b border-[var(--fs-border)] bg-[var(--fs-canvas)] text-xs text-[var(--fs-muted)]">
+              <th scope="col" className="px-4 py-3">Rank</th><th scope="col" className="px-4 py-3">Enumerator</th><th scope="col" className="px-4 py-3 text-right">Projects</th><th scope="col" className="px-4 py-3 text-right">Submissions</th><th scope="col" className="px-4 py-3 text-right">Ready</th><th scope="col" className="px-4 py-3 text-right">Review</th><th scope="col" className="px-4 py-3 text-right">Invalid</th><th scope="col" className="whitespace-nowrap px-4 py-3">Last active</th>
+            </tr></thead>
+            <tbody>{enumerators.map((enumerator, index) => <tr key={enumerator.name} className="border-b border-[var(--fs-border)] last:border-0 hover:bg-[var(--fs-canvas)]">
+              <td className="px-4 py-4"><span className={`inline-grid size-7 place-items-center rounded-md text-xs font-semibold ${index === 0 ? "bg-[var(--fs-primary)] text-white" : "bg-[var(--fs-canvas)] text-[var(--fs-muted)]"}`}>{index + 1}</span></td>
+              <th scope="row" className="px-4 py-4 font-semibold">{enumerator.name}</th>
+              <td className="px-4 py-4 text-right">{enumerator.projectCount}</td>
+              <td className="px-4 py-4 text-right font-semibold">{enumerator.total.toLocaleString()}</td>
+              <td className="whitespace-nowrap px-4 py-4 text-right">{enumerator.total ? Math.round(enumerator.ready / enumerator.total * 100) : 0}%</td>
+              <td className="px-4 py-4 text-right">{enumerator.review}</td>
+              <td className="px-4 py-4 text-right">{enumerator.invalid}</td>
+              <td className="whitespace-nowrap px-4 py-4 text-[var(--fs-muted)]">{formatSubmissionDate(enumerator.lastSubmitted)}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
       ) : (
         <div className="grid h-[200px] place-items-center text-center text-xs text-[var(--fs-muted)]">
           No enumerator activity matches the current filters.

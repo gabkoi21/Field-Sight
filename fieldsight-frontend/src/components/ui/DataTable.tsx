@@ -41,7 +41,7 @@ export function DataTable({
           <tbody>{children}</tbody>
         </table>
       </div>
-      <footer className="flex justify-between px-5 py-3.5 text-[12px] text-[#778493]">
+      <footer className="flex flex-wrap justify-between gap-3 px-5 py-3.5 text-[12px] text-[#778493]">
         Showing selected records{" "}
         <span>
           ‹ <b className="rounded bg-brand px-2 py-[5px] text-white">1</b> 2 3 ›

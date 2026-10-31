@@ -1,3 +1,4 @@
+import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -31,7 +32,6 @@ export function WorkspacesPage() {
   }>({ key: "created_at", ascending: false });
   const [actionProject, setActionProject] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteName, setDeleteName] = useState("");
   const deletingProject = workspace.projects.find(
     (p) => p.id === actionProject,
   );
@@ -548,7 +548,6 @@ export function WorkspacesPage() {
                   disabled={saving}
                   onClick={() => {
                     remove.reset();
-                    setDeleteName("");
                     setConfirmDelete(true);
                   }}
                   className="mr-auto inline-flex items-center gap-2 rounded border border-red-200 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -579,50 +578,8 @@ export function WorkspacesPage() {
           </form>
         </Dialog>
       )}
-      {confirmDelete && deletingProject && (
-        <Dialog
-          title={deletingProject.status === "archived" ? "Restore project?" : "Archive project?"}
-          compact
-          error={remove.error?.message}
-          onClose={() => {
-            if (!remove.isPending) setConfirmDelete(false);
-          }}
-        >
-          <p className="text-sm leading-6 text-[var(--fs-muted)]">
-            {deletingProject.status === "archived" ? "Restore" : "Archive"} <strong>{deletingProject.name}</strong>?
-            All FieldSight records and Kobo assets are retained. Archiving stops queued and scheduled synchronization.
-            Restoration keeps synchronization manual until you enable it again.
-          </p>
-          <Field label="Type the project name to confirm">
-            <input
-              className={fieldClass}
-              value={deleteName}
-              onBlur={() => setDeleteName((value) => value.trim())}
-              disabled={remove.isPending}
-              onChange={(e) => setDeleteName(e.target.value)}
-              autoComplete="off"
-            />
-          </Field>
-          <div className="mt-5 flex justify-end gap-3 border-t border-[#e8e8ee] pt-4">
-            <button
-              type="button"
-              disabled={remove.isPending}
-              onClick={() => setConfirmDelete(false)}
-              className="rounded border border-[#dce5e8] bg-white px-4 py-2 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={remove.isPending || deleteName.trim() !== deletingProject.name.trim()}
-              onClick={() => remove.mutate()}
-              className="rounded border border-red-700 bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {remove.isPending ? "Saving…" : deletingProject.status === "archived" ? "Restore project" : "Archive project"}
-            </button>
-          </div>
-        </Dialog>
-      )}
+      {confirmDelete && deletingProject && <DeleteConfirmation title={deletingProject.status === "archived" ? "Restore project?" : "Archive project?"} name={deletingProject.name} description="All FieldSight records and Kobo assets are retained. Archiving stops queued and scheduled synchronization. Restoration keeps synchronization manual until you enable it again." phrase={deletingProject.status === "archived" ? "restore project" : "archive project"} actionLabel={deletingProject.status === "archived" ? "Restore project" : "Archive project"} warning="Project records and Kobo assets are retained. You can restore an archived project later." onConfirm={() => remove.mutateAsync()} onClose={() => setConfirmDelete(false)} />}
+
     </div>
   );
 }
