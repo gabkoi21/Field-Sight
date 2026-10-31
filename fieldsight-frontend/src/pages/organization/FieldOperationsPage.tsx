@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "../../workspace/projectRouting";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import { useAuth } from "../../auth/AuthContext";

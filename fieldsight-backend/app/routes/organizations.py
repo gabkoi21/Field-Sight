@@ -10,6 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, update
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from app.core.config import Settings, get_settings
@@ -430,11 +431,27 @@ def create_project(org_id: UUID, payload: ProjectCreate, user: CurrentUser, db: 
         raise HTTPException(status_code=422, detail="Project sector must be active in this organization.")
     if payload.end_date and payload.start_date and payload.end_date < payload.start_date:
         raise HTTPException(status_code=422, detail="End date cannot be before start date.")
-    project = Project(organization_id=org_id, created_by_id=user.id, **payload.model_dump())
-    db.add(project)
-    db.commit()
-    db.refresh(project)
-    return project
+    # Concurrent requests can reserve the same readable name. Retry with the
+    # newly committed names visible, while retaining the database uniqueness check.
+    for attempt in range(3):
+        project = Project(organization_id=org_id, created_by_id=user.id, **payload.model_dump())
+        db.add(project)
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            diagnostic = getattr(exc.orig, "diag", None)
+            slug_collision = getattr(diagnostic, "constraint_name", None) == "ix_projects_slug" or (
+                "UNIQUE constraint failed: projects.slug" in str(exc.orig)
+            )
+            if not slug_collision:
+                raise
+            if attempt == 2:
+                raise HTTPException(409, "Project URL is being reserved. Please try again.") from None
+            continue
+        db.refresh(project)
+        return project
+    raise HTTPException(409, "Project URL could not be reserved.")
 
 
 @router.get("/{org_id}/projects/{project_id}", tags=["projects"])

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "../../workspace/projectRouting";
+import { useProjectRouteId } from "../../workspace/projectRouting";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ActionDetail, type ActionInput, type ProjectAction, type WorkspaceMember } from "../../services/apiClient";
 import { controlClass } from "../../components/ui/controlStyles";
@@ -12,11 +13,11 @@ const label = (value: string) => value.replaceAll("_", " ");
 const transitions: Record<ProjectAction["status"], ProjectAction["status"][]> = { open: ["open", "in_progress"], in_progress: ["in_progress", "open", "resolved"], resolved: ["resolved", "in_progress", "closed"], closed: ["closed", "open"] };
 
 export function ProjectActionsPage() {
-  const { projectId = "" } = useParams();
+  const projectId = useProjectRouteId() ?? "";
   const { user, loading } = useAuth();
   const organization = user?.memberships.find(member => member.role === "organization_admin")?.organization_id;
   const [params, setParams] = useSearchParams();
-  const project = useQuery({ queryKey: ["project", organization, projectId], queryFn: () => apiClient.getProject(organization!, projectId), enabled: Boolean(organization && !loading) });
+  const project = useQuery({ queryKey: ["project", organization, projectId], queryFn: () => apiClient.getProject(organization!, projectId), enabled: Boolean(organization && projectId && !loading) });
   const authorized = Boolean(organization && project.isSuccess);
   const filters = new URLSearchParams(params);
   filters.delete("action_id"); filters.delete("new"); filters.delete("submission_id");

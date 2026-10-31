@@ -1,11 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "../../workspace/projectRouting";
+import { useProjectRouteId } from "../../workspace/projectRouting";
 import {
   ArrowLeft,
   BarChart3,
@@ -82,7 +79,7 @@ const frequency = (value: string) =>
 
 export function IndicatorWorkspacePage() {
   const workspace = useWorkspace();
-  const { projectId: routeProject } = useParams<{ projectId: string }>();
+  const routeProject = useProjectRouteId();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading } = useAuth();

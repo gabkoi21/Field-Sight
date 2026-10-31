@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "./projectRouting";
 import { Save } from "lucide-react";
 import { Button, LoadingState } from "../components/ui";
 import { apiClient } from "../services/apiClient";

@@ -5,7 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
 import {
   ArrowDown,
   ArrowUp,
@@ -33,6 +33,7 @@ import {
 } from "../services/apiClient";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
+import { projectUrlKey } from "./projectRouting";
 import {
   Field,
   Notice,
@@ -392,7 +393,7 @@ export function DashboardsPage() {
                     title="Copy dashboard link"
                     compact
                     onClick={async () => {
-                      const url = new URL(`/projects/${projectId}/dashboards`, window.location.origin);
+                      const url = new URL(`/projects/${projectUrlKey(project ?? { id: projectId })}/dashboards`, window.location.origin);
                       url.searchParams.set("dashboard", dashboard.id);
                       try {await navigator.clipboard.writeText(url.toString()); setShareNotice("Dashboard link copied. Project access is required to open it.");}
                       catch {setShareNotice(`Copy this dashboard link: ${url.toString()}`);}

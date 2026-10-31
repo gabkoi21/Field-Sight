@@ -1,7 +1,7 @@
 import { MetricCard } from "../../components/ui/MetricCard";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useProjectSearchParams as useSearchParams } from "../../workspace/projectRouting";
 import {
   Area,
   AreaChart,

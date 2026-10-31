@@ -14,10 +14,12 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ProjectLink as Link, ProjectNavLink as NavLink } from "./projectRouting";
 import { useAuth } from "../auth/AuthContext";
 import { apiClient } from "../services/apiClient";
 import { WorkspaceProvider, useWorkspace } from "./WorkspaceContext";
+import { cleanProjectPath, projectUrlKey } from "./projectRouting";
 import { LoadingState } from "../components/ui";
 import { RouteContent } from "../components/layout/RouteContent";
 
@@ -31,6 +33,7 @@ export function WorkspaceShell({ loading = false }: { loading?: boolean }) {
 function Shell({ loading }: { loading: boolean }) {
   const { user, logout } = useAuth();
   const workspace = useWorkspace();
+  const projectKey = projectUrlKey(workspace.project ?? { id: workspace.projectId });
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -87,14 +90,14 @@ function Shell({ loading }: { loading: boolean }) {
         {
           name: "Overview",
           path: navigationHasProject
-            ? `/projects/${workspace.projectId}/overview`
+            ? `/projects/${projectKey}/overview`
             : "/projects",
           icon: LayoutDashboard,
         },
         {
           name: "Details & activity",
           path: navigationHasProject
-            ? `/projects/${workspace.projectId}/details`
+            ? `/projects/${projectKey}/details`
             : "/projects",
           icon: ClipboardList,
         },
@@ -121,10 +124,11 @@ function Shell({ loading }: { loading: boolean }) {
     },
   ];
   function active(path: string) {
+    path = cleanProjectPath(path);
     if (path.endsWith("/indicators") && location.pathname === "/indicators") return true;
     if (path.endsWith("/team") && ["/team", "/enumerators"].includes(location.pathname)) return true;
     if (path === "/projects") return location.pathname === "/projects";
-    if (workspace.projectId && path === `/projects/${workspace.projectId}`)
+    if (workspace.projectId && path === `/projects/${projectKey}`)
       return location.pathname === path;
     return location.pathname === path;
   }
@@ -167,7 +171,7 @@ function Shell({ loading }: { loading: boolean }) {
                   aria-label={name}
                   aria-current={active(path) ? "page" : undefined}
                   to={workspace.projectId && ["/forms", "/data-tables", "/dashboards", "/submissions", "/reports"].includes(path)
-                    ? `${path}?project_id=${workspace.projectId}`
+                    ? `${path}?project_id=${projectKey}`
                     : path}
                   onClick={() => setOpen(false)}
                   className={`my-0.5 flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm no-underline transition-colors focus-visible:outline-white hover:bg-[#0b51b7]/50 hover:text-white ${active(path) ? "bg-[#0b51b7]/50 font-semibold text-white" : "text-[#b5c7d5]"}`}
@@ -279,7 +283,13 @@ function Shell({ loading }: { loading: boolean }) {
           </div>
         </header>
         <div id="main-content" tabIndex={-1} className="mx-auto min-w-0 max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {loading ? <LoadingState label="Loading your session..." /> : <RouteContent />}
+          {loading ? <LoadingState label="Loading your session..." /> : workspace.invalidProject ? (
+            <section role="alert" className="rounded-xl border border-[var(--fs-border)] bg-white p-6">
+              <h1 className="text-xl font-semibold">Project not found</h1>
+              <p className="mt-2 text-sm text-[var(--fs-muted)]">This project link is unavailable in your organization.</p>
+              <Link className="mt-4 inline-block text-sm font-semibold text-brand" to="/projects">Back to projects</Link>
+            </section>
+          ) : <RouteContent />}
         </div>
       </main>
     </div>

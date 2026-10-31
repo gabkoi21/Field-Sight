@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "../../workspace/projectRouting";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../../services/apiClient";

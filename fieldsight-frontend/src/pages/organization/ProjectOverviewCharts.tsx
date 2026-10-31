@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { NavLink } from "react-router-dom";
+import { ProjectNavLink as NavLink } from "../../workspace/projectRouting";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,

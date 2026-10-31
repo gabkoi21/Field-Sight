@@ -7,7 +7,7 @@ import {
   ExternalLink,
   Search,
 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
 import { Page, Panel, fieldClass } from "./WorkspaceUI";
 import { useWorkspace } from "./WorkspaceContext";
 

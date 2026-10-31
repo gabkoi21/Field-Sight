@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
 import { BarChart3, LockKeyhole, Save } from "lucide-react";
 import { Button, LoadingState } from "../components/ui";
 import { apiClient } from "../services/apiClient";

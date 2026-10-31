@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
 import {
   ArrowLeft,
   ChevronLeft,

@@ -1,6 +1,5 @@
 import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ProjectAnalyticsRedirect } from "./ProjectAnalyticsRedirect";
 import { skipLogin } from "../auth/developmentAccess";
 import {
   RequireOrganizationMember,
@@ -89,6 +88,10 @@ export function App() {
         <Route path="projects/:projectId/details" element={<WorkspaceDetailsPage />} />
         <Route path="projects/:projectId/actions" element={<ProjectActionsPage />} />
         <Route path="projects/:projectId/overview" element={<ProjectWorkspacePage />} />
+        <Route path="overview" element={<ProjectWorkspacePage />} />
+        <Route path="details" element={<WorkspaceDetailsPage />} />
+        <Route path="actions" element={<ProjectActionsPage />} />
+        <Route path="project-team" element={<WorkspaceTeamPage workspaceOnly />} />
         <Route
           path="projects/:projectId/indicators"
           element={<ProjectIndicatorsPage />}
@@ -98,7 +101,7 @@ export function App() {
         <Route path="submissions" element={<SubmissionsPage />} />
         <Route path="enumerators" element={<FieldOperationsPage />} />
         <Route path="projects/:projectId/analytics" element={<SurveyQuestionExplorer />} />
-        <Route path="analytics" element={<ProjectAnalyticsRedirect />} />
+        <Route path="analytics" element={<SurveyQuestionExplorer />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="projects/:projectId/team" element={<WorkspaceTeamPage workspaceOnly />} />
         <Route path="team" element={<FieldOperationsPage />} />
@@ -109,6 +112,7 @@ export function App() {
         <Route path="forms" element={<WorkspaceFormsPage />} />
         <Route path="data-tables" element={<DataTablesPage key="data-tables" />} />
         <Route path="dashboards" element={<DashboardsPage />} />
+        <Route path="projects/:projectId/dashboards" element={<DashboardsPage />} />
       </Route>
       <Route path="*" element={<Navigate replace to="/" />} />
     </Routes>

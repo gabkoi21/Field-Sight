@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { MemoryRouter, Outlet, useParams } from "react-router-dom";
+import { MemoryRouter, Outlet, useParams, useSearchParams } from "react-router-dom";
 import { App } from "./App";
 
 vi.mock("../auth/RouteGuards", () => ({
@@ -13,7 +13,8 @@ vi.mock("../workspace/WorkspaceShell", () => ({ WorkspaceShell: () => <Outlet />
 vi.mock("../pages/organization/ProjectWorkspacePage", () => ({ ProjectWorkspacePage: () => <h1>Action-focused project overview</h1> }));
 vi.mock("../workspace/WorkspaceDetailsPage", () => ({ WorkspaceDetailsPage: () => <h1>Existing project details</h1> }));
 vi.mock("../workspace/WorkspacesPage", () => ({ WorkspacesPage: () => <h1>Projects</h1> }));
-vi.mock("../pages/organization/SurveyQuestionExplorer", () => ({SurveyQuestionExplorer: () => <h1>Project analysis {useParams().projectId}</h1>}));
+vi.mock("../pages/organization/SurveyQuestionExplorer", () => ({SurveyQuestionExplorer: () => { const params = useParams(); const [search] = useSearchParams(); return <h1>Project analysis {params.projectId ?? search.get("project_id") ?? "selected"}</h1>; }}));
+vi.mock("../workspace/DashboardsPage", () => ({ DashboardsPage: () => <h1>Project dashboards {useParams().projectId}</h1> }));
 
 afterEach(cleanup);
 
@@ -45,7 +46,17 @@ it("redirects old explicit-project analysis links to the scoped route", async ()
   render(<MemoryRouter initialEntries={["/analytics?project_id=wash"]}><App /></MemoryRouter>);
   expect(await screen.findByRole("heading", {name: "Project analysis wash"})).toBeTruthy();
 });
-it("requires project selection for old unscoped analysis URLs", async () => {
+it("opens analysis using the internally selected project", async () => {
   render(<MemoryRouter initialEntries={["/analytics"]}><App /></MemoryRouter>);
-  expect(await screen.findByRole("heading", {name: "Projects"})).toBeTruthy();
+  expect(await screen.findByRole("heading", {name: "Project analysis selected"})).toBeTruthy();
+});
+
+it("opens shared dashboards with a readable project URL", async () => {
+  render(<MemoryRouter initialEntries={["/projects/school-feeding/dashboards?dashboard=one"]}><App /></MemoryRouter>);
+  expect(await screen.findByRole("heading", { name: "Project dashboards school-feeding" })).toBeTruthy();
+});
+
+it("opens the clean overview URL", () => {
+  render(<MemoryRouter initialEntries={["/overview"]}><App /></MemoryRouter>);
+  expect(screen.getByRole("heading", { name: "Action-focused project overview" })).toBeTruthy();
 });

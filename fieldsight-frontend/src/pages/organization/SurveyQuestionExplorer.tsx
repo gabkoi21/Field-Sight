@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "../../workspace/projectRouting";
+import { useProjectRouteId } from "../../workspace/projectRouting";
 import { WorkspaceTabs } from "../../workspace/WorkspaceUI";
 import {
   Bookmark,
@@ -44,7 +46,7 @@ const format = (value: number | null | undefined) =>
 
 export function SurveyQuestionExplorer() {
   const workspace = useWorkspace();
-  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const routeProjectId = useProjectRouteId();
   const projectId = routeProjectId ?? workspace.projectId;
   return <ProjectSurveyQuestionExplorer key={projectId} projectId={projectId} />;
 }

@@ -2,7 +2,8 @@ import { ProjectTimeline } from "../../workspace/ProjectTimeline";
 import { ProjectCompletionChart } from "../../workspace/ProjectCompletionChart";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { NavLink, useParams } from "react-router-dom";
+import { ProjectNavLink as NavLink } from "../../workspace/projectRouting";
+import { useProjectRouteId } from "../../workspace/projectRouting";
 import {
   ArrowLeft, ArrowRight, Building2, CalendarDays, ChevronDown,
   CircleAlert, Clock3, Database, Link2, MapPin, Users,
@@ -33,7 +34,7 @@ function Status({ value }: { value: string }) {
 }
 
 export function ProjectWorkspacePage() {
-  const { projectId = "" } = useParams<{ projectId: string }>();
+  const projectId = useProjectRouteId() ?? "";
   const cache = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const organizationId = user?.memberships.find(member => member.role === "organization_admin")?.organization_id;

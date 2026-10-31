@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { ProjectNavLink as NavLink } from "../../workspace/projectRouting";
 import { Card } from "../../components/ui/Card";
 import { Button, Ring } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";

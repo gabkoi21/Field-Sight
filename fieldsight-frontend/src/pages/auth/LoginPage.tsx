@@ -1,5 +1,4 @@
-import { useState, type FormEvent } from "react";
-import { BarChart3 } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
@@ -14,6 +13,23 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [remember, setRemember] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [usernameActive, setUsernameActive] = useState(false);
+  const [passwordActive, setPasswordActive] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    function clearLogin() {
+      form.current?.reset();
+      setUsername("");
+      setPassword("");
+      setRemember(false);
+      setUsernameActive(false);
+      setPasswordActive(false);
+    }
+    clearLogin();
+    window.addEventListener("pageshow", clearLogin);
+    return () => window.removeEventListener("pageshow", clearLogin);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,19 +75,16 @@ export function LoginPage() {
   return (
     <div className="fs-login-page grid min-h-screen grid-cols-2 bg-white max-[700px]:grid-cols-1">
       <form
+        ref={form}
         className="m-auto w-[min(420px,calc(100%_-_48px))]"
         onSubmit={handleSubmit}
         autoComplete="off"
       >
         <NavLink
           to="/"
-          className="inline-block pb-[62px] text-[19px] font-bold tracking-[-.25px] text-[#102a43] no-underline max-[700px]:pb-[42px]"
+          className="inline-block max-w-full pb-[62px] text-[19px] font-bold tracking-[-.25px] text-[#102a43] no-underline max-[700px]:pb-[42px]"
         >
-          <b className="mr-[9px] inline-grid size-[30px] place-items-center rounded-[7px] bg-brand text-white shadow-[inset_0_0_0_1px_#ffffff20]">
-            <BarChart3 className="stroke-2" size={16} />
-          </b>
-
-          <span className="leading-none">FieldSight</span>
+          FieldSight
         </NavLink>
 
         <p className="mb-1.5 text-[12px] font-bold uppercase leading-[1.4] tracking-[.08em] text-brand">
@@ -91,6 +104,8 @@ export function LoginPage() {
           <input
             className={inputClass}
             type="text"
+            readOnly={!usernameActive}
+            onFocus={() => setUsernameActive(true)}
             value={username}
             onChange={(event) => setUsername(event.target.value)}
             autoComplete="off"
@@ -102,9 +117,11 @@ export function LoginPage() {
           <input
             className={inputClass}
             type="password"
+            readOnly={!passwordActive}
+            onFocus={() => setPasswordActive(true)}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            autoComplete="off"
+            autoComplete="new-password"
           />
         </label>
 

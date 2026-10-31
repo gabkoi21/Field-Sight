@@ -6,9 +6,12 @@ from datetime import date, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, UniqueConstraint
-from sqlmodel import Field, SQLModel
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, UniqueConstraint, event, select
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import object_session
+from sqlmodel import Field, SQLModel, col
 
+from app.core.project_urls import available_project_slug, project_slug_base
 from app.models.identity import utc_now
 
 
@@ -71,6 +74,7 @@ class Project(SQLModel, table=True):
         sa_column=Column(ForeignKey("organization_sectors.id"), index=True, nullable=False)
     )
     name: str = Field(sa_column=Column(String(200), nullable=False))
+    slug: str | None = Field(default=None, sa_column=Column(String(160), unique=True, index=True, nullable=True))
     description: str = ""
     workspace_details: dict[str, object] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     country: str | None = None
@@ -87,6 +91,22 @@ class Project(SQLModel, table=True):
     )
     kobo_form_id: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
     kobo_form_name: str | None = Field(default=None, sa_column=Column(String(255), nullable=True))
+
+
+@event.listens_for(Project, "before_insert")
+def assign_project_slug(mapper: object, connection: Connection, project: Project) -> None:
+    """Assign once, including projects created by import/seed scripts."""
+    if project.slug:
+        return
+    base = project_slug_base(project.name)
+    used = {slug for slug in connection.execute(
+        select(col(Project.slug)).where(col(Project.slug).like(base + "%"))
+    ).scalars() if slug}
+    session = object_session(project)
+    if session is not None:
+        used.update(pending.slug for pending in session.new
+                    if isinstance(pending, Project) and pending is not project and pending.slug)
+    project.slug = available_project_slug(project.name, used)
 
 
 class OrganizationAdminEvent(SQLModel, table=True):

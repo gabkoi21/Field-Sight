@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "../../workspace/projectRouting";
 import { apiClient } from "../../services/apiClient";
 
 export function ProjectActionSummary({ projectId, organizationId }: { projectId: string; organizationId: string }) {

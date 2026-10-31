@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Link, NavLink, useParams } from "react-router-dom";
+import { ProjectLink as Link, ProjectNavLink as NavLink } from "./projectRouting";
+import { projectUrlKey, useProjectRouteId } from "./projectRouting";
 import { BarChart3, ClipboardList, FileText, LayoutDashboard, Table2, Target, Users } from "lucide-react";
 import { useWorkspace } from "./WorkspaceContext";
 import { LoadingState, PageHeader } from "../components/ui";
@@ -91,9 +92,10 @@ export function WorkspaceGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 export function WorkspaceTabs() {
-  const { projectId: selectedProjectId } = useWorkspace();
-  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
-  const projectId = routeProjectId ?? selectedProjectId;
+  const { projectId: selectedProjectId, projects } = useWorkspace();
+  const routeProjectId = useProjectRouteId();
+  const id = routeProjectId ?? selectedProjectId;
+  const projectId = projectUrlKey(projects?.find(project => project.id === id) ?? { id });
   return (
     <nav
       aria-label="Project sections"

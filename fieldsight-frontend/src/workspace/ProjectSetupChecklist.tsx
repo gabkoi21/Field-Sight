@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "./projectRouting";
 import { apiClient } from "../services/apiClient";
 import { useWorkspace } from "./WorkspaceContext";
 import { Notice, Panel } from "./WorkspaceUI";

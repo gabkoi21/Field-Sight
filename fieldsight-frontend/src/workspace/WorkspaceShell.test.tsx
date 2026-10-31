@@ -11,7 +11,7 @@ vi.mock("../services/apiClient", () => ({ apiClient: {
   organizationProjects: async () => [{ id: "p1", name: "Health" }, { id: "p2", name: "Education" }],
   pendingKoboSync: async () => ({ pending_count: 0 }),
 } }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); sessionStorage.clear(); });
 function Location() { const location = useLocation(); return <p data-testid="location">{location.pathname}{location.search}</p>; }
 function setup(path: string) {
   render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[path]}><Routes><Route element={<WorkspaceShell />}><Route path="*" element={<Location />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
@@ -19,26 +19,26 @@ function setup(path: string) {
 
 it("shows the project Overview while preserving navigation and context", async () => {
   setup("/dashboards?project_id=p2");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Reports" }).getAttribute("href")).toBe("/reports?project_id=p2"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview"));
   expect(screen.queryByLabelText("Current project")).toBeNull();
   const nav = screen.getByRole("navigation", { name: "Main navigation" });
   expect(within(nav).getAllByRole("link").slice(0, 3).map(link => link.textContent)).toEqual(["Projects", "Overview", "Details & activity"]);
   expect(within(nav).queryByRole("link", { name: "Data Quality" })).toBeNull();
   expect(within(nav).getByRole("link", { name: "Project dashboards" }).getAttribute("aria-current")).toBe("page");
-  expect(within(nav).getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/projects/p2/overview");
+  expect(within(nav).getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview");
   for (const name of ["Forms", "Indicators", "Field Team", "Actions & Follow-ups", "Explore & analyze"]) {
     expect(within(nav).queryByRole("link", { name })).toBeNull();
   }
-  expect(within(nav).getByRole("link", { name: "Reports" }).getAttribute("href")).toBe("/reports?project_id=p2");
+  expect(within(nav).getByRole("link", { name: "Reports" }).getAttribute("href")).toBe("/reports");
   fireEvent.click(within(nav).getByRole("link", { name: "Projects" }));
   expect(within(nav).getByRole("link", { name: "Projects" }).getAttribute("aria-current")).toBe("page");
   fireEvent.click(within(nav).getByRole("link", { name: "Project dashboards" }));
-  expect(screen.getByTestId("location").textContent).toBe("/dashboards?project_id=p2");
+  expect(screen.getByTestId("location").textContent).toBe("/dashboards");
 });
 
 it("preserves nested project navigation without the header selector", async () => {
   setup("/projects/p1/indicators?project_id=p1&view=results&page=3&offset=50");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/projects/p1/details"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/details"));
   expect(screen.queryByLabelText("Current project")).toBeNull();
 });
 
@@ -49,11 +49,11 @@ it("keeps the workspace shell mounted through a lazy route and back/forward navi
     const navigate = useNavigate();
     return <><button onClick={() => navigate(-1)}>Back</button><button onClick={() => navigate(1)}>Forward</button></>;
   }
-  render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={["/projects/p2"]}><HistoryControls /><Routes><Route element={<WorkspaceShell />}><Route path="projects/:projectId" element={<h1>Project details ready</h1>} /><Route path="dashboards" element={<Slow />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+  render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={["/projects/p2"]}><HistoryControls /><Routes><Route element={<WorkspaceShell />}><Route path="projects/:projectId" element={<h1>Project details ready</h1>} /><Route path="overview" element={<h1>Project details ready</h1>} /><Route path="dashboards" element={<Slow />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
   const navigation = screen.getByRole("navigation", { name: "Main navigation" });
   const userMenu = screen.getByRole("button", { name: "User menu" });
   const dashboards = within(navigation).getByRole("link", { name: "Project dashboards" });
-  await waitFor(() => expect(dashboards.getAttribute("href")).toBe("/dashboards?project_id=p2"));
+  await waitFor(() => expect(dashboards.getAttribute("href")).toBe("/dashboards"));
   fireEvent.click(dashboards);
   expect(screen.getByRole("status").textContent).toContain("Preparing dashboard…");
   expect(screen.getByRole("navigation", { name: "Main navigation" })).toBe(navigation);
@@ -86,7 +86,7 @@ it("collapses and expands desktop navigation without changing project links", as
   fireEvent.click(toggle);
   expect(document.querySelector(".workspace-collapsed")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Expand sidebar" }).getAttribute("aria-expanded")).toBe("false");
-  await waitFor(() => expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/projects/p1/overview"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "Overview" }).getAttribute("href")).toBe("/overview"));
   fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
   expect(document.querySelector(".workspace-collapsed")).toBeNull();
 });

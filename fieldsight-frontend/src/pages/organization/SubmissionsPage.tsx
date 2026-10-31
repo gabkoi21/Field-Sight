@@ -8,7 +8,7 @@ import {
   Search,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useProjectSearchParams as useSearchParams } from "../../workspace/projectRouting";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { controlClass } from "../../components/ui/controlStyles";
 import { LoadingSkeleton, LoadingState, MetricCard } from "../../components/ui";
@@ -17,6 +17,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { apiClient, type ApiSubmission } from "../../services/apiClient";
 import { SubmissionReview } from "./SubmissionReview";
 import { formatLocation } from "../../utils/location";
+import { useProjectQueryId, useSelectProjectFilter } from "../../workspace/projectRouting";
 
 type ExportPeriod = "daily" | "weekly" | "biweekly" | "monthly";
 type Row = {
@@ -65,8 +66,9 @@ export function SubmissionsPage() {
   });
   const query = searchParams.get("search") ?? "";
   const setQuery = (value: string) => { const params = new URLSearchParams(searchParams); if (value) params.set("search", value); else params.delete("search"); setSearchParams(params, { replace: true }); };
-  const projectId = searchParams.get("project_id") ?? "";
-  const setProjectId = (id: string) => { const params = new URLSearchParams(searchParams); if (id) params.set("project_id", id); else params.delete("project_id"); setSearchParams(params); };
+  const queryProjectId = useProjectQueryId();
+  const projectId = queryProjectId ?? "";
+  const setProjectId = useSelectProjectFilter();
   const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("daily");
   const [selected, setSelected] = useState<string | null>(null);
   const reviewStatus = searchParams.get("review_status") ?? "";
@@ -79,7 +81,8 @@ export function SubmissionsPage() {
   const params = new URLSearchParams({ offset: String((currentPage - 1) * pageSize), limit: String(pageSize), search: query });
   if (projectId) params.set("project_id", projectId);
   if (reviewStatus) params.set("review_status", reviewStatus);
-  const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading });
+  const scopeResolved = queryProjectId !== "";
+  const { data, isLoading, isFetching, error, refetch } = useQuery({ queryKey: ["submissions", "page", params.toString()], queryFn: () => apiClient.submissionPage(params), enabled: !authLoading && scopeResolved });
   const rows: Row[] = (data?.items ?? []).map(toRow);
   const total = data?.total ?? 0;
   const counts = data?.counts ?? {};

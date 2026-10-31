@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "./projectRouting";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";

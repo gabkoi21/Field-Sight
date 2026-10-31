@@ -329,6 +329,7 @@ export interface WorkspaceDetails {
   health_status: "" | "red" | "amber" | "green";
 }
 export interface ApiProject {
+  slug?: string | null;
   organization_sector_id?: string;
   created_at?: string;
   updated_at?: string;

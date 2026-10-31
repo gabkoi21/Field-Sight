@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { ProjectLink as Link } from "./projectRouting";
 import {
   ChevronDown,
   MoreVertical,
@@ -16,6 +17,7 @@ import { Button, LoadingSkeleton, LoadingState, PageHeader } from "../components
 import { apiClient } from "../services/apiClient";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { useWorkspace } from "./WorkspaceContext";
+import { projectUrlKey } from "./projectRouting";
 import { Field, Notice, Panel, fieldClass } from "./WorkspaceUI";
 
 export function WorkspacesPage() {
@@ -59,7 +61,7 @@ export function WorkspacesPage() {
       await cache.invalidateQueries({ queryKey: ["organization-projects"] });
       workspace.selectProject(data.id);
       setAdding(false);
-      navigate(`/projects/${data.id}`);
+      navigate(`/projects/${projectUrlKey(data)}`);
     },
   });
   const update = useMutation({
@@ -99,7 +101,7 @@ export function WorkspacesPage() {
   }
   function openWorkspace(id: string) {
     workspace.selectProject(id);
-    navigate(`/projects/${id}`);
+    navigate(`/projects/${projectUrlKey(workspace.projects.find(project => project.id === id) ?? { id })}`);
   }
   const filtered = workspace.projects.filter(
     (p) =>
@@ -330,7 +332,7 @@ export function WorkspacesPage() {
                       <td className="max-w-[310px] px-3 py-2">
                         <Link
                           onClick={() => workspace.selectProject(project.id)}
-                          to={`/projects/${project.id}`}
+                          to={`/projects/${projectUrlKey(project)}`}
                           className="font-medium leading-5 text-[#0b51b7] no-underline"
                         >
                           {project.name}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "./projectRouting";
 import { ArrowLeft, FileText, FileSpreadsheet, Link2, Plus } from "lucide-react";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { Button } from "../components/ui";

@@ -17,7 +17,7 @@ import {
 
 import { controlClass } from "../components/ui/controlStyles";
 
-const input = controlClass;
+const input = controlClass + " !text-black disabled:opacity-100 disabled:!bg-white";
 function metadata(project: ApiProject): WorkspaceDetails {
   const data = project.workspace_details ?? {};
   return {
@@ -49,6 +49,7 @@ export function WorkspaceDetailsPage() {
     health_status: "",
   });
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState(false);
   function reset() {
     if (!project) return;
     setName(project.name);
@@ -60,6 +61,7 @@ export function WorkspaceDetailsPage() {
   useEffect(() => {
     reset();
     setMessage("");
+    setEditing(false);
   }, [projectId, project?.updated_at]);
   const save = useMutation({
     mutationFn: () =>
@@ -80,6 +82,7 @@ export function WorkspaceDetailsPage() {
         queryKey: ["organization-projects", organizationId],
       });
       setMessage("Project details saved.");
+      setEditing(false);
     },
   });
   function update<K extends keyof WorkspaceDetails>(
@@ -109,21 +112,22 @@ export function WorkspaceDetailsPage() {
         {message && <Notice>{message}</Notice>}
         {save.error && <Notice error>{save.error.message}</Notice>}
         <Panel>
-          <header className="border-b border-[#e6e8ed] px-5 py-4">
-            <h2 className="m-0 text-sm font-semibold text-[#353d47]">
+          <header className="flex min-h-11 items-baseline justify-between gap-4 border-b border-[#e6e8ed] px-4 py-2">
+            <h2 className="m-0 text-sm font-semibold leading-6 text-[#353d47]">
               Details
             </h2>
+            {!editing && <button type="button" onClick={() => { save.reset(); setMessage(""); setEditing(true); }} className="min-h-6 rounded border-0 bg-transparent p-0 text-sm font-semibold leading-6 text-red-600 hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Edit profile</button>}
           </header>
           <form
             className="p-5"
             onSubmit={(event) => {
               event.preventDefault();
-              save.mutate();
+              if (editing && !save.isPending) save.mutate();
             }}
           >
             <fieldset
-              disabled={save.isPending}
-              className="m-0 grid min-w-0 grid-cols-2 gap-x-7 gap-y-5 border-0 p-0 max-md:grid-cols-1"
+              disabled={!editing || save.isPending}
+              className="m-0 grid min-w-0 grid-cols-2 gap-x-7 gap-y-5 border-0 p-0 max-md:grid-cols-1 [&_input:disabled]:cursor-default [&_input:disabled]:bg-white [&_input:disabled]:text-black [&_select:disabled]:cursor-default [&_select:disabled]:bg-white [&_select:disabled]:text-black [&_textarea:disabled]:cursor-default [&_textarea:disabled]:bg-white [&_textarea:disabled]:text-black [&_button:disabled]:hidden"
             >
               <DetailField label="Name *">
                 <input
@@ -191,6 +195,7 @@ export function WorkspaceDetailsPage() {
               <DetailField label="Countries">
                 <Tags
                   label="Countries"
+                  locked={!editing || save.isPending}
                   values={details.countries}
                   onChange={(values) => update("countries", values)}
                 />
@@ -198,6 +203,7 @@ export function WorkspaceDetailsPage() {
               <DetailField label="Sectors">
                 <Tags
                   label="Sectors"
+                  locked={!editing || save.isPending}
                   values={details.topics}
                   onChange={(values) => update("topics", values)}
                 />
@@ -250,14 +256,15 @@ export function WorkspaceDetailsPage() {
                 </DetailField>
               </div>
             </fieldset>
-            <div className="mt-6 flex justify-end gap-3 border-t border-[#e6e8ed] pt-4">
+            {editing && <div className="mt-6 flex justify-end gap-3 border-t border-[#e6e8ed] pt-4">
               <button
                 type="button"
-                disabled={save.isPending || !changed}
+                disabled={save.isPending}
                 onClick={() => {
                   reset();
                   setMessage("");
                   save.reset();
+                  setEditing(false);
                 }}
                 className="rounded border border-[#b8ccea] bg-white px-5 py-2 text-xs text-[#0b51b7] hover:bg-[#edf4ff] disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -270,7 +277,7 @@ export function WorkspaceDetailsPage() {
               >
                 {save.isPending ? "Saving…" : "Save changes"}
               </button>
-            </div>
+            </div>}
           </form>
         </Panel>
       </WorkspaceGate>
@@ -331,10 +338,12 @@ function Tags({
   label,
   values,
   onChange,
+  locked = false,
 }: {
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
+  locked?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   function commit() {
@@ -348,11 +357,11 @@ function Tags({
     }
   }
   return (
-    <div className="flex min-h-9 flex-wrap items-center gap-1 rounded border border-[#e3e5eb] bg-white px-2 py-1">
+    <div className={`flex min-h-9 flex-wrap items-center gap-1 rounded border border-[var(--fs-control-border)] px-2 py-1 bg-white`}>
       {values.map((value) => (
         <span
           key={value}
-          className="inline-flex items-center gap-1 rounded-full border border-[#e0e1e7] bg-[#f7f7f9] px-2 py-0.5 text-[12px] text-[#626977]"
+          className="inline-flex items-center gap-1 rounded-full border border-[#e0e1e7] bg-[#f7f7f9] px-2 py-0.5 text-[12px] text-black"
         >
           <button
             aria-label={`Remove ${value} from ${label.toLowerCase()}`}
@@ -365,12 +374,12 @@ function Tags({
           {value}
         </span>
       ))}
-      <input
+      {!locked && <input
         aria-label={label}
         value={draft}
         maxLength={100}
         placeholder={values.length ? "" : "Type and press Enter"}
-        className="min-w-[120px] flex-1 border-0 bg-transparent p-0.5 text-xs outline-none"
+        className="min-w-[120px] flex-1 border-0 bg-transparent p-0.5 text-xs text-black outline-none"
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {
@@ -379,7 +388,7 @@ function Tags({
             commit();
           }
         }}
-      />
+      />}
     </div>
   );
 }

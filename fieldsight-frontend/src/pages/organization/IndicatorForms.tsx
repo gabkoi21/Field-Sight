@@ -14,7 +14,7 @@ import {
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { Link } from "react-router-dom";
+import { ProjectLink as Link } from "../../workspace/projectRouting";
 
 import { Plus, Trash2, X } from "lucide-react";
 
