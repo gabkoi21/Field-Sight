@@ -33,8 +33,9 @@ export function WorkspaceShell({ loading = false }: { loading?: boolean }) {
 function Shell({ loading }: { loading: boolean }) {
   const { user, logout } = useAuth();
   const workspace = useWorkspace();
-  const projectKey = projectUrlKey(workspace.project ?? { id: workspace.projectId });
   const location = useLocation();
+  const pendingProjectKey = location.pathname.match(/^\/projects\/([^/]+)/)?.[1];
+  const projectKey = projectUrlKey(workspace.project ?? { id: workspace.projectId || pendingProjectKey || "" });
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -81,7 +82,7 @@ function Shell({ loading }: { loading: boolean }) {
   });
   // The URL still identifies the current page while project data is loading.
   const navigationHasProject = workspace.hasSelectedProject ||
-    Boolean(workspace.projectId && (loading || workspace.loading));
+    Boolean((workspace.projectId || pendingProjectKey) && (loading || workspace.loading));
   const sections = [
     {
       title: "Project",
@@ -125,12 +126,13 @@ function Shell({ loading }: { loading: boolean }) {
   ];
   function active(path: string) {
     path = cleanProjectPath(path);
+    const currentPath = cleanProjectPath(location.pathname);
     if (path.endsWith("/indicators") && location.pathname === "/indicators") return true;
     if (path.endsWith("/team") && ["/team", "/enumerators"].includes(location.pathname)) return true;
     if (path === "/projects") return location.pathname === "/projects";
     if (workspace.projectId && path === `/projects/${projectKey}`)
-      return location.pathname === path;
-    return location.pathname === path;
+      return currentPath === path;
+    return currentPath === path;
   }
   return (
     <div className={`fieldsight-workspace min-h-screen bg-[var(--fs-canvas)] text-[var(--fs-text)] ${collapsed ? "workspace-collapsed" : ""}`}>
