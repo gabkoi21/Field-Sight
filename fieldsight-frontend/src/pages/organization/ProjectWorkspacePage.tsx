@@ -23,7 +23,7 @@ const muted = "text-[var(--fs-muted)]";
 function dateLabel(value: string | null | undefined) {
   if (!value) return "Not set";
   const parsed = new Date(`${value}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? "Not set" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: "UTC" }).format(parsed);
+  return Number.isNaN(parsed.getTime()) ? "Not set" : new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(parsed);
 }
 function locationLabel(project: ApiProject) {
   return project.workspace_details?.countries?.filter(Boolean).join(", ") || project.country || "Location not set";
@@ -60,6 +60,11 @@ export function ProjectWorkspacePage() {
     queryKey: ["project-overview", organizationId, projectId, "submissions"],
     queryFn: () => apiClient.submissionPage(new URLSearchParams({ project_id: projectId, limit: "5" })), enabled: authorized,
   });
+  const activityQuery = useQuery({
+    queryKey: ["project-overview", organizationId, projectId, "enumerator-activity"],
+    queryFn: () => apiClient.submissions(projectId), enabled: authorized,
+    staleTime: 30_000,
+  });
   const indicatorsQuery = useQuery({
     queryKey: ["indicators", projectId, "overview", organizationId],
     queryFn: () => apiClient.indicators(projectId), enabled: authorized,
@@ -88,6 +93,12 @@ export function ProjectWorkspacePage() {
   const project = projectQuery.data;
   const connected = Boolean(project.kobo_connection_id && project.kobo_form_id);
   const activeIndicators = indicatorsQuery.data?.filter(item => item.is_active);
+  const activityNow = Date.now();
+  const activeEnumerators = new Set((activityQuery.data ?? []).flatMap(record => {
+    const name = record.enumerator?.trim().toLowerCase();
+    const time = record.submitted_at ? new Date(record.submitted_at).getTime() : NaN;
+    return record.project_id === projectId && name && time >= activityNow - 7 * 86400000 && time <= activityNow ? [name] : [];
+  })).size;
 
 
   return <div className="flex min-w-0 w-full flex-col gap-5 pb-6 text-[var(--fs-text)]">
@@ -121,7 +132,7 @@ export function ProjectWorkspacePage() {
       {submissionsQuery.isPending ? <div className="sm:col-span-2 xl:col-span-3"><LoadingSkeleton layout="metrics" label="Loading collection counts…" /></div> : submissionsQuery.error ? <div className="sm:col-span-2 xl:col-span-3"><Card className="h-full p-5"><LoadError label="collection counts" retry={() => void submissionsQuery.refetch()} /></Card></div> : <>
         <OverviewMetric label="Submitted records" value={submissionsQuery.data!.total} note="All saved submissions" icon={Database} href={`/submissions?${scope}`} />
         <OverviewMetric label="Connected forms" value={connected ? 1 : 0} note="Project’s connected Kobo form" icon={Link2} />
-        <OverviewMetric label="Awaiting review" value={submissionsQuery.data!.counts.needs_review ?? 0} note="All saved records awaiting evidence review" icon={CircleAlert} href={`/submissions?${scope}&review_status=needs_review`} />
+        {activityQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading active enumerators…" /></Card> : activityQuery.error ? <Card className="p-5"><LoadError label="enumerator activity" retry={() => void activityQuery.refetch()} /></Card> : <OverviewMetric label="Active enumerators" value={activeEnumerators} note="Enumerators who submitted data for this project in the last 7 days" icon={Users} />}
       </>}
       {indicatorsQuery.isPending ? <Card className="p-5"><LoadingState variant="inline" label="Loading indicators…" /></Card> : indicatorsQuery.error ? <Card className="p-5"><LoadError label="indicator results" retry={() => void indicatorsQuery.refetch()} /></Card> : <OverviewMetric label="Active indicators" value={activeIndicators?.length ?? 0} note="Active indicators in this project" icon={Target} href={`/projects/${projectId}/indicators`} />}
     </section>

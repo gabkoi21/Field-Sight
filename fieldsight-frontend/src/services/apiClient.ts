@@ -1324,7 +1324,7 @@ export const apiClient = {
   },
   exportSubmissionsCsv: (params: URLSearchParams) => request<string>(`/submissions/export.csv?${params}`),
   submissionPage: (params: URLSearchParams) => request<{ items: ApiSubmission[]; total: number; counts: Record<string, number> }>(`/submissions/page?${params}`),
-  submissions: () => request<ApiSubmission[]>("/submissions"),
+  submissions: (projectId?: string) => request<ApiSubmission[]>(projectId ? `/submissions?project_id=${encodeURIComponent(projectId)}` : "/submissions"),
   analyticsOverview: (
     filters: { projectId?: string; location?: string; period?: string } = {},
   ) => {

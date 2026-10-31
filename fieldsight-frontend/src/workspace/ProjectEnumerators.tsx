@@ -1,3 +1,4 @@
+import { formatDate, formatDateTime } from "../utils/dateFormat";
 import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Check, KeyRound, RefreshCw, ShieldMinus, Pencil, Trash2, UserPlus } from "lucide-react";
@@ -106,7 +107,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
             <td className="max-w-[220px] break-words px-3 py-2">{item.forms.some(form => form.is_selected) ? item.forms.filter(form => form.is_selected).map(form => <div key={form.id} className="mb-2 last:mb-0" title={form.form_id}>{list.data?.connected_forms.find(connected => connected.connection_id === form.connection_id && connected.form_id === form.form_id)?.name || form.form_id}{!form.mapping_current && <span className="block text-xs text-[var(--fs-muted)]">Previous mapping</span>}</div>) : "No forms selected"}</td>
             <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-2 py-0.5 text-xs font-medium ${item.is_active ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-700"}`}>{item.is_active ? "Active" : "Inactive"}</span></td>
             <td className="max-w-[320px] px-3 py-2">{!item.forms.length ? "Not configured" : item.forms.map(form => <div key={form.id} className="mb-2 space-y-1 last:mb-0"><span className="block">{labels[form.state]}</span>
-              {form.last_checked_at && <span className="block text-xs text-[var(--fs-muted)]">Last checked: {new Date(form.last_checked_at).toLocaleString()}</span>}
+              {form.last_checked_at && <span className="block text-xs text-[var(--fs-muted)]">Last checked: {formatDateTime(form.last_checked_at)}</span>}
               {form.last_error && <p role="alert" className="m-0 text-xs text-red-700">{form.requested_action && `${form.requested_action}: `}{form.last_error}</p>}
               <div className="flex flex-row flex-nowrap items-center gap-1.5">
                 {item.is_active && form.is_selected && form.mapping_current && <Button className={form.state === "verified_granted" ? grantedButton : blueButton} variant="secondary" disabled={form.state === "verified_granted" || access.isPending || !item.kobo_username} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "grant" }); }}>{form.state === "verified_granted" ? <Check size={14} aria-hidden="true" /> : <KeyRound size={14} aria-hidden="true" />}{form.state === "verified_granted" ? "Granted" : form.state === "failed" && form.requested_action === "grant" ? "Retry grant" : "Grant Kobo access"}</Button>}
@@ -114,7 +115,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
                 <Button className={dangerButton} variant="secondary" disabled={access.isPending} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "revoke" }); }}><ShieldMinus size={14} aria-hidden="true" />{form.state === "failed" && form.requested_action === "revoke" ? "Retry revoke" : "Revoke collection"}</Button>
               </div>
             </div>)}</td>
-            <td className="whitespace-nowrap px-3 py-2">{new Date(item.assigned_at).toLocaleDateString()}</td>
+            <td className="whitespace-nowrap px-3 py-2">{formatDate(item.assigned_at)}</td>
             <td className="px-3 py-2"><div className="flex flex-row flex-nowrap items-center gap-1.5">
               {item.is_active ? <><Button className={blueButton} variant="secondary" aria-label="Edit forms & Kobo access" onClick={() => open(item)}><Pencil size={14} aria-hidden="true" />Edit</Button><Button className={dangerButton} variant="secondary" onClick={() => { remove.reset(); setRemoving(item); }}><Trash2 size={14} aria-hidden="true" />Remove</Button></> : <Button className={blueButton} variant="secondary" onClick={() => { open("new"); setIdentity(item.collector_id ?? item.membership_id ?? ""); setUsername(item.kobo_username ?? ""); }}><UserPlus size={14} aria-hidden="true" />Reassign</Button>}
             </div></td>

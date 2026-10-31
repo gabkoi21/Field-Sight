@@ -1,3 +1,4 @@
+import { formatDate } from "../../utils/dateFormat";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -92,7 +93,7 @@ export function OrganizationsPage() {
             .join(", ") || "—",
         status: (item.is_active ? "Active" : "Suspended") as OrganizationStatus,
         createdAt: item.created_at,
-        created: new Date(item.created_at).toLocaleDateString(),
+        created: formatDate(item.created_at),
       })),
     [apiOrganizations, sectorNames],
   );

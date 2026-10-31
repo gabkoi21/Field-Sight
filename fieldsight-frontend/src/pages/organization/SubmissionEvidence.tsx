@@ -1,3 +1,4 @@
+import { formatDateValue } from "../../utils/dateFormat";
 import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import type { SurveyField } from "../../services/apiClient";
 
@@ -7,7 +8,7 @@ export function displayEvidence(value: unknown): string {
   if (value === "") return "Empty response";
   if (Array.isArray(value) && !value.length) return "Empty array";
   if (typeof value === "object" && !Object.keys(value).length) return "Empty object";
-  return typeof value === "object" ? JSON.stringify(value, (_, item) => item === undefined ? "Missing field" : item, 2) : String(value);
+  return typeof value === "object" ? JSON.stringify(value, (_, item) => item === undefined ? "Missing field" : item, 2) : formatDateValue(value);
 }
 
 // Prefer an exact Kobo path, then descend groups and repeat instances.

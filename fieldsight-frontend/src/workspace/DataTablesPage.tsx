@@ -1,3 +1,4 @@
+import { formatDateValue } from "../utils/dateFormat";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
@@ -411,5 +412,5 @@ export function DataTablesPage() {
 }
 function cell(value: unknown) {
   if (value === null || value === undefined || value === "") return "—";
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
+  return typeof value === "object" ? JSON.stringify(value) : formatDateValue(value);
 }

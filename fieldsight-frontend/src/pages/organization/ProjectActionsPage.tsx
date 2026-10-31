@@ -8,6 +8,7 @@ import { apiClient, type ActionDetail, type ActionInput, type ProjectAction, typ
 import { controlClass } from "../../components/ui/controlStyles";
 import { Card } from "../../components/ui/Card";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { ArrowLeft } from "lucide-react";
 
 const button = "min-h-11 rounded border border-[var(--fs-control-border)] px-4 py-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--fs-primary)] disabled:opacity-50";
 const label = (value: string) => value.replaceAll("_", " ");
@@ -38,7 +39,7 @@ export function ProjectActionsPage() {
   if (loading || project.isPending && organization) return <LoadingSkeleton layout="table-page" label="Loading project…" />;
   if (!organization || project.error) return <p role="alert">This project is unavailable or requires an organization administrator. <Link to="/projects">Back to projects</Link></p>;
   return <div className="space-y-5">
-    <Link className="inline-flex min-h-11 items-center text-[var(--fs-primary)] underline" to={`/projects/${projectId}/overview`}>Back to project overview</Link>
+    <Link className="inline-flex min-h-8 items-center gap-1.5 text-sm text-[var(--fs-primary)] hover:underline" to={`/projects/${projectId}/overview`}><ArrowLeft size={14} aria-hidden="true" />Back</Link>
     <PageHeader title="Actions & Follow-ups" description={`Project action register · ${project.data?.name ?? ""}`} />
     {archived && <p role="status">Archived project: action history is read-only.</p>}
     <button type="button" className={`${button} bg-[var(--fs-primary)] text-white`} disabled={archived} onClick={() => open()}>Create action</button>

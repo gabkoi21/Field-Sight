@@ -8,7 +8,7 @@ import { apiClient } from "../../services/apiClient";
 import { OrganizationDashboardPage } from "./OrganizationDashboardPage";
 
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ loading: false, user: { memberships: [{ organization_id: "org", role: "organization_admin" }] } }) }));
-vi.mock("../../services/apiClient", () => ({ apiClient: { organizationProjects: vi.fn(), dashboardOverview: vi.fn(), pendingKoboSync: vi.fn(), enumerators: vi.fn(), submissions: vi.fn() } }));
+vi.mock("../../services/apiClient", () => ({ apiClient: { syncProjectKoboForm: vi.fn(), organizationProjects: vi.fn(), dashboardOverview: vi.fn(), pendingKoboSync: vi.fn(), enumerators: vi.fn(), submissions: vi.fn() } }));
 // Charts have data-table alternatives; avoid depending on SVG layout in jsdom.
 vi.mock("recharts", async (original) => ({ ...await original<object>(), ResponsiveContainer: () => null }));
 
@@ -179,4 +179,20 @@ it("counts distinct named enumerators with submissions in the last seven days", 
   const card = label.closest("article")!;
   await waitFor(() => expect(within(card).getByText("2")).toBeTruthy());
   expect(within(card).getByText("Submitted data in the last 7 days")).toBeTruthy();
+});
+
+it("syncs connected non-archived projects from the dashboard", async () => {
+  vi.mocked(apiClient.organizationProjects).mockResolvedValue([
+    { id: "connected", status: "active", kobo_connection_id: "c", kobo_form_id: "f" },
+    { id: "archived", status: "archived", kobo_connection_id: "c", kobo_form_id: "f" },
+    { id: "unconnected", status: "draft" },
+  ] as never);
+  vi.mocked(apiClient.syncProjectKoboForm).mockResolvedValue({} as never);
+  setup();
+  const button = await screen.findByRole("button", { name: "Sync Data" });
+  await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(button);
+  await screen.findByText("Sync completed for 1 connected projects.");
+  expect(apiClient.syncProjectKoboForm).toHaveBeenCalledTimes(1);
+  expect(apiClient.syncProjectKoboForm).toHaveBeenCalledWith("connected");
 });

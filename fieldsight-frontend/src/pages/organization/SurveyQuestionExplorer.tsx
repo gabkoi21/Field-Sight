@@ -426,7 +426,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                             <strong className="block text-sm text-[var(--fs-text)]">
                               {view.title}
                             </strong>
-                            <span className="text-xs text-[var(--fs-muted)]">
+                            <span className="text-xs text-[#0b51b7]">
                               {view.chart} · {view.query.source_field}
                             </span>
                           </button>
@@ -434,7 +434,7 @@ function ProjectSurveyQuestionExplorer({ projectId }: { projectId: string }) {
                             aria-label={`Delete ${view.title}`}
                             disabled={remove.isPending}
                             onClick={() => void confirmDeletion({ title: "Delete saved visualization", name: view.title, description: "Delete this saved visualization. Source submissions will remain.", phrase: "delete visualization", actionLabel: "Delete visualization", onConfirm: () => remove.mutateAsync(view.id) })}
-                            className="border-0 bg-transparent p-2 text-[var(--fs-muted)]"
+                            className="rounded-md border-0 bg-transparent p-2 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
                           >
                             <Trash2 size={16} />
                           </button>

@@ -1,3 +1,4 @@
+import { formatDate } from "../../utils/dateFormat";
 import { DeleteConfirmation } from "../../components/ui/DeleteConfirmation";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -124,7 +125,7 @@ export function KoboConnectionsPage() {
                 <strong className="block text-sm text-[#334254]">{connection.name}</strong>
                 <small className="text-xs text-[var(--fs-muted)]">
                   {connection.server_url}
-                  {connection.verified_at ? " · verified " + new Date(connection.verified_at).toLocaleDateString() : ""}
+                  {connection.verified_at ? " · verified " + formatDate(connection.verified_at) : ""}
                 </small>
                 {connection.selected_form_name && (
                   <small className="mt-1 flex items-center gap-1 text-xs font-semibold text-brand">

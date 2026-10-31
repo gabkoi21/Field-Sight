@@ -1,3 +1,4 @@
+import { formatDate } from "../../utils/dateFormat";
 import { useState, useMemo } from "react";
 import { Area, Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ApiSubmission } from "../../services/apiClient";
@@ -106,7 +107,7 @@ export function SubmissionActivityPanel({
       if (version) previousVersion = version;
       result.push({
         date: dateKey,
-        label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        label: formatDate(date),
         count: items.length,
         cumulative,
         targetPace: target ? Math.min(target, Math.round((target * Math.min(index + 1, totalDays)) / totalDays)) : 0,

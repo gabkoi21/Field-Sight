@@ -1,3 +1,4 @@
+import { formatDateValue } from "../../utils/dateFormat";
 import { confirmDeletion } from "../../components/ui/DeleteConfirmation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1444,7 +1445,7 @@ export function IndicatorEvidence({ indicator, from, to }: { indicator: Indicato
     {evidence.data && !evidence.data.items.length && <p>No evidence in this scope.</p>}
     {evidence.data?.items.map(item => <article className="rounded border p-3" key={String(item.id)}>
       <p className="mb-2 font-semibold">{({contributes: "Contributes", superseded: "Superseded", missing_components: "Missing components", invalid_components: "Invalid components", invalid_answer: "Invalid answer", missing_answer: "Missing answer", quality_excluded: "Quality excluded", broken_mapping: "Broken mapping"} as Record<string, string>)[String(item.contribution_state)] ?? (item.included ? "Contributes" : "Excluded")}</p>
-      {Object.entries(item).filter(([key]) => !["included", "contribution_state", "considered"].includes(key)).map(([key, value]) => <div className="break-words" key={key}><strong>{key.replaceAll("_", " ")}: </strong>{value == null ? "—" : typeof value === "object" ? JSON.stringify(value) : String(value)}</div>)}
+      {Object.entries(item).filter(([key]) => !["included", "contribution_state", "considered"].includes(key)).map(([key, value]) => <div className="break-words" key={key}><strong>{key.replaceAll("_", " ")}: </strong>{value == null ? "—" : typeof value === "object" ? JSON.stringify(value) : formatDateValue(value)}</div>)}
     </article>)}
     <div className="flex flex-wrap items-center gap-3"><Button variant="secondary" disabled={evidence.isFetching || offset === 0} onClick={() => setOffset(Math.max(0, offset - 25))}>Previous</Button><span>{evidence.data?.total ? offset + 1 : 0}–{Math.min(offset + 25, evidence.data?.total ?? 0)} of {evidence.data?.total ?? 0}</span><Button variant="secondary" disabled={evidence.isFetching || offset + 25 >= (evidence.data?.total ?? 0)} onClick={() => setOffset(offset + 25)}>Next</Button></div>
     <h3>Observed definition changes</h3>

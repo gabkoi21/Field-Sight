@@ -1,7 +1,9 @@
+import { formatDate } from "../../utils/dateFormat";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
+  RefreshCw,
   Users,
   Database,
   FolderKanban,
@@ -22,7 +24,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { LoadingSkeleton, LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
+import { Button, LoadingSkeleton, LoadingState, MetricCard, PageHeader, Panel } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
 import { apiClient } from "../../services/apiClient";
 import { controlClass } from "../../components/ui/controlStyles";
@@ -42,7 +44,7 @@ function FilterSelect({
   return (
     <div className="relative min-w-0 max-w-full">
       <select
-        className={`${controlClass} appearance-none pr-9`}
+        className={`${controlClass} !min-h-8 !h-8 !rounded-md !px-2 !py-1 !text-xs appearance-none !pr-7`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
@@ -63,6 +65,7 @@ function FilterSelect({
 
 export function OrganizationDashboardPage() {
   const { user, loading: authLoading } = useAuth();
+  const cache = useQueryClient();
   const [filters, setFilters] = useSearchParams();
   // Overview filters never change the workspace's current project.
   const projectId = filters.get("overview_project") ?? "";
@@ -104,9 +107,22 @@ export function OrganizationDashboardPage() {
 
   const submissionsQuery = useQuery({
     queryKey: ["dashboard-recent-submissions"],
-    queryFn: apiClient.submissions,
+    queryFn: () => apiClient.submissions(),
     enabled: !authLoading,
     staleTime: 30_000,
+  });
+
+  const connectedProjects = (projectsQuery.data ?? []).filter(project => project.kobo_form_id && project.kobo_connection_id && project.status !== "archived");
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.allSettled(connectedProjects.map(project => apiClient.syncProjectKoboForm(project.id)));
+      const failed = results.filter(result => result.status === "rejected").length;
+      if (failed) throw new Error(`${failed} of ${results.length} projects could not sync. Try again or check Sync history.`);
+      return results.length;
+    },
+    onSettled: async () => {
+      await Promise.all(["organization-dashboard-overview", "organization-pending-kobo-sync", "dashboard-recent-submissions", "project-overview", "submissions", "sync-runs", "sync-settings"].map(key => cache.invalidateQueries({ queryKey: [key] })));
+    },
   });
 
   const isLoading = authLoading || overviewQuery.isLoading;
@@ -214,7 +230,15 @@ export function OrganizationDashboardPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-5 pb-6 text-[var(--fs-text)]">
-      <PageHeader eyebrow="FieldSight / Organization" title="Dashboard" />
+      <div className="flex items-center justify-between gap-3">
+        <PageHeader eyebrow="FieldSight / Organization" title="Dashboard" />
+        <Button className="!min-h-8 !gap-1.5 !rounded-md !px-3 !py-1.5 !text-xs" disabled={!connectedProjects.length || projectsQuery.isLoading || syncMutation.isPending} onClick={() => syncMutation.mutate()}>
+          <RefreshCw size={14} aria-hidden="true" className={syncMutation.isPending ? "animate-spin" : ""} />
+          {syncMutation.isPending ? "Syncing…" : "Sync Data"}
+        </Button>
+      </div>
+      {syncMutation.error && <p role="alert" className="m-0 text-sm text-red-700">{syncMutation.error.message}</p>}
+      {syncMutation.isSuccess && <p role="status" className="m-0 text-sm text-[var(--fs-primary)]">Sync completed for {syncMutation.data} connected projects.</p>}
 
       {overviewQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load overview: {overviewQuery.error.message}. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => void overviewQuery.refetch()}>Retry overview</button></p>}
       {submissionsQuery.error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-800">Unable to load chart and ranking data. <button type="button" className="min-h-11 px-2 font-semibold underline" onClick={() => void submissionsQuery.refetch()}>Retry chart data</button></p>}
@@ -445,7 +469,7 @@ function TopEnumerators({
   onProjectChange: (id: string) => void;
 }) {
   return (
-    <Panel className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none" title="Top three enumerators" subtitle={null} action={<label className="ml-auto w-full sm:w-60"><span className="sr-only">Enumerator project</span><FilterSelect value={projectId} placeholder="All Project" options={projects} onChange={onProjectChange} /></label>}>
+    <Panel className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none" title="Top three enumerators" subtitle={null} action={<label className="ml-auto w-40 max-w-full"><span className="sr-only">Enumerator project</span><FilterSelect value={projectId} placeholder="All Project" options={projects} onChange={onProjectChange} /></label>}>
       {loading ? (
         <div className="p-4"><LoadingSkeleton columns={3} rows={3} label="Loading enumerator rankings…" /></div>
       ) : enumerators.length ? (
@@ -478,5 +502,5 @@ function TopEnumerators({
 
 function formatSubmissionDate(value: string | null) {
   if (!value) return "Not recorded";
-  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return formatDate(value);
 }

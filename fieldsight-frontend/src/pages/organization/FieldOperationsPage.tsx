@@ -1,3 +1,4 @@
+import { formatDate } from "../../utils/dateFormat";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, MoreHorizontal, Plus, Search, ShieldCheck, Trash2, UserCheck, Users, UserX, X } from "lucide-react";
@@ -175,7 +176,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
       enumerator.address ?? "",
       enumerator.gender ?? "",
       enumerator.is_active ? "Active" : "Suspended",
-      new Date(enumerator.created_at).toLocaleDateString(),
+      formatDate(enumerator.created_at),
     ]);
     const csv = [
       ["Full name", "Email", "Username", "Employee ID", "Phone", "Address", "Gender", "Status", "Created"],
@@ -453,7 +454,7 @@ export function FieldOperationsPage({ projectEmbedded = false }: { projectEmbedd
                     <span className={`rounded px-2 py-1 text-[12px] ${enumerator.is_active ? "bg-[#ecf7f0] text-[#388567]" : "bg-[#fff7e8] text-[#a6803f]"}`}>{enumerator.is_active ? "Active" : "Inactive"}</span>
                   </td>
                   <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)] tabular-nums">
-                    {new Date(enumerator.created_at).toLocaleDateString()}
+                    {formatDate(enumerator.created_at)}
                   </td>
                   <td className="px-4 py-3 align-middle text-xs text-[var(--fs-text)]">
                     <div className="flex justify-end">

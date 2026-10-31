@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../utils/dateFormat";
 import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { ProjectLink as Link } from "../../workspace/projectRouting";
 import { useEffect, useRef, useState } from "react";
@@ -24,7 +25,7 @@ export function SubmissionReview({ id, onClose }: { id: string; onClose: () => v
     {detail.isPending && <LoadingSkeleton layout="details" rows={3} label="Loading submission…" />}
     {detail.error && <p role="alert">{detail.error.message} <button className="min-h-11 underline" onClick={() => void detail.refetch()}>Reload evidence</button></p>}
     {record && <>
-      <dl className="grid gap-3 sm:grid-cols-2"><div><dt>Source</dt><dd>{record.form_name ?? "Form not named"} · {record.external_id}</dd></div><div><dt>Review status</dt><dd>{record.review_status.replaceAll("_", " ")}</dd></div><div><dt>Received (UTC)</dt><dd>{record.submitted_at ? new Date(record.submitted_at).toISOString() : "Not recorded"}</dd></div><div><dt>Collector</dt><dd>{record.enumerator ?? "Not recorded"}</dd></div></dl>
+      <dl className="grid gap-3 sm:grid-cols-2"><div><dt>Source</dt><dd>{record.form_name ?? "Form not named"} · {record.external_id}</dd></div><div><dt>Review status</dt><dd>{record.review_status.replaceAll("_", " ")}</dd></div><div><dt>Received (UTC)</dt><dd>{record.submitted_at ? formatDateTime(record.submitted_at) : "Not recorded"}</dd></div><div><dt>Collector</dt><dd>{record.enumerator ?? "Not recorded"}</dd></div></dl>
       {record.review_required && <p>Changed evidence requires a new decision.</p>}
       {record.findings.map(finding => <p key={finding.id}>{finding.field && `${finding.field}: `}{finding.detail}</p>)}
       <Link className="inline-flex min-h-11 items-center font-semibold underline" to={`/projects/${record.project_id}/actions?new=1&submission_id=${id}`}>Create follow-up for this submission</Link>

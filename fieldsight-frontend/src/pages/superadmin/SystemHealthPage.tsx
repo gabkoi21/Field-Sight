@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../utils/dateFormat";
 
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -46,7 +47,7 @@ export function SystemHealthPage() {
   });
   const refreshing =
     liveQuery.isFetching || readyQuery.isFetching || statusQuery.isFetching;
-  const lastChecked = Math.max(liveQuery.dataUpdatedAt, readyQuery.dataUpdatedAt, statusQuery.dataUpdatedAt) ? new Date(Math.max(liveQuery.dataUpdatedAt, readyQuery.dataUpdatedAt, statusQuery.dataUpdatedAt)).toLocaleString() : "No successful checks";
+  const lastChecked = Math.max(liveQuery.dataUpdatedAt, readyQuery.dataUpdatedAt, statusQuery.dataUpdatedAt) ? formatDateTime(Math.max(liveQuery.dataUpdatedAt, readyQuery.dataUpdatedAt, statusQuery.dataUpdatedAt)) : "No successful checks";
   const apiHealthy = !liveQuery.error && liveQuery.data?.status === "ok";
   const databaseReady = !readyQuery.error && readyQuery.data?.database === "ready";
   const platformOperational =

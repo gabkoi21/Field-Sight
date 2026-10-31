@@ -1,3 +1,4 @@
+import { formatDate, formatDateTime } from "../utils/dateFormat";
 import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -110,7 +111,7 @@ export function WorkspacesPage() {
   );
   const submissions = useQuery({
     queryKey: ["submissions"],
-    queryFn: apiClient.submissions,
+    queryFn: () => apiClient.submissions(),
     enabled: tab === "sites",
   });
   const sites = new Map<string, number>();
@@ -586,8 +587,7 @@ export function WorkspacesPage() {
 
 function displayDate(value: string | null) {
   if (!value) return "—";
-  const [year, month, day] = value.split("-");
-  return `${day}.${month}.${year}`;
+  return formatDate(value);
 }
 
 function displayCreatedAt(value?: string) {
@@ -595,5 +595,5 @@ function displayCreatedAt(value?: string) {
   // SQLite can return UTC timestamps without an explicit offset.
   const timestamp = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`);
   if (Number.isNaN(timestamp.getTime())) return "—";
-  return timestamp.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return formatDateTime(timestamp);
 }

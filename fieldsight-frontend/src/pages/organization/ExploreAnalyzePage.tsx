@@ -1,3 +1,4 @@
+import { formatDate } from "../../utils/dateFormat";
 import { MetricCard } from "../../components/ui/MetricCard";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -88,7 +89,7 @@ export function ExploreAnalyzePage() {
 
   const projectId = projectIdState || (projectsQuery.data?.[0]?.id ?? "");
 
-  const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: apiClient.submissions, enabled: !authLoading });
+  const submissionsQuery = useQuery({ queryKey: ["submissions"], queryFn: () => apiClient.submissions(), enabled: !authLoading });
   const mappingsQuery = useQuery({
     queryKey: ["field-mappings", projectId],
     queryFn: () => apiClient.fieldMappings(projectId),
@@ -207,7 +208,7 @@ export function ExploreAnalyzePage() {
     const counts = new Map<string, { received: number; ready: number }>();
     records.forEach((item) => {
       if (!item.submitted_at) return;
-      const day = new Date(item.submitted_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const day = formatDate(item.submitted_at);
       const current = counts.get(day) ?? { received: 0, ready: 0 };
       current.received += 1;
       if (item.review_status === "ready") current.ready += 1;

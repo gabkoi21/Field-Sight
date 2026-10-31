@@ -1,3 +1,4 @@
+import { formatDateTime } from "../utils/dateFormat";
 import { ProjectLink as Link } from "./projectRouting";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -166,7 +167,7 @@ export function WorkspaceReportsPage() {
                   Monitoring & evaluation
                 </p>
                 <h2 className="text-xl font-semibold">{project?.name}</h2>
-                <p className="text-xs">Current data report. Values may change after sync or review; no historical snapshot is stored. Results retrieved: {indicators.dataUpdatedAt ? new Date(indicators.dataUpdatedAt).toLocaleString() : "Not yet loaded"}.</p>
+                <p className="text-xs">Current data report. Values may change after sync or review; no historical snapshot is stored. Results retrieved: {indicators.dataUpdatedAt ? formatDateTime(indicators.dataUpdatedAt) : "Not yet loaded"}.</p>
                 <Link to={`/projects/${projectId}/indicators`} className="text-sm text-[#0b51b7] underline print:hidden">Inspect indicators and calculation sources</Link>
                 <p className="text-sm leading-7 text-[var(--fs-muted)]">
                   {project?.description}
@@ -175,7 +176,7 @@ export function WorkspaceReportsPage() {
                   <span>
                     Window: {from || "All dates"} — {through || "Present"}
                   </span>
-                  <span>Generated: {new Date().toLocaleString()}</span>
+                  <span>Generated: {formatDateTime(new Date())}</span>
                   <span>
                     {indicators.data?.length ?? 0} indicators ·{" "}
                     {tables.data?.length ?? 0} source tables

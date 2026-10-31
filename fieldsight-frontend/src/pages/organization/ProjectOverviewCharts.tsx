@@ -1,3 +1,4 @@
+import { formatDateValue } from "../../utils/dateFormat";
 import { useId } from "react";
 import { ProjectNavLink as NavLink } from "../../workspace/projectRouting";
 import {
@@ -21,7 +22,7 @@ export function CollectionTrend({ data, loading, error, retry, period, onPeriod 
   period: TrendPeriod; onPeriod: (value: TrendPeriod) => void;
 }) {
   const gradientId = useId().replaceAll(":", "");
-  const rows = data?.trend ?? [];
+  const rows = (data?.trend ?? []).map(row => ({ ...row, day: formatDateValue(row.day) }));
   const submitted = rows.reduce((sum, row) => sum + row.submissions, 0);
   const ready = rows.reduce((sum, row) => sum + row.approved, 0);
   return <section aria-labelledby="collection-trend-heading" className="min-w-0"><Card className="h-full !rounded-none !border !border-[#d8e0e9] !shadow-none">

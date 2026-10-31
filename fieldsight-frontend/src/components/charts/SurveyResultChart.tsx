@@ -1,3 +1,4 @@
+import { formatDateValue } from "../../utils/dateFormat";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AnalysisResult, SavedAnalysis } from "../../services/apiClient";
 
@@ -27,7 +28,7 @@ export function surveyCategoryColor(result: AnalysisResult, name: string, index:
   return colors[index % colors.length];
 }
 export function surveyChartData(result: AnalysisResult) {
-  return result.series.map(point => ({ ...point, label: point.group == null ? point.name : `${point.name} / Group: ${point.group}` }));
+  return result.series.map(point => ({ ...point, label: point.group == null ? formatDateValue(point.name) : `${formatDateValue(point.name)} / Group: ${formatDateValue(point.group)}` }));
 }
 function ResponseText({ text }: { text: string | null }) {
   if (!text || text.length <= 60) return <>{text}</>;
@@ -37,7 +38,7 @@ export function SurveyResultsTable({ result }: { result: AnalysisResult }) {
   return <div className="min-w-0 overflow-x-auto"><table className="fs-data-table w-full table-fixed border-collapse text-left text-xs">
     <caption className="sr-only">Survey chart values for {result.field.label}. Percentages use {result.denominator} usable answered submissions.</caption>
     <thead className="bg-slate-50 text-[var(--fs-muted)]"><tr><th scope="col" className="w-2/5 px-3 py-3">Response / period</th>{result.group_by && <th scope="col" className="px-3 py-3">Group</th>}<th scope="col" className="px-2 py-3">Value</th><th scope="col" className="px-2 py-3">Records</th><th scope="col" className="px-2 py-3">% answered</th></tr></thead>
-    <tbody>{result.series.map((point, index) => <tr key={index} className="border-t border-slate-100"><th scope="row" aria-label={point.name} className="break-words px-3 py-3 font-medium [overflow-wrap:anywhere]"><ResponseText text={point.name} /></th>{result.group_by && <td className="break-words px-3 py-3 [overflow-wrap:anywhere]"><ResponseText text={point.group} /></td>}<td className="px-2 py-3 tabular-nums">{number(point.value)}</td><td className="px-2 py-3 tabular-nums">{number(point.count)}</td><td className="px-2 py-3 tabular-nums">{point.percent == null ? "Not reported" : number(point.percent) + "%"}</td></tr>)}</tbody>
+    <tbody>{result.series.map((point, index) => <tr key={index} className="border-t border-slate-100"><th scope="row" aria-label={point.name} className="break-words px-3 py-3 font-medium [overflow-wrap:anywhere]"><ResponseText text={formatDateValue(point.name)} /></th>{result.group_by && <td className="break-words px-3 py-3 [overflow-wrap:anywhere]"><ResponseText text={point.group == null ? null : formatDateValue(point.group)} /></td>}<td className="px-2 py-3 tabular-nums">{number(point.value)}</td><td className="px-2 py-3 tabular-nums">{number(point.count)}</td><td className="px-2 py-3 tabular-nums">{point.percent == null ? "Not reported" : number(point.percent) + "%"}</td></tr>)}</tbody>
   </table></div>;
 }
 export function SurveyResultChart({ result, chart: requested }: { result: AnalysisResult; chart: SavedAnalysis["chart"] }) {

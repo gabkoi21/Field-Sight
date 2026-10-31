@@ -1,3 +1,4 @@
+import { formatDate } from "../utils/dateFormat";
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useId } from "react";
 import { CalendarDays } from "lucide-react";
@@ -20,7 +21,7 @@ export function ProjectTimeline({ project }: { project: Pick<ApiProject, "start_
     ...(today > start.getTime() && today < end.getTime() ? [{ date: today, planned: elapsed!, elapsed: elapsed! }] : []),
     { date: end.getTime(), planned: 100, elapsed: elapsed === 100 ? 100 : null },
   ] : [];
-  const label = (date: Date | null) => date ? date.toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" }) : "Not set";
+  const label = (date: Date | null) => date ? date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }) : "Not set";
   return <section aria-labelledby={heading} className="flex min-w-0 flex-col border border-[var(--fs-metric-border)] bg-white p-5">
     <header className="flex items-center gap-2"><CalendarDays size={19} className="text-[var(--fs-primary)]" aria-hidden="true" /><h2 id={heading} className="m-0 text-lg font-semibold">Project timeline</h2></header>
     <p className="mb-0 mt-2 text-xs text-[var(--fs-muted)]">Time elapsed / planned period · schedule only</p>
@@ -31,9 +32,9 @@ export function ProjectTimeline({ project }: { project: Pick<ApiProject, "start_
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 18, bottom: 10, left: 0 }} accessibilityLayer>
               <CartesianGrid vertical={false} stroke="var(--fs-border)" strokeDasharray="3 5" />
-              <XAxis dataKey="date" type="number" domain={["dataMin", "dataMax"]} ticks={valid ? [start.getTime(), end.getTime()] : []} tickFormatter={value => new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })} tick={{ fontSize: 12, fill: "var(--fs-muted)" }} tickLine={false} axisLine={false} dy={8} padding={{ left: 8, right: 8 }} />
+              <XAxis dataKey="date" type="number" domain={["dataMin", "dataMax"]} ticks={valid ? [start.getTime(), end.getTime()] : []} tickFormatter={value => formatDate(value)} tick={{ fontSize: 12, fill: "var(--fs-muted)" }} tickLine={false} axisLine={false} dy={8} padding={{ left: 8, right: 8 }} />
               <YAxis domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={value => value + "%"} tick={{ fontSize: 12, fill: "var(--fs-muted)" }} tickLine={false} axisLine={false} width={44} />
-              <Tooltip labelFormatter={value => new Date(Number(value)).toLocaleDateString(undefined, { dateStyle: "medium", timeZone: "UTC" })} formatter={value => Math.round(Number(value)) + "%"} contentStyle={{ border: "1px solid var(--fs-border)", borderRadius: 6, fontSize: 12 }} />
+              <Tooltip labelFormatter={value => new Date(Number(value)).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })} formatter={value => Math.round(Number(value)) + "%"} contentStyle={{ border: "1px solid var(--fs-border)", borderRadius: 6, fontSize: 12 }} />
               <Line type="linear" dataKey="planned" name="Planned timeline" stroke="#a6bdd8" strokeWidth={2} strokeDasharray="6 5" dot={false} isAnimationActive={false} />
               <Line type="linear" dataKey="elapsed" name="Time elapsed" stroke="#0860b4" strokeWidth={3} dot={{ r: 4, fill: "#0860b4", stroke: "white", strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
             </LineChart>

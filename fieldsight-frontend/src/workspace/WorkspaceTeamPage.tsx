@@ -1,3 +1,4 @@
+import { formatDate } from "../utils/dateFormat";
 import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -237,7 +238,7 @@ function OrganizationTeamPage({ workspaceOnly = false, adminOnly = false }: { wo
                         </td>
                         <td className="capitalize">{item.status}</td>
                         <td>
-                          {new Date(item.expires_at).toLocaleDateString()}
+                          {formatDate(item.expires_at)}
                         </td>
                         <td>
                           {item.status === "pending" && (

@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../utils/dateFormat";
 import { LoadingSkeleton } from "../../components/ui/LoadingSkeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, CheckCircle2, Link2, RefreshCw } from "lucide-react";
@@ -8,7 +9,7 @@ import { apiClient, ApiError } from "../../services/apiClient";
 
 function formatTime(value: string | null) {
   if (!value) return "Not completed";
-  return new Date(value).toLocaleString();
+  return formatDateTime(value);
 }
 
 export function SyncHistoryPage() {

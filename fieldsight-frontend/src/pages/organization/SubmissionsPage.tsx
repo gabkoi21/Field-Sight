@@ -1,3 +1,4 @@
+import { formatDateTime } from "../../utils/dateFormat";
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
@@ -45,7 +46,7 @@ function toRow(submission: ApiSubmission): Row {
     projectId: submission.project_id,
     enumerator: submission.enumerator ?? "Unassigned",
     location: formatLocation(submission.location),
-    submitted: submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : "Not recorded",
+    submitted: submission.submitted_at ? formatDateTime(submission.submitted_at) : "Not recorded",
     submittedAt: submission.submitted_at,
     project: submission.project_name,
     form: submission.form_name ?? "Kobo form",

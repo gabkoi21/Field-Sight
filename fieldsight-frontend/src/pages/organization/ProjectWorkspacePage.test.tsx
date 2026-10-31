@@ -10,7 +10,7 @@ import { reportingCompleteness } from "./projectOverview";
 
 const auth = vi.hoisted(() => ({ role: "organization_admin" }));
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ loading: false, user: { memberships: [{ organization_id: "org", role: auth.role }] } }) }));
-vi.mock("../../services/apiClient", () => ({ apiClient: { projectActions: vi.fn(), organizationProjects: vi.fn(), getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
+vi.mock("../../services/apiClient", () => ({ apiClient: { submissions: vi.fn().mockResolvedValue([]), projectActions: vi.fn(), organizationProjects: vi.fn(), getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
 // Chart values are verified through their accessible data alternatives in jsdom.
 vi.mock("recharts", async original => ({ ...await original<object>(), ResponsiveContainer: () => null }));
 
@@ -22,6 +22,7 @@ const indicator = (changes: Partial<Indicator> = {}): Indicator => ({
 } as Indicator);
 
 beforeEach(() => {
+  vi.mocked(apiClient.submissions).mockResolvedValue([]);
   auth.role = "organization_admin";
   vi.mocked(apiClient.projectActions).mockResolvedValue({ items: [], total: 0, summary: { unresolved: 0, overdue: 0, high_priority: 0 } } as never);
   vi.mocked(apiClient.organizationProjects).mockResolvedValue([{ status: "completed" }, { status: "active" }] as never);
@@ -51,12 +52,12 @@ it("uses four source-linked project-scoped summary cards", async () => {
   const summary = screen.getByRole("region", { name: "Project summary" });
   expect(within(summary).getByText("123")).toBeTruthy();
   expect(within(summary).getByRole("article", { name: "Connected forms 1" })).toBeTruthy();
-  expect(within(summary).getByRole("article", { name: "Awaiting review 20" })).toBeTruthy();
-  expect(within(summary).getByText("Awaiting review")).toBeTruthy();
+  expect(within(summary).getByRole("article", { name: "Active enumerators 0" })).toBeTruthy();
+  expect(within(summary).getByText("Active enumerators")).toBeTruthy();
   expect(within(summary).queryByText("Ready records")).toBeNull();
   expect(within(summary).getByText("3")).toBeTruthy();
   expect(within(summary).getAllByRole("article")).toHaveLength(4);
-  expect(within(summary).getAllByRole("link")).toHaveLength(3);
+  expect(within(summary).getAllByRole("link")).toHaveLength(2);
   expect(within(summary).queryByRole("button")).toBeNull();
   expect(screen.queryByText("450")).toBeNull();
   expect(screen.queryByText("Students fed")).toBeNull();
@@ -205,7 +206,7 @@ it("keeps operational counts available when the trend request fails", async () =
 
 it("keeps the review backlog while hiding the removed attention panel", async () => {
   setup();
-  expect(await screen.findByRole("article", { name: "Awaiting review 20" })).toBeTruthy();
+  expect(await screen.findByRole("article", { name: "Active enumerators 0" })).toBeTruthy();
   expect(screen.queryByText("Latest sync succeeded")).toBeNull();
 });
 

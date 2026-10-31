@@ -1,3 +1,4 @@
+import { formatDate } from "../utils/dateFormat";
 import { confirmDeletion } from "../components/ui/DeleteConfirmation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -186,7 +187,7 @@ export function CollectedDataPanel({
                 {results.data.map((row) => (
                   <tr key={row.id} className="border-t border-[#edf0f2]">
                     <td className="whitespace-nowrap px-5 py-4">
-                      {row.result_date}
+                      {formatDate(row.result_date)}
                     </td>
                     <td className="max-w-[380px] whitespace-pre-wrap px-5 py-4 leading-6">
                       {pooled && row.numerator != null && row.denominator ? `${row.numerator} / ${row.denominator} = ${row.value?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? "—"}` : row.narrative ?? row.value?.toLocaleString() ?? "—"}
@@ -198,10 +199,10 @@ export function CollectedDataPanel({
                     </td>
                     <td className="px-5">
                       <button
-                        aria-label={`Delete result from ${row.result_date}`}
+                        aria-label={`Delete result from ${formatDate(row.result_date)}`}
                         disabled={remove.isPending}
                         className="border-0 bg-transparent text-[#bb6370]"
-                        onClick={() => void confirmDeletion({ title: "Delete manual result", name: row.result_date, description: "Delete this manually entered result from FieldSight.", phrase: "delete result", actionLabel: "Delete result", onConfirm: () => remove.mutateAsync(row.id) })}
+                        onClick={() => void confirmDeletion({ title: "Delete manual result", name: formatDate(row.result_date), description: "Delete this manually entered result from FieldSight.", phrase: "delete result", actionLabel: "Delete result", onConfirm: () => remove.mutateAsync(row.id) })}
                       >
                         <Trash2 size={14} />
                       </button>

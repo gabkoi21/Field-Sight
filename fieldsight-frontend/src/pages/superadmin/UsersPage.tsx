@@ -1,3 +1,4 @@
+import { formatDate } from "../../utils/dateFormat";
 import { AdminDialog } from "../../components/superadmin/AdminDialog";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -91,7 +92,7 @@ export function UsersPage() {
               ? "FieldSight platform"
               : "—"),
           status: user.is_active ? "Active" : "Suspended",
-          created: new Date(user.created_at).toLocaleDateString(),
+          created: formatDate(user.created_at),
         };
       }),
     [users],
