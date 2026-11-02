@@ -19,6 +19,7 @@ it("renders fast navigation immediately and keeps the shell and focus during a s
   link.focus();
   fireEvent.click(link);
   expect(screen.getByRole("status").textContent).toContain("Loading page…");
+  expect(screen.getByRole("status").querySelectorAll(".fs-metric-body")).toHaveLength(0);
   expect(screen.getByRole("link", { name: "Organizations" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "User menu" })).toBeTruthy();
   await act(async () => { finish({ default: () => <h1>Loaded users</h1> }); });

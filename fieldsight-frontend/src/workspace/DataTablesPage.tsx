@@ -16,6 +16,7 @@ import { Button, LoadingSkeleton, LoadingState } from "../components/ui";
 import { Dialog } from "../pages/organization/IndicatorForms";
 import { apiClient } from "../services/apiClient";
 import { useWorkspace } from "./WorkspaceContext";
+import { TableExportDialog } from "./TableExportDialog";
 import {
   Field,
   Notice,
@@ -30,12 +31,29 @@ export function DataTablesPage() {
   const [params, setParams] = useSearchParams();
   const { projectId, project, selectProject } = useWorkspace();
   const cache = useQueryClient();
-  const [selection, setSelection] = useState<{
-    project: string;
-    id: string;
-  } | null>(null);
-  const form = selection?.project === projectId ? selection.id : "";
-  const [offset, setOffset] = useState(0);
+  const form = params.get("table_project") === projectId ? params.get("table") ?? "" : "";
+  const requestedOffset = Number(params.get("offset") ?? 0);
+  const offset = form && Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 && requestedOffset <= 1_000_000_000
+    ? Math.floor(requestedOffset / 50) * 50 : 0;
+  function selectTable(id: string | null) {
+    const next = new URLSearchParams(params);
+    next.delete("offset");
+    next.delete("import");
+    if (id) {
+      next.set("table", id);
+      next.set("table_project", projectId);
+    } else {
+      next.delete("table");
+      next.delete("table_project");
+    }
+    setParams(next);
+  }
+  function setOffset(value: number) {
+    const next = new URLSearchParams(params);
+    if (value) next.set("offset", String(value)); else next.delete("offset");
+    setParams(next);
+  }
+  const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(params.get("import") === "csv");
   const [source, setSource] = useState<"choose" | "csv">(params.get("import") === "csv" ? "csv" : "choose");
   const [title, setTitle] = useState("");
@@ -76,9 +94,8 @@ export function DataTablesPage() {
         cache.invalidateQueries({ queryKey: ["submissions"] }),
         cache.invalidateQueries({ queryKey: ["survey-fields"] }),
       ]);
-      closeImport();
-      setSelection({ project: projectId, id: result.form_id });
-      setOffset(0);
+      setImporting(false);
+      selectTable(result.form_id);
       setMessage(
         `Imported ${result.imported} rows. Confirm their source mapping before using them in indicator calculations.`,
       );
@@ -97,6 +114,7 @@ export function DataTablesPage() {
   const chosen = tables.data?.find((t) => t.id === form);
   return (
     <div className="space-y-5">
+      {exporting && form && rows.data && <TableExportDialog key={`${projectId}/${form}`} project={projectId} form={form} title={chosen?.title ?? form} fields={rows.data.fields} onClose={() => setExporting(false)} />}
       <Link
         to={projectId ? `/projects/${projectId}` : "/projects"}
         className="inline-flex items-center gap-2 text-xs font-medium text-[var(--fs-primary)] no-underline hover:underline"
@@ -133,12 +151,6 @@ export function DataTablesPage() {
     >
       <WorkspaceGate>
         <WorkspaceTabs />
-        <Panel className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <span className="text-sm font-medium">{project?.name}</span>
-          <Link className="text-xs text-[var(--fs-primary)]" to="/forms/connections">
-            Manage Kobo connections →
-          </Link>
-        </Panel>
         {message && (
           <Notice>
             {message}{" "}
@@ -152,29 +164,22 @@ export function DataTablesPage() {
           <LoadingSkeleton label="Loading data tables…" />
         ) : form ? (
           <Panel>
-            <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e1e7eb] p-4">
+            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e1e7eb] px-2 py-1">
               <div>
                 <button
-                  onClick={() => setSelection(null)}
-                  className="mb-2 flex items-center gap-1 border-0 bg-transparent p-0 text-xs text-[var(--fs-primary)]"
+                  onClick={() => selectTable(null)}
+                  className="mb-0.5 flex items-center gap-1 border-0 bg-transparent p-0 text-xs leading-4 text-[var(--fs-primary)]"
                 >
                   <ArrowLeft size={13} />
                   All tables
                 </button>
-                <h2 className="m-0 text-base font-medium">
+                <h2 className="m-0 text-sm font-medium leading-5">
                   {chosen?.title ?? form}
                 </h2>
-                <p className="mb-0 mt-1 text-xs text-[var(--fs-muted)]">
-                  Source: {chosen?.source} ·{" "}
-                  {rows.data?.total ?? chosen?.records ?? 0} records
-                </p>
               </div>
-              <Link
-                className="text-xs text-[var(--fs-primary)]"
-                to={`/projects/${projectId}/analytics`}
-              >
-                Analyze this project →
-              </Link>
+              <div className="flex flex-wrap items-center gap-4">
+                <Button variant="secondary" className="!min-h-8 !gap-1.5 !px-2.5 !py-1 !text-xs" disabled={!rows.data} onClick={() => setExporting(true)}><FileSpreadsheet size={12} />Export data</Button>
+              </div>
             </header>
             {rows.isLoading ? (
               <LoadingSkeleton label="Loading table records…" />
@@ -192,6 +197,7 @@ export function DataTablesPage() {
                           <th scope="col" className="px-4 py-3 font-medium" title="Kobo username recorded in submission metadata">
                             Submitted by
                           </th>
+                          <th scope="col" className="px-4 py-3 font-medium" title="County assignment when this submission was made">Assigned counties</th>
                           {rows.data.fields.map((f) => (
                             <th
                               key={f.source_field}
@@ -217,6 +223,7 @@ export function DataTablesPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3">{row.submitted_by?.trim() || "Unknown"}</td>
+                            <td className="max-w-[350px] whitespace-normal px-4 py-3">{row.county_assignment_found ? row.assigned_counties?.join(", ") || "All counties" : "Not assigned"}</td>
                             {rows.data!.fields.map((f) => (
                               <td
                                 key={f.source_field}
@@ -279,8 +286,7 @@ export function DataTablesPage() {
                   className="mt-4 self-start border-0 bg-transparent p-0 text-xs font-medium text-[var(--fs-primary)]"
                   onClick={() => {
                     selectProject(projectId);
-                    setSelection({ project: projectId, id: table.id });
-                    setOffset(0);
+                    selectTable(table.id);
                   }}
                 >
                   Open data table →

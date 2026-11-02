@@ -330,7 +330,7 @@ export function DashboardsPage() {
             </Button>
           </Panel>
         ) : dashboards.isLoading ? (
-          <LoadingSkeleton layout="dashboard" label="Preparing dashboard…" />
+          <LoadingSkeleton layout="chart" label="Preparing dashboard…" />
         ) : !dashboard ? (
           <Panel className="grid justify-items-center p-12 text-center">
             <LayoutDashboard size={32} className="text-[var(--fs-primary)]" />

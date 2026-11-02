@@ -5,13 +5,14 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { WorkspaceShell } from "./WorkspaceShell";
+import { apiClient } from "../services/apiClient";
 
 vi.mock("../auth/AuthContext", () => ({ useAuth: () => ({ user: { email: "review@example.test", memberships: [{ organization_id: "org", role: "organization_admin" }] }, logout: vi.fn() }) }));
 vi.mock("../services/apiClient", () => ({ apiClient: {
   organizationProjects: async () => [{ id: "p1", name: "Health" }, { id: "p2", name: "Education" }],
   pendingKoboSync: async () => ({ pending_count: 0 }),
 } }));
-afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 function Location() { const location = useLocation(); return <p data-testid="location">{location.pathname}{location.search}</p>; }
 function setup(path: string) {
   render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[path]}><Routes><Route element={<WorkspaceShell />}><Route path="*" element={<Location />} /></Route></Routes></MemoryRouter></QueryClientProvider>);
@@ -74,10 +75,34 @@ it("shows a red zero notification badge and updates the count without remounting
   const zero = await screen.findByLabelText("0 pending sync notifications");
   expect(zero.className).toContain("bg-[#dc2626]");
   const nav = screen.getByRole("navigation", {name: "Main navigation"});
-  await waitFor(() => expect(cache.getQueryState(["kobo-pending-sync"])?.status).toBe("success"));
-  act(() => cache.setQueryData(["kobo-pending-sync"], {pending_count: 3}));
+  await waitFor(() => expect(cache.getQueryState(["kobo-pending-sync", "", "org"])?.status).toBe("success"));
+  act(() => cache.setQueryData(["kobo-pending-sync", "", "org"], {pending_count: 3}));
   expect(await screen.findByLabelText("3 pending sync notifications")).toBeTruthy();
   expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(nav);
+});
+
+it("preserves the last live notification count on reload until the server responds", async () => {
+  const query = vi.spyOn(apiClient, "pendingKoboSync").mockResolvedValue({ pending_count: 7 } as Awaited<ReturnType<typeof apiClient.pendingKoboSync>>);
+  setup("/projects");
+  await screen.findByLabelText("7 pending sync notifications");
+  await waitFor(() => expect(sessionStorage.getItem("fieldsight.pending-sync-count::org")).toBe("7"));
+  cleanup();
+  let finish!: (value: Awaited<ReturnType<typeof apiClient.pendingKoboSync>>) => void;
+  query.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  setup("/projects");
+  expect(screen.getByLabelText("7 pending sync notifications")).toBeTruthy();
+  expect(screen.queryByLabelText("0 pending sync notifications")).toBeNull();
+  await act(async () => { finish({ pending_count: 2 } as Awaited<ReturnType<typeof apiClient.pendingKoboSync>>); });
+  await screen.findByLabelText("2 pending sync notifications");
+});
+
+it("shows a loading state rather than a false zero on the first visit", async () => {
+  vi.spyOn(apiClient, "pendingKoboSync").mockImplementation(() => new Promise(() => undefined));
+  sessionStorage.setItem("fieldsight.pending-sync-count:other-user:other-org", "12");
+  setup("/projects");
+  expect(screen.getByLabelText("Loading sync notifications")).toBeTruthy();
+  expect(screen.queryByLabelText("0 pending sync notifications")).toBeNull();
+  expect(screen.queryByLabelText("12 pending sync notifications")).toBeNull();
 });
 
 it.each([1024, 1366])("collapses and expands navigation at %ipx without changing project links", async (width) => {

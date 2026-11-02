@@ -14,6 +14,29 @@ def payload(**kwargs):
     return dict(full_name="Field Collector", email="collector@example.com", kobo_username="collector_1", **kwargs)
 
 
+def test_county_coverage_create_edit_all_and_validation(sync_client):
+    client, engine, project, headers, org = context(sync_client)
+    root = f"/projects/{project}/enumerators"
+    created = client.post(root, headers=headers, json=payload(counties=["Nimba", "Bong"]))
+    assert created.status_code == 201, created.text
+    item = created.json()
+    assert item["counties"] == ["Bong", "Nimba"]
+    assert client.get(root, headers=headers).json()["items"][0]["counties"] == ["Bong", "Nimba"]
+    path = f"{root}/{item['id']}"
+    legacy = client.patch(path, headers=headers, json={"kobo_username": "collector_1"})
+    assert legacy.json()["counties"] == ["Bong", "Nimba"]
+    for invalid in ([], ["Bong", "Bong"], ["Unknown county"]):
+        assert (
+            client.patch(path, headers=headers, json={"kobo_username": "collector_1", "counties": invalid}).status_code
+            == 422
+        )
+    all_counties = client.patch(path, headers=headers, json={"kobo_username": "collector_1", "counties": None})
+    assert all_counties.status_code == 200, all_counties.text
+    assert all_counties.json()["counties"] is None
+    with Session(engine) as db:
+        assert db.get(FieldAssignment, UUID(item["id"])).counties is None
+
+
 def test_collection_only_forms_remove_reassign_and_audit(sync_client):
     client, engine, project, headers, org = context(sync_client)
     root = f"/projects/{project}/enumerators"

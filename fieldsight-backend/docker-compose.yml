@@ -34,5 +34,19 @@ services:
     volumes:
       - fieldsight_sqlite:/data
 
+  report-worker:
+    build: .
+    command: ["python", "-m", "app.core.table_export_worker", "--watch"]
+    env_file:
+      - .env
+    environment:
+      FIELDSIGHT_ENVIRONMENT: production
+      FIELDSIGHT_DATABASE_URL: ${FIELDSIGHT_DATABASE_URL:?Set FIELDSIGHT_DATABASE_URL to the Neon connection URL}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
 volumes:
   fieldsight_sqlite:

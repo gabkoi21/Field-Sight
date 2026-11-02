@@ -53,9 +53,9 @@ it("registers a collection-only contact and selected form", async () => {
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "alice@example.com" } });
   fireEvent.change(screen.getByLabelText("Kobo username"), { target: { value: "alice_kobo" } });
   expect((screen.getByLabelText("Kobo username") as HTMLInputElement).required).toBe(true);
-  fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Assign connected form" }));
   fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
-  await waitFor(() => expect(apiClient.assignEnumerator).toHaveBeenCalledWith("project", { full_name: "Alice", email: "alice@example.com", kobo_username: "alice_kobo", forms: [{ connection_id: "connection", form_id: "form", state: "not_configured" }] }));
+  await waitFor(() => expect(apiClient.assignEnumerator).toHaveBeenCalledWith("project", { full_name: "Alice", email: "alice@example.com", kobo_username: "alice_kobo", counties: null, forms: [{ connection_id: "connection", form_id: "form", state: "not_configured" }] }));
 });
 it("selects existing contacts, shows honest reports and confirms removal", async () => {
   vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [item], connected_forms: [form] });
@@ -74,7 +74,7 @@ it("selects existing contacts, shows honest reports and confirms removal", async
   await screen.findByRole("option", { name: "Alice — alice@example.com" });
   fireEvent.change(screen.getByLabelText("Organization enumerator"), { target: { value: "collector" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
-  await waitFor(() => expect(apiClient.assignEnumerator).toHaveBeenCalledWith("project", { collector_id: "collector", kobo_username: "alice_kobo", forms: [] }));
+  await waitFor(() => expect(apiClient.assignEnumerator).toHaveBeenCalledWith("project", { collector_id: "collector", kobo_username: "alice_kobo", counties: null, forms: [] }));
 });
 it("updates forms with manual pending status", async () => {
   vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [item], connected_forms: [form] });
@@ -82,7 +82,7 @@ it("updates forms with manual pending status", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Edit forms & Kobo access" }));
   fireEvent.change(screen.getByLabelText("Manually recorded Kobo access"), { target: { value: "pending" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
-  await waitFor(() => expect(apiClient.updateEnumeratorAssignment).toHaveBeenCalledWith("project", "assignment", { kobo_username: "alice_kobo", forms: [{ connection_id: "connection", form_id: "form", state: "pending" }] }));
+  await waitFor(() => expect(apiClient.updateEnumeratorAssignment).toHaveBeenCalledWith("project", "assignment", { kobo_username: "alice_kobo", counties: null, forms: [{ connection_id: "connection", form_id: "form", state: "pending" }] }));
 });
 
 it("confirms Kobo grants, reconciles verified status and checks access", async () => {
@@ -117,3 +117,30 @@ it("shows saved provider failures and confirms revocation for inactive assignmen
   await waitFor(() => expect(apiClient.manageEnumeratorKoboAccess).toHaveBeenCalledWith("project", "assignment", "access", "revoke"));
 });
 
+
+it("saves selected counties and restores them when editing", async () => {
+  const restricted = { ...item, counties: ["Bong", "Nimba"] };
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [restricted], connected_forms: [form] });
+  vi.mocked(apiClient.updateEnumeratorAssignment).mockResolvedValue(restricted);
+  setup();
+  expect(await screen.findByRole("cell", { name: "Bong, Nimba" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Edit forms & Kobo access" }));
+  expect(screen.queryByRole("checkbox", { name: "All counties" })).toBeNull();
+  expect((screen.getByRole("combobox", { name: "Assigned counties" }) as HTMLInputElement).value).toBe("Bong, Nimba");
+  fireEvent.focus(screen.getByRole("combobox", { name: "Assigned counties" }));
+  expect((screen.getByRole("checkbox", { name: "All counties" }) as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByRole("checkbox", { name: "Bong" }) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByRole("checkbox", { name: "Nimba" }) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByRole("checkbox", { name: "Sinoe" }) as HTMLInputElement).checked).toBe(false);
+  fireEvent.change(screen.getByRole("combobox", { name: "Assigned counties" }), { target: { value: "Mont" } });
+  expect(screen.queryByRole("checkbox", { name: "Sinoe" })).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: "All counties" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "All counties" }));
+  expect((screen.getByRole("button", { name: "Confirm assignment" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Montserrado" }));
+  fireEvent.keyDown(screen.getByRole("combobox", { name: "Assigned counties" }), { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: "County options" })).toBeNull();
+  expect((screen.getByRole("combobox", { name: "Assigned counties" }) as HTMLInputElement).value).toBe("Montserrado");
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+  await waitFor(() => expect(apiClient.updateEnumeratorAssignment).toHaveBeenCalledWith("project", "assignment", expect.objectContaining({ counties: ["Montserrado"] })));
+});

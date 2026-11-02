@@ -1,5 +1,6 @@
 """Project collectors and honest, manually reported Kobo sharing state."""
 
+import json
 from collections.abc import Sequence
 from datetime import UTC, timedelta
 from typing import Annotated, Any, Literal, Self, cast
@@ -15,6 +16,7 @@ from sqlmodel import Session, col, select
 from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token
 from app.core.kobo_permissions import reconcile_collection_access
+from app.core.liberia import LIBERIA_COUNTIES
 from app.models.identity import OrganizationMembership, Role, User, utc_now
 from app.models.operations import (
     CollectorFormAccess,
@@ -43,6 +45,16 @@ class AssignmentInput(BaseModel):
     email: EmailStr | None = None
     kobo_username: str = Field(min_length=1, max_length=100)
     forms: list[FormInput] = Field(default_factory=list, max_length=20)
+    counties: list[str] | None = Field(default=None, max_length=15)
+
+    @field_validator("counties")
+    @classmethod
+    def valid_counties(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        if not value or len(set(value)) != len(value) or not set(value) <= set(LIBERIA_COUNTIES):
+            raise ValueError("Choose one or more Liberian counties, or All counties.")
+        return [county for county in LIBERIA_COUNTIES if county in value]
 
     @field_validator("kobo_username")
     @classmethod
@@ -171,7 +183,14 @@ def assignment_read(item: FieldAssignment, project: Project, db: Session) -> dic
         )
         for f in db.exec(select(CollectorFormAccess).where(CollectorFormAccess.assignment_id == item.id)).all()
     ]
-    return dict(**identity, id=item.id, is_active=item.is_enabled, assigned_at=item.created_at, forms=forms)
+    return dict(
+        **identity,
+        id=item.id,
+        is_active=item.is_enabled,
+        assigned_at=item.created_at,
+        counties=item.counties,
+        forms=forms,
+    )
 
 
 @router.get("")
@@ -230,6 +249,31 @@ def update_identity(
             f.permission_username = None
             f.state, f.updated_at, f.updated_by_id = "not_configured", utc_now(), user.id
             db.add(f)
+        if profile.kobo_username:
+            for assignment in db.exec(
+                select(FieldAssignment).where(
+                    FieldAssignment.collector_id == profile.id,
+                    FieldAssignment.organization_id == profile.organization_id,
+                )
+            ).all():
+                for username, active in (
+                    (profile.kobo_username, False),
+                    (payload.kobo_username, assignment.is_enabled),
+                ):
+                    audit(
+                        db,
+                        project,
+                        user,
+                        "enumerator.coverage:"
+                        + json.dumps(
+                            {
+                                "kobo_username": username,
+                                "active": active,
+                                "counties": assignment.counties,
+                            }
+                        ),
+                        assignment.id,
+                    )
         audit(db, project, user, "enumerator.kobo_identity_changed", profile.id)
     profile.kobo_username = payload.kobo_username
     db.add(profile)
@@ -301,11 +345,19 @@ def assign(project_id: UUID, payload: AssignmentInput, user: CurrentUser, db: Da
         organization_id=project.organization_id, project_id=project.id, membership_id=membership_id
     )
     item.collector_id, item.is_enabled = profile.id, True
+    item.counties = payload.counties
     update_identity(profile, payload, project, user, db)
     db.add_all([item, profile])
     db.flush()
     save_forms(item, payload, project, user, db)
     audit(db, project, user, "enumerator.assigned", item.id)
+    audit(
+        db,
+        project,
+        user,
+        "enumerator.counties:" + payload.model_dump_json(include={"counties", "kobo_username"}),
+        item.id,
+    )
     commit(db)
     return assignment_read(item, project, db)
 
@@ -347,6 +399,16 @@ def edit(project_id: UUID, assignment_id: UUID, payload: AssignmentInput, user: 
         db.add(item)
     update_identity(profile, payload, project, user, db)
     save_forms(item, payload, project, user, db)
+    if "counties" in payload.model_fields_set:
+        item.counties = payload.counties
+        db.add(item)
+        audit(
+            db,
+            project,
+            user,
+            "enumerator.counties:" + payload.model_dump_json(include={"counties", "kobo_username"}),
+            item.id,
+        )
     commit(db)
     return assignment_read(item, project, db)
 

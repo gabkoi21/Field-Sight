@@ -14,14 +14,14 @@ function Block({ className = "" }: { className?: string }) {
 }
 
 /** Neutral geometry only: no fabricated chart points, numbers, or record labels. */
-export function LoadingSkeleton({ label, layout = "table", rows = 5, columns = 5, metricCount = 3, announce = true }: LoadingSkeletonProps) {
+export function LoadingSkeleton({ label, layout = "table", rows = 5, columns = 5, metricCount, announce = true }: LoadingSkeletonProps) {
   return (
     <div role={announce ? "status" : undefined} aria-atomic={announce ? true : undefined} className="relative min-w-0">
       {announce && <span className="sr-only">{label}</span>}
       <div aria-hidden="true" className="min-w-0 space-y-4 motion-safe:animate-pulse">
-        {["dashboard", "metrics", "table-page"].includes(layout) && (
+        {(layout === "dashboard" || layout === "metrics" || (layout === "table-page" && metricCount !== undefined)) && (
           <div className={`grid gap-4 ${metricCount === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
-            {Array.from({ length: metricCount }, (_, i) => <div key={i} className={`${metricSurface} ${metricBody}`}><div className="min-w-0 flex-1 space-y-3"><Block className="h-3 w-2/3" /><Block className="h-7 w-1/3" /></div><span className={metricIcon}><Block className="size-5" /></span></div>)}
+            {Array.from({ length: metricCount ?? 3 }, (_, i) => <div key={i} className={`${metricSurface} ${metricBody}`}><div className="min-w-0 flex-1 space-y-3"><Block className="h-3 w-2/3" /><Block className="h-7 w-1/3" /></div><span className={metricIcon}><Block className="size-5" /></span></div>)}
           </div>
         )}
         {layout === "dashboard" && (

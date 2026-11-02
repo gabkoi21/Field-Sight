@@ -72,7 +72,7 @@ function Shell({ loading }: { loading: boolean }) {
     };
   }, [open]);
   const pending = useQuery({
-    queryKey: ["kobo-pending-sync"],
+    queryKey: ["kobo-pending-sync", user?.id ?? "", workspace.organizationId],
     queryFn: apiClient.pendingKoboSync,
     enabled: workspace.isAdmin && !loading,
     staleTime: 5000,
@@ -80,6 +80,21 @@ function Shell({ loading }: { loading: boolean }) {
     refetchOnWindowFocus: true,
     meta: { backgroundRefresh: true },
   });
+  const countStorageKey = `fieldsight.pending-sync-count:${user?.id ?? ""}:${workspace.organizationId}`;
+  let rememberedCount: number | null = null;
+  if (workspace.isAdmin) {
+    try {
+      const saved = sessionStorage.getItem(countStorageKey);
+      const parsed = saved === null || saved.trim() === "" ? NaN : Number(saved);
+      if (Number.isSafeInteger(parsed) && parsed >= 0) rememberedCount = parsed;
+    } catch { /* The live count still works when storage is unavailable. */ }
+  }
+  const pendingCount = workspace.isAdmin ? pending.data?.pending_count ?? rememberedCount : null;
+  useEffect(() => {
+    if (!workspace.isAdmin || pending.data === undefined) return;
+    try { sessionStorage.setItem(countStorageKey, String(pending.data.pending_count)); }
+    catch { /* The live count still works when storage is unavailable. */ }
+  }, [countStorageKey, workspace.isAdmin, pending.data]);
   const sections = [
     {
       title: "",
@@ -192,12 +207,13 @@ function Shell({ loading }: { loading: boolean }) {
             >
               <Bell size={20} strokeWidth={1.8} aria-hidden="true" />
               <span
-                aria-label={`${pending.data?.pending_count ?? 0} pending sync notifications`}
+                aria-label={pendingCount === null ? (pending.isError ? "Sync notifications unavailable" : "Loading sync notifications") : `${pendingCount} pending sync notifications`}
+                title={pending.data === undefined && pendingCount !== null ? "Last known count; checking for updates" : undefined}
                 aria-live="polite"
                 aria-atomic="true"
                 className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#dc2626] px-1 text-[10px] font-bold leading-none tabular-nums text-white"
               >
-                {pending.data?.pending_count ?? 0}
+                {pendingCount ?? (pending.isError ? "?" : "…")}
               </span>
             </button>
             {notifications && (
@@ -206,7 +222,8 @@ function Shell({ loading }: { loading: boolean }) {
                 <p>
                   {pending.isError
                     ? "Unable to check sync status."
-                    : `${pending.data?.pending_count ?? 0} submissions waiting to sync.`}
+                    : pendingCount === null ? "Checking sync status…"
+                    : `${pending.data === undefined ? "Last known: " : ""}${pendingCount} submissions waiting to sync.`}
                 </p>
                 <NavLink
                   className="text-[var(--fs-primary)]"

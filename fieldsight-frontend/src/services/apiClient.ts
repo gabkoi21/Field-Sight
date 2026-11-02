@@ -1,5 +1,21 @@
 export type Role = "super_admin" | "organization_admin" | "enumerator";
 
+export interface TableExportOptions {
+  format: "xlsx" | "csv" | "json" | "pdf";
+  period: "weekly" | "fortnightly" | "monthly" | "custom" | "all";
+  anchor: string; end: string | null; week_start: number; timezone: string;
+  date_field: string | null; content: "summary" | "records" | "both"; compare: boolean;
+  group_by: "week" | "location" | "submitter" | "county"; columns: string[] | null;
+  county?: string | null; county_field?: string | null;
+  review_status: "all" | "ready" | "needs_review" | "invalid"; search: string;
+  metric_field: string | null; metric: "sum" | "average";
+}
+export interface TableDownload { blob: Blob; filename: string }
+export interface TableExportSchedule {
+  id: string; options: TableExportOptions; active: boolean; next_run_at: string; last_error: string | null;
+  reports: Array<{ id: string; filename: string; created_at: string; period_start: string; period_end: string }>;
+}
+
 export type KoboAccessState = ManualKoboState | "verified_granted" | "failed" | "revoked";
 export type ManualKoboState = "not_configured" | "pending" | "reported_configured_unverified";
 export interface CollectorIdentity {
@@ -8,10 +24,12 @@ export interface CollectorIdentity {
 }
 export interface CollectorFormInput { connection_id: string; form_id: string; state: ManualKoboState }
 export interface CollectorAssignmentInput {
+  counties?: string[] | null;
   collector_id?: string; membership_id?: string; full_name?: string; email?: string;
   kobo_username: string; forms: CollectorFormInput[];
 }
 export interface ProjectCollector extends CollectorIdentity {
+  counties?: string[] | null;
   id: string; is_active: boolean; assigned_at: string;
   forms: (Omit<CollectorFormInput, "state"> & { state: KoboAccessState; id: string; is_selected: boolean; mapping_current: boolean; updated_at: string; requested_action?: "grant" | "verify" | "revoke" | null; permission_username?: string | null; last_error?: string | null; last_checked_at?: string | null })[];
 }
@@ -130,6 +148,8 @@ export interface WorkspaceTableRows {
     review_status: string;
     submitted_at: string | null;
     submitted_by: string | null;
+    county_assignment_found?: boolean;
+    assigned_counties?: string[] | null;
     answers: Record<string, unknown>;
   }>;
 }
@@ -937,6 +957,7 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
   retry = true,
+  asDownload = false,
 ): Promise<T> {
   const requestGeneration = sessionGeneration;
   const publicRoute = ["/auth/login", "/auth/logout", "/auth/accept-invitation", "/health/live", "/health/ready", "/status"].includes(path);
@@ -961,12 +982,18 @@ async function request<T>(
     !publicRoute &&
     (await refreshAccessToken())
   ) {
-    if (["GET", "HEAD"].includes(init.method ?? "GET")) return request<T>(path, init, false);
+    if (["GET", "HEAD"].includes(init.method ?? "GET")) return request<T>(path, init, false, asDownload);
     throw new ApiError(409, "Session renewed. Review the action and submit it again.");
   }
   if (requestGeneration !== sessionGeneration) throw new ApiError(401, "Session changed.");
   if (!response.ok) throw await parseError(response);
   if (response.status === 204) return undefined as T;
+  if (asDownload) {
+    const blob = await response.blob();
+    if (requestGeneration !== sessionGeneration) throw new ApiError(401, "Session changed.");
+    const filename = response.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "FieldSight_export";
+    return { blob, filename } as T;
+  }
   const contentType = response.headers.get("Content-Type") ?? "";
   const result = contentType.includes("application/pdf") ? await response.arrayBuffer()
     : contentType.includes("text/csv") ? await response.text() : await response.json();
@@ -999,6 +1026,11 @@ export interface MonthlyOrganizationActivity {
 }
 
 export const apiClient = {
+  exportTable: (project: string, form: string, options: TableExportOptions) => request<TableDownload>(`/projects/${project}/tables/${encodeURIComponent(form)}/export`, { method: "POST", body: JSON.stringify(options) }, true, true),
+  tableExportSchedules: (project: string, form: string) => request<TableExportSchedule[]>(`/projects/${project}/tables/${encodeURIComponent(form)}/export-schedules`),
+  createTableExportSchedule: (project: string, form: string, options: TableExportOptions) => request(`/projects/${project}/tables/${encodeURIComponent(form)}/export-schedules`, { method: "POST", body: JSON.stringify({ options }) }),
+  toggleTableExportSchedule: (project: string, form: string, id: string, active: boolean) => request(`/projects/${project}/tables/${encodeURIComponent(form)}/export-schedules/${id}?active=${active}`, { method: "PATCH" }),
+  tableExportReport: (project: string, form: string, id: string) => request<TableDownload>(`/projects/${project}/tables/${encodeURIComponent(form)}/export-reports/${id}`, {}, true, true),
   monthlyOrganizationActivity: (year: number) => request<MonthlyOrganizationActivity>(`/administration/activity/monthly?year=${year}`),
   setOrganizationStatus: (id: string, is_active: boolean) => request<{ is_active: boolean }>(`/administration/organizations/${id}/status`, { method: "PATCH", body: JSON.stringify({ is_active }) }),
   platformOverview: () => request<{ total_organizations: number; total_platform_users: number; active_organizations: number; total_projects: number }>("/administration/overview"),

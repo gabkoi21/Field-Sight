@@ -358,6 +358,9 @@ def table_rows(
     records = db.exec(
         statement.order_by(col(Submission.submitted_at).desc(), col(Submission.id).desc()).offset(offset).limit(limit)
     ).all()
+    from app.core.county_history import submission_counties
+
+    coverage = submission_counties(db, project, list(records))
     return dict(
         fields=fields,
         total=total,
@@ -368,6 +371,8 @@ def table_rows(
                 review_status=r.review_status,
                 submitted_at=r.submitted_at,
                 submitted_by=r.enumerator,
+                county_assignment_found=coverage[r.id][0],
+                assigned_counties=coverage[r.id][1],
                 answers=flatten_answers(r.raw_answers),
             )
             for r in records

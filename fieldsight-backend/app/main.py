@@ -61,7 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=["X-Request-ID", "Content-Disposition"],
     )
     install_exception_handlers(app)
     app.add_api_route(

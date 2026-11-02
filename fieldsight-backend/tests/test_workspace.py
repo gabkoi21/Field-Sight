@@ -167,7 +167,8 @@ def test_csv_import_catalogue_rows_duplicate_and_quality(sync_client):
 def test_table_rows_show_stored_kobo_submitter_without_guessing_from_answers(sync_client):
     client, engine, project, headers, _ = context(sync_client)
     imported = client.post(
-        f"/projects/{project}/tables/import", headers=headers,
+        f"/projects/{project}/tables/import",
+        headers=headers,
         json={"title": "Submitters", "csv_text": "name,_submitted_by\nOne,untrusted\nTwo,untrusted\n"},
     )
     assert imported.status_code == 201
@@ -182,6 +183,108 @@ def test_table_rows_show_stored_kobo_submitter_without_guessing_from_answers(syn
     submitters = [row["submitted_by"] for row in response.json()["rows"]]
     assert "gabakoi_" in submitters and None in submitters
     assert "untrusted" not in submitters
+    assert all(not row["county_assignment_found"] for row in response.json()["rows"])
+    assignment = client.post(
+        f"/projects/{project}/enumerators",
+        headers=headers,
+        json={
+            "full_name": "County Collector",
+            "email": "county@example.com",
+            "kobo_username": "gabakoi_",
+            "counties": ["Bong", "Nimba"],
+        },
+    )
+    assert assignment.status_code == 201, assignment.text
+    # An assignment created later must not retroactively attribute older data.
+    rows = client.get(f"/projects/{project}/tables/{form}", headers=headers).json()["rows"]
+    assert next(row for row in rows if row["submitted_by"] == "gabakoi_")["county_assignment_found"] is False
+    with Session(engine) as db:
+        record = db.exec(select(Submission).where(Submission.enumerator == "gabakoi_")).one()
+        record.submitted_at = datetime.now(UTC)
+        db.add(record)
+        db.commit()
+    rows = client.get(f"/projects/{project}/tables/{form}", headers=headers).json()["rows"]
+    matched = next(row for row in rows if row["submitted_by"] == "gabakoi_")
+    assert matched["county_assignment_found"] is True
+    assert matched["assigned_counties"] == ["Bong", "Nimba"]
+    assert next(row for row in rows if row["submitted_by"] is None)["county_assignment_found"] is False
+    changed = client.patch(
+        f"/projects/{project}/enumerators/{assignment.json()['id']}",
+        headers=headers,
+        json={"kobo_username": "gabakoi_", "counties": None},
+    )
+    assert changed.status_code == 200
+    rows = client.get(f"/projects/{project}/tables/{form}", headers=headers).json()["rows"]
+    matched = next(row for row in rows if row["submitted_by"] == "gabakoi_")
+    assert matched["county_assignment_found"] is True
+    assert matched["assigned_counties"] == ["Bong", "Nimba"]
+
+
+def test_counties_follow_submission_time_including_late_sync_and_removal(sync_client):
+    from app.models.operations import FieldAssignment
+
+    client, engine, project, headers, _ = context(sync_client)
+    imported = client.post(
+        f"/projects/{project}/tables/import", headers=headers, json={"title": "History", "csv_text": "name\nOld\nNew\n"}
+    )
+    form = imported.json()["form_id"]
+    assignment = client.post(
+        f"/projects/{project}/enumerators",
+        headers=headers,
+        json={
+            "full_name": "County Collector",
+            "email": "history@example.com",
+            "kobo_username": "history_user",
+            "counties": None,
+        },
+    )
+    assert assignment.status_code == 201
+    assignment_id = assignment.json()["id"]
+    with Session(engine) as db:
+        item = db.get(FieldAssignment, UUID(assignment_id))
+        item.created_at = datetime.now(UTC) - timedelta(days=3)
+        db.add(item)
+        db.commit()
+    changed = client.patch(
+        f"/projects/{project}/enumerators/{assignment_id}",
+        headers=headers,
+        json={"kobo_username": "history_user", "counties": ["Bong"]},
+    )
+    assert changed.status_code == 200
+    # Both records arrive after the change, but their submission dates straddle it.
+    with Session(engine) as db:
+        records = db.exec(
+            select(Submission)
+            .where(Submission.project_id == UUID(project), Submission.kobo_form_id == form)
+            .order_by(Submission.external_id)
+        ).all()
+        old_id, new_id = str(records[0].id), str(records[1].id)
+        for record, at in zip(records, [datetime.now(UTC) - timedelta(days=1), datetime.now(UTC)], strict=True):
+            record.enumerator, record.submitted_at = "history_user", at
+            db.add(record)
+        db.commit()
+
+    def check():
+        response = client.get(f"/projects/{project}/tables/{form}", headers=headers)
+        assert response.status_code == 200
+        rows = {row["id"]: row for row in response.json()["rows"]}
+        assert rows[old_id]["county_assignment_found"] is True
+        assert rows[old_id]["assigned_counties"] is None
+        assert rows[new_id]["county_assignment_found"] is True
+        assert rows[new_id]["assigned_counties"] == ["Bong"]
+
+    check()
+    assert (
+        client.patch(
+            f"/projects/{project}/enumerators/{assignment_id}",
+            headers=headers,
+            json={"kobo_username": "renamed_user", "counties": ["Nimba"]},
+        ).status_code
+        == 200
+    )
+    check()
+    assert client.delete(f"/projects/{project}/enumerators/{assignment_id}", headers=headers).status_code == 204
+    check()
 
 
 @pytest.mark.parametrize(

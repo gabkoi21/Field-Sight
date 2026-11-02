@@ -431,6 +431,7 @@ class FieldAssignment(SQLModel, table=True):
     project_id: UUID = Field(sa_column=Column(ForeignKey("projects.id"), index=True, nullable=False))
     location_id: UUID | None = Field(default=None, sa_column=Column(ForeignKey("locations.id")))
     daily_target: int = 0
+    counties: list[str] | None = Field(default=None, sa_column=Column(JSON(none_as_null=True), nullable=True))
     effective_from: date | None = None
     effective_to: date | None = None
     is_enabled: bool = True

@@ -40,7 +40,7 @@ def main() -> int:
     children: list[subprocess.Popen] = []
     root = Path(__file__).resolve().parents[1]
     try:
-        for module in (["app.core.sync_worker"], ["uvicorn", "app.main:app"]):
+        for module in (["app.core.sync_worker"], ["uvicorn", "app.main:app", "--reload"]):
             children.append(subprocess.Popen([sys.executable, "-m", *module], cwd=root))
         print("Local API and synchronization worker started. Press Ctrl+C to stop both.", flush=True)
         while True:
