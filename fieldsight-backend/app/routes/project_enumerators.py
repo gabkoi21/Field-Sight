@@ -454,6 +454,13 @@ def edit(project_id: UUID, assignment_id: UUID, payload: AssignmentInput, user: 
         item.collector_id = profile.id
         db.add(item)
     update_identity(profile, payload, project, user, db)
+    if "full_name" in payload.model_fields_set:
+        name = payload.full_name.strip() if payload.full_name else None
+        if payload.full_name is not None and (not name or len(name) < 2):
+            raise HTTPException(422, "Enter a full name of at least two characters.")
+        profile.full_name = name
+        db.add(profile)
+        audit(db, project, user, "enumerator.name_updated", profile.id)
     if "email" in payload.model_fields_set:
         profile.email = str(payload.email).lower() if payload.email else None
         db.add(profile)

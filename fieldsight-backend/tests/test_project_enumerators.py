@@ -76,6 +76,12 @@ def test_username_only_add_reuses_profile_and_preserves_missing_private_details(
     assert again.status_code == 201, again.text
     assert again.json()["collector_id"] == item["collector_id"]
     path = f"{root}/{item['id']}"
+    named = client.patch(path, headers=headers, json={"kobo_username": "username_only", "full_name": "Gabriel Akoi"})
+    assert named.status_code == 200, named.text
+    assert named.json()["full_name"] == "Gabriel Akoi"
+    assert client.get(root, headers=headers).json()["items"][0]["full_name"] == "Gabriel Akoi"
+    invalid_name = client.patch(path, headers=headers, json={"kobo_username": "username_only", "full_name": "   "})
+    assert invalid_name.status_code == 422
     updated = client.patch(path, headers=headers, json={"kobo_username": "username_only", "email": "Real@Example.com"})
     assert updated.status_code == 200, updated.text
     assert updated.json()["email"] == "real@example.com"

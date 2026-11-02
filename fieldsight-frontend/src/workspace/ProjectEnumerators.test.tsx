@@ -97,6 +97,23 @@ it("keeps missing email blank and requires only the username when editing", asyn
   expect(vi.mocked(apiClient.updateEnumeratorAssignment).mock.calls[0][2]).not.toHaveProperty("email");
 });
 
+it("saves the actual full name from Edit and displays it in the team table", async () => {
+  const usernameOnly = { ...item, full_name: null, email: null };
+  const named = { ...usernameOnly, full_name: "Gabriel Akoi" };
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [usernameOnly], connected_forms: [form] });
+  vi.mocked(apiClient.updateEnumeratorAssignment).mockImplementation(async () => {
+    vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [named], connected_forms: [form] });
+    return named;
+  });
+  setup();
+  fireEvent.click(await screen.findByRole("button", { name: "Edit forms & Kobo access" }));
+  fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Gabriel Akoi" } });
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+  await waitFor(() => expect(apiClient.updateEnumeratorAssignment).toHaveBeenCalledWith("project", "assignment", expect.objectContaining({ full_name: "Gabriel Akoi" })));
+  expect(await screen.findByText("Gabriel Akoi")).toBeTruthy();
+  expect(screen.getByText("alice_kobo")).toBeTruthy();
+});
+
 it("lets the backend assign forms and manage access status", async () => {
   vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [item], connected_forms: [form] });
   vi.mocked(apiClient.updateEnumeratorAssignment).mockResolvedValue(item); setup();

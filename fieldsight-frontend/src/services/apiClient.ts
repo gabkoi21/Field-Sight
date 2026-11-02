@@ -25,7 +25,7 @@ export interface CollectorIdentity {
 export interface CollectorFormInput { connection_id: string; form_id: string; state: ManualKoboState }
 export interface CollectorAssignmentInput {
   counties?: string[] | null;
-  collector_id?: string; membership_id?: string; full_name?: string; email?: string | null;
+  collector_id?: string; membership_id?: string; full_name?: string | null; email?: string | null;
   kobo_username: string; forms?: CollectorFormInput[];
 }
 export interface ProjectCollector extends CollectorIdentity {

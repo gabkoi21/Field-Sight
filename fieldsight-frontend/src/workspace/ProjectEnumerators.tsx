@@ -29,6 +29,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
   const [editing, setEditing] = useState<ProjectCollector | "new" | null>(null);
   const [removing, setRemoving] = useState<ProjectCollector | null>(null);
   const [username, setUsername] = useState("");
+  const [fullName, setFullName] = useState("");
   const [counties, setCounties] = useState<string[] | null>(null);
   const [countyDropdownOpen, setCountyDropdownOpen] = useState(false);
   const [countySearch, setCountySearch] = useState("");
@@ -39,6 +40,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
   const save = useMutation({
     mutationFn: async () => {
       const input: CollectorAssignmentInput = {
+        ...(editing && editing !== "new" && fullName.trim() !== (editing.full_name ?? "") ? { full_name: fullName.trim() || null } : {}),
         kobo_username: username.trim(),
         counties,
       };
@@ -70,6 +72,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
   function open(item: ProjectCollector | "new") {
     save.reset(); setEditing(item);
     setUsername(item === "new" ? "" : item.kobo_username ?? "");
+    setFullName(item === "new" ? "" : item.full_name ?? "");
     setCounties(item === "new" ? null : item.counties ?? null);
     setCountyDropdownOpen(false); setCountySearch("");
   }
@@ -155,6 +158,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
     {editing && <Dialog title={editing === "new" ? "Add Enumerator" : "Update enumerator forms"} description="Save the assignment, then grant Kobo access using the button in the table." error={save.error?.message} onClose={() => { if (!save.isPending) setEditing(null); }}>
       <form className="grid gap-4" onSubmit={e => { e.preventDefault(); save.mutate(); }}>
         <Field label="Kobo username"><input required pattern="[A-Za-z0-9_.@+\-]+" maxLength={100} className={fieldClass} value={username} onChange={e => { setUsername(e.target.value); }} /></Field>
+        {editing !== "new" && <Field label="Full name"><input minLength={2} maxLength={200} autoComplete="name" className={fieldClass} placeholder="Enter the person’s full name" value={fullName} onChange={e => setFullName(e.target.value)} /></Field>}
         <div className="relative grid gap-1.5" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCountyDropdownOpen(false); }} onKeyDown={e => { if (e.key === "Escape" && countyDropdownOpen) { e.preventDefault(); e.stopPropagation(); setCountyDropdownOpen(false); e.currentTarget.querySelector("button")?.focus(); } }}>
           <label htmlFor="assigned-counties" className="text-sm font-medium text-[var(--fs-muted)]">Assigned counties</label>
           <div className="relative">
