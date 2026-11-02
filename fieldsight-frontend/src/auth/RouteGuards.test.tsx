@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -10,7 +10,8 @@ import { apiClient } from "../services/apiClient";
 const auth = vi.hoisted(() => ({ user: null as unknown, loading: true, status: "checking", retry: vi.fn(), logout: vi.fn() }));
 vi.mock("./AuthContext", () => ({useAuth: () => auth}));
 vi.mock("./developmentAccess", () => ({skipLogin: false}));
-vi.mock("../services/apiClient", () => ({apiClient: {organizationProjects: vi.fn().mockResolvedValue([]), pendingKoboSync: vi.fn().mockResolvedValue({pending_count: 0})}}));
+vi.mock("../services/apiClient", () => ({apiClient: {hasStoredAccessToken: vi.fn(), organizationProjects: vi.fn().mockResolvedValue([]), pendingKoboSync: vi.fn().mockResolvedValue({pending_count: 0})}}));
+beforeEach(() => { vi.mocked(apiClient.hasStoredAccessToken).mockReturnValue(false); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 it("hides the workspace until session restoration succeeds", async () => {
   auth.user = null; auth.loading = true; auth.status = "checking";
@@ -52,4 +53,22 @@ it.each([RequireOrganizationMember, RequireSuperAdmin])("redirects signed-out vi
   view.rerender(<TestApp />);
   expect(screen.getByRole("heading", {name: "Sign in"})).toBeTruthy();
   expect(mounted).not.toHaveBeenCalled();
+});
+
+it("keeps the dashboard shell on refresh while protecting data until the session is verified", async () => {
+  auth.user = null; auth.loading = true; auth.status = "checking";
+  vi.mocked(apiClient.hasStoredAccessToken).mockReturnValue(true);
+  const cache = new QueryClient({defaultOptions: {queries: {retry: false}}});
+  function TestApp() { return <QueryClientProvider client={cache}><MemoryRouter initialEntries={["/dashboard"]}><Routes><Route element={<RequireOrganizationMember><WorkspaceShell /></RequireOrganizationMember>}><Route path="dashboard" element={<h1>Private dashboard data</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider>; }
+  const view = render(<TestApp />);
+  const navigation = screen.getByRole("navigation", {name: "Main navigation"});
+  expect(screen.queryByText("Checking your session…")).toBeNull();
+  expect(screen.queryByRole("heading", {name: "Private dashboard data"})).toBeNull();
+  expect(apiClient.organizationProjects).not.toHaveBeenCalled();
+  expect(apiClient.pendingKoboSync).not.toHaveBeenCalled();
+  auth.user = {id: "user", email: "test@example.test", memberships: [{organization_id: "org", role: "organization_admin"}]};
+  auth.loading = false; auth.status = "authenticated";
+  view.rerender(<TestApp />);
+  expect(await screen.findByRole("heading", {name: "Private dashboard data"})).toBeTruthy();
+  expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(navigation);
 });

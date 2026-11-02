@@ -44,3 +44,28 @@ it("does not accept late startup restoration after logout", async () => {
   fireEvent.click(screen.getByText("Logout")); await act(async () => done(user));
   expect(screen.getByText("signed_out:")).toBeTruthy();
 });
+
+it("does not open the workspace on a token event before startup profile verification", async () => {
+  let done!: (value: typeof user) => void;
+  mocks.restore.mockReturnValue(new Promise(resolve => { done = resolve; })); mount();
+  await act(async () => { window.dispatchEvent(new CustomEvent("fieldsight-session-state", { detail: "authenticated" })); });
+  expect(screen.getByText("checking:")).toBeTruthy();
+  await act(async () => done(user));
+  expect(screen.getByText("authenticated:one")).toBeTruthy();
+});
+
+it("keeps a verified workspace mounted during background renewal and healthy online events", async () => {
+  mocks.restore.mockResolvedValue(user); mocks.me.mockResolvedValue(user); mount();
+  await screen.findByText("authenticated:one");
+  const restoreCalls = mocks.restore.mock.calls.length;
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent("fieldsight-session-state", { detail: "checking" }));
+    window.dispatchEvent(new Event("online"));
+  });
+  expect(screen.getByText("authenticated:one")).toBeTruthy();
+  expect(mocks.restore).toHaveBeenCalledTimes(restoreCalls);
+  await act(async () => { window.dispatchEvent(new CustomEvent("fieldsight-session-state", { detail: "authenticated" })); });
+  expect(screen.getByText("authenticated:one")).toBeTruthy();
+  await act(async () => { window.dispatchEvent(new CustomEvent("fieldsight-session-state", { detail: "unavailable" })); });
+  expect(screen.getByText("unavailable:one")).toBeTruthy();
+});

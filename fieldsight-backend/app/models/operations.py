@@ -445,8 +445,8 @@ class CollectorProfile(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     organization_id: UUID = Field(foreign_key="organizations.id", index=True)
     membership_id: UUID | None = Field(default=None, foreign_key="organization_memberships.id", unique=True)
-    full_name: str
-    email: str
+    full_name: str | None = None
+    email: str | None = None
     kobo_username: str | None = None
 
 

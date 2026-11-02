@@ -20,13 +20,13 @@ export type KoboAccessState = ManualKoboState | "verified_granted" | "failed" | 
 export type ManualKoboState = "not_configured" | "pending" | "reported_configured_unverified";
 export interface CollectorIdentity {
   collector_id: string | null; membership_id: string | null; full_name: string | null;
-  email: string; kobo_username: string | null;
+  email: string | null; kobo_username: string | null;
 }
 export interface CollectorFormInput { connection_id: string; form_id: string; state: ManualKoboState }
 export interface CollectorAssignmentInput {
   counties?: string[] | null;
-  collector_id?: string; membership_id?: string; full_name?: string; email?: string;
-  kobo_username: string; forms: CollectorFormInput[];
+  collector_id?: string; membership_id?: string; full_name?: string; email?: string | null;
+  kobo_username: string; forms?: CollectorFormInput[];
 }
 export interface ProjectCollector extends CollectorIdentity {
   counties?: string[] | null;
@@ -809,9 +809,9 @@ function expiresSoon(token: string | null, leeway = REFRESH_LEEWAY_MS) {
     return JSON.parse(atob(payload)).exp * 1000 <= Date.now() + leeway;
   } catch { return true; }
 }
-async function timedFetch(url: string, init: RequestInit): Promise<Response> {
+async function timedFetch(url: string, init: RequestInit, timeoutMs = 12_000): Promise<Response> {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 12_000);
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try { return await fetch(url, { ...init, signal: init.signal ? AbortSignal.any([init.signal, controller.signal]) : controller.signal }); }
   finally { window.clearTimeout(timer); }
 }
@@ -958,6 +958,7 @@ async function request<T>(
   init: RequestInit = {},
   retry = true,
   asDownload = false,
+  timeoutMs = 12_000,
 ): Promise<T> {
   const requestGeneration = sessionGeneration;
   const publicRoute = ["/auth/login", "/auth/logout", "/auth/accept-invitation", "/health/live", "/health/ready", "/status"].includes(path);
@@ -975,6 +976,13 @@ async function request<T>(
     ...init,
     headers,
     credentials: "include",
+  }, timeoutMs).catch(error => {
+    if (!init.signal?.aborted && error && typeof error === "object" && "name" in error && ["AbortError", "TimeoutError"].includes(String(error.name))) {
+      throw new ApiError(408, path.endsWith("/access")
+        ? "Kobo is taking longer than expected. The change may have completed. Refresh the list and check access before trying again."
+        : "The request timed out. Refresh to check whether the change completed before trying again.");
+    }
+    throw error;
   });
   if (
     response.status === 401 &&
@@ -982,7 +990,7 @@ async function request<T>(
     !publicRoute &&
     (await refreshAccessToken())
   ) {
-    if (["GET", "HEAD"].includes(init.method ?? "GET")) return request<T>(path, init, false, asDownload);
+    if (["GET", "HEAD"].includes(init.method ?? "GET")) return request<T>(path, init, false, asDownload, timeoutMs);
     throw new ApiError(409, "Session renewed. Review the action and submit it again.");
   }
   if (requestGeneration !== sessionGeneration) throw new ApiError(401, "Session changed.");
@@ -1127,7 +1135,7 @@ export const apiClient = {
     request<(WorkspaceMember & { assignment_id: string })[]>(
       `/projects/${project}/team`,
     ),
-  manageEnumeratorKoboAccess: (project: string, assignment: string, form: string, action: "grant" | "verify" | "revoke") => request<ProjectCollector>(`/projects/${project}/enumerators/${assignment}/forms/${form}/access`, { method: "POST", body: JSON.stringify({ action }) }),
+  manageEnumeratorKoboAccess: (project: string, assignment: string, form: string, action: "grant" | "verify" | "revoke") => request<ProjectCollector>(`/projects/${project}/enumerators/${assignment}/forms/${form}/access`, { method: "POST", body: JSON.stringify({ action }) }, true, false, 120_000),
   projectEnumerators: (project: string) => request<ProjectEnumerators>(`/projects/${project}/enumerators`),
   eligibleEnumerators: (project: string) => request<CollectorIdentity[]>(`/projects/${project}/enumerators/eligible`),
   assignEnumerator: (project: string, input: CollectorAssignmentInput) => request<ProjectCollector>(`/projects/${project}/enumerators`, { method: "POST", body: JSON.stringify(input) }),

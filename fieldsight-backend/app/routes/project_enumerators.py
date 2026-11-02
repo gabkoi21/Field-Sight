@@ -16,6 +16,7 @@ from sqlmodel import Session, col, select
 from app.core.config import Settings, get_settings
 from app.core.kobo import decrypt_kobo_token
 from app.core.kobo_permissions import reconcile_collection_access
+from app.core.kobo_users import verify_kobo_username
 from app.core.liberia import LIBERIA_COUNTIES
 from app.models.identity import OrganizationMembership, Role, User, utc_now
 from app.models.operations import (
@@ -207,11 +208,18 @@ def listing(project_id: UUID, user: CurrentUser, db: Database) -> dict:
 
 
 def save_forms(item: FieldAssignment, payload: AssignmentInput, project: Project, user: User, db: Session) -> None:
-    allowed = {(str(f["connection_id"]), f["form_id"]) for f in connected_form(project, db)}
-    requested = [(str(f.connection_id), f.form_id) for f in payload.forms]
+    connected = connected_form(project, db)
+    automatic = "forms" not in payload.model_fields_set
+    forms = (
+        [FormInput(connection_id=f["connection_id"], form_id=f["form_id"]) for f in connected]
+        if automatic
+        else payload.forms
+    )
+    allowed = {(str(f["connection_id"]), f["form_id"]) for f in connected}
+    requested = [(str(f.connection_id), f.form_id) for f in forms]
     if len(requested) != len(set(requested)) or any(key not in allowed for key in requested):
         raise HTTPException(422, "Select each current connected project form at most once.")
-    if any(f.state == "reported_configured_unverified" for f in payload.forms) and not payload.kobo_username:
+    if any(f.state == "reported_configured_unverified" for f in forms) and not payload.kobo_username:
         raise HTTPException(422, "Record a Kobo username before reporting sharing configured.")
     old = db.exec(select(CollectorFormAccess).where(CollectorFormAccess.assignment_id == item.id)).all()
     ensure_not_running(old)
@@ -219,7 +227,7 @@ def save_forms(item: FieldAssignment, payload: AssignmentInput, project: Project
         previous.is_selected = (str(previous.connection_id), previous.form_id) in requested
         previous.updated_by_id, previous.updated_at = user.id, utc_now()
         db.add(previous)
-    for incoming in payload.forms:
+    for incoming in forms:
         f = next((f for f in old if f.connection_id == incoming.connection_id and f.form_id == incoming.form_id), None)
         if f is None:
             f = CollectorFormAccess(
@@ -229,11 +237,17 @@ def save_forms(item: FieldAssignment, payload: AssignmentInput, project: Project
                 updated_by_id=user.id,
             )
         f.is_selected = True
-        if not f.permission_username:
+        if not automatic and not f.permission_username:
             f.state = incoming.state
         f.updated_by_id, f.updated_at = user.id, utc_now()
         db.add(f)
-    audit(db, project, user, "enumerator.forms:" + payload.model_dump_json(include={"forms"}), item.id)
+    audit(
+        db,
+        project,
+        user,
+        "enumerator.forms:" + json.dumps({"forms": [f.model_dump(mode="json") for f in forms]}),
+        item.id,
+    )
 
 
 def update_identity(
@@ -280,11 +294,29 @@ def update_identity(
 
 
 @router.post("", status_code=201)
-def assign(project_id: UUID, payload: AssignmentInput, user: CurrentUser, db: Database) -> dict:
+def assign(
+    project_id: UUID,
+    payload: AssignmentInput,
+    user: CurrentUser,
+    db: Database,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict:
     project = _project(project_id, user, db)
     profile = db.get(CollectorProfile, payload.collector_id) if payload.collector_id else None
     if payload.collector_id and (not profile or profile.organization_id != project.organization_id):
         raise HTTPException(404, "Enumerator was not found.")
+    if not profile and not payload.membership_id and not payload.email:
+        matches = db.exec(
+            select(CollectorProfile).where(
+                CollectorProfile.organization_id == project.organization_id,
+                CollectorProfile.kobo_username == payload.kobo_username,
+            )
+        ).all()
+        if len(matches) > 1:
+            raise HTTPException(
+                409, "Multiple enumerators use this Kobo username. Resolve the duplicate contacts first."
+            )
+        profile = matches[0] if matches else None
     membership_id = profile.membership_id if profile else payload.membership_id
     if membership_id:
         member = db.get(OrganizationMembership, membership_id)
@@ -308,22 +340,46 @@ def assign(project_id: UUID, payload: AssignmentInput, user: CurrentUser, db: Da
                 email=person.email,
             )
     if not profile:
-        if not payload.email or not payload.full_name or not payload.full_name.strip():
-            raise HTTPException(422, "Name and email are required for a new collection-only enumerator.")
-        email = str(payload.email).lower()
-        # Existing organization accounts must be selected explicitly, never duplicated as contacts.
-        if db.exec(
-            select(OrganizationMembership)
-            .join(User)
-            .where(
-                OrganizationMembership.organization_id == project.organization_id,
-                User.email == email,
+        if not payload.email and not payload.full_name:
+            connection = db.get(KoboConnection, project.kobo_connection_id) if project.kobo_connection_id else None
+            if (
+                not connection
+                or connection.organization_id != project.organization_id
+                or connection.is_deleted
+                or not connection.is_verified
+            ):
+                raise HTTPException(422, "Connect and verify the project's Kobo account before adding a username.")
+            try:
+                verify_kobo_username(
+                    connection.server_url,
+                    decrypt_kobo_token(connection.token_encrypted, settings),
+                    payload.kobo_username,
+                )
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from None
+            profile = CollectorProfile(
+                organization_id=project.organization_id,
+                full_name=None,
+                email=None,
+                kobo_username=payload.kobo_username,
             )
-        ).first():
-            raise HTTPException(409, "Select the existing organization enumerator.")
-        profile = CollectorProfile(
-            organization_id=project.organization_id, full_name=payload.full_name.strip(), email=email
-        )
+        elif not payload.email or not payload.full_name or not payload.full_name.strip():
+            raise HTTPException(422, "Name and email are required for a new collection-only enumerator.")
+        else:
+            email = str(payload.email).lower()
+            # Existing organization accounts must be selected explicitly, never duplicated as contacts.
+            if db.exec(
+                select(OrganizationMembership)
+                .join(User)
+                .where(
+                    OrganizationMembership.organization_id == project.organization_id,
+                    User.email == email,
+                )
+            ).first():
+                raise HTTPException(409, "Select the existing organization enumerator.")
+            profile = CollectorProfile(
+                organization_id=project.organization_id, full_name=payload.full_name.strip(), email=email
+            )
         audit(db, project, user, "enumerator.created", profile.id)
     db.add(profile)
     try:
@@ -398,6 +454,10 @@ def edit(project_id: UUID, assignment_id: UUID, payload: AssignmentInput, user: 
         item.collector_id = profile.id
         db.add(item)
     update_identity(profile, payload, project, user, db)
+    if "email" in payload.model_fields_set:
+        profile.email = str(payload.email).lower() if payload.email else None
+        db.add(profile)
+        audit(db, project, user, "enumerator.contact_updated", profile.id)
     save_forms(item, payload, project, user, db)
     if "counties" in payload.model_fields_set:
         item.counties = payload.counties

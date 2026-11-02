@@ -30,6 +30,36 @@ afterEach(() => {
 });
 async function client() { return (await import("./apiClient")).apiClient; }
 
+it("allows a Kobo grant to finish beyond the normal 12-second timeout", async () => {
+  sessionStorage.setItem(key, token());
+  let complete!: (response: Response) => void;
+  let signal!: AbortSignal;
+  fetcher.mockImplementation((_url, init) => {
+    signal = init.signal;
+    return new Promise<Response>(resolve => { complete = resolve; });
+  });
+  const api = await client();
+  const pending = api.manageEnumeratorKoboAccess("project", "assignment", "form", "grant");
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(signal.aborted).toBe(false);
+  complete(json({ id: "assignment", forms: [{ state: "verified_granted" }] }));
+  expect((await pending).id).toBe("assignment");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it("explains an interrupted Kobo operation without automatically repeating the grant", async () => {
+  sessionStorage.setItem(key, token());
+  fetcher.mockImplementation((_url, init) => new Promise((_resolve, reject) => {
+    init.signal.addEventListener("abort", () => reject(new DOMException("signal is aborted without reason", "AbortError")));
+  }));
+  const api = await client();
+  const pending = api.manageEnumeratorKoboAccess("project", "assignment", "form", "grant");
+  const checked = expect(pending).rejects.toMatchObject({ status: 408, message: expect.stringContaining("may have completed") });
+  await vi.advanceTimersByTimeAsync(120_000);
+  await checked;
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
 it("restores cookie-only authentication with one refresh for concurrent calls", async () => {
   const access = token(); fetcher.mockResolvedValueOnce(json({ access_token: access, remember: false })).mockImplementation(() => Promise.resolve(json({ id: "one" })));
   const api = await client();

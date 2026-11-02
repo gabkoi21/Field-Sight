@@ -24,10 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<CurrentUser | null>(skipLogin ? previewUser : null);
   const [status, setStatus] = useState<SessionStatus>(skipLogin ? "authenticated" : "checking");
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const [attempt, setAttempt] = useState(0);
   const epoch = useRef(0);
   const identity = useRef<string | null>(null);
-  const retry = () => setAttempt(value => value + 1);
+  const retry = () => { setStatus("checking"); setAttempt(value => value + 1); };
   useEffect(() => {
     let active = true;
     const initialEpoch = epoch.current;
@@ -38,13 +40,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus(current ? "authenticated" : "signed_out");
     };
     const expired = () => { epoch.current++; accept(skipLogin ? previewUser : null); };
-    const changed = (event: Event) => setStatus((event as CustomEvent<SessionStatus>).detail);
     const renewed = () => {
       const generation = epoch.current;
       void apiClient.me().then(current => { if (active && generation === epoch.current) accept(current); })
         .catch(error => { if (active && generation === epoch.current) setStatus(error instanceof ApiError && error.status === 403 ? "forbidden" : "unavailable"); });
     };
-    const online = () => { if (active) retry(); };
+    const changed = (event: Event) => {
+      const next = (event as CustomEvent<SessionStatus>).detail;
+      if (next === "authenticated") {
+        // A refreshed token alone does not verify the user's profile or access.
+        if (identity.current && statusRef.current !== "checking") renewed();
+        return;
+      }
+      // Keep an already verified workspace mounted during healthy token renewal.
+      if (next === "checking" && identity.current && statusRef.current === "authenticated") return;
+      setStatus(next);
+    };
+    const online = () => { if (active && statusRef.current === "unavailable") retry(); };
     window.addEventListener("fieldsight-session-expired", expired);
     window.addEventListener("fieldsight-session-state", changed);
     window.addEventListener("fieldsight-session-renewed", renewed);
