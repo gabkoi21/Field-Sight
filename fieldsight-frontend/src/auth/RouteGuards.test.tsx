@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { RequireOrganizationMember } from "./RouteGuards";
+import { RequireOrganizationMember, RequireSuperAdmin } from "./RouteGuards";
 import { WorkspaceShell } from "../workspace/WorkspaceShell";
 import { apiClient } from "../services/apiClient";
 const auth = vi.hoisted(() => ({ user: null as unknown, loading: true, status: "checking", retry: vi.fn(), logout: vi.fn() }));
@@ -12,24 +12,23 @@ vi.mock("./AuthContext", () => ({useAuth: () => auth}));
 vi.mock("./developmentAccess", () => ({skipLogin: false}));
 vi.mock("../services/apiClient", () => ({apiClient: {organizationProjects: vi.fn().mockResolvedValue([]), pendingKoboSync: vi.fn().mockResolvedValue({pending_count: 0})}}));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
-it("keeps navigation mounted during session restoration and gates protected content", async () => {
+it("hides the workspace until session restoration succeeds", async () => {
+  auth.user = null; auth.loading = true; auth.status = "checking";
   const cache = new QueryClient({defaultOptions: {queries: {retry: false}}});
   function TestApp() { return <QueryClientProvider client={cache}><MemoryRouter initialEntries={["/projects"]}><Routes><Route element={<RequireOrganizationMember><WorkspaceShell /></RequireOrganizationMember>}><Route path="projects" element={<h1>Protected projects</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider>; }
   const view = render(<TestApp />);
-  const navigation = screen.getByRole("navigation", {name: "Main navigation"});
+  expect(screen.queryByRole("navigation", {name: "Main navigation"})).toBeNull();
   expect(screen.queryByRole("heading", {name: "Protected projects"})).toBeNull();
-  expect(navigation.textContent).not.toContain("Choose a project first");
-  const placeholders = navigation.querySelectorAll(".navigation-project-hint");
-  expect(placeholders.length).toBe(0);
-  expect(screen.getByRole("link", { name: "Dashboard" })).toBeTruthy();
-  expect(document.getElementById("main-content")?.textContent).toContain("Loading your session");
+  expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
+  expect(screen.getByRole("status").textContent).toContain("Checking your session");
   expect(apiClient.organizationProjects).not.toHaveBeenCalled();
   expect(apiClient.pendingKoboSync).not.toHaveBeenCalled();
   auth.user = {email: "test@example.test", memberships: [{organization_id: "org", role: "organization_admin"}]};
   auth.loading = false; auth.status = "authenticated";
   view.rerender(<TestApp />);
   expect(await screen.findByRole("heading", {name: "Protected projects"})).toBeTruthy();
-  expect(screen.getByRole("navigation", {name: "Main navigation"})).toBe(navigation);
+  expect(screen.getByRole("navigation", {name: "Main navigation"})).toBeTruthy();
+  expect(screen.queryByText("Checking your session…")).toBeNull();
 });
 
 it("keeps project content gated without restoring removed sidebar links", () => {
@@ -37,6 +36,20 @@ it("keeps project content gated without restoring removed sidebar links", () => 
   const cache = new QueryClient();
   render(<QueryClientProvider client={cache}><MemoryRouter initialEntries={["/projects/p1/overview"]}><Routes><Route element={<RequireOrganizationMember><WorkspaceShell /></RequireOrganizationMember>}><Route path="projects/:projectId/overview" element={<h1>Overview data</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
   expect(screen.queryByRole("link", {name: "Overview"})).toBeNull();
-  expect(screen.getByRole("navigation", {name: "Main navigation"})).toBeTruthy();
+  expect(screen.queryByRole("navigation", {name: "Main navigation"})).toBeNull();
   expect(screen.queryByRole("heading", {name: "Overview data"})).toBeNull();
+});
+
+it.each([RequireOrganizationMember, RequireSuperAdmin])("redirects signed-out visitors without mounting a dashboard", Guard => {
+  auth.user = null; auth.loading = true; auth.status = "checking";
+  const mounted = vi.fn();
+  function Dashboard() { mounted(); return <h1>Private dashboard</h1>; }
+  function TestApp() { return <MemoryRouter initialEntries={["/dashboard"]}><Routes><Route path="/dashboard" element={<Guard><Dashboard /></Guard>} /><Route path="/login" element={<h1>Sign in</h1>} /></Routes></MemoryRouter>; }
+  const view = render(<TestApp />);
+  expect(screen.getByRole("status").textContent).toContain("Checking your session");
+  expect(mounted).not.toHaveBeenCalled();
+  auth.loading = false; auth.status = "signed_out";
+  view.rerender(<TestApp />);
+  expect(screen.getByRole("heading", {name: "Sign in"})).toBeTruthy();
+  expect(mounted).not.toHaveBeenCalled();
 });
