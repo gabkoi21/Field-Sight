@@ -89,6 +89,22 @@ def test_provider_grant_verify_revoke_idempotent_and_preserves_other_permissions
     assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke") == "revoked"
 
 
+@pytest.mark.parametrize("username", ["enumerator_north", "enumerator_south", "collector.with-dash"])
+@pytest.mark.parametrize("codes", [("view_asset",), ("view_asset", "add_submissions", "view_submissions")])
+def test_revoke_removes_form_for_any_username_without_affecting_other_accounts(monkeypatch, username, codes):
+    provider = Provider(monkeypatch)
+    for code in codes:
+        provider.rows.append(provider.permission(code, username))
+    provider.rows.append(provider.permission("view_asset", "unrelated_account"))
+    provider.rows.append(provider.permission("add_submissions", "unrelated_account"))
+    other_permissions = [p.copy() for p in provider.rows if p["user"].endswith("/unrelated_account/")]
+
+    assert reconcile_collection_access(SERVER, "secret", "form-1", username, "revoke") == "revoked"
+    assert provider.rows == other_permissions
+    assert reconcile_collection_access(SERVER, "secret", "form-1", username, "verify") == "revoked"
+    assert reconcile_collection_access(SERVER, "secret", "form-1", username, "revoke") == "revoked"
+
+
 def test_collection_only_access_is_repaired_with_explicit_view_assignment(monkeypatch):
     provider = Provider(monkeypatch)
     provider.rows.append(provider.permission("add_submissions"))

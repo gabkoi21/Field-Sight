@@ -1368,6 +1368,7 @@ export const apiClient = {
     return request<ArrayBuffer>(`/projects/${id}/report.pdf?${params}`);
   },
   exportSubmissionsCsv: (params: URLSearchParams) => request<string>(`/submissions/export.csv?${params}`),
+  submissionSummary: (projectId: string) => request<{ total: number; counts: Record<string, number>; active_enumerators: number }>(`/submissions/summary?project_id=${encodeURIComponent(projectId)}`),
   submissionPage: (params: URLSearchParams) => request<{ items: ApiSubmission[]; total: number; counts: Record<string, number> }>(`/submissions/page?${params}`),
   submissions: (projectId?: string) => request<ApiSubmission[]>(projectId ? `/submissions?project_id=${encodeURIComponent(projectId)}` : "/submissions"),
   analyticsOverview: (

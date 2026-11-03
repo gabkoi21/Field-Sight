@@ -15,6 +15,12 @@ def reconcile_collection_access(
     username: str,
     action: Literal["grant", "verify", "revoke"],
 ) -> str:
+    """Reconcile the supplied account; revocation removes every direct form permission.
+
+    Removing only Add submissions leaves View form behind and keeps the project
+    visible in the collector's account. Never confirm revocation while any of
+    this username's direct permissions remain.
+    """
     server = normalize_kobo_server_url(server)
     asset_path = f"/api/v2/assets/{quote(form_id, safe='')}/"
     assignments_path = asset_path + "permission-assignments/"

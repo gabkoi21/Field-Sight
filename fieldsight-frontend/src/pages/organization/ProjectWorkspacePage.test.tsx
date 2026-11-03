@@ -10,7 +10,7 @@ import { reportingCompleteness } from "./projectOverview";
 
 const auth = vi.hoisted(() => ({ role: "organization_admin" }));
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ loading: false, user: { memberships: [{ organization_id: "org", role: auth.role }] } }) }));
-vi.mock("../../services/apiClient", () => ({ apiClient: { submissions: vi.fn().mockResolvedValue([]), projectActions: vi.fn(), organizationProjects: vi.fn(), getProject: vi.fn(), submissionPage: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
+vi.mock("../../services/apiClient", () => ({ apiClient: { submissions: vi.fn().mockResolvedValue([]), projectActions: vi.fn(), organizationProjects: vi.fn(), getProject: vi.fn(), submissionSummary: vi.fn(), syncSettings: vi.fn(), indicators: vi.fn(), syncProjectKoboForm: vi.fn(), organizationSectors: vi.fn(), sectors: vi.fn(), projectTeam: vi.fn(), analyticsOverview: vi.fn() } }));
 // Chart values are verified through their accessible data alternatives in jsdom.
 vi.mock("recharts", async original => ({ ...await original<object>(), ResponsiveContainer: () => null }));
 
@@ -31,7 +31,7 @@ beforeEach(() => {
   vi.mocked(apiClient.getProject).mockImplementation(async (_org, id) => ({ id, organization_sector_id: "org-education", name: id === "school" ? "Daily School Feeding Monitoring Form" : "Other project", description: "Daily feeding monitoring across partner schools.", country: "Liberia", start_date: "2026-08-01", end_date: "2027-07-31", workspace_details: { code: "SFP-26", stage: "Implementation" }, status: "active", kobo_connection_id: "connection", kobo_form_id: "form", kobo_form_name: "School Feeding Form" }) as never);
   vi.mocked(apiClient.organizationSectors).mockResolvedValue([{ id: "org-education", sector_id: "education", is_active: true }]);
   vi.mocked(apiClient.sectors).mockResolvedValue([{ id: "education", name: "Education" }] as never);
-  vi.mocked(apiClient.submissionPage).mockResolvedValue({ total: 123, counts: { ready: 100, needs_review: 20, invalid: 3 }, items: [{ id: "latest", submitted_at: "2026-10-26T14:00:00Z" }] } as never);
+  vi.mocked(apiClient.submissionSummary).mockResolvedValue({ total: 123, counts: { ready: 100, needs_review: 20, invalid: 3 }, active_enumerators: 0 } as never);
   vi.mocked(apiClient.syncSettings).mockResolvedValue({ mode: "manual", interval_minutes: 60, pending: false, last_successful_sync: "2026-10-25T12:00:00Z", latest_status: "completed" });
   vi.mocked(apiClient.indicators).mockResolvedValue([indicator(), indicator({ id: "students", name: "Students fed", current_value: 450 }), indicator({ id: "shortages", name: "Food shortage incidents", current_value: 2, direction: "decrease", target_value: 0 })]);
 });
@@ -62,10 +62,8 @@ it("uses four source-linked project-scoped summary cards", async () => {
   expect(screen.queryByText("450")).toBeNull();
   expect(screen.queryByText("Students fed")).toBeNull();
 
-  const params = vi.mocked(apiClient.submissionPage).mock.calls[0][0];
-  expect(params.get("project_id")).toBe("school");
-  expect(params.get("limit")).toBe("5");
-  expect(params.has("date_from")).toBe(false);
+  expect(apiClient.submissionSummary).toHaveBeenCalledWith("school");
+  expect(apiClient.submissions).not.toHaveBeenCalled();
   expect(apiClient.indicators).toHaveBeenCalledWith("school");
   expect(screen.getByRole("link", { name: /Edit project/ }).getAttribute("href")).toBe("/projects/school/details");
   expect(screen.getByRole("link", { name: "Details & activity" }).getAttribute("href")).toBe("/projects/school/details");
@@ -77,7 +75,7 @@ it("uses four source-linked project-scoped summary cards", async () => {
 it("shows honest empty states without creating school completeness or indicator metrics", async () => {
   vi.mocked(apiClient.getProject).mockResolvedValue({ id: "school", name: "School", status: "active", kobo_connection_id: null, kobo_form_id: null } as never);
   vi.mocked(apiClient.indicators).mockResolvedValue([]);
-  vi.mocked(apiClient.submissionPage).mockResolvedValue({ total: 0, counts: {}, items: [] });
+  vi.mocked(apiClient.submissionSummary).mockResolvedValue({ total: 0, counts: {}, active_enumerators: 0 });
   vi.mocked(apiClient.syncSettings).mockResolvedValue({ mode: "manual", interval_minutes: 60, pending: false, last_successful_sync: null });
   setup();
   await screen.findByRole("article", { name: /Active indicators 0/ });
@@ -92,7 +90,7 @@ it("shows honest empty states without creating school completeness or indicator 
 });
 
 it("does not show zero counts or an all-clear when required APIs fail", async () => {
-  vi.mocked(apiClient.submissionPage).mockRejectedValue(new Error("Unavailable"));
+  vi.mocked(apiClient.submissionSummary).mockRejectedValue(new Error("Unavailable"));
   setup();
   await screen.findByRole("button", { name: "Retry collection counts" });
   expect(screen.queryByText("Submitted records")).toBeNull();
@@ -105,7 +103,7 @@ it("does not load project data for an enumerator or an unauthorized project", as
   setup();
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(apiClient.getProject).not.toHaveBeenCalled();
-  expect(apiClient.submissionPage).not.toHaveBeenCalled();
+  expect(apiClient.submissionSummary).not.toHaveBeenCalled();
 });
 
 it("waits for authorized project detail before loading operational or result APIs", async () => {
@@ -124,19 +122,19 @@ it("changes scope on project navigation and does not keep the previous project's
   await screen.findByRole("article", { name: /Active indicators 0/ });
   expect(screen.queryByText("Feeding sessions completed")).toBeNull();
   expect(apiClient.syncSettings).not.toHaveBeenCalled();
-  const calls = vi.mocked(apiClient.submissionPage).mock.calls;
-  expect(calls.at(-1)?.[0].get("project_id")).toBe("other");
+  const calls = vi.mocked(apiClient.submissionSummary).mock.calls;
+  expect(calls.at(-1)?.[0]).toBe("other");
 });
 
 it("refreshes the saved overview after the existing synchronization action succeeds", async () => {
   vi.mocked(apiClient.syncProjectKoboForm).mockResolvedValue({ received: 5, created: 3, updated: 2 } as never);
   setup();
   await screen.findByRole("article", { name: /Active indicators/ });
-  const before = vi.mocked(apiClient.submissionPage).mock.calls.length;
+  const before = vi.mocked(apiClient.submissionSummary).mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "Sync data" }));
   await screen.findByText("Sync complete: 5 received, 3 new, 2 updated.");
   expect(apiClient.syncProjectKoboForm).toHaveBeenCalledWith("school");
-  await waitFor(() => expect(vi.mocked(apiClient.submissionPage).mock.calls.length).toBeGreaterThan(before));
+  await waitFor(() => expect(vi.mocked(apiClient.submissionSummary).mock.calls.length).toBeGreaterThan(before));
 });
 
 it("keeps real project context in the header and links to the editable details", async () => {
@@ -189,7 +187,7 @@ it("keeps the review chart scoped to project submissions and the selected review
 
 it("shows real chart empty states without drawing fictional values", async () => {
   vi.mocked(apiClient.analyticsOverview).mockResolvedValue({ trend: [] } as never);
-  vi.mocked(apiClient.submissionPage).mockResolvedValue({ total: 0, counts: {}, items: [] });
+  vi.mocked(apiClient.submissionSummary).mockResolvedValue({ total: 0, counts: {}, active_enumerators: 0 });
   setup();
   await screen.findByText("No dated submissions in this period");
   expect(screen.getByText("No saved records to chart yet.")).toBeTruthy();
@@ -231,6 +229,9 @@ it("shows the selected project lifecycle with a categorical status ring", async 
 
 
 it("counts distinct active project enumerators and uses the all-time submission total", async () => {
+  vi.mocked(apiClient.submissionSummary).mockResolvedValue({
+    total: 123, counts: { ready: 100, needs_review: 20, invalid: 3 }, active_enumerators: 2,
+  });
   vi.mocked(apiClient.projectTeam).mockResolvedValue([
     { user_id: "one", role: "enumerator", is_active: true },
     { user_id: "one", role: "enumerator", is_active: true },
@@ -241,4 +242,6 @@ it("counts distinct active project enumerators and uses the all-time submission 
   await waitFor(() => expect(screen.getByText("Enumerators").closest("li")?.textContent).toContain("1 assigned"));
   expect(screen.getByText("Data collected so far").closest("li")?.textContent).toContain("123 records");
   expect(apiClient.projectTeam).toHaveBeenCalledWith("school");
+  expect(screen.getByRole("article", { name: "Active enumerators 2" })).toBeTruthy();
+  expect(apiClient.submissions).not.toHaveBeenCalled();
 });

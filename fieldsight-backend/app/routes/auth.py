@@ -249,7 +249,15 @@ def get_current_user(
         user_id, session_id = UUID(claims["sub"]), UUID(claims["sid"])
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
         raise HTTPException(status_code=401, detail="Authentication is invalid.") from exc
-    refresh, user = db.get(RefreshSession, session_id), db.get(User, user_id)
+    # Validate session and account in one database round trip on every request.
+    identity = db.exec(
+        select(RefreshSession, User)
+        .join(User, col(User.id) == col(RefreshSession.user_id))
+        .where(RefreshSession.id == session_id, User.id == user_id)
+    ).first()
+    if identity is None:
+        raise HTTPException(status_code=401, detail="Authentication is invalid.")
+    refresh, user = identity
     if (
         refresh is None
         or refresh.revoked_at

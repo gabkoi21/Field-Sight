@@ -4,7 +4,8 @@ Organization administrators can now grant, check and revoke a named enumerator's
 direct collection permission from **Project → Field Team**, without leaving FieldSight.
 Save an assignment with its Kobo username and selected form, then choose **Grant Kobo
 access** and confirm. **Check access** reads the current provider permissions.
-**Revoke collection** separately removes direct collection permission; it does not
+**Revoke access** removes that account's direct form permissions, including View form
+and Add submissions, so the form is no longer shared with that account; it does not
 remove the FieldSight assignment. Removing or deselecting an assignment does not
 silently change external permissions. Inactive and old form mappings retain Check
 and Revoke actions so administrators can clean up sharing.
@@ -38,15 +39,18 @@ Backend requests:
 3. Grant: POST missing `view_asset` and `add_submissions` assignments with the exact
    named `user` URL. Explicit View form supports project discovery on deployments
    that do not list forms from calculated collection permissions alone.
-4. Revoke: DELETE only that user's direct `add_submissions` assignment URL, after
-   checking the URL stays on the configured server and the exact asset path.
+4. Revoke: DELETE all that user's direct form permission assignments, with
+   `view_asset` removed last to accommodate cascading permission removal. Validate
+   every assignment URL stays on the configured server and exact asset path before
+   deleting any assignment. Already-removed assignments (404) are tolerated.
 5. Re-read the permission list. Grant is verified when both explicit `view_asset`
    and `add_submissions` assignments are present for the exact named account.
-   View form alone never verifies collection access. Revoke is confirmed only after direct collection
-   permission is absent. Repeated requests are idempotent.
+   View form alone never verifies collection access. Revoke is confirmed only after
+   all of that account's direct form permissions are absent. Repeated requests are idempotent.
 
-Unrelated permissions, including existing View form and submission viewing rights,
-are preserved. Owner identities, AnonymousUser targets, anonymous collection and
+Other accounts' permissions are preserved. The revoked account's existing View form
+and submission viewing rights are removed along with collection access.
+Owner identities, AnonymousUser targets, anonymous collection, public form visibility and
 collector accounts with direct Manage project access are refused for manual review.
 Unsupported response shapes or deployments without the required advertised metadata
 fail safely. Existing supported HTTPS host restrictions and disabled redirects apply.

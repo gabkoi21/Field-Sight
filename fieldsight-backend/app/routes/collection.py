@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import case, func, update
+from sqlalchemy import select as sql_select
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import Session, col, select
@@ -388,6 +389,31 @@ def _submission_statement(
         ))
     statement = statement.where(*conditions, Project.organization_id == organization_id)
     return statement
+
+
+@router.get("/submissions/summary", tags=["Submissions"])
+def submission_summary(user: CurrentUser, db: Database, project_id: UUID) -> dict[str, object]:
+    """Bounded overview response: aggregate in SQL without loading submission payloads."""
+    organization_id = _organization_admin_id(user, db)
+    now = datetime.now(UTC)
+    recent = (col(Submission.submitted_at) >= now - timedelta(days=7)) & (col(Submission.submitted_at) <= now)
+    enumerator = func.nullif(func.lower(func.trim(Submission.enumerator)), "")
+    statuses = ("ready", "needs_review", "invalid")
+    row = db.execute(
+        sql_select(
+            func.count(),
+            *(func.count(case((col(Submission.review_status) == status, 1))) for status in statuses),
+            func.count(func.distinct(case((recent, enumerator)))),
+        )
+        .select_from(Submission)
+        .join(Project, col(Project.id) == col(Submission.project_id))
+        .where(
+            col(Submission.organization_id) == organization_id,
+            col(Project.organization_id) == organization_id,
+            col(Submission.project_id) == project_id,
+        )
+    ).one()
+    return {"total": row[0], "counts": dict(zip(statuses, row[1:4], strict=True)), "active_enumerators": row[4]}
 
 
 @router.get("/submissions/page", tags=["Submissions"])

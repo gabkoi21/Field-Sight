@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from sqlalchemy import event
 from sqlmodel import Session, select
 from test_kobo_sync import sync_client as sync_client
 
@@ -119,6 +120,49 @@ def test_reused_overview_contract_preserves_operational_and_me_scopes(sync_clien
     assert all(item["setup_complete"] for item in results.values())
 
 
+def test_submission_summary_counts_recent_distinct_collectors_and_preserves_scope(sync_client):
+    client, engine, project, headers = sync_client
+    foreign, sibling, _ = seed_overview(engine, project)
+    now = datetime.now(UTC)
+    with Session(engine) as db:
+        source = db.get(Project, UUID(project))
+        for index, (name, submitted) in enumerate([
+            (" Collector_A ", now - timedelta(hours=1)),
+            ("collector_a", now - timedelta(days=2)),
+            ("collector_b", now - timedelta(days=6)),
+            ("old_collector", now - timedelta(days=8)),
+            ("future_collector", now + timedelta(days=1)),
+            ("undated_collector", None), ("  ", now), (None, now),
+        ]):
+            db.add(Submission(
+                organization_id=source.organization_id, project_id=source.id,
+                kobo_connection_id=source.kobo_connection_id, kobo_form_id="form-1",
+                external_id=f"activity-{index}", enumerator=name, submitted_at=submitted,
+                raw_answers={"large_payload": "x" * 10000},
+            ))
+        db.commit()
+    statements = []
+
+    def record_query(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record_query)
+    try:
+        response = client.get(f"/submissions/summary?project_id={project}", headers=headers)
+    finally:
+        event.remove(engine, "before_cursor_execute", record_query)
+    assert response.status_code == 200
+    assert response.json() == {
+        "total": 12, "counts": {"ready": 10, "needs_review": 1, "invalid": 1}, "active_enumerators": 2,
+    }
+    assert len(response.content) < 200  # No answers or individual records are downloaded.
+    submission_queries = [sql for sql in statements if "FROM submissions" in sql]
+    assert len(submission_queries) == 1
+    assert "raw_answers" not in submission_queries[0]
+    assert client.get(f"/submissions/summary?project_id={foreign}", headers=headers).json()["total"] == 0
+    assert client.get(f"/submissions/summary?project_id={sibling}", headers=headers).json()["total"] == 1
+
+
 def test_foreign_tenant_and_empty_project_overview_contract(sync_client):
     client, engine, project, headers = sync_client
     foreign, sibling, _ = seed_overview(engine, project)
@@ -142,13 +186,13 @@ def test_overview_apis_keep_existing_membership_permissions(sync_client, role, a
         member.is_active = active
         db.add(member)
         db.commit()
-    for endpoint in [f"/submissions/page?project_id={project}",
+    for endpoint in [f"/submissions/page?project_id={project}", f"/submissions/summary?project_id={project}",
                      f"/projects/{project}/indicators", f"/projects/{project}/sync-settings"]:
         assert client.get(endpoint, headers=headers).status_code == 403
 
 
 def test_overview_apis_require_authentication(sync_client):
     client, _, project, _ = sync_client
-    for endpoint in [f"/submissions/page?project_id={project}",
+    for endpoint in [f"/submissions/page?project_id={project}", f"/submissions/summary?project_id={project}",
                      f"/projects/{project}/indicators", f"/projects/{project}/sync-settings"]:
         assert client.get(endpoint).status_code == 401
