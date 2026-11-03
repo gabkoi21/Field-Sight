@@ -9,38 +9,34 @@ import { WorkspaceShell } from "../workspace/WorkspaceShell";
 import { RouteContent } from "../components/layout/RouteContent";
 const SurveyQuestionExplorer = lazy(() => import("../pages/organization/SurveyQuestionExplorer").then(module => ({ default: module.SurveyQuestionExplorer })));
 import { LoginPage } from "../pages/auth/LoginPage";
-import { FieldOperationsPage } from "../pages/organization/FieldOperationsPage";
-import { KoboConnectionsPage } from "../pages/organization/KoboConnectionsPage";
-import { WorkspacesPage } from "../workspace/WorkspacesPage";
-import { WorkspaceDetailsPage } from "../workspace/WorkspaceDetailsPage";
-import { ProjectWorkspacePage } from "../pages/organization/ProjectWorkspacePage";
-import { QuickStartPage } from "../workspace/QuickStartPage";
-import { WorkspaceTeamPage } from "../workspace/WorkspaceTeamPage";
-import { DataTablesPage } from "../workspace/DataTablesPage";
-import { WorkspaceFormsPage } from "../workspace/WorkspaceFormsPage";
+const FieldOperationsPage = lazy(() => import("../pages/organization/FieldOperationsPage").then(module => ({ default: module.FieldOperationsPage })));
+const KoboConnectionsPage = lazy(() => import("../pages/organization/KoboConnectionsPage").then(module => ({ default: module.KoboConnectionsPage })));
+const WorkspacesPage = lazy(() => import("../workspace/WorkspacesPage").then(module => ({ default: module.WorkspacesPage })));
+const WorkspaceDetailsPage = lazy(() => import("../workspace/WorkspaceDetailsPage").then(module => ({ default: module.WorkspaceDetailsPage })));
+const ProjectWorkspacePage = lazy(() => import("../pages/organization/ProjectWorkspacePage").then(module => ({ default: module.ProjectWorkspacePage })));
+const QuickStartPage = lazy(() => import("../workspace/QuickStartPage").then(module => ({ default: module.QuickStartPage })));
+const WorkspaceTeamPage = lazy(() => import("../workspace/WorkspaceTeamPage").then(module => ({ default: module.WorkspaceTeamPage })));
+const DataTablesPage = lazy(() => import("../workspace/DataTablesPage").then(module => ({ default: module.DataTablesPage })));
+const WorkspaceFormsPage = lazy(() => import("../workspace/WorkspaceFormsPage").then(module => ({ default: module.WorkspaceFormsPage })));
 const OrganizationDashboardPage = lazy(() => import("../pages/dashboard/OrganizationDashboardPage").then(module => ({ default: module.OrganizationDashboardPage })));
 const DashboardsPage = lazy(() => import("../workspace/DashboardsPage").then(module => ({ default: module.DashboardsPage })));
-import {
-  ProfilePage,
-  AcceptInvitationPage,
-  AccountHelpPage,
-} from "../workspace/ProfilePage";
-import { OrganizationSettingsPage } from "../workspace/OrganizationSettingsPage";
+const ProfilePage = lazy(() => import("../workspace/ProfilePage").then(module => ({ default: module.ProfilePage })));
+const AcceptInvitationPage = lazy(() => import("../workspace/ProfilePage").then(module => ({ default: module.AcceptInvitationPage })));
+const AccountHelpPage = lazy(() => import("../workspace/ProfilePage").then(module => ({ default: module.AccountHelpPage })));
+const OrganizationSettingsPage = lazy(() => import("../workspace/OrganizationSettingsPage").then(module => ({ default: module.OrganizationSettingsPage })));
 const ProjectActionsPage = lazy(() => import("../pages/organization/ProjectActionsPage").then(module => ({ default: module.ProjectActionsPage })));
 const ProjectIndicatorsPage = lazy(() => import("../pages/organization/ProjectIndicatorsPage").then(module => ({ default: module.ProjectIndicatorsPage })));
-import { WorkspaceReportsPage as ReportsPage } from "../workspace/WorkspaceReportsPage";
-import { SubmissionsPage } from "../pages/organization/SubmissionsPage";
-import {
-  AuditLogPage,
-  BillingPage,
-  OrganizationsPage,
-  PlatformSettingsPage,
-  SectorsPage,
-  SuperAdminDashboardPage,
-  SuperAdminShell,
-  SystemHealthPage,
-  UsersPage,
-} from "../pages/superadmin";
+const ReportsPage = lazy(() => import("../workspace/WorkspaceReportsPage").then(module => ({ default: module.WorkspaceReportsPage })));
+const SubmissionsPage = lazy(() => import("../pages/organization/SubmissionsPage").then(module => ({ default: module.SubmissionsPage })));
+import { SuperAdminShell } from "../components/superadmin/SuperAdminShell";
+const AuditLogPage = lazy(() => import("../pages/superadmin/AuditLogPage").then(module => ({ default: module.AuditLogPage })));
+const BillingPage = lazy(() => import("../pages/superadmin/BillingPage").then(module => ({ default: module.BillingPage })));
+const OrganizationsPage = lazy(() => import("../pages/superadmin/OrganizationsPage").then(module => ({ default: module.OrganizationsPage })));
+const PlatformSettingsPage = lazy(() => import("../pages/superadmin/PlatformSettingsPage").then(module => ({ default: module.PlatformSettingsPage })));
+const SectorsPage = lazy(() => import("../pages/superadmin/SectorsPage").then(module => ({ default: module.SectorsPage })));
+const SuperAdminDashboardPage = lazy(() => import("../pages/dashboard/SuperAdminDashboardPage").then(module => ({ default: module.SuperAdminDashboardPage })));
+const SystemHealthPage = lazy(() => import("../pages/superadmin/SystemHealthPage").then(module => ({ default: module.SystemHealthPage })));
+const UsersPage = lazy(() => import("../pages/superadmin/UsersPage").then(module => ({ default: module.UsersPage })));
 
 export function App() {
   return (

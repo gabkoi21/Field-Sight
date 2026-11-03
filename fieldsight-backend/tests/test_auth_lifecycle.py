@@ -57,6 +57,9 @@ def test_rotation_preserves_access_and_logout_revokes_family(auth):
     first = sign_in(client)
     second = client.post("/auth/refresh")
     assert second.status_code == 200
+    profile = client.get("/auth/me", headers=bearer(second)).json()
+    assert first.json()["user"] == profile
+    assert second.json()["user"] == profile
     assert client.get("/auth/me", headers=bearer(first)).status_code == 200
     assert client.get("/auth/me", headers=bearer(second)).status_code == 200
     claims = jwt.decode(
@@ -98,19 +101,21 @@ def test_invalid_sessions(auth, condition):
 def test_cookie_attributes_and_restore(auth, remember):
     client, engine, uid, app, settings = auth
     response = sign_in(client, remember)
-    cookie = response.headers["set-cookie"]
-    assert "HttpOnly" in cookie and "SameSite=lax" in cookie and "Path=/auth" in cookie
+    cookie = next(header for header in response.headers.get_list("set-cookie") if "Max-Age=0" not in header)
+    assert "HttpOnly" in cookie and "SameSite=lax" in cookie and "Path=/;" in cookie
     assert ("Max-Age=" in cookie) is remember
     renewed = client.post("/auth/refresh")
     assert renewed.status_code == 200 and renewed.json()["remember"] is remember
     assert client.get("/auth/me", headers=bearer(renewed)).status_code == 200
 
 
-def test_refresh_cookie_works_through_api_prefix_proxy(auth):
+@pytest.mark.parametrize("cookie_path", [None, "/api/auth"])
+def test_refresh_cookie_works_through_api_prefix_proxy(auth, cookie_path):
     from fastapi import FastAPI
 
     client, engine, uid, app, settings = auth
-    settings.refresh_cookie_path = "/api/auth"
+    if cookie_path:
+        settings.refresh_cookie_path = cookie_path
     proxy = FastAPI()
     proxy.mount("/api", app)
     with TestClient(proxy, base_url="https://frontend.example") as browser:
@@ -118,13 +123,27 @@ def test_refresh_cookie_works_through_api_prefix_proxy(auth):
             "/api/auth/login", json={"login": "admin@example.com", "password": "SyntheticPassword123!"}
         )
         assert login.status_code == 200
-        assert "Path=/api/auth" in login.headers["set-cookie"]
+        assert f"Path={cookie_path or '/'};" in login.headers["set-cookie"]
         assert browser.post("/api/auth/refresh").status_code == 200
         logout = browser.post("/api/auth/logout")
         assert logout.status_code == 204
-        assert "Path=/api/auth" in logout.headers["set-cookie"]
+        assert f"Path={cookie_path or '/'};" in logout.headers["set-cookie"]
         assert not browser.cookies.get("refresh_token")
         assert browser.post("/api/auth/refresh").status_code == 401
+
+
+def test_sign_in_replaces_legacy_path_cookie_and_logout_clears_all_paths(auth):
+    client, engine, uid, app, settings = auth
+    sign_in(client)
+    old_cookie = client.cookies.get("refresh_token")
+    client.cookies.set("refresh_token", old_cookie, path="/auth", domain="testserver.local")
+    assert len([cookie for cookie in client.cookies.jar if cookie.name == "refresh_token"]) == 2
+    sign_in(client)
+    cookies = [cookie for cookie in client.cookies.jar if cookie.name == "refresh_token"]
+    assert len(cookies) == 1 and cookies[0].path == "/"
+    assert client.post("/auth/refresh").status_code == 200
+    assert client.post("/auth/logout").status_code == 204
+    assert not [cookie for cookie in client.cookies.jar if cookie.name == "refresh_token"]
 
 
 def test_competing_refresh_is_atomic_and_old_cookie_cannot_replay(auth):
@@ -213,7 +232,7 @@ def test_production_cookie_keeps_secure_defaults():
         user_id=uuid4(), token_hash="synthetic", remembered=True, expires_at=datetime.now(UTC) + timedelta(days=14)
     )
     _set_tokens(response, "synthetic", record, settings)
-    cookie = response.headers["set-cookie"]
+    cookie = next(header for header in response.headers.getlist("set-cookie") if "Max-Age=0" not in header)
     assert "Secure" in cookie and "HttpOnly" in cookie and "SameSite=lax" in cookie
     assert response.headers["cache-control"] == "no-store"
 

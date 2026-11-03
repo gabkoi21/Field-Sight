@@ -94,6 +94,12 @@ separately from the database. Replacing it makes existing encrypted tokens unrea
 a deliberate re-encryption migration. Changing the JWT secret invalidates existing signed access tokens.
 
 Set `FIELDSIGHT_CORS_ORIGINS` to comma-separated exact HTTPS frontend origins, without trailing slashes.
+The refresh cookie defaults to `Path=/` so it works through the frontend's `/api` proxy and direct API routes.
+For a narrower production cookie scope, set `FIELDSIGHT_REFRESH_COOKIE_PATH=/api/auth` when using the included
+Vercel rewrite. Do not use `/auth` with that rewrite: the browser sends refresh requests to `/api/auth/refresh`,
+so a cookie scoped to `/auth` is omitted. Sign in again after correcting an existing cookie-path configuration.
+Access tokens last 15 minutes and are renewed automatically; refresh sessions last 14 days by default.
+Selecting Remember me persists the refresh cookie across browser restarts; otherwise it is a browser-session cookie.
 Its empty default in the private deployment file allows no cross-origin browser access. Configure
 `FIELDSIGHT_UPLOAD_BASE_URL` with your real HTTPS upload service before using upload URLs.
 

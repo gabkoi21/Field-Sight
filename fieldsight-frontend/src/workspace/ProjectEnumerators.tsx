@@ -17,9 +17,14 @@ const grantedButton = `${compactButton} !border-emerald-200 !bg-emerald-50 !text
 
 const labels: Record<KoboAccessState, string> = {
   not_configured: "Not configured", pending: "Pending",
-  verified_granted: "Granted — verified in Kobo", failed: "Failed — check or retry", revoked: "Direct collection permission revoked",
+  verified_granted: "Granted — verified in Kobo", failed: "Failed — check or retry", revoked: "Direct form access revoked",
   reported_configured_unverified: "Reported configured — not verified",
 };
+
+function teamStatus(item: ProjectCollector) {
+  if (!item.is_active) return "Removed";
+  return item.forms.some(form => form.is_selected && form.mapping_current && (form.state === "verified_granted" && form.grant_confirmed)) ? "Active" : "Inactive";
+}
 
 export function ProjectEnumerators({ projectId }: { projectId: string }) {
   const cache = useQueryClient();
@@ -30,6 +35,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
   const [removing, setRemoving] = useState<ProjectCollector | null>(null);
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
   const [counties, setCounties] = useState<string[] | null>(null);
   const [countyDropdownOpen, setCountyDropdownOpen] = useState(false);
   const [countySearch, setCountySearch] = useState("");
@@ -40,6 +46,8 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
   const save = useMutation({
     mutationFn: async () => {
       const input: CollectorAssignmentInput = {
+        ...(editing === "new" && fullName.trim() ? { full_name: fullName.trim() } : {}),
+        ...(editing === "new" && email.trim() ? { email: email.trim() } : {}),
         ...(editing && editing !== "new" && fullName.trim() !== (editing.full_name ?? "") ? { full_name: fullName.trim() || null } : {}),
         kobo_username: username.trim(),
         counties,
@@ -73,6 +81,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
     save.reset(); setEditing(item);
     setUsername(item === "new" ? "" : item.kobo_username ?? "");
     setFullName(item === "new" ? "" : item.full_name ?? "");
+    setEmail("");
     setCounties(item === "new" ? null : item.counties ?? null);
     setCountyDropdownOpen(false); setCountySearch("");
   }
@@ -81,7 +90,7 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
       item.full_name || item.email || item.kobo_username || "",
       item.kobo_username || "",
       item.forms.filter(form => form.is_selected).map(form => list.data?.connected_forms.find(connected => connected.connection_id === form.connection_id && connected.form_id === form.form_id)?.name || form.form_id).join(", "),
-      item.is_active ? "Active" : "Inactive",
+      teamStatus(item),
       item.forms.map(form => labels[form.state]).join(", "),
       item.assigned_at,
       item.counties?.join(", ") ?? "All counties",
@@ -109,9 +118,9 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
         {!members.length ? <p className="m-0 px-4 py-8 text-sm text-[var(--fs-muted)]">No enumerators found. Add an existing organization enumerator or register a collection-only contact.</p> : <div className="fs-table-scroll !rounded-none !border-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--fs-primary)]" role="region" aria-label="Project enumerators table" tabIndex={0}>
           <table aria-busy={refreshing} className="fs-data-table w-full min-w-[1440px] table-fixed text-left text-[13px]">
             <caption className="sr-only">Project enumerators, assigned forms and Kobo access</caption>
-            <colgroup>{[13, 9, 14, 8, 24, 8, 13, 11].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
+            <colgroup>{[14, 9, 15, 7, 21, 9, 11, 14].map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>
             <thead className="bg-[var(--fs-table-heading)] text-[13px] text-[var(--fs-text)]"><tr>
-              {["Enumerator", "Kobo username", "Assigned forms", "Assignment status", "Kobo access", "Date assigned", "Counties", "Actions"].map((heading, column) => <th key={heading} scope="col" aria-sort={column < 7 ? sort?.column === column ? sort.direction : "none" : undefined} className="border-r border-[var(--fs-table-border)] px-3 py-2 text-[13px] font-medium last:border-r-0">
+              {["Enumerator", "Kobo username", "Assigned forms", "Status", "Kobo access", "Date assigned", "Counties", "Actions"].map((heading, column) => <th key={heading} scope="col" aria-sort={column < 7 ? sort?.column === column ? sort.direction : "none" : undefined} className="border-r border-[var(--fs-table-border)] px-3 py-2 text-[13px] font-medium last:border-r-0">
                 {column === 7 ? heading : <button type="button" aria-label={`Sort by ${heading}`} className="justify-between border-0 bg-transparent text-left text-[var(--fs-text)] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--fs-primary)]" onClick={() => { setSort(previous => ({ column, direction: previous?.column === column && previous.direction === "ascending" ? "descending" : "ascending" })); setPage(1); }}>
                   <span>{heading}</span>{sort?.column === column ? sort.direction === "ascending" ? <ArrowUp size={12} aria-hidden="true" className="shrink-0 text-[var(--fs-primary)]" /> : <ArrowDown size={12} aria-hidden="true" className="shrink-0 text-[var(--fs-primary)]" /> : <ChevronsUpDown size={12} aria-hidden="true" className="shrink-0 text-slate-500" />}
                 </button>}
@@ -121,21 +130,20 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
             <th scope="row" className="max-w-[240px] break-words px-3 py-2 font-normal"><strong className="block font-medium">{item.full_name || item.kobo_username || item.email || "Enumerator"}</strong>{item.email && <span className="mt-0.5 block text-xs text-[var(--fs-primary)]">{item.email}</span>}</th>
             <td className="max-w-[180px] break-words px-3 py-2">{item.kobo_username || "Not provided"}</td>
             <td className="max-w-[220px] break-words px-3 py-2">{item.forms.some(form => form.is_selected) ? item.forms.filter(form => form.is_selected).map(form => <div key={form.id} className="mb-2 last:mb-0" title={form.form_id}>{list.data?.connected_forms.find(connected => connected.connection_id === form.connection_id && connected.form_id === form.form_id)?.name || form.form_id}{!form.mapping_current && <span className="block text-xs text-[var(--fs-muted)]">Previous mapping</span>}</div>) : "No forms selected"}</td>
-            <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-2 py-0.5 text-xs font-medium ${item.is_active ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-700"}`}>{item.is_active ? "Active" : "Inactive"}</span></td>
-            <td className="max-w-[320px] px-3 py-2">{!item.forms.length ? "Not configured" : item.forms.map(form => <div key={form.id} className="mb-2 space-y-1 last:mb-0"><span className="block">{labels[form.state]}</span>
-              {form.last_checked_at && <span className="block text-xs text-[var(--fs-muted)]">Last checked: {formatDateTime(form.last_checked_at)}</span>}
+            <td className="px-3 py-2"><span className={`inline-flex rounded-sm px-2 py-0.5 text-xs font-medium ${teamStatus(item) === "Active" ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-700"}`}>{teamStatus(item)}</span></td>
+            <td className="max-w-[320px] px-3 py-2">{!item.forms.length ? "Not configured" : item.forms.map(form => <div key={form.id} className="mb-2 space-y-1 last:mb-0">{form.grant_confirmed && form.state !== "not_configured" && <span className="block">{labels[form.state]}</span>}
+              {form.grant_confirmed && form.last_checked_at && <span className="block text-xs text-[var(--fs-muted)]">Last checked: {formatDateTime(form.last_checked_at)}</span>}
               {form.last_error && <p role="alert" className="m-0 text-xs text-red-700">{form.requested_action && `${form.requested_action}: `}{form.last_error}</p>}
               <div className="flex min-w-0 flex-wrap items-center gap-2 pt-1">
-                {item.is_active && form.is_selected && form.mapping_current && <Button className={form.state === "verified_granted" ? grantedButton : blueButton} variant="secondary" disabled={form.state === "verified_granted" || access.isPending || !item.kobo_username} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "grant" }); }}>{form.state === "verified_granted" ? <Check size={14} aria-hidden="true" /> : <KeyRound size={14} aria-hidden="true" />}{form.state === "verified_granted" ? "Granted" : form.state === "failed" && form.requested_action === "grant" ? "Retry grant" : "Grant Kobo access"}</Button>}
-                {(form.state === "verified_granted" || (form.requested_action === "revoke" && form.state !== "revoked")) && <>
-                  <Button className={blueButton} variant="secondary" disabled={access.isPending} onClick={() => access.mutate({ assignment: item.id, form: form.id, action: "verify" })}><RefreshCw size={14} aria-hidden="true" />Check access</Button>
+                {item.is_active && form.is_selected && form.mapping_current && <Button className={(form.state === "verified_granted" && form.grant_confirmed) ? grantedButton : blueButton} variant="secondary" disabled={(form.state === "verified_granted" && form.grant_confirmed) || access.isPending || !item.kobo_username} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "grant" }); }}>{(form.state === "verified_granted" && form.grant_confirmed) ? <Check size={14} aria-hidden="true" /> : <KeyRound size={14} aria-hidden="true" />}{(form.state === "verified_granted" && form.grant_confirmed) ? "Granted" : form.state === "failed" && form.requested_action === "grant" ? "Retry grant" : "Grant Kobo access"}</Button>}
+                {(form.grant_confirmed && (form.state === "verified_granted" || (form.requested_action === "revoke" && form.state !== "revoked"))) && <>
                   <Button className={revokeButton} variant="secondary" disabled={access.isPending} onClick={() => { access.reset(); setAccessConfirm({ item, form, action: "revoke" }); }}><ShieldMinus size={14} aria-hidden="true" />{form.state === "failed" && form.requested_action === "revoke" ? "Retry revoke" : "Revoke access"}</Button>
                 </>}
               </div>
             </div>)}</td>
             <td className="whitespace-nowrap px-3 py-2">{formatDate(item.assigned_at)}</td>
             <td className="break-words px-3 py-2">{item.counties?.join(", ") ?? "All counties"}</td>
-            <td className="px-3 py-2"><div className="flex flex-row flex-nowrap items-center gap-1.5">
+            <td className="px-3 py-3 !pr-4"><div className="flex min-w-0 flex-wrap items-center gap-2">
               {item.is_active ? <><Button className={blueButton} variant="secondary" aria-label="Edit forms & Kobo access" onClick={() => open(item)}><Pencil size={14} aria-hidden="true" />Edit</Button><Button className={dangerButton} variant="secondary" onClick={() => { remove.reset(); setRemoving(item); }}><Trash2 size={14} aria-hidden="true" />Remove</Button></> : <Button className={blueButton} variant="secondary" onClick={() => { open("new"); setUsername(item.kobo_username ?? ""); }}><UserPlus size={14} aria-hidden="true" />Reassign</Button>}
             </div></td>
           </tr>)}</tbody>
@@ -154,11 +162,12 @@ export function ProjectEnumerators({ projectId }: { projectId: string }) {
         </nav>
       </>}
     </Panel>
-    {accessConfirm && <Dialog title={accessConfirm.action === "grant" ? "Grant Kobo collection access?" : "Revoke Kobo collection access?"} description={`${accessConfirm.form.permission_username || accessConfirm.item.kobo_username} · ${accessConfirm.form.form_id}`} error={access.error?.message} onClose={() => { if (!access.isPending) setAccessConfirm(null); }}><div className="space-y-4"><p>{accessConfirm.action === "grant" ? "Grant Add submissions using the project's Kobo connection. Kobo also includes View form. Existing unrelated permissions are preserved." : "Remove this account's direct Add submissions permission for this Kobo form. Its FieldSight assignment stays unchanged. Other Kobo permissions are preserved. This affects that Kobo account wherever this form is used."}</p><p className="text-sm text-[var(--fs-muted)]">Checks confirm direct Kobo API permissions at the displayed time; they do not test login, offline copies, or inherited account access.</p><div className="flex gap-3"><Button disabled={access.isPending} onClick={() => setAccessConfirm(null)}>Cancel</Button><Button disabled={access.isPending} onClick={() => access.mutate({ assignment: accessConfirm.item.id, form: accessConfirm.form.id, action: accessConfirm.action })}>{access.isPending ? "Updating Kobo…" : accessConfirm.action === "grant" ? "Confirm grant" : "Confirm revoke"}</Button></div></div></Dialog>}
+    {accessConfirm && <Dialog title={accessConfirm.action === "grant" ? "Grant Kobo collection access?" : "Revoke Kobo form access?"} description={`${accessConfirm.form.permission_username || accessConfirm.item.kobo_username} · ${accessConfirm.form.form_id}`} error={access.error?.message} onClose={() => { if (!access.isPending) setAccessConfirm(null); }}><div className="space-y-4"><p>{accessConfirm.action === "grant" ? "Grant Add submissions using the project's Kobo connection. Kobo also includes View form. Existing unrelated permissions are preserved." : "Remove this account's direct permissions to view this form and submit data in Kobo. Its FieldSight assignment and submission history stay saved. This affects that Kobo account wherever this form is used."}</p><p className="text-sm text-[var(--fs-muted)]">Checks confirm direct Kobo API permissions at the displayed time; they do not test login, offline copies, or inherited account access.</p><div className="flex gap-3"><Button disabled={access.isPending} onClick={() => setAccessConfirm(null)}>Cancel</Button><Button disabled={access.isPending} onClick={() => access.mutate({ assignment: accessConfirm.item.id, form: accessConfirm.form.id, action: accessConfirm.action })}>{access.isPending ? "Updating Kobo…" : accessConfirm.action === "grant" ? "Confirm grant" : "Confirm revoke"}</Button></div></div></Dialog>}
     {editing && <Dialog title={editing === "new" ? "Add Enumerator" : "Update enumerator forms"} description="Save the assignment, then grant Kobo access using the button in the table." error={save.error?.message} onClose={() => { if (!save.isPending) setEditing(null); }}>
       <form className="grid gap-4" onSubmit={e => { e.preventDefault(); save.mutate(); }}>
-        <Field label="Kobo username"><input required pattern="[A-Za-z0-9_.@+\-]+" maxLength={100} className={fieldClass} value={username} onChange={e => { setUsername(e.target.value); }} /></Field>
-        {editing !== "new" && <Field label="Full name"><input minLength={2} maxLength={200} autoComplete="name" className={fieldClass} placeholder="Enter the person’s full name" value={fullName} onChange={e => setFullName(e.target.value)} /></Field>}
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium text-[var(--fs-muted)]"><span>Kobo username <span aria-hidden="true" className="text-red-600">*</span></span><input aria-label="Kobo username" required pattern="[A-Za-z0-9_.@+\-]+" maxLength={100} className={fieldClass} value={username} onChange={e => { setUsername(e.target.value); }} /></label>
+        <Field label="Full name"><input minLength={2} maxLength={200} autoComplete="name" className={fieldClass} placeholder="Enter the person’s full name" value={fullName} onChange={e => setFullName(e.target.value)} /></Field>
+        {editing === "new" && <Field label="Email"><input type="email" maxLength={254} autoComplete="email" className={fieldClass} placeholder="Enter email (optional)" value={email} onChange={e => setEmail(e.target.value)} /></Field>}
         <div className="relative grid gap-1.5" onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCountyDropdownOpen(false); }} onKeyDown={e => { if (e.key === "Escape" && countyDropdownOpen) { e.preventDefault(); e.stopPropagation(); setCountyDropdownOpen(false); e.currentTarget.querySelector("button")?.focus(); } }}>
           <label htmlFor="assigned-counties" className="text-sm font-medium text-[var(--fs-muted)]">Assigned counties</label>
           <div className="relative">

@@ -42,7 +42,9 @@ def _has_workspace_access(user: User, db: Session) -> bool:
         return True
     return (
         db.exec(
-            select(OrganizationMembership).join(Organization).where(
+            select(OrganizationMembership)
+            .join(Organization)
+            .where(
                 Organization.is_active,
                 OrganizationMembership.user_id == user.id,
                 OrganizationMembership.role == Role.ORGANIZATION_ADMIN,
@@ -64,8 +66,18 @@ def _require_workspace_access(user: User, db: Session) -> None:
         )
 
 
-def _set_tokens(response: Response, raw: str, record: RefreshSession, settings: Settings) -> TokenResponse:
+def _set_tokens(
+    response: Response,
+    raw: str,
+    record: RefreshSession,
+    settings: Settings,
+    user_profile: dict[str, object] | None = None,
+) -> TokenResponse:
     response.headers["Cache-Control"] = "no-store"
+    # Remove old path-scoped cookies before setting the current cookie. Otherwise
+    # a browser can send an older /auth token before the new root-scoped token.
+    for path in {"/", "/auth", "/api/auth"} - {settings.refresh_cookie_path}:
+        response.delete_cookie("refresh_token", path=path)
     remaining = max(0, int((_utc(record.expires_at) - datetime.now(UTC)).total_seconds()))
     response.set_cookie(
         "refresh_token",
@@ -79,6 +91,7 @@ def _set_tokens(response: Response, raw: str, record: RefreshSession, settings: 
     return TokenResponse(
         access_token=create_access_token(record.user_id, record.family_id or record.id, settings),
         remember=record.remembered,
+        user=user_profile,
     )
 
 
@@ -128,7 +141,7 @@ def login(
     )
     db.add(record)
     db.commit()
-    return _set_tokens(response, raw, record, settings)
+    return _set_tokens(response, raw, record, settings, _profile(user, db))
 
 
 # Why: renews an expired access token without asking the user to sign in again.
@@ -190,7 +203,7 @@ def refresh(
                 _reject(request, "inactive_account")
             _require_workspace_access(user, db)
             db.commit()
-            return _set_tokens(response, raw, successor, settings)
+            return _set_tokens(response, raw, successor, settings, _profile(user, db))
         root = db.get(RefreshSession, family_id)
         if root:
             root.revoked_at = datetime.now(UTC)
@@ -215,7 +228,7 @@ def refresh(
     record.rotated_at = datetime.now(UTC)
     db.add_all([record, successor])
     db.commit()
-    return _set_tokens(response, raw, successor, settings)
+    return _set_tokens(response, raw, successor, settings, _profile(user, db))
 
 
 def get_current_user(
@@ -270,7 +283,8 @@ def logout(
             record.revoked_at = datetime.now(UTC)
             db.add(record)
             db.commit()
-    response.delete_cookie("refresh_token", path=settings.refresh_cookie_path)
+    for path in {"/", "/auth", "/api/auth", settings.refresh_cookie_path}:
+        response.delete_cookie("refresh_token", path=path)
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
 
@@ -278,9 +292,16 @@ def logout(
 # Why: gives the frontend the signed-in user and tenant membership context.
 @router.get("/me")
 def me(user: Annotated[User, Depends(get_current_user)], db: Database) -> dict[str, object]:
+    return _profile(user, db)
+
+
+def _profile(user: User, db: Session) -> dict[str, object]:
     memberships = db.exec(
-        select(OrganizationMembership, Organization).join(Organization).where(
-            OrganizationMembership.user_id == user.id, OrganizationMembership.is_active,
+        select(OrganizationMembership, Organization)
+        .join(Organization)
+        .where(
+            OrganizationMembership.user_id == user.id,
+            OrganizationMembership.is_active,
             Organization.is_active,
         )
     ).all()

@@ -1,4 +1,4 @@
-"""Narrow Kobo v2 collection sharing; never replace a project's full permission set."""
+"""Grant collection permissions or revoke one collector's direct form access."""
 
 from typing import Any, Literal
 from urllib.parse import quote, urlparse
@@ -33,6 +33,8 @@ def reconcile_collection_access(
                 ) from None
             if response.status_code in {401, 403}:
                 raise ValueError("Kobo rejected access. The connection token must belong to a form owner or manager.")
+            if method == "DELETE" and response.status_code == 404:
+                return None  # Cascading permission removal may already remove this assignment.
             if response.status_code in {400, 404, 409}:
                 raise ValueError(
                     "Kobo rejected the form, username or permission. Check the account exists on this server."
@@ -79,6 +81,10 @@ def reconcile_collection_access(
                 raise ValueError(
                     "This form allows anonymous submissions. Configure authenticated collection in Kobo first."
                 )
+            if action == "revoke" and any(p["user"] == anonymous and p["permission"] == view_url for p in rows):
+                raise ValueError(
+                    "This form is publicly visible. Disable public form sharing in Kobo before revoking form access."
+                )
             if any(
                 p["user"] == user_url and p["permission"] == f"{server}/api/v2/permissions/manage_asset/" for p in rows
             ):
@@ -96,9 +102,10 @@ def reconcile_collection_access(
                 if not any(p["permission"] == required for p in target):
                     request("POST", assignments_path, json={"user": user_url, "permission": required})
         elif action == "revoke":
-            for permission in target:
-                if permission["permission"] != add_url:
-                    continue
+            paths = []
+            # Remove all of this account's direct form permissions. View form is
+            # removed last, since Kobo can cascade dependent permission removal.
+            for permission in sorted(target, key=lambda permission: permission["permission"] == view_url):
                 parsed = urlparse(permission["url"])
                 expected = urlparse(server)
                 suffix = parsed.path.removeprefix(assignments_path)
@@ -112,21 +119,24 @@ def reconcile_collection_access(
                     or not suffix.endswith("/")
                 ):
                     raise ValueError("Kobo returned an unsafe permission assignment URL.")
-                request("DELETE", parsed.path)
+                paths.append(parsed.path)
+            for path in paths:
+                request("DELETE", path)
         # Always re-read; HTTP success alone is not proof that permission changed.
         target = [p for p in permissions() if p["user"] == user_url]
         has_add = any(p["permission"] == add_url for p in target)
         has_view = any(p["permission"] == view_url for p in target)
         if action == "revoke":
-            if has_add:
+            if target:
                 raise ValueError(
-                    "Kobo still reports collection permission. Revoke failed; retry after checking sharing."
+                    "Kobo still reports direct form access. "
+                    "Revocation has not been confirmed; retry after checking sharing."
                 )
+            return "revoked"
+        if action == "verify" and not target:
             return "revoked"
         if has_add and has_view:
             return "verified_granted"
         if action == "grant":
-            raise ValueError(
-                "Kobo has not confirmed explicit View form and Add submissions. Check access or retry."
-            )
+            raise ValueError("Kobo has not confirmed explicit View form and Add submissions. Check access or retry.")
         return "not_configured"

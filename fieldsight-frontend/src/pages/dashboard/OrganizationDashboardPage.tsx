@@ -97,11 +97,10 @@ export function OrganizationDashboardPage() {
   });
 
   const pendingSyncQuery = useQuery({
-    queryKey: ["organization-pending-kobo-sync", organizationId],
+    queryKey: ["kobo-pending-sync", user?.id ?? "", organizationId ?? ""],
     queryFn: apiClient.pendingKoboSync,
     enabled: overviewQuery.isSuccess,
-    staleTime: 5 * 60_000,
-    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 
@@ -121,7 +120,7 @@ export function OrganizationDashboardPage() {
       return results.length;
     },
     onSettled: async () => {
-      await Promise.all(["organization-dashboard-overview", "organization-pending-kobo-sync", "dashboard-recent-submissions", "project-overview", "submissions", "sync-runs", "sync-settings"].map(key => cache.invalidateQueries({ queryKey: [key] })));
+      await Promise.all(["organization-dashboard-overview", "kobo-pending-sync", "dashboard-recent-submissions", "project-overview", "submissions", "sync-runs", "sync-settings"].map(key => cache.invalidateQueries({ queryKey: [key] })));
     },
   });
 

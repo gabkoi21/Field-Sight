@@ -83,9 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async login(login, password, remember) {
       epoch.current++;
       await queryClient.cancelQueries(); queryClient.clear();
-      await apiClient.login(login, password, remember);
+      const profile = await apiClient.login(login, password, remember);
       const loginEpoch = epoch.current;
-      const current = await apiClient.me();
+      const current = profile ?? await apiClient.me();
       if (loginEpoch !== epoch.current) throw new Error("Session changed during sign in.");
       identity.current = current.id;
       setUser(current); setStatus("authenticated");

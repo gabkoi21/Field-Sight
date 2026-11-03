@@ -17,7 +17,7 @@ from app.models.identity import (
     Sector,
     User,
 )
-from app.models.operations import KoboConnection, Project, Submission
+from app.models.operations import KoboConnection, Project, Submission, SyncRun
 
 
 def test_dashboard_uses_local_aggregate_queries_without_contacting_kobo(
@@ -69,6 +69,20 @@ def test_dashboard_uses_local_aggregate_queries_without_contacting_kobo(
         )
         db.add(project)
         db.flush()
+        # A later failed attempt must not erase the timestamp of an earlier
+        # successful sync, and only the latest run determines source health.
+        for hours, status in [(3, "completed"), (1, "failed")]:
+            db.add(
+                SyncRun(
+                    organization_id=organization.id,
+                    project_id=project.id,
+                    kobo_connection_id=connection.id,
+                    kobo_form_id="form-1",
+                    status=status,
+                    started_at=now - timedelta(hours=hours),
+                    completed_at=now - timedelta(hours=hours) + timedelta(minutes=1),
+                )
+            )
         db.add_all(
             [
                 Submission(
@@ -134,6 +148,9 @@ def test_dashboard_uses_local_aggregate_queries_without_contacting_kobo(
     assert sum(day["submissions"] for day in payload["trend"]) == 2
     assert payload["projects"][0]["actual"] == 2
     assert payload["pending_sync_count"] is None
+    assert datetime.fromisoformat(payload["last_synced_at"]).replace(tzinfo=UTC) == now - timedelta(
+        hours=3
+    ) + timedelta(minutes=1)
     assert payload["sync_status"] == {
         "pending_count": None,
         "sources": [],

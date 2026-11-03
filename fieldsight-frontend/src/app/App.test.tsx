@@ -9,7 +9,7 @@ vi.mock("../auth/RouteGuards", () => ({
   RequireOrganizationMember: ({ children }: { children: React.ReactNode }) => children,
   RequireSuperAdmin: ({ children }: { children: React.ReactNode }) => children,
 }));
-vi.mock("../workspace/WorkspaceShell", () => ({ WorkspaceShell: () => <Outlet /> }));
+vi.mock("../workspace/WorkspaceShell", () => ({ WorkspaceShell: () => <React.Suspense fallback={<p>Loading route…</p>}><Outlet /></React.Suspense> }));
 vi.mock("../pages/organization/ProjectWorkspacePage", () => ({ ProjectWorkspacePage: () => <h1>Action-focused project overview</h1> }));
 vi.mock("../workspace/WorkspaceDetailsPage", () => ({ WorkspaceDetailsPage: () => <h1>Existing project details</h1> }));
 vi.mock("../pages/dashboard/OrganizationDashboardPage", () => ({ OrganizationDashboardPage: () => <h1>Dashboard</h1> }));
@@ -19,9 +19,9 @@ vi.mock("../workspace/DashboardsPage", () => ({ DashboardsPage: () => <h1>Projec
 
 afterEach(cleanup);
 
-it("registers the action-focused overview in the actual application router", () => {
+it("registers the action-focused overview in the actual application router", async () => {
   render(<MemoryRouter initialEntries={["/projects/school/overview"]}><App /></MemoryRouter>);
-  expect(screen.getByRole("heading", { name: "Action-focused project overview" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Action-focused project overview" })).toBeTruthy();
 });
 
 it("opens Overview when a project is selected", async () => {
@@ -29,9 +29,9 @@ it("opens Overview when a project is selected", async () => {
   expect(await screen.findByRole("heading", { name: "Action-focused project overview" })).toBeTruthy();
 });
 
-it("keeps project editing accessible through Details & activity", () => {
+it("keeps project editing accessible through Details & activity", async () => {
   render(<MemoryRouter initialEntries={["/projects/school/details"]}><App /></MemoryRouter>);
-  expect(screen.getByRole("heading", { name: "Existing project details" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Existing project details" })).toBeTruthy();
 });
 
 it("redirects the removed Data Quality page to Dashboard", async () => {
@@ -57,7 +57,7 @@ it("opens shared dashboards with a readable project URL", async () => {
   expect(await screen.findByRole("heading", { name: "Project dashboards school-feeding" })).toBeTruthy();
 });
 
-it("opens the clean overview URL", () => {
+it("opens the clean overview URL", async () => {
   render(<MemoryRouter initialEntries={["/overview"]}><App /></MemoryRouter>);
-  expect(screen.getByRole("heading", { name: "Action-focused project overview" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: "Action-focused project overview" })).toBeTruthy();
 });

@@ -39,7 +39,8 @@ def test_login_cookie_can_refresh_on_versioned_auth_route(tmp_path: Path) -> Non
     )
 
     assert login.status_code == 200
-    assert "Path=/auth" in login.headers["set-cookie"]
+    issued = next(header for header in login.headers.get_list("set-cookie") if "Max-Age=0" not in header)
+    assert "Path=/;" in issued
 
     refreshed = client.post("/auth/refresh")
 

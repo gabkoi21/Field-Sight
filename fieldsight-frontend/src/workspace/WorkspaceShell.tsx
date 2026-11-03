@@ -75,9 +75,9 @@ function Shell({ loading }: { loading: boolean }) {
     queryKey: ["kobo-pending-sync", user?.id ?? "", workspace.organizationId],
     queryFn: apiClient.pendingKoboSync,
     enabled: workspace.isAdmin && !loading,
-    staleTime: 5000,
-    refetchInterval: 5000,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
     meta: { backgroundRefresh: true },
   });
   const countStorageKey = `fieldsight.pending-sync-count:${user?.id ?? ""}:${workspace.organizationId}`;

@@ -8,7 +8,8 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
-from sqlalchemy import update
+from sqlalchemy import String, exists, func, update
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
@@ -93,6 +94,34 @@ def commit(db: Session) -> None:
         raise HTTPException(409, "This enumerator or assignment already exists. Refresh and select it.") from None
 
 
+def flush(db: Session) -> None:
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            409, "This enumerator or email already exists. Refresh and check the entered details."
+        ) from None
+
+
+def check_contact_email(
+    payload: AssignmentInput, project: Project, profile: CollectorProfile | None, db: Session
+) -> None:
+    if not payload.email:
+        return
+    query = select(CollectorProfile).where(
+        CollectorProfile.organization_id == project.organization_id,
+        CollectorProfile.email == str(payload.email).lower(),
+    )
+    if profile is not None:
+        query = query.where(CollectorProfile.id != profile.id)
+    with db.no_autoflush:
+        if db.exec(query).first():
+            raise HTTPException(
+                409, "This email is already used by another enumerator. Use a different email or leave Email blank."
+            )
+
+
 def connected_form(project: Project, db: Session) -> list[dict[str, Any]]:
     connection = db.get(KoboConnection, project.kobo_connection_id) if project.kobo_connection_id else None
     if (
@@ -168,12 +197,33 @@ def assignment_read(item: FieldAssignment, project: Project, db: Session) -> dic
             kobo_username=None,
         )
     current = {(str(f["connection_id"]), f["form_id"]) for f in connected_form(project, db)}
+    latest_assignment = (
+        select(func.max(OrganizationAdminEvent.occurred_at))
+        .where(
+            OrganizationAdminEvent.organization_id == project.organization_id,
+            OrganizationAdminEvent.action == "enumerator.assigned",
+            func.replace(OrganizationAdminEvent.resource_id, "-", "")
+            == func.replace(sql_cast(col(CollectorFormAccess.assignment_id), String), "-", ""),
+        )
+        .correlate(CollectorFormAccess)
+        .scalar_subquery()
+    )
+    confirmed = exists(
+        select(OrganizationAdminEvent.id).where(
+            OrganizationAdminEvent.organization_id == project.organization_id,
+            OrganizationAdminEvent.action == "enumerator.manual_grant_confirmed",
+            OrganizationAdminEvent.occurred_at >= func.coalesce(latest_assignment, item.created_at),
+            func.replace(OrganizationAdminEvent.resource_id, "-", "")
+            == func.replace(sql_cast(col(CollectorFormAccess.id), String), "-", ""),
+        )
+    )
     forms = [
         dict(
             id=f.id,
             connection_id=f.connection_id,
             form_id=f.form_id,
             state=f.state,
+            grant_confirmed=bool(grant_confirmed),
             is_selected=f.is_selected,
             updated_at=f.updated_at,
             mapping_current=(str(f.connection_id), f.form_id) in current,
@@ -182,7 +232,9 @@ def assignment_read(item: FieldAssignment, project: Project, db: Session) -> dic
             last_checked_at=f.last_checked_at,
             requested_action=f.requested_action,
         )
-        for f in db.exec(select(CollectorFormAccess).where(CollectorFormAccess.assignment_id == item.id)).all()
+        for f, grant_confirmed in db.exec(
+            select(CollectorFormAccess, confirmed).where(CollectorFormAccess.assignment_id == item.id)
+        ).all()
     ]
     return dict(
         **identity,
@@ -305,7 +357,7 @@ def assign(
     profile = db.get(CollectorProfile, payload.collector_id) if payload.collector_id else None
     if payload.collector_id and (not profile or profile.organization_id != project.organization_id):
         raise HTTPException(404, "Enumerator was not found.")
-    if not profile and not payload.membership_id and not payload.email:
+    if not profile and not payload.membership_id:
         matches = db.exec(
             select(CollectorProfile).where(
                 CollectorProfile.organization_id == project.organization_id,
@@ -339,47 +391,42 @@ def assign(
                 full_name=person.full_name or person.email,
                 email=person.email,
             )
+    connection = db.get(KoboConnection, project.kobo_connection_id) if project.kobo_connection_id else None
+    if (
+        not connection
+        or connection.organization_id != project.organization_id
+        or connection.is_deleted
+        or not connection.is_verified
+    ):
+        raise HTTPException(422, "Connect and verify the project's Kobo account before adding a username.")
+    try:
+        verify_kobo_username(
+            connection.server_url,
+            decrypt_kobo_token(connection.token_encrypted, settings),
+            payload.kobo_username,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    check_contact_email(payload, project, profile, db)
     if not profile:
-        if not payload.email and not payload.full_name:
-            connection = db.get(KoboConnection, project.kobo_connection_id) if project.kobo_connection_id else None
-            if (
-                not connection
-                or connection.organization_id != project.organization_id
-                or connection.is_deleted
-                or not connection.is_verified
-            ):
-                raise HTTPException(422, "Connect and verify the project's Kobo account before adding a username.")
-            try:
-                verify_kobo_username(
-                    connection.server_url,
-                    decrypt_kobo_token(connection.token_encrypted, settings),
-                    payload.kobo_username,
-                )
-            except ValueError as exc:
-                raise HTTPException(422, str(exc)) from None
-            profile = CollectorProfile(
-                organization_id=project.organization_id,
-                full_name=None,
-                email=None,
-                kobo_username=payload.kobo_username,
-            )
-        elif not payload.email or not payload.full_name or not payload.full_name.strip():
-            raise HTTPException(422, "Name and email are required for a new collection-only enumerator.")
-        else:
-            email = str(payload.email).lower()
-            # Existing organization accounts must be selected explicitly, never duplicated as contacts.
-            if db.exec(
+        email = str(payload.email).lower() if payload.email else None
+        if (
+            email
+            and db.exec(
                 select(OrganizationMembership)
                 .join(User)
                 .where(
                     OrganizationMembership.organization_id == project.organization_id,
                     User.email == email,
                 )
-            ).first():
-                raise HTTPException(409, "Select the existing organization enumerator.")
-            profile = CollectorProfile(
-                organization_id=project.organization_id, full_name=payload.full_name.strip(), email=email
-            )
+            ).first()
+        ):
+            raise HTTPException(409, "Select the existing organization enumerator.")
+        profile = CollectorProfile(
+            organization_id=project.organization_id,
+            full_name=payload.full_name.strip() if payload.full_name else None,
+            email=email,
+        )
         audit(db, project, user, "enumerator.created", profile.id)
     db.add(profile)
     try:
@@ -401,11 +448,24 @@ def assign(
         organization_id=project.organization_id, project_id=project.id, membership_id=membership_id
     )
     item.collector_id, item.is_enabled = profile.id, True
+    if "full_name" in payload.model_fields_set:
+        profile.full_name = payload.full_name.strip() if payload.full_name else None
+        if profile.full_name is not None and len(profile.full_name) < 2:
+            raise HTTPException(422, "Enter a full name of at least two characters.")
+    if "email" in payload.model_fields_set:
+        profile.email = str(payload.email).lower() if payload.email else None
     item.counties = payload.counties
     update_identity(profile, payload, project, user, db)
     db.add_all([item, profile])
-    db.flush()
+    flush(db)
     save_forms(item, payload, project, user, db)
+    # A new assignment/reassignment must wait for a fresh explicit grant. This
+    # resets local verification only; it does not modify permissions in Kobo.
+    for form in db.exec(select(CollectorFormAccess).where(CollectorFormAccess.assignment_id == item.id)).all():
+        if form.is_selected and (form.state == "verified_granted" or form.last_checked_at is not None):
+            form.state, form.last_checked_at, form.last_error = "not_configured", None, None
+            form.requested_action, form.operation_id = None, None
+            db.add(form)
     audit(db, project, user, "enumerator.assigned", item.id)
     audit(
         db,
@@ -453,6 +513,7 @@ def edit(project_id: UUID, assignment_id: UUID, payload: AssignmentInput, user: 
         db.flush()
         item.collector_id = profile.id
         db.add(item)
+    check_contact_email(payload, project, profile, db)
     update_identity(profile, payload, project, user, db)
     if "full_name" in payload.model_fields_set:
         name = payload.full_name.strip() if payload.full_name else None
@@ -465,6 +526,7 @@ def edit(project_id: UUID, assignment_id: UUID, payload: AssignmentInput, user: 
         profile.email = str(payload.email).lower() if payload.email else None
         db.add(profile)
         audit(db, project, user, "enumerator.contact_updated", profile.id)
+    flush(db)
     save_forms(item, payload, project, user, db)
     if "counties" in payload.model_fields_set:
         item.counties = payload.counties
@@ -540,7 +602,6 @@ def manage_access(
     ):
         raise HTTPException(409, "Grant access only to an active assignment's current selected project form.")
     ensure_not_running([access])
-    was_revocation = access.state == "revoked" or access.requested_action == "revoke"
     operation = str(uuid4())
     # Atomic claim prevents duplicate in-flight requests; stale operations can be reconciled after two minutes.
     claim = db.execute(
@@ -569,8 +630,6 @@ def manage_access(
     try:
         token = decrypt_kobo_token(connection.token_encrypted, settings)
         state = reconcile_collection_access(connection.server_url, token, access.form_id, username, payload.action)
-        if payload.action == "verify" and state == "not_configured" and was_revocation:
-            state = "revoked"
         error = None
     except ValueError as exc:
         state, error = "failed", str(exc)
@@ -587,6 +646,8 @@ def manage_access(
         commit(db)
         raise HTTPException(409, "A newer Kobo access check superseded this result. Refresh the assignment.")
     audit(db, project, user, "enumerator.kobo_" + payload.action + ":" + state + ":" + username, access_id)
+    if payload.action == "grant" and state == "verified_granted":
+        audit(db, project, user, "enumerator.manual_grant_confirmed", access_id)
     commit(db)
     db.expire_all()
     return assignment_read(item, project, db)

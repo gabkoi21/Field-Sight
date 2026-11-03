@@ -49,21 +49,55 @@ it("adds an enumerator using only a Kobo username and selected form", async () =
   await screen.findByText(/No enumerators found/);
   fireEvent.click(screen.getByRole("button", { name: "Add Enumerator" }));
   expect(screen.queryByLabelText("Enumerator type")).toBeNull();
-  expect(screen.queryByLabelText("Full name")).toBeNull();
-  expect(screen.queryByLabelText("Email")).toBeNull();
+  expect(screen.queryByLabelText("Kobo access status")).toBeNull();
+  expect((screen.getByLabelText("Full name") as HTMLInputElement).required).toBe(false);
+  expect((screen.getByLabelText("Email") as HTMLInputElement).required).toBe(false);
+  expect(screen.getByText("*").className).toContain("text-red-600");
   fireEvent.change(screen.getByLabelText("Kobo username"), { target: { value: "alice_kobo" } });
   expect((screen.getByLabelText("Kobo username") as HTMLInputElement).required).toBe(true);
   expect(screen.queryByRole("checkbox", { name: "Assign connected form" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
   await waitFor(() => expect(apiClient.assignEnumerator).toHaveBeenCalledWith("project", { kobo_username: "alice_kobo", counties: null }));
+  expect(vi.mocked(apiClient.assignEnumerator).mock.calls[0][1]).not.toHaveProperty("grant_access");
 });
+it.each(["name", "email", "both"])("accepts optional %s during creation", async details => {
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [], connected_forms: [form] });
+  vi.mocked(apiClient.assignEnumerator).mockResolvedValue(item);
+  setup();
+  await screen.findByText(/No enumerators found/);
+  fireEvent.click(screen.getByRole("button", { name: "Add Enumerator" }));
+  fireEvent.change(screen.getByLabelText("Kobo username"), { target: { value: "alice_kobo" } });
+  if (details !== "email") fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Alice Example" } });
+  if (details !== "name") fireEvent.change(screen.getByLabelText("Email"), { target: { value: "alice@example.com" } });
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+  await waitFor(() => expect(apiClient.assignEnumerator).toHaveBeenCalledWith("project", {
+    kobo_username: "alice_kobo", counties: null,
+    ...(details !== "email" ? { full_name: "Alice Example" } : {}),
+    ...(details !== "name" ? { email: "alice@example.com" } : {}),
+  }));
+});
+
+it("shows a clear duplicate-email error and keeps the creation form available to correct it", async () => {
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [], connected_forms: [form] });
+  vi.mocked(apiClient.assignEnumerator).mockRejectedValue(new Error("This email is already used by another enumerator. Use a different email or leave Email blank."));
+  setup();
+  await screen.findByText(/No enumerators found/);
+  fireEvent.click(screen.getByRole("button", { name: "Add Enumerator" }));
+  fireEvent.change(screen.getByLabelText("Kobo username"), { target: { value: "gabakoi_1" } });
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "taken@example.com" } });
+  fireEvent.click(screen.getByRole("button", { name: "Confirm assignment" }));
+  expect(await screen.findByText(/This email is already used/)).toBeTruthy();
+  expect((screen.getByLabelText("Kobo username") as HTMLInputElement).value).toBe("gabakoi_1");
+  expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe("taken@example.com");
+});
+
 it("selects existing contacts, shows honest reports and confirms removal", async () => {
   vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [item], connected_forms: [form] });
   vi.mocked(apiClient.eligibleEnumerators).mockResolvedValue([item]);
   vi.mocked(apiClient.removeEnumeratorAssignment).mockImplementation(async () => {
     vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [{ ...item, is_active: false }], connected_forms: [form] });
   }); setup();
-  expect(await screen.findByText(/Reported configured — not verified/)).toBeTruthy();
+  expect(await screen.findByText("alice_kobo")).toBeTruthy();
   expect(screen.getByRole("cell", { name: "WASH Survey" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Remove" }));
   expect(apiClient.removeEnumeratorAssignment).not.toHaveBeenCalled();
@@ -76,7 +110,7 @@ it("selects existing contacts, shows honest reports and confirms removal", async
   expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
   fireEvent.click(screen.getByRole("checkbox", { name: "Show removed enumerators" }));
   expect(await screen.findByRole("button", { name: "Reassign" })).toBeTruthy();
-  expect(screen.getByText("Inactive")).toBeTruthy();
+  expect(screen.getByText("Removed")).toBeTruthy();
   fireEvent.click(screen.getByRole("checkbox", { name: "Show removed enumerators" }));
   fireEvent.click(screen.getByRole("button", { name: "Add Enumerator" }));
   fireEvent.change(screen.getByLabelText("Kobo username"), { target: { value: "alice_kobo" } });
@@ -124,14 +158,14 @@ it("lets the backend assign forms and manage access status", async () => {
 });
 
 it("waits for the admin to grant access before showing check and revoke buttons", async () => {
-  const granted: ProjectCollector = { ...item, forms: [{ ...item.forms[0], state: "verified_granted" }] };
+  const granted: ProjectCollector = { ...item, forms: [{ ...item.forms[0], state: "verified_granted", grant_confirmed: true }] };
   vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [item], connected_forms: [form] });
   vi.mocked(apiClient.manageEnumeratorKoboAccess).mockImplementation(async () => {
     vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [granted], connected_forms: [form] });
     return granted;
   });
   setup();
-  expect(await screen.findByText(/Reported configured/)).toBeTruthy();
+  expect(await screen.findByText("alice_kobo")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Grant Kobo access" })).toBeTruthy();
   for (const name of ["Granted", "Check access", "Revoke access", "Retry grant", "Retry revoke"]) {
     expect(screen.queryByRole("button", { name })).toBeNull();
@@ -142,8 +176,38 @@ it("waits for the admin to grant access before showing check and revoke buttons"
   fireEvent.click(screen.getByRole("button", { name: "Confirm grant" }));
   await waitFor(() => expect(apiClient.manageEnumeratorKoboAccess).toHaveBeenCalledWith("project", "assignment", "access", "grant"));
   expect(await screen.findByRole("button", { name: "Revoke access" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Check access" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Check access" })).toBeNull();
   expect((screen.getByRole("button", { name: "Granted" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("shows only Grant access for an old saved confirmation until a fresh manual grant", async () => {
+  const legacy: ProjectCollector = { ...item, forms: [{ ...item.forms[0], state: "verified_granted", last_checked_at: "2026-11-03T10:52:00Z", grant_confirmed: false }] };
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [legacy], connected_forms: [form] });
+  setup();
+  expect(await screen.findByRole("button", { name: "Grant Kobo access" })).toBeTruthy();
+  expect(screen.queryByText("Granted — verified in Kobo")).toBeNull();
+  expect(screen.queryByText(/Last checked:/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Granted" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Check access" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Revoke access" })).toBeNull();
+});
+
+it("confirms revoking form access and updates the row after Kobo confirms removal", async () => {
+  const granted: ProjectCollector = { ...item, forms: [{ ...item.forms[0], state: "verified_granted", grant_confirmed: true }] };
+  const revoked: ProjectCollector = { ...granted, forms: [{ ...granted.forms[0], state: "revoked", requested_action: "revoke" }] };
+  vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [granted], connected_forms: [form] });
+  vi.mocked(apiClient.manageEnumeratorKoboAccess).mockImplementation(async () => {
+    vi.mocked(apiClient.projectEnumerators).mockResolvedValue({ items: [revoked], connected_forms: [form] });
+    return revoked;
+  });
+  setup();
+  fireEvent.click(await screen.findByRole("button", { name: "Revoke access" }));
+  expect(screen.getByText(/direct permissions to view this form and submit data/)).toBeTruthy();
+  expect(apiClient.manageEnumeratorKoboAccess).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Confirm revoke" }));
+  await waitFor(() => expect(apiClient.manageEnumeratorKoboAccess).toHaveBeenCalledWith("project", "assignment", "access", "revoke"));
+  expect(await screen.findByText("Direct form access revoked")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Revoke access" })).toBeNull();
 });
 
 it.each(["add", "remove"])("shows the refresh loader until the list finishes updating after %s", async action => {

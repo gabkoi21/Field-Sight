@@ -56,17 +56,27 @@ def sync_client(tmp_path: Path) -> Iterator[tuple[TestClient, Engine, str, dict[
         org_sector = OrganizationSector(organization_id=org.id, sector_id=sector.id)
         membership = OrganizationMembership(organization_id=org.id, user_id=user.id, role=Role.ORGANIZATION_ADMIN)
         connection = KoboConnection(
-            organization_id=org.id, name="Kobo", server_url=SERVER,
-            token_encrypted="encrypted", is_verified=True, created_by_id=user.id,
+            organization_id=org.id,
+            name="Kobo",
+            server_url=SERVER,
+            token_encrypted="encrypted",
+            is_verified=True,
+            created_by_id=user.id,
         )
         refresh = RefreshSession(
-            user_id=user.id, token_hash="sync-refresh", expires_at=datetime.now(UTC) + timedelta(days=1),
+            user_id=user.id,
+            token_hash="sync-refresh",
+            expires_at=datetime.now(UTC) + timedelta(days=1),
         )
         db.add_all([org_sector, membership, connection, refresh])
         db.flush()
         project = Project(
-            organization_id=org.id, organization_sector_id=org_sector.id, name="Survey",
-            created_by_id=user.id, kobo_connection_id=connection.id, kobo_form_id="form-1",
+            organization_id=org.id,
+            organization_sector_id=org_sector.id,
+            name="Survey",
+            created_by_id=user.id,
+            kobo_connection_id=connection.id,
+            kobo_form_id="form-1",
         )
         db.add(project)
         db.commit()
@@ -80,7 +90,12 @@ def sync_client(tmp_path: Path) -> Iterator[tuple[TestClient, Engine, str, dict[
     app = create_app(settings)
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_settings] = lambda: settings
-    with TestClient(app) as client, patch("app.routes.collection.decrypt_kobo_token", return_value="private-token"):
+    with (
+        TestClient(app) as client,
+        patch("app.routes.collection.decrypt_kobo_token", return_value="private-token"),
+        patch("app.routes.project_enumerators.decrypt_kobo_token", return_value="private-token"),
+        patch("app.routes.project_enumerators.verify_kobo_username"),
+    ):
         yield client, engine, project_id, {"Authorization": f"Bearer {token}"}
     engine.dispose()
 
@@ -88,8 +103,7 @@ def sync_client(tmp_path: Path) -> Iterator[tuple[TestClient, Engine, str, dict[
 def test_1500_records_repeat_and_changed_record(sync_client: tuple[TestClient, Engine, str, dict[str, str]]) -> None:
     client, engine, project_id, headers = sync_client
     records: list[dict[str, object]] = [
-        {"_id": index, "answer": index, "_submission_time": "2026-10-20T12:00:00Z"}
-        for index in range(1500)
+        {"_id": index, "answer": index, "_submission_time": "2026-10-20T12:00:00Z"} for index in range(1500)
     ]
 
     def responses() -> list[httpx.Response]:
@@ -129,9 +143,13 @@ def test_later_page_failure_preserves_previous_import(
     client, engine, project_id, headers = sync_client
     with patch("app.core.kobo.httpx.get", return_value=page([{"_id": 1, "answer": "original"}], count=1)):
         assert client.post(f"/projects/{project_id}/sync", headers=headers).status_code == 200
-    with patch("app.core.kobo.httpx.get", side_effect=[
-        page([{"_id": 1, "answer": "changed"}], "?start=1", 2), httpx.Response(503, text="private-token"),
-    ]):
+    with patch(
+        "app.core.kobo.httpx.get",
+        side_effect=[
+            page([{"_id": 1, "answer": "changed"}], "?start=1", 2),
+            httpx.Response(503, text="private-token"),
+        ],
+    ):
         failed = client.post(f"/projects/{project_id}/sync", headers=headers)
     assert failed.status_code == 422
     assert "private-token" not in failed.text
@@ -230,7 +248,8 @@ def test_cross_organization_sync_is_hidden(sync_client: tuple[TestClient, Engine
 
 
 def test_identity_migration_preserves_existing_records(
-    sync_client: tuple[TestClient, Engine, str, dict[str, str]], monkeypatch: pytest.MonkeyPatch,
+    sync_client: tuple[TestClient, Engine, str, dict[str, str]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client, engine, project_id, headers = sync_client
     with patch("app.core.kobo.httpx.get", return_value=page([{"_id": 1, "answer": "keep"}], count=1)):
@@ -250,12 +269,18 @@ def test_identity_migration_preserves_existing_records(
         get_settings.cache_clear()
 
 
-@pytest.mark.parametrize("next_url", [
-    "https://example.com/steal", "http://kf.kobotoolbox.org/api/v2/assets/form-1/data/",
-    SERVER + "/api/v2/assets/other-form/data/", "https://user:pass@kf.kobotoolbox.org/api/v2/assets/form-1/data/",
-    DATA + "?format=json&limit=1000", "?limit=1000&format=json",
-    "https://[invalid-host/data/",
-])
+@pytest.mark.parametrize(
+    "next_url",
+    [
+        "https://example.com/steal",
+        "http://kf.kobotoolbox.org/api/v2/assets/form-1/data/",
+        SERVER + "/api/v2/assets/other-form/data/",
+        "https://user:pass@kf.kobotoolbox.org/api/v2/assets/form-1/data/",
+        DATA + "?format=json&limit=1000",
+        "?limit=1000&format=json",
+        "https://[invalid-host/data/",
+    ],
+)
 def test_rejects_unsafe_or_repeated_next_without_sending_token(next_url: str) -> None:
     with patch("app.core.kobo.httpx.get", return_value=page([{"_id": 1}], next_url)) as get:
         with pytest.raises(ValueError):
@@ -263,13 +288,22 @@ def test_rejects_unsafe_or_repeated_next_without_sending_token(next_url: str) ->
     assert get.call_count == 1
 
 
-@pytest.mark.parametrize("response", [
-    httpx.Response(200, text="not JSON"), httpx.Response(302, headers={"location": "https://example.com"}),
-    httpx.Response(401), httpx.Response(403), httpx.Response(429), httpx.Response(500),
-    httpx.Response(200, json={}), httpx.Response(200, json={"results": [], "next": 12}),
-    httpx.Response(200, json={"results": [42], "next": None}), page([], count=1),
-    httpx.Response(200, json={"results": [], "next": None, "count": True}),
-])
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(200, text="not JSON"),
+        httpx.Response(302, headers={"location": "https://example.com"}),
+        httpx.Response(401),
+        httpx.Response(403),
+        httpx.Response(429),
+        httpx.Response(500),
+        httpx.Response(200, json={}),
+        httpx.Response(200, json={"results": [], "next": 12}),
+        httpx.Response(200, json={"results": [42], "next": None}),
+        page([], count=1),
+        httpx.Response(200, json={"results": [], "next": None, "count": True}),
+    ],
+)
 def test_rejects_invalid_provider_responses(response: httpx.Response) -> None:
     with patch("app.core.kobo.httpx.get", return_value=response), pytest.raises(ValueError):
         list_kobo_submissions(SERVER, "private-token", "form-1")
@@ -288,9 +322,13 @@ def test_network_failure_and_repeated_records() -> None:
 def test_empty_form_and_changed_totals() -> None:
     with patch("app.core.kobo.httpx.get", return_value=page([], count=0)):
         assert list_kobo_submissions(SERVER, "private-token", "form-1") == []
-    with patch("app.core.kobo.httpx.get", side_effect=[
-        page([{"_id": 1}], "?start=1", 2), page([{"_id": 2}], count=3),
-    ]):
+    with patch(
+        "app.core.kobo.httpx.get",
+        side_effect=[
+            page([{"_id": 1}], "?start=1", 2),
+            page([{"_id": 2}], count=3),
+        ],
+    ):
         with pytest.raises(ValueError, match="totals changed"):
             list_kobo_submissions(SERVER, "private-token", "form-1")
 

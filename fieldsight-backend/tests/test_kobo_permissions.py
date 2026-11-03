@@ -77,13 +77,16 @@ class Provider:
 def test_provider_grant_verify_revoke_idempotent_and_preserves_other_permissions(monkeypatch):
     provider = Provider(monkeypatch)
     provider.rows.append(provider.permission("view_submissions"))
+    provider.rows.append(provider.permission("add_submissions", "another_collector"))
     assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "grant") == "verified_granted"
     assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "grant") == "verified_granted"
     assert sum(method == "POST" for method, _ in provider.calls) == 2
     assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "verify") == "verified_granted"
     assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke") == "revoked"
-    assert any(p["permission"].endswith("/view_submissions/") for p in provider.rows)
-    assert any(p["permission"].endswith("/view_asset/") for p in provider.rows)
+    assert not any(p["user"].endswith("/collector_1/") for p in provider.rows)
+    assert any(p["user"].endswith("/another_collector/") for p in provider.rows)
+    assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "verify") == "revoked"
+    assert reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke") == "revoked"
 
 
 def test_collection_only_access_is_repaired_with_explicit_view_assignment(monkeypatch):
@@ -117,6 +120,34 @@ def test_provider_success_without_change_and_failed_revoke_are_not_verified(monk
     provider.rows.append(provider.permission("add_submissions"))
     with pytest.raises(ValueError, match="still reports"):
         reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke")
+
+
+def test_revoke_does_not_claim_success_if_view_form_permission_remains(monkeypatch):
+    provider = Provider(monkeypatch)
+    provider.rows.append(provider.permission("view_asset"))
+    provider.apply = False
+    with pytest.raises(ValueError, match="still reports direct form access"):
+        reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke")
+
+
+def test_public_form_access_is_reported_before_mutating_permissions(monkeypatch):
+    provider = Provider(monkeypatch)
+    provider.rows.append(provider.permission("add_submissions"))
+    provider.rows.append(provider.permission("view_asset", "AnonymousUser"))
+    with pytest.raises(ValueError, match="publicly visible"):
+        reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke")
+    assert not any(method == "DELETE" for method, _ in provider.calls)
+
+
+def test_all_assignment_urls_are_validated_before_any_permission_is_deleted(monkeypatch):
+    provider = Provider(monkeypatch)
+    provider.rows.append(provider.permission("add_submissions"))
+    unsafe = provider.permission("view_asset")
+    unsafe["url"] = "https://attacker.example/assignment/"
+    provider.rows.append(unsafe)
+    with pytest.raises(ValueError, match="unsafe"):
+        reconcile_collection_access(SERVER, "secret", "form-1", "collector_1", "revoke")
+    assert not any(method == "DELETE" for method, _ in provider.calls)
 
 
 @pytest.mark.parametrize("case", ["owner", "anonymous", "manager", "unsupported", "unsafe_url", "no_manage"])

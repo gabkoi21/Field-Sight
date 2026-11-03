@@ -3,6 +3,7 @@
 from unittest.mock import Mock
 from uuid import UUID
 
+import pytest
 from sqlmodel import Session, select
 from test_kobo_sync import sync_client as sync_client
 from test_workspace import context
@@ -19,6 +20,89 @@ from app.models.operations import (
 
 def payload(**kwargs):
     return dict(full_name="Field Collector", email="collector@example.com", kobo_username="collector_1", **kwargs)
+
+
+@pytest.mark.parametrize("operation", ["new", "reassign", "edit"])
+def test_duplicate_optional_email_returns_clear_conflict_without_changing_records(sync_client, operation):
+    client, engine, project, headers, org = context(sync_client)
+    with Session(engine) as db:
+        profile = CollectorProfile(
+            organization_id=UUID(org), full_name="Original Name", email="original@example.com", kobo_username="original"
+        )
+        other = CollectorProfile(
+            organization_id=UUID(org), full_name="Other Person", email="taken@example.com", kobo_username="other"
+        )
+        db.add_all([profile, other])
+        db.flush()
+        profile_id = profile.id
+        assignment = None
+        if operation != "new":
+            assignment = FieldAssignment(
+                organization_id=UUID(org),
+                project_id=UUID(project),
+                collector_id=profile.id,
+                is_enabled=operation == "edit",
+            )
+            db.add(assignment)
+        db.commit()
+        assignment_id = assignment.id if assignment else None
+    root = f"/projects/{project}/enumerators"
+    body = {
+        "kobo_username": "new_user" if operation == "new" else "original",
+        "full_name": "Changed Name",
+        "email": "taken@example.com",
+    }
+    result = (
+        client.patch(f"{root}/{assignment_id}", headers=headers, json=body)
+        if operation == "edit"
+        else client.post(root, headers=headers, json=body)
+    )
+    assert result.status_code == 409, result.text
+    assert "email is already used by another enumerator" in result.json()["message"]
+    with Session(engine) as db:
+        assert len(db.exec(select(CollectorProfile).where(CollectorProfile.organization_id == UUID(org))).all()) == 2
+        original = db.get(CollectorProfile, profile_id)
+        assert original.email == "original@example.com" and original.full_name == "Original Name"
+        if operation == "reassign":
+            assert db.get(FieldAssignment, assignment_id).is_enabled is False
+        if operation == "new":
+            assert db.exec(select(FieldAssignment).where(FieldAssignment.project_id == UUID(project))).all() == []
+
+
+@pytest.mark.parametrize(
+    "details",
+    [
+        {},
+        {"full_name": "Gabriel Akoi"},
+        {"email": "gabriel@example.com"},
+        {"full_name": "Gabriel Akoi", "email": "gabriel@example.com"},
+    ],
+)
+def test_creation_requires_only_username_with_independent_optional_details(sync_client, monkeypatch, details):
+    client, engine, project, headers, _ = context(sync_client)
+    monkeypatch.setattr("app.routes.project_enumerators.verify_kobo_username", Mock())
+    monkeypatch.setattr("app.routes.project_enumerators.decrypt_kobo_token", lambda *_: "test-token")
+    root = f"/projects/{project}/enumerators"
+    result = client.post(root, headers=headers, json={"kobo_username": "gabakoi_1", **details})
+    assert result.status_code == 201, result.text
+    assert result.json()["kobo_username"] == "gabakoi_1"
+    assert result.json()["full_name"] == details.get("full_name")
+    assert result.json()["email"] == details.get("email")
+    assert client.post(root, headers=headers, json=details).status_code == 422
+
+
+@pytest.mark.parametrize("legacy_flag", [False, True])
+def test_creation_never_grants_kobo_access_even_with_legacy_activation_flag(sync_client, monkeypatch, legacy_flag):
+    client, engine, project, headers, _ = context(sync_client)
+    provider = Mock(return_value="verified_granted")
+    monkeypatch.setattr("app.routes.project_enumerators.reconcile_collection_access", provider)
+    created = client.post(f"/projects/{project}/enumerators", headers=headers, json=payload(grant_access=legacy_flag))
+    assert created.status_code == 201, created.text
+    form = created.json()["forms"][0]
+    assert form["state"] == "not_configured"
+    assert form["last_checked_at"] is None
+    assert form["requested_action"] is None
+    provider.assert_not_called()
 
 
 def test_backend_assigns_connected_form_without_granting_or_resetting_access(sync_client, monkeypatch):
@@ -56,6 +140,35 @@ def test_backend_assigns_connected_form_without_granting_or_resetting_access(syn
     assert forms["form-2"]["is_selected"] is True
     assert forms["form-2"]["state"] == "not_configured"
     provider.assert_not_called()
+
+
+def test_manual_grant_confirmation_is_persisted_and_reassignment_requires_new_confirmation(sync_client, monkeypatch):
+    from datetime import UTC, datetime
+
+    client, engine, project, headers, _ = context(sync_client)
+    root = f"/projects/{project}/enumerators"
+    created = client.post(root, headers=headers, json=payload()).json()
+    access_id = created["forms"][0]["id"]
+    with Session(engine) as db:
+        access = db.get(CollectorFormAccess, UUID(access_id))
+        access.state, access.last_checked_at = "verified_granted", datetime.now(UTC)
+        db.add(access)
+        db.commit()
+    assert client.get(root, headers=headers).json()["items"][0]["forms"][0]["grant_confirmed"] is False
+    monkeypatch.setattr(
+        "app.routes.project_enumerators.reconcile_collection_access", Mock(return_value="verified_granted")
+    )
+    granted = client.post(f"{root}/{created['id']}/forms/{access_id}/access", headers=headers, json={"action": "grant"})
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["forms"][0]["grant_confirmed"] is True
+    assert client.get(root, headers=headers).json()["items"][0]["forms"][0]["grant_confirmed"] is True
+    assert client.delete(f"{root}/{created['id']}", headers=headers).status_code == 204
+    reassigned = client.post(root, headers=headers, json={"kobo_username": "collector_1"})
+    assert reassigned.status_code == 201, reassigned.text
+    form = reassigned.json()["forms"][0]
+    assert form["state"] == "not_configured"
+    assert form["grant_confirmed"] is False
+    assert form["last_checked_at"] is None
 
 
 def test_username_only_add_reuses_profile_and_preserves_missing_private_details(sync_client, monkeypatch):
@@ -114,20 +227,45 @@ def test_username_only_reuses_known_contact_details(sync_client, monkeypatch):
     assert result.status_code == 201, result.text
     assert result.json()["full_name"] == "Known Collector"
     assert result.json()["email"] == "known@example.com"
-    verify.assert_not_called()
+    verify.assert_called_once_with("https://kf.kobotoolbox.org", "private-token", "known_user")
 
 
-def test_username_lookup_failure_does_not_create_contact(sync_client, monkeypatch):
+@pytest.mark.parametrize("details", [{}, {"full_name": "Missing Person", "email": "missing@example.com"}])
+def test_username_lookup_failure_does_not_create_contact(sync_client, monkeypatch, details):
     client, engine, project, headers, org = context(sync_client)
     monkeypatch.setattr("app.routes.project_enumerators.decrypt_kobo_token", lambda *_: "test-token")
     monkeypatch.setattr(
         "app.routes.project_enumerators.verify_kobo_username", Mock(side_effect=ValueError("Username not found."))
     )
-    result = client.post(f"/projects/{project}/enumerators", headers=headers, json={"kobo_username": "missing"})
+    result = client.post(
+        f"/projects/{project}/enumerators", headers=headers, json={"kobo_username": "missing", **details}
+    )
     assert result.status_code == 422
     assert "Username not found" in result.text
     with Session(engine) as db:
         assert db.exec(select(CollectorProfile).where(CollectorProfile.organization_id == UUID(org))).all() == []
+        assert db.exec(select(FieldAssignment).where(FieldAssignment.project_id == UUID(project))).all() == []
+        assert (
+            db.exec(select(OrganizationAdminEvent).where(OrganizationAdminEvent.organization_id == UUID(org))).all()
+            == []
+        )
+
+
+def test_cached_contact_is_not_assigned_when_kobo_no_longer_has_the_username(sync_client, monkeypatch):
+    client, engine, project, headers, org = context(sync_client)
+    with Session(engine) as db:
+        db.add(CollectorProfile(organization_id=UUID(org), kobo_username="removed_from_kobo"))
+        db.commit()
+    monkeypatch.setattr(
+        "app.routes.project_enumerators.verify_kobo_username", Mock(side_effect=ValueError("Username not found."))
+    )
+    result = client.post(
+        f"/projects/{project}/enumerators", headers=headers, json={"kobo_username": "removed_from_kobo"}
+    )
+    assert result.status_code == 422
+    with Session(engine) as db:
+        assert db.exec(select(FieldAssignment).where(FieldAssignment.project_id == UUID(project))).all() == []
+        assert len(db.exec(select(CollectorProfile).where(CollectorProfile.organization_id == UUID(org))).all()) == 1
 
 
 def test_county_coverage_create_edit_all_and_validation(sync_client):
@@ -220,6 +358,19 @@ def test_existing_member_reuse_multiple_projects_and_legacy_assignment(sync_clie
     assert any(r["membership_id"] == member_id for r in client.get(root + "/eligible", headers=headers).json())
     first = client.post(root, headers=headers, json={"membership_id": member_id, "kobo_username": "member_kobo"}).json()
     assert first["id"] == old_id
+    second = client.post(
+        f"/projects/{other_id}/enumerators",
+        headers=headers,
+        json={"collector_id": first["collector_id"], "kobo_username": "member_kobo"},
+    )
+    assert second.status_code == 422
+    with Session(engine) as db:
+        target = db.get(Project, UUID(other_id))
+        source = db.get(Project, UUID(project))
+        target.kobo_connection_id = source.kobo_connection_id
+        target.kobo_form_id = source.kobo_form_id
+        db.add(target)
+        db.commit()
     second = client.post(
         f"/projects/{other_id}/enumerators",
         headers=headers,

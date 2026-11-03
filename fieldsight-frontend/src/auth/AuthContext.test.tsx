@@ -38,6 +38,19 @@ it("clears user caches across logout and account changes", async () => {
   fireEvent.click(screen.getByText("Login")); await waitFor(() => expect(screen.getByText("authenticated:two")).toBeTruthy());
   expect(cache.getQueryData(["private"])).toBeUndefined();
 });
+
+it("uses the sign-in profile without making a duplicate me request", async () => {
+  mocks.restore.mockResolvedValue(null);
+  mocks.login.mockImplementation(async () => {
+    window.dispatchEvent(new Event("fieldsight-session-expired"));
+    return { ...user, id: "two" };
+  });
+  mount();
+  await screen.findByText("signed_out:");
+  fireEvent.click(screen.getByText("Login"));
+  await screen.findByText("authenticated:two");
+  expect(mocks.me).not.toHaveBeenCalled();
+});
 it("does not accept late startup restoration after logout", async () => {
   let done!: (value: typeof user) => void;
   mocks.restore.mockReturnValue(new Promise(resolve => { done = resolve; })); mount();

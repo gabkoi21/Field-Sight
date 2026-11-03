@@ -13,3 +13,4 @@ class TokenResponse(BaseModel):
     access_token: str
     remember: bool = False
     token_type: str = "bearer"
+    user: dict[str, object] | None = None

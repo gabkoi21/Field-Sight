@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import case, func, update
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import Session, col, select
 from sqlmodel.sql.expression import Select
 
@@ -606,27 +607,22 @@ def analytics_overview(
     )
 
     current_conditions = [*scope_conditions, submitted_at_column >= cutoff]
-    total, ready, needs_review, invalid = db.exec(
+    in_current = submitted_at_column >= cutoff
+    in_previous = (submitted_at_column >= previous_cutoff) & (submitted_at_column < cutoff)
+    week_start = now - timedelta(days=7)
+
+    def count_matching(condition: ColumnElement[bool]) -> ColumnElement[int]:
+        return func.coalesce(func.sum(case((condition, 1), else_=0)), 0)
+
+    total, ready, needs_review, invalid, previous_total, ready_this_week = db.exec(
         select(
-            func.count(),
-            func.coalesce(func.sum(case((review_status_column == "ready", 1), else_=0)), 0),
-            func.coalesce(func.sum(case((review_status_column == "needs_review", 1), else_=0)), 0),
-            func.coalesce(func.sum(case((review_status_column == "invalid", 1), else_=0)), 0),
-        ).where(*current_conditions)
-    ).one()
-    previous_total = db.exec(
-        select(func.count()).select_from(Submission).where(
-            *scope_conditions,
-            submitted_at_column >= previous_cutoff,
-            submitted_at_column < cutoff,
-        )
-    ).one()
-    ready_this_week = db.exec(
-        select(func.count()).select_from(Submission).where(
-            *scope_conditions,
-            review_status_column == "ready",
-            submitted_at_column >= now - timedelta(days=7),
-        )
+            count_matching(in_current),
+            count_matching(in_current & (review_status_column == "ready")),
+            count_matching(in_current & (review_status_column == "needs_review")),
+            count_matching(in_current & (review_status_column == "invalid")),
+            count_matching(in_previous),
+            count_matching((submitted_at_column >= week_start) & (review_status_column == "ready")),
+        ).where(*scope_conditions, submitted_at_column >= min(previous_cutoff, week_start))
     ).one()
 
     projects = db.exec(select(Project).where(Project.organization_id == organization_id)).all()
@@ -643,11 +639,7 @@ def analytics_overview(
         .order_by(submission_day)
     ).all()
     project_counts = dict(
-        db.exec(
-            select(project_column, func.count())
-            .where(*current_conditions)
-            .group_by(project_column)
-        ).all()
+        db.exec(select(project_column, func.count()).where(*current_conditions).group_by(project_column)).all()
     )
 
     total = int(total)
@@ -660,7 +652,28 @@ def analytics_overview(
     run_conditions = [SyncRun.organization_id == organization_id]
     if project_id:
         run_conditions.append(SyncRun.project_id == project_id)
-    scoped_runs = db.exec(select(SyncRun).where(*run_conditions).order_by(col(SyncRun.started_at).desc())).all()
+    ranked_runs = (
+        select(
+            SyncRun.id,
+            func.row_number()
+            .over(
+                partition_by=SyncRun.project_id,
+                order_by=(col(SyncRun.started_at).desc(), col(SyncRun.id).desc()),
+            )
+            .label("position"),
+        )
+        .where(*run_conditions)
+        .subquery()
+    )
+    scoped_runs = db.exec(
+        select(SyncRun).join(ranked_runs, SyncRun.id == ranked_runs.c.id).where(ranked_runs.c.position == 1)
+    ).all()
+    last_synced_at = db.exec(
+        select(SyncRun.completed_at)
+        .where(*run_conditions, col(SyncRun.status).in_(["completed", "unchanged"]))
+        .order_by(col(SyncRun.started_at).desc(), col(SyncRun.id).desc())
+        .limit(1)
+    ).first()
     latest_by_project: dict[UUID, SyncRun] = {}
     for run in scoped_runs:
         latest_by_project.setdefault(run.project_id, run)
@@ -733,9 +746,7 @@ def analytics_overview(
         "blocked_records": needs_review + invalid,
         "submission_change_percent": change_percent,
         "active_projects": sum(project.status.value == "active" for project in project_scope),
-        "last_synced_at": next(
-            (run.completed_at for run in scoped_runs if run.status in {"completed", "unchanged"}), None
-        ),
+        "last_synced_at": last_synced_at,
         "available_locations": available_locations,
         "trend": [
             {

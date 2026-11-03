@@ -31,7 +31,7 @@ export interface CollectorAssignmentInput {
 export interface ProjectCollector extends CollectorIdentity {
   counties?: string[] | null;
   id: string; is_active: boolean; assigned_at: string;
-  forms: (Omit<CollectorFormInput, "state"> & { state: KoboAccessState; id: string; is_selected: boolean; mapping_current: boolean; updated_at: string; requested_action?: "grant" | "verify" | "revoke" | null; permission_username?: string | null; last_error?: string | null; last_checked_at?: string | null })[];
+  forms: (Omit<CollectorFormInput, "state"> & { state: KoboAccessState; grant_confirmed?: boolean; id: string; is_selected: boolean; mapping_current: boolean; updated_at: string; requested_action?: "grant" | "verify" | "revoke" | null; permission_username?: string | null; last_error?: string | null; last_checked_at?: string | null })[];
 }
 export interface ProjectEnumerators {
   items: ProjectCollector[];
@@ -768,6 +768,7 @@ let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
 let refreshInFlight: Promise<boolean> | null = null;
 let sessionGeneration = localStorage.getItem("fieldsight_logout_generation") ?? "";
 let suspended = false;
+let refreshedProfile: { token: string; user: CurrentUser } | null = null;
 let retryNotBefore = 0;
 const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("fieldsight-session") : null;
 function sessionState(state: "checking" | "unavailable" | "authenticated" | "signed_out" | "forbidden") {
@@ -843,6 +844,7 @@ function scheduleAccessTokenRefresh(token: string) {
 }
 
 function saveAccessToken(token: string | null, remember = false) {
+  if (refreshedProfile?.token !== token) refreshedProfile = null;
   if (refreshTimer) window.clearTimeout(refreshTimer);
   refreshTimer = null;
   accessToken = token;
@@ -904,11 +906,12 @@ async function refreshAccessToken(): Promise<boolean> {
         response = await timedFetch(API_BASE_URL + "/auth/refresh", { method: "POST", credentials: "include" });
         if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
         if (response.ok) {
-          const body = await response.json() as { access_token: string; remember: boolean };
+          const body = await response.json() as { access_token: string; remember: boolean; user?: CurrentUser | null };
           if (generation !== sessionGeneration || generation !== (localStorage.getItem("fieldsight_logout_generation") ?? "")) return false;
           retryNotBefore = 0;
           localStorage.removeItem("fieldsight_auth_retry_at");
           saveAccessToken(body.access_token, body.remember);
+          refreshedProfile = body.user ? { token: body.access_token, user: body.user } : null;
           channel?.postMessage({ type: "renewed", token: body.access_token, remember: body.remember, generation });
           sessionState("authenticated");
           return true;
@@ -1138,7 +1141,7 @@ export const apiClient = {
   manageEnumeratorKoboAccess: (project: string, assignment: string, form: string, action: "grant" | "verify" | "revoke") => request<ProjectCollector>(`/projects/${project}/enumerators/${assignment}/forms/${form}/access`, { method: "POST", body: JSON.stringify({ action }) }, true, false, 120_000),
   projectEnumerators: (project: string) => request<ProjectEnumerators>(`/projects/${project}/enumerators`),
   eligibleEnumerators: (project: string) => request<CollectorIdentity[]>(`/projects/${project}/enumerators/eligible`),
-  assignEnumerator: (project: string, input: CollectorAssignmentInput) => request<ProjectCollector>(`/projects/${project}/enumerators`, { method: "POST", body: JSON.stringify(input) }),
+  assignEnumerator: (project: string, input: CollectorAssignmentInput) => request<ProjectCollector>(`/projects/${project}/enumerators`, { method: "POST", body: JSON.stringify(input) }, true, false, 30_000),
   updateEnumeratorAssignment: (project: string, id: string, input: CollectorAssignmentInput) => request<ProjectCollector>(`/projects/${project}/enumerators/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
   removeEnumeratorAssignment: (project: string, id: string) => request<void>(`/projects/${project}/enumerators/${id}`, { method: "DELETE" }),
   addProjectMember: (project: string, membership_id: string) =>
@@ -1245,7 +1248,7 @@ export const apiClient = {
     const loginGeneration = sessionGeneration;
     const result = await withSessionLock(async () => {
       await finishPendingLogout();
-      return request<{ access_token: string }>(
+      return request<{ access_token: string; user?: CurrentUser | null }>(
       "/auth/login",
       {
         method: "POST",
@@ -1261,6 +1264,7 @@ export const apiClient = {
     saveAccessToken(result.access_token, remember);
     sessionState("authenticated");
     channel?.postMessage({ type: "renewed", token: result.access_token, remember, generation: sessionGeneration });
+    return result.user ?? undefined;
   },
   restore: async () => {
     if (localStorage.getItem("fieldsight_signed_out")) {
@@ -1269,6 +1273,7 @@ export const apiClient = {
     }
     if (suspended || !accessToken || expiresSoon(accessToken)) {
       if (!await refreshAccessToken()) return null;
+      if (refreshedProfile && refreshedProfile.token === accessToken) return refreshedProfile.user;
     }
     return request<CurrentUser>("/auth/me");
   },

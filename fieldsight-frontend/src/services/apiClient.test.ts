@@ -30,6 +30,23 @@ afterEach(() => {
 });
 async function client() { return (await import("./apiClient")).apiClient; }
 
+it("restores the server-verified profile from refresh without a second me request", async () => {
+  const user = { id: "one", email: "one@example.com", username: "one", platform_role: null, memberships: [] };
+  fetcher.mockResolvedValueOnce(json({ access_token: token(), remember: false, user }));
+  const api = await client();
+  expect(await api.restore()).toEqual(user);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][0]).toContain("/auth/refresh");
+});
+
+it("returns the verified profile with sign-in without another API request", async () => {
+  const user = { id: "one", email: "one@example.com", username: "one", platform_role: null, memberships: [] };
+  fetcher.mockResolvedValueOnce(json({ access_token: token(), remember: false, user }));
+  const api = await client();
+  expect(await api.login("one", "synthetic", false)).toEqual(user);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
 it("allows a Kobo grant to finish beyond the normal 12-second timeout", async () => {
   sessionStorage.setItem(key, token());
   let complete!: (response: Response) => void;
