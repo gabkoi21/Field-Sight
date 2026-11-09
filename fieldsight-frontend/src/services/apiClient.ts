@@ -167,6 +167,19 @@ export interface CollectedResult extends CollectedResultInput {
   created_at: string;
 }
 export interface DashboardWidget {
+  hide_targets?: boolean;
+  show_indicator_key?: boolean;
+  show_project?: boolean;
+  filter_dates?: boolean;
+  date_from?: string | null;
+  date_to?: string | null;
+  chart_layout?: "stacked" | "grouped";
+  value_mode?: "absolute" | "percentage";
+  chart_type?: "overall_target" | "periodic_targets" | "by_period" | "achievement" | "status";
+  orientation?: "horizontal" | "vertical";
+  description?: string;
+  show_description?: boolean;
+  image_only?: boolean;
   id: string;
   title: string;
   kind: "indicator" | "analysis" | "text";

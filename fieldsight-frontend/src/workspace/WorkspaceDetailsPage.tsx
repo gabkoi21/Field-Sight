@@ -16,6 +16,7 @@ import {
 } from "./WorkspaceUI";
 
 import { controlClass } from "../components/ui/controlStyles";
+import { DescriptionEditor } from "../components/ui/DescriptionEditor";
 
 const input = controlClass + " !text-black disabled:opacity-100 disabled:!bg-white";
 function metadata(project: ApiProject): WorkspaceDetails {
@@ -233,14 +234,11 @@ export function WorkspaceDetailsPage() {
               </DetailField>
               <div className="col-span-2 max-md:col-span-1">
                 <DetailField label="Description">
-                  <textarea
-                    aria-label="Description"
-                    rows={4}
-                    className={input + " h-auto py-3"}
-                    maxLength={10000}
+                  <DescriptionEditor
+                    disabled={!editing || save.isPending}
                     value={description}
-                    onChange={(event) => {
-                      setDescription(event.target.value);
+                    onChange={(value) => {
+                      setDescription(value);
                       setMessage("");
                     }}
                   />

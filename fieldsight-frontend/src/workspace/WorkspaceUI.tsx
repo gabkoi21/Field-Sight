@@ -58,6 +58,7 @@ export function Page({
   actions,
   breadcrumb = "FieldSight / Project",
   backTo,
+  className = "",
   children,
 }: {
   title: string;
@@ -65,10 +66,11 @@ export function Page({
   actions?: ReactNode;
   breadcrumb?: string;
   backTo?: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="min-w-0 space-y-6">
+    <div className={`min-w-0 space-y-6 ${className}`}>
       {backTo && <Link to={backTo} className="inline-flex min-h-11 items-center gap-2 text-sm text-[var(--fs-muted)] no-underline hover:text-[var(--fs-primary)]"><ArrowLeft size={16} aria-hidden="true" />Back</Link>}
       <PageHeader eyebrow={breadcrumb} title={title} description={description}>{actions}</PageHeader>
       {children}

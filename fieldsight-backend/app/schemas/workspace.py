@@ -64,6 +64,19 @@ class CollectedResultInput(BaseModel):
 
 
 class DashboardWidget(BaseModel):
+    hide_targets: bool = False
+    show_indicator_key: bool = False
+    show_project: bool = False
+    filter_dates: bool = False
+    date_from: date | None = None
+    date_to: date | None = None
+    chart_layout: Literal["stacked", "grouped"] = "grouped"
+    value_mode: Literal["absolute", "percentage"] = "absolute"
+    chart_type: Literal["overall_target", "periodic_targets", "by_period", "achievement", "status"] | None = None
+    orientation: Literal["horizontal", "vertical"] = "vertical"
+    description: str = Field(default="", max_length=1000)
+    show_description: bool = False
+    image_only: bool = False
     model_config = ConfigDict(extra="forbid")
     id: UUID
     title: str = Field(min_length=1, max_length=200)
@@ -71,10 +84,12 @@ class DashboardWidget(BaseModel):
     source_id: UUID | None = None
     text: str = Field(default="", max_length=4000)
     width: Literal[1, 2] = 1
-    height: int = Field(default=360, ge=240, le=900)
+    height: int = Field(default=480, ge=240, le=900)
 
     @model_validator(mode="after")
     def valid_source(self) -> "DashboardWidget":
+        if self.filter_dates and self.date_from and self.date_to and self.date_from > self.date_to:
+            raise ValueError("Start date must be on or before end date.")
         if self.kind == "text" and self.source_id is not None:
             raise ValueError("Text widgets cannot reference a data source.")
         if self.kind != "text" and self.source_id is None:

@@ -143,20 +143,25 @@ beforeEach(() => {
 it("opens the saved chart handoff with its source and title prefilled", async () => {
   vi.mocked(apiClient.savedAnalyses).mockResolvedValue([{id: "chart-one", title: "Water availability", chart: "pie"}] as never);
   setup("/?add_visualization=chart-one");
-  const dialog = await screen.findByRole("dialog");
+  const dialog = await screen.findByRole("region", { name: "Widget information" });
   expect((within(dialog).getByLabelText("Widget title") as HTMLInputElement).value).toBe("Water availability");
   expect((within(dialog).getByLabelText("Saved visualization") as HTMLSelectElement).value).toBe("chart-one");
   expect((within(dialog).getByLabelText("Widget type") as HTMLSelectElement).value).toBe("analysis");
 });
 
-it("suggests a source title while preserving a manually entered widget title", async () => {
+it("uses the category as a default title and preserves a manually entered widget title", async () => {
   vi.mocked(apiClient.savedAnalyses).mockResolvedValue([{id: "chart-one", title: "Water availability", chart: "pie"}, {id: "chart-two", title: "Soap availability", chart: "pie"}] as never);
   setup();
-  fireEvent.click(await screen.findByRole("button", {name: "Add widget"}));
-  fireEvent.change(screen.getByLabelText("Widget type"), {target: {value: "analysis"}});
+  fireEvent.click(await screen.findByRole("button", {name: "Add new widget"}));
+  expect(screen.getAllByRole("option").map(option => option.textContent)).toContain("Project indicators");
+  expect(screen.queryByRole("option", { name: "Text & image" })).toBeNull();
+  expect((screen.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText("Widget category"), {target: {value: "analysis"}});
+  fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
   await screen.findByRole("option", {name: "Water availability"});
   fireEvent.change(screen.getByLabelText("Saved visualization"), {target: {value: "chart-one"}});
-  expect((screen.getByLabelText("Widget title") as HTMLInputElement).value).toBe("Water availability");
+  expect((screen.getByLabelText("Widget title") as HTMLInputElement).value).toBe("Project visualization");
   fireEvent.change(screen.getByLabelText("Widget title"), {target: {value: "My custom title"}});
   fireEvent.change(screen.getByLabelText("Saved visualization"), {target: {value: "chart-two"}});
   expect((screen.getByLabelText("Widget title") as HTMLInputElement).value).toBe("My custom title");
@@ -232,35 +237,14 @@ describe("existing saved dashboard builder", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("persists keyboard ordering and height across a reload", async () => {
+  it("persists widget height across a reload", async () => {
     setup();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Move Alpha down" }),
-    );
-    await waitFor(() => expect(stored[0].widgets[0].id).toBe("b"));
-    await waitFor(() =>
-      expect(
-        (screen.getByLabelText("Height of Alpha") as HTMLSelectElement)
-          .disabled,
-      ).toBe(false),
-    );
-    fireEvent.change(screen.getByLabelText("Height of Alpha"), {
-      target: { value: "600" },
-    });
-    await waitFor(() => expect(stored[0].widgets[1].height).toBe(600));
+    const height = await screen.findByLabelText("Height of Alpha");
+    fireEvent.change(height, { target: { value: "600" } });
+    await waitFor(() => expect(stored[0].widgets[0].height).toBe(600));
     cleanup();
     setup();
-    await screen.findByText("Alpha content");
-    expect(
-      (screen.getByLabelText("Height of Alpha") as HTMLSelectElement).value,
-    ).toBe("600");
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "Move Beta up",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    expect((await screen.findByLabelText("Height of Alpha") as HTMLSelectElement).value).toBe("600");
   });
 
   it("supports dragging a widget to another position", async () => {
@@ -278,51 +262,26 @@ describe("existing saved dashboard builder", () => {
     );
   });
 
-  it("keeps legacy full-width widgets side by side without width resize controls", async () => {
+  it("renders full-width widgets across both dashboard columns", async () => {
     stored[0].widgets[1].width = 2;
     setup();
     await screen.findByText("Beta content");
     for (const id of ["a", "b"]) {
       const card = document.querySelector(`[data-widget-id="${id}"]`)!;
-      expect(card.className).not.toContain("col-span-2");
+      expect(card.className.includes("col-span-2")).toBe(id === "b");
     }
     expect(screen.queryByRole("button", { name: "Resize Alpha" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Drag to resize Alpha" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Expand Alpha" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Expand Alpha" })).toBeNull();
     expect(apiClient.saveDashboard).not.toHaveBeenCalled();
   });
 
-  it("previews date filters, saves them and restores them on reload", async () => {
+  it("omits the dashboard filter and refresh toolbar", async () => {
     setup();
     await screen.findByText("Alpha content");
-    fireEvent.change(screen.getByLabelText("Results from"), {
-      target: { value: "2026-10-01" },
-    });
-    fireEvent.change(screen.getByLabelText("Results through"), {
-      target: { value: "2026-10-31" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save filters" }));
-    await waitFor(() => expect(stored[0].date_from).toBe("2026-10-01"));
-    cleanup();
-    setup();
-    await waitFor(() =>
-      expect(
-        (screen.getByLabelText("Results through") as HTMLInputElement).value,
-      ).toBe("2026-10-31"),
-    );
-    fireEvent.change(screen.getByLabelText("Results from"), {
-      target: { value: "2026-12-01" },
-    });
-    expect(
-      screen.getByText("Start date must be on or before end date."),
-    ).toBeTruthy();
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "Save filters",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    expect(screen.queryByText("Filters")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Refresh dashboard data" })).toBeNull();
+    expect(screen.queryByText(/Saved within/)).toBeNull();
   });
 
   it("presents all dashboard widgets together and closes without saving", async () => {
@@ -343,23 +302,13 @@ describe("existing saved dashboard builder", () => {
     expect(apiClient.saveDashboard).not.toHaveBeenCalled();
   });
 
-  it("expands a widget for presentation and closes without saving its layout", async () => {
-    stored[0].widgets = [note("a", "Attendance")];
+  it("omits expand and up/down controls from widget headers", async () => {
     setup();
-    const expand = await screen.findByRole("button", { name: "Expand Attendance" });
-    expand.focus();
-    fireEvent.click(expand);
-    let dialog = await screen.findByRole("dialog", { name: "Attendance" });
-    expect(document.body.style.overflow).toBe("hidden");
-    fireEvent.keyDown(dialog, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.activeElement).toBe(expand);
-    expect(document.body.style.overflow).not.toBe("hidden");
-    fireEvent.click(expand);
-    dialog = await screen.findByRole("dialog", { name: "Attendance" });
-    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(apiClient.saveDashboard).not.toHaveBeenCalled();
+    await screen.findByText("Alpha content");
+    expect(screen.queryByRole("button", { name: "Expand Alpha" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Move Alpha up" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Move Alpha down" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit Alpha" })).toBeTruthy();
   });
 
   it("refreshes existing widget results after a successful background sync", async () => {
@@ -396,22 +345,7 @@ describe("existing saved dashboard builder", () => {
       "",
       "",
     );
-    fireEvent.change(screen.getByLabelText("Results from"), {
-      target: { value: "2026-10-01" },
-    });
-    await waitFor(() =>
-      expect(apiClient.dashboardWidgetResult).toHaveBeenLastCalledWith(
-        "dash",
-        "a",
-        "2026-10-01",
-        "",
-      ),
-    );
-    expect(
-      await screen.findByText(
-        /Overall target: 100 \(unchanged by date filters\)/,
-      ),
-    ).toBeTruthy();
+    expect(await screen.findByText(/Overall target: 100/)).toBeTruthy();
   });
 
   it("does not append a percent sign to unavailable values", async () => {
@@ -481,28 +415,87 @@ describe("existing saved dashboard builder", () => {
     ).toBeTruthy();
   });
 
-  it("adds and edits a text widget using the existing save flow", async () => {
+  it("hides dashboard widgets throughout creation and restores them on cancel", async () => {
     setup();
-    fireEvent.click(await screen.findByRole("button", { name: "Add widget" }));
-    fireEvent.change(screen.getByLabelText("Widget type"), {
-      target: { value: "text" },
-    });
+    const content = await screen.findByText("Alpha content");
+    expect(content.closest("[hidden]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add new widget" }));
+    expect(content.closest("[hidden]")).not.toBeNull();
+    fireEvent.change(screen.getByLabelText("Widget category"), { target: { value: "indicator" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(content.closest("[hidden]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(content.closest("[hidden]")).toBeNull();
+  });
+
+  it("opens dashboard sections and returns to widgets", async () => {
+    setup();
+    await screen.findByRole("button", { name: "Add new widget" });
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(screen.getByRole("heading", { name: "Dashboard details" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+    expect(screen.getByRole("link", { name: "Open project team" }).getAttribute("href")).toContain("/team");
+    fireEvent.click(screen.getByRole("button", { name: "Discussions" }));
+    expect(screen.getByText("Dashboard discussions are not available yet.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    expect(screen.getByRole("button", { name: "Dashboard" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("saves indicator chart settings from the inline charts and orientation section", async () => {
+    vi.mocked(apiClient.indicators).mockResolvedValue([indicator()]);
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Add new widget" }));
+    fireEvent.change(screen.getByLabelText("Widget category"), { target: { value: "indicator" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByRole("heading", { name: "Data source" })).toBeTruthy();
+    expect(screen.queryByLabelText("Select Project")).toBeNull();
+    await screen.findByRole("option", { name: "Attendance" });
+    fireEvent.change(screen.getByLabelText("Select indicators to add to the widget"), { target: { value: "source" } });
+    fireEvent.click(screen.getByLabelText("Don't show target values"));
+    fireEvent.click(screen.getByLabelText("Show indicators key"));
+    fireEvent.click(screen.getByLabelText("Filter data by date range"));
+    fireEvent.change(screen.getByLabelText("From date"), { target: { value: "2026-10-01" } });
+    fireEvent.change(screen.getByLabelText("Through date"), { target: { value: "2026-10-31" } });
+    fireEvent.click(screen.getByLabelText("Show Project under title"));
+    expect(screen.queryByRole("heading", { name: "Data selection" })).toBeNull();
+    expect(screen.queryByLabelText("Indicator")).toBeNull();
+    expect(screen.queryByText(/Date-collected and disaggregated charts are unavailable/)).toBeNull();
+    expect(screen.getByRole("heading", { name: "Charts & orientation" })).toBeTruthy();
+    expect(screen.queryByText("Data & visualization")).toBeNull();
+    expect(screen.queryByText("Size & layout")).toBeNull();
+    expect((screen.getByLabelText("Widget Type") as HTMLSelectElement).value).toBe("");
+    expect(screen.queryByRole("radio")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Widget Type"), { target: { value: "overall_target" } });
+    expect(screen.getAllByRole("radio")).toHaveLength(8);
+    fireEvent.click(screen.getByRole("radio", { name: "Percentage achieved: Stacked horizontal" }));
+    expect((screen.getByRole("radio", { name: "Percentage achieved: Stacked horizontal" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.change(screen.getByLabelText("Widget Type"), { target: { value: "status" } });
+    expect(screen.queryByRole("radio")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Add widget" }));
+    await waitFor(() => expect(stored[0].widgets).toHaveLength(3));
+    expect(stored[0].widgets[2]).toMatchObject({ chart_type: "status", orientation: "horizontal", chart_layout: "stacked", value_mode: "percentage", height: 480, source_id: "source", hide_targets: true, show_indicator_key: true, show_project: true, filter_dates: true, date_from: "2026-10-01", date_to: "2026-10-31" });
+  });
+
+  it("preserves editing existing text widgets without offering them for creation", async () => {
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Alpha" }));
     fireEvent.change(screen.getByLabelText("Widget title"), {
       target: { value: "Context" },
     });
-    fireEvent.change(screen.getByLabelText("Text"), {
-      target: { value: "Documented field context" },
-    });
-    const buttons = screen.getAllByRole("button", { name: "Add widget" });
+    fireEvent.input(screen.getByLabelText("Text"), { target: { innerHTML: "<b>Documented field context</b>" } });
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Reporting context" } });
+    expect(screen.queryByLabelText("Show description under title")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Size & layout")).toBeNull();
+    const buttons = screen.getAllByRole("button", { name: "Save widget" });
     fireEvent.click(buttons[buttons.length - 1]);
     expect(await screen.findByText("Documented field context")).toBeTruthy();
+    expect(stored[0].widgets.find(widget => widget.title === "Context")).toMatchObject({ width: 1, height: 360, description: "Reporting context", show_description: false });
     fireEvent.click(screen.getByRole("button", { name: "Edit Context" }));
-    fireEvent.change(screen.getByLabelText("Text"), {
-      target: { value: "Revised context" },
-    });
+    fireEvent.input(screen.getByLabelText("Text"), { target: { innerHTML: "Revised context" } });
     fireEvent.click(screen.getByRole("button", { name: "Save widget" }));
     expect(await screen.findByText("Revised context")).toBeTruthy();
-    expect(stored[0].widgets).toHaveLength(3);
+    expect(stored[0].widgets).toHaveLength(2);
   });
 
   it("keeps save conflicts visible and leaves the last saved layout intact", async () => {
@@ -510,9 +503,7 @@ describe("existing saved dashboard builder", () => {
       new Error("Dashboard changed in another session. Reload it."),
     );
     setup();
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Move Alpha down" }),
-    );
+    fireEvent.change(await screen.findByLabelText("Height of Alpha"), { target: { value: "600" } });
     expect(
       await screen.findByText(
         "Dashboard changed in another session. Reload it.",

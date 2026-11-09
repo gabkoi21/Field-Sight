@@ -1,3 +1,5 @@
+import { DescriptionEditor, descriptionMarkup } from "../components/ui/DescriptionEditor";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from "recharts";
 import { confirmDeletion } from "../components/ui/DeleteConfirmation";
 import {
   useEffect,
@@ -8,23 +10,22 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProjectLink as Link, useProjectSearchParams as useSearchParams } from "./projectRouting";
 import {
-  ArrowDown,
-  ArrowUp,
-  BarChart3,
-  ChevronDown,
   Copy,
   Download,
   LayoutDashboard,
+  FileText,
+  Settings,
+  Palette,
+  Users,
+  MessageSquare,
   Maximize2,
   GripVertical,
-  RefreshCw,
-  SlidersHorizontal,
   Pencil,
   Plus,
   Target,
   Trash2,
 } from "lucide-react";
-import { SurveyResultChart, SurveyResultsTable } from "../components/charts/SurveyResultChart";
+import { SurveyResultChart } from "../components/charts/SurveyResultChart";
 import { Button, LoadingSkeleton, LoadingState, MetricCard } from "../components/ui";
 import {
   apiClient,
@@ -41,9 +42,18 @@ import {
   Page,
   Panel,
   WorkspaceGate,
-  WorkspaceTabs,
   fieldClass,
 } from "./WorkspaceUI";
+
+const indicatorChartTypes = [
+  ["overall_target", "Actuals vs Targets: Overall target"],
+  ["periodic_targets", "Actuals vs Targets: Periodic targets"],
+  ["by_date", "Time-based results: actuals by date collected"],
+  ["by_period", "Time-based results: actuals by period"],
+  ["achievement", "Time-based results: % achieved over time"],
+  ["disaggregated", "Disaggregated results"],
+  ["status", "Status of selected indicators"],
+] as const;
 
 const value = (n: number | null | undefined) =>
   n == null
@@ -58,42 +68,40 @@ export function DashboardsPage() {
     useWorkspace();
   const cache = useQueryClient();
   const [selected, setSelected] = useState("");
+  const [dashboardTab, setDashboardTab] = useState("Dashboard");
   const [editor, setEditor] = useState<"new" | WorkspaceDashboard | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [editingWidget, setEditingWidget] = useState<string | null>(null);
-  const [expandedWidget, setExpandedWidget] = useState<string | null>(null);
   const [presentedDashboard, setPresentedDashboard] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const pointerCleanup = useRef<(() => void) | null>(null);
-  const filtersRef = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const closeFilters = (event: PointerEvent) => {
-      const filters = filtersRef.current;
-      if (filters?.open && event.target instanceof Node && !filters.contains(event.target)) {
-        filters.open = false;
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && filtersRef.current?.open) {
-        filtersRef.current.open = false;
-        filtersRef.current.querySelector("summary")?.focus();
-      }
-    };
-    document.addEventListener("pointerdown", closeFilters);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeFilters);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
   useEffect(() => () => pointerCleanup.current?.(), []);
   const [widgetEditor, setWidgetEditor] = useState(false);
+  const [widgetCreation, setWidgetCreation] = useState(false);
+  const [creationCategory, setCreationCategory] = useState<"indicator" | "analysis" | "">("");
   const [kind, setKind] = useState<DashboardWidget["kind"]>("indicator");
   const [source, setSource] = useState("");
   const [widgetTitle, setWidgetTitle] = useState("");
   const [text, setText] = useState("");
+  const [widgetWidth, setWidgetWidth] = useState<1 | 2>(1);
+  const [chartType, setChartType] = useState<NonNullable<DashboardWidget["chart_type"]> | "">("");
+  const [orientation, setOrientation] = useState<"horizontal" | "vertical">("vertical");
+  const [chartLayout, setChartLayout] = useState<"stacked" | "grouped">("grouped");
+  const [valueMode, setValueMode] = useState<"absolute" | "percentage">("absolute");
+  const [hideTargets, setHideTargets] = useState(false);
+  const [showIndicatorKey, setShowIndicatorKey] = useState(false);
+  const [showProject, setShowProject] = useState(false);
+  const [filterDates, setFilterDates] = useState(false);
+  const [widgetFrom, setWidgetFrom] = useState("");
+  const [widgetTo, setWidgetTo] = useState("");
+  const [widgetHeight, setWidgetHeight] = useState(480);
+  const [widgetDescription, setWidgetDescription] = useState("");
+  const [showDescription, setShowDescription] = useState(false);
+  const [imageOnly, setImageOnly] = useState(false);
+  const widgetFormRef = useRef<HTMLElement>(null);
+  useEffect(() => { if (widgetEditor) widgetFormRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); }, [widgetEditor]);
   const [filterDashboard, setFilterDashboard] = useState("");
   const [from, setFrom] = useState("");
   const [through, setThrough] = useState("");
@@ -116,7 +124,6 @@ export function DashboardsPage() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
   });
-  const expanded = dashboard?.widgets.find((w) => w.id === expandedWidget);
   const syncStatus = useQuery({
     queryKey: ["sync-settings", projectId],
     queryFn: () => apiClient.syncSettings(projectId),
@@ -128,10 +135,12 @@ export function DashboardsPage() {
     setSelected("");
     setEditor(null);
     setWidgetEditor(false);
+    setWidgetCreation(false);
     setEditingWidget(null);
   }, [projectId]);
   useEffect(() => {
-    setExpandedWidget(null);
+    setDashboardTab("Dashboard");
+    setWidgetCreation(false);
     setPresentedDashboard(null);
     setFrom(dashboard?.date_from ?? "");
     setThrough(dashboard?.date_to ?? "");
@@ -192,6 +201,7 @@ export function DashboardsPage() {
       await refresh(data);
       setEditor(null);
       setWidgetEditor(false);
+
     },
   });
   const remove = useMutation({
@@ -209,29 +219,31 @@ export function DashboardsPage() {
     create.reset();
     save.reset();
   }
-  function reorder(index: number, direction: number) {
-    if (
-      !dashboard ||
-      save.isPending ||
-      index + direction < 0 ||
-      index + direction >= dashboard.widgets.length
-    )
-      return;
-    const widgets = [...dashboard.widgets];
-    [widgets[index], widgets[index + direction]] = [
-      widgets[index + direction],
-      widgets[index],
-    ];
-    persist(widgets);
-  }
   function openWidget(widget?: DashboardWidget) {
     setTitleEdited(Boolean(widget));
-    setWidgetEditor(true);
+    setWidgetEditor(Boolean(widget));
+    setWidgetCreation(!widget);
+    setCreationCategory("");
     setEditingWidget(widget?.id ?? null);
     setKind(widget?.kind ?? "indicator");
     setSource(widget?.source_id ?? "");
     setWidgetTitle(widget?.title ?? "");
     setText(widget?.text ?? "");
+    setWidgetWidth(widget?.width ?? 1);
+    setChartType(widget ? widget.chart_type ?? "overall_target" : "");
+    setOrientation(widget?.orientation ?? "vertical");
+    setChartLayout(widget?.chart_layout ?? "grouped");
+    setValueMode(widget?.value_mode ?? "absolute");
+    setHideTargets(widget?.hide_targets ?? false);
+    setShowIndicatorKey(widget?.show_indicator_key ?? false);
+    setShowProject(widget?.show_project ?? false);
+    setFilterDates(widget?.filter_dates ?? false);
+    setWidgetFrom(widget?.date_from ?? "");
+    setWidgetTo(widget?.date_to ?? "");
+    setWidgetHeight(widget?.height ?? 480);
+    setWidgetDescription(widget?.description ?? "");
+    setShowDescription(widget?.show_description ?? false);
+    setImageOnly(widget?.image_only ?? false);
     save.reset();
   }
   function startPointer(
@@ -287,6 +299,8 @@ export function DashboardsPage() {
   const invalid = Boolean(from && through && from > through);
   return (
     <Page
+      className="mx-auto w-full max-w-[1680px] !space-y-5 [&>a:first-child]:min-h-8 [&>header]:items-center"
+      backTo={projectId ? `/projects/${projectUrlKey(project ?? { id: projectId })}/details` : "/projects"}
       breadcrumb={project?.name ?? "Select a project"}
       title="Project dashboards"
       description="Build a shared view of your project's results and evidence."
@@ -301,7 +315,6 @@ export function DashboardsPage() {
       }
     >
       <WorkspaceGate>
-        <WorkspaceTabs />
         {shareNotice && <p role="status" className="text-sm text-[var(--fs-primary)]">{shareNotice}</p>}
         {[dashboards.error, create.error, save.error, remove.error, download.error]
           .filter(Boolean)
@@ -347,15 +360,15 @@ export function DashboardsPage() {
           </Panel>
         ) : (
           <>
-            <Panel>
-              <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e4ebed] px-4 py-2">
+            <Panel className="overflow-hidden">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fs-border)] px-5 py-4">
                 <div className="min-w-0 basis-[230px] flex-1">
                   <label className="sr-only" htmlFor="dashboard-picker">
                     Dashboard
                   </label>
                   <select
                     id="dashboard-picker"
-                    className="max-w-full border-0 bg-transparent text-base font-semibold"
+                    className="min-h-10 w-full max-w-md cursor-pointer rounded-lg border border-[var(--fs-control-border)] bg-[var(--fs-surface)] px-3 py-2 text-sm font-semibold text-[var(--fs-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--fs-primary)]"
                     value={dashboard.id}
                     disabled={save.isPending}
                     onChange={(e) => {
@@ -369,13 +382,33 @@ export function DashboardsPage() {
                       </option>
                     ))}
                   </select>
-                  {dashboard.description && (
-                    <p className="mb-0 mt-0.5 text-xs text-[var(--fs-muted)]">
-                      {dashboard.description}
-                    </p>
-                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 print:hidden">
+                  <Button
+                    disabled={save.isPending}
+                    onClick={() => openWidget()}
+                    className="!min-h-10 !rounded-lg !px-4 !py-2 !text-sm"
+                  >
+                    <Plus size={14} />
+                    Add new widget
+                  </Button>
+                </div>
+              </header>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 border-b border-[var(--fs-border)] px-5 print:hidden">
+              <nav aria-label="Dashboard sections" className="flex min-w-0 overflow-x-auto">
+                {([
+                  ["Dashboard", LayoutDashboard], ["Details", FileText],
+                  ["Settings", Settings], ["Styles", Palette],
+                  ["Team", Users], ["Discussions", MessageSquare],
+                ] as const).map(([label, Icon]) => (
+                  <button key={label} type="button" aria-current={dashboardTab === label ? "page" : undefined}
+                    onClick={() => setDashboardTab(label)}
+                    className={`flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-xs font-medium ${dashboardTab === label ? "border-[var(--fs-primary)] text-[var(--fs-primary)]" : "border-transparent text-[var(--fs-muted)] hover:text-[var(--fs-primary)]"}`}>
+                    <Icon size={14} aria-hidden="true" />{label}
+                  </button>
+                ))}
+              </nav>
+              <div aria-label="Dashboard actions" className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5 py-1.5">
                   <Tool
                     title="Expand dashboard"
                     compact
@@ -415,81 +448,24 @@ export function DashboardsPage() {
                   >
                     <Trash2 size={14} />
                   </Tool>
-                  <Button
-                    disabled={save.isPending}
-                    onClick={() => openWidget()}
-                    className="!min-h-8 !rounded-md !px-3 !py-1 !text-xs"
-                  >
-                    <Plus size={14} />
-                    Add widget
-                  </Button>
-                </div>
-              </header>
-              <div className="flex flex-wrap items-center gap-2 px-5 py-2 print:hidden">
-                <details ref={filtersRef} className="group relative">
-                  <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-md border border-[var(--fs-control-border)] bg-white px-2.5 text-xs font-medium text-[var(--fs-primary)] hover:bg-[var(--fs-primary-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-primary)] [&::-webkit-details-marker]:hidden">
-                    <SlidersHorizontal size={15} aria-hidden="true" />
-                    Filters
-                    <ChevronDown size={14} className="transition-transform group-open:rotate-180" aria-hidden="true" />
-                  </summary>
-                  <div className="absolute left-0 top-full z-30 mt-2 flex w-[min(340px,calc(100vw-3rem))] flex-wrap items-end gap-3 rounded-lg border border-[var(--fs-border)] bg-white p-4 shadow-lg [&>label]:w-full">
-                <Field label="Results from">
-                  <input
-                    type="date"
-                    className={fieldClass}
-                    value={from}
-                    onChange={(e) => setFrom(e.target.value)}
-                  />
-                </Field>
-                <Field label="Results through">
-                  <input
-                    type="date"
-                    className={fieldClass}
-                    value={through}
-                    onChange={(e) => setThrough(e.target.value)}
-                  />
-                </Field>
-                <button
-                  onClick={() => {
-                    setFrom("");
-                    setThrough("");
-                  }}
-                  className="min-h-11 rounded-lg px-3 text-sm font-medium text-brand hover:bg-blue-50"
-                >
-                  Clear filters
-                </button>
-                <Button
-                  variant="secondary"
-                  disabled={invalid || save.isPending}
-                  onClick={() =>
-                    save.mutate({
-                      id: dashboard.id,
-                      input: {
-                        ...dashboard,
-                        date_from: from || null,
-                        date_to: through || null,
-                      },
-                    })
-                  }
-                >
-                  Save filters
-                </Button>
-                  </div>
-                </details>
-                <Tool
-                  title="Refresh dashboard data"
-                  compact
-                  onClick={() =>
-                    cache.invalidateQueries({ queryKey: ["dashboard-widget"] })
-                  }
-                >
-                  <RefreshCw size={14} />
-                </Tool>
-                <span className="ml-auto text-[12px] text-[var(--fs-muted)]">
-                  Saved within {project?.name}
-                </span>
+              </div>
               </div>
             </Panel>
+            {dashboardTab === "Details" && <Panel className="space-y-4 p-5">
+              <h2 className="text-base font-semibold">Dashboard details</h2>
+              <dl className="grid gap-3 text-sm">
+                <div><dt className="text-[var(--fs-muted)]">Name</dt><dd className="m-0">{dashboard.title}</dd></div>
+                <div><dt className="text-[var(--fs-muted)]">Description</dt><dd className="m-0 whitespace-pre-wrap">{dashboard.description || "No description added."}</dd></div>
+                <div><dt className="text-[var(--fs-muted)]">Project</dt><dd className="m-0">{project?.name}</dd></div>
+                <div><dt className="text-[var(--fs-muted)]">Widgets</dt><dd className="m-0">{dashboard.widgets.length}</dd></div>
+              </dl>
+              <Button variant="secondary" onClick={() => edit(dashboard)}>Edit details</Button>
+            </Panel>}
+            {dashboardTab === "Settings" && <Panel className="space-y-3 p-5"><h2 className="text-base font-semibold">Dashboard settings</h2><p className="text-sm text-[var(--fs-muted)]">Update this dashboard's name and description. Set a reporting period in each widget’s Data source section.</p><Button variant="secondary" onClick={() => edit(dashboard)}>Edit dashboard</Button></Panel>}
+            {dashboardTab === "Styles" && <Panel className="space-y-3 p-5"><h2 className="text-base font-semibold">Dashboard styles</h2><p className="text-sm text-[var(--fs-muted)]">Use each widget's height control and drag handle on the Dashboard tab to adjust its size and position.</p><Button variant="secondary" onClick={() => setDashboardTab("Dashboard")}>Arrange widgets</Button></Panel>}
+            {dashboardTab === "Team" && <Panel className="space-y-3 p-5"><h2 className="text-base font-semibold">Dashboard team</h2><p className="text-sm text-[var(--fs-muted)]">This dashboard is shared within {project?.name}. Manage the team through the project.</p><Link className="inline-flex min-h-11 items-center text-sm font-medium text-[var(--fs-primary)]" to={`/projects/${projectUrlKey(project ?? { id: projectId })}/team`}>Open project team</Link></Panel>}
+            {dashboardTab === "Discussions" && <Panel className="p-5"><h2 className="text-base font-semibold">Discussions</h2><p className="text-sm text-[var(--fs-muted)]">Dashboard discussions are not available yet.</p></Panel>}
+            <div hidden={dashboardTab !== "Dashboard" || widgetCreation || widgetEditor} className="space-y-5">
             {save.isPending && (
               <p role="status" className="text-xs text-[var(--fs-muted)]">
                 Saving dashboard…
@@ -497,8 +473,7 @@ export function DashboardsPage() {
             )}
             {syncStatus.error && (
               <p role="status" className="text-xs text-[var(--fs-muted)]">
-                Automatic refresh status is unavailable. Use Refresh dashboard
-                data to load current results.
+                Automatic refresh status is unavailable. Reload the page to load current results.
               </p>
             )}
             {invalid ? (
@@ -506,18 +481,18 @@ export function DashboardsPage() {
             ) : filterDashboard !== dashboard.id ? (
               <LoadingState variant="panel" label="Preparing selected dashboard…" />
             ) : (
-              <div className="grid grid-cols-2 items-start gap-5 max-lg:grid-cols-1">
-                {dashboard.widgets.map((widget, index) => (
+              <div className="grid grid-cols-2 items-start gap-6 max-lg:grid-cols-1">
+                {dashboard.widgets.map((widget) => (
                   <div
                     key={widget.id}
                     data-widget-id={widget.id}
-                    className={`max-lg:!h-auto print:!h-auto min-w-0 ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[var(--fs-primary)]" : ""}`}
+                    className={`max-lg:!h-auto print:!h-auto min-w-0 ${widget.width === 2 ? "col-span-2 max-lg:col-span-1" : ""} ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[var(--fs-primary)]" : ""}`}
                     style={{
-                      height: widget.height ?? 360,
+                      height: widget.height ?? 480,
                     }}
                   >
                     <Panel className="flex h-full flex-col overflow-hidden print:overflow-visible">
-                      <header className="flex shrink-0 items-center gap-2 border-b border-[#edf0f2] px-3 py-2 max-sm:flex-wrap">
+                      <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-[var(--fs-border)] px-4 py-3 max-sm:flex-wrap">
                         <button
                           type="button"
                           aria-label={`Drag ${widget.title}`}
@@ -531,32 +506,6 @@ export function DashboardsPage() {
                           {widget.title}
                         </h2>
                         <div className="ml-auto flex shrink-0 items-center gap-1 print:hidden">
-                          <Tool
-                            title={`Expand ${widget.title}`}
-                            compact
-                            onClick={() => setExpandedWidget(widget.id)}
-                          >
-                            <Maximize2 size={16} />
-                          </Tool>
-                          <Tool
-                            title={`Move ${widget.title} up`}
-                            compact
-                            disabled={index === 0 || save.isPending}
-                            onClick={() => reorder(index, -1)}
-                          >
-                            <ArrowUp size={16} />
-                          </Tool>
-                          <Tool
-                            title={`Move ${widget.title} down`}
-                            compact
-                            disabled={
-                              index === dashboard.widgets.length - 1 ||
-                              save.isPending
-                            }
-                            onClick={() => reorder(index, 1)}
-                          >
-                            <ArrowDown size={16} />
-                          </Tool>
                           <Tool
                             title={`Edit ${widget.title}`}
                             compact
@@ -576,6 +525,8 @@ export function DashboardsPage() {
                           </Tool>
                         </div>
                       </header>
+                      {widget.show_project && <p className="m-0 px-5 pt-3 text-xs text-[var(--fs-muted)]">{project?.name}</p>}
+                      {widget.show_description && widget.description && <p className="m-0 whitespace-pre-wrap px-5 pt-3 text-xs text-[var(--fs-muted)]">{widget.description}</p>}
                       <div className="min-h-0 flex-1 overflow-auto print:overflow-visible">
                         <Widget
                           widget={widget}
@@ -587,13 +538,14 @@ export function DashboardsPage() {
                           through={through}
                         />
                       </div>
-                      <div className="mt-auto flex items-center justify-end gap-2 px-3 pb-2 print:hidden">
-                        <label className="text-[11px] text-[var(--fs-muted)]">
+                      <div className="mt-auto flex items-center justify-end gap-2 border-t border-[var(--fs-border)] bg-slate-50/60 px-4 py-2 print:hidden">
+                        <label className="flex items-center gap-2 text-xs text-[var(--fs-muted)]">
                           Height{" "}
                           <select
                             aria-label={`Height of ${widget.title}`}
+                            className="min-h-8 rounded-md border border-[var(--fs-control-border)] bg-white px-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--fs-primary)]"
                             disabled={save.isPending}
-                            value={widget.height ?? 360}
+                            value={widget.height ?? 480}
                             onChange={(event) =>
                               persist(
                                 dashboard.widgets.map((w) =>
@@ -614,7 +566,7 @@ export function DashboardsPage() {
                                 480,
                                 600,
                                 900,
-                                widget.height ?? 360,
+                                widget.height ?? 480,
                               ]),
                             ]
                               .sort((a, b) => a - b)
@@ -632,14 +584,11 @@ export function DashboardsPage() {
               </div>
             )}
             {!dashboard.widgets.length && (
-              <Panel className="p-12 text-center">
-                <BarChart3 className="mx-auto text-[var(--fs-muted)]" size={30} />
-                <h2 className="text-lg">Add your first widget</h2>
-                <p className="text-sm text-[var(--fs-muted)]">
-                  Choose an indicator, a saved analysis, or a text note.
-                </p>
+              <Panel className="px-5 py-3">
+                <p className="m-0 text-xs italic text-[var(--fs-muted)]">There are no dashboard widgets added yet.</p>
               </Panel>
             )}
+            </div>
           </>
         )}
       </WorkspaceGate>
@@ -660,7 +609,7 @@ export function DashboardsPage() {
             {dashboard.widgets.map((widget) => (
               <Panel
                 key={widget.id}
-                className="flex min-w-0 flex-col overflow-hidden"
+                className={`flex min-w-0 flex-col overflow-hidden ${widget.width === 2 ? "col-span-2 max-lg:col-span-1" : ""}`}
               >
                 <h2 className="m-0 flex min-h-16 items-center border-b border-[#edf0f2] px-6 py-4 text-base font-medium">
                   {widget.title}
@@ -684,32 +633,15 @@ export function DashboardsPage() {
           )}
         </Dialog>
       )}
-      {expanded && dashboard && (
-        <Dialog
-          title={expanded.title}
-          presentation
-          onClose={() => setExpandedWidget(null)}
-        >
-          <Widget
-            widget={expanded}
-            presentation
-            project={projectId}
-            dashboardId={dashboard.id}
-            version={dashboard.version}
-            revision={syncStatus.data?.last_successful_sync}
-            from={from}
-            through={through}
-          />
-        </Dialog>
-      )}
       {editor && (
         <Dialog
           title={editor === "new" ? "Create dashboard" : "Edit dashboard"}
+          compact
           onClose={() => setEditor(null)}
           error={create.error?.message ?? save.error?.message}
         >
           <form
-            className="grid gap-4"
+            className="grid gap-3"
             onSubmit={(e) => {
               e.preventDefault();
               const input = {
@@ -737,6 +669,7 @@ export function DashboardsPage() {
             </Field>
             <Field label="Description">
               <textarea
+                rows={2}
                 maxLength={1000}
                 className={fieldClass}
                 value={description}
@@ -745,6 +678,7 @@ export function DashboardsPage() {
             </Field>
             <Button
               type="submit"
+              className="justify-self-end"
               disabled={!projectId || create.isPending || save.isPending}
             >
               Save dashboard
@@ -752,33 +686,60 @@ export function DashboardsPage() {
           </form>
         </Dialog>
       )}
+      {widgetCreation && dashboard && (
+        <Dialog title="Add new widget" compact onClose={() => setWidgetCreation(false)}>
+          <form className="grid gap-4" onSubmit={event => {
+            event.preventDefault();
+            if (!creationCategory) return;
+            setKind(creationCategory);
+            setWidgetTitle(widgetTitle.trim() || (creationCategory === "indicator" ? "Project indicators" : "Project visualization"));
+            setTitleEdited(true);
+            setWidgetCreation(false);
+            setWidgetEditor(true);
+          }}>
+            <Field label="Widget category"><select required className={fieldClass} value={creationCategory} onChange={event => setCreationCategory(event.target.value as "indicator" | "analysis" | "")}>
+              <option value="">Choose a category</option>
+              <option value="indicator">Project indicators</option>
+              <option value="analysis">Project visualization</option>
+            </select></Field>
+            <Field label="Widget title"><input className={fieldClass} maxLength={200} placeholder="Title" value={widgetTitle} onChange={event => setWidgetTitle(event.target.value)} /></Field>
+            <p className="m-0 text-xs leading-5 text-[var(--fs-muted)]">If left blank, the widget title will default to the category name.</p>
+            <div className="flex justify-end gap-2 border-t border-[var(--fs-border)] pt-4">
+              <Button type="button" variant="secondary" onClick={() => setWidgetCreation(false)}>Cancel</Button>
+              <Button type="submit" disabled={!creationCategory}>Continue</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
       {widgetEditor && dashboard && (
-        <Dialog
-          title={
-            editingWidget ? "Edit dashboard widget" : "Add dashboard widget"
-          }
-          onClose={() => setWidgetEditor(false)}
-          error={
-            save.error?.message ??
-            indicators.error?.message ??
-            analyses.error?.message
-          }
-        >
+        <section ref={widgetFormRef} aria-labelledby="widget-information-heading" className="scroll-mt-5 overflow-hidden rounded-lg border border-[var(--fs-border)] bg-white">
+          <header className="border-b border-[var(--fs-border)] px-5 py-4"><h2 id="widget-information-heading" className="m-0 text-sm font-semibold">Widget information</h2></header>
+          {(save.error || indicators.error || analyses.error) && <Notice error>{save.error?.message ?? indicators.error?.message ?? analyses.error?.message}</Notice>}
           <form
-            className="grid gap-4"
+            className="grid gap-5 p-5"
             onSubmit={(e) => {
               e.preventDefault();
-              const original = dashboard.widgets.find(
-                (w) => w.id === editingWidget,
-              );
               const updated: DashboardWidget = {
                 id: editingWidget ?? crypto.randomUUID(),
-                title: widgetTitle,
+                title: widgetTitle.trim(),
                 kind,
                 source_id: kind === "text" ? null : source,
                 text,
-                width: original?.width ?? 1,
-                height: original?.height ?? 360,
+                description: widgetDescription,
+                show_description: showDescription,
+                image_only: imageOnly,
+                chart_type: kind === "indicator" && chartType ? chartType : undefined,
+                orientation,
+                chart_layout: chartLayout,
+                value_mode: valueMode,
+                hide_targets: hideTargets,
+                show_indicator_key: showIndicatorKey,
+                show_project: showProject,
+                filter_dates: filterDates,
+                date_from: widgetFrom || null,
+                date_to: widgetTo || null,
+                width: widgetWidth,
+                height: widgetHeight,
               };
               persist(
                 editingWidget
@@ -789,7 +750,7 @@ export function DashboardsPage() {
               );
             }}
           >
-            {available.length > 1 && <Field label="Dashboard"><select className={fieldClass} value={dashboard.id} onChange={event => setSelected(event.target.value)}>{available.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></Field>}
+            <div className="grid grid-cols-[minmax(180px,1fr)_3fr] gap-5 max-sm:grid-cols-1">
             <Field label="Widget type">
               <select
                 className={fieldClass}
@@ -799,9 +760,9 @@ export function DashboardsPage() {
                   setSource("");
                 }}
               >
-                <option value="indicator">Indicator progress</option>
-                <option value="analysis">Saved survey visualization</option>
-                <option value="text">Text & context</option>
+                <option value="indicator">Project indicators</option>
+                <option value="analysis">Project visualization</option>
+                {kind === "text" && <option value="text">Text & image</option>}
               </select>
             </Field>
             <Field label="Widget title">
@@ -813,20 +774,64 @@ export function DashboardsPage() {
                 onChange={(e) => {setWidgetTitle(e.target.value); setTitleEdited(true);}}
               />
             </Field>
+            </div>
+            <Field label="Description"><textarea className={fieldClass} rows={4} maxLength={1000} value={widgetDescription} onChange={event => setWidgetDescription(event.target.value)} placeholder="Enter text" /></Field>
+            {kind === "indicator" && <section className="grid gap-4 rounded-lg border border-[var(--fs-border)] p-5">
+              <h3 className="m-0 border-b border-[var(--fs-border)] pb-4 text-lg font-semibold">Charts & orientation</h3>
+              <Field label="Widget Type"><select required className={fieldClass} value={chartType} onChange={event => setChartType(event.target.value as typeof chartType)}>
+                <option value="">Select a widget type</option>
+                {indicatorChartTypes.map(([key, label]) => <option key={key} value={key} disabled={key === "by_date" || key === "disaggregated"}>{label}</option>)}
+              </select></Field>
+              {["overall_target", "periodic_targets"].includes(chartType) && <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+                {(["absolute", "percentage"] as const).map(mode => <fieldset key={mode} className="min-w-0 rounded-lg border border-[var(--fs-border)] p-4">
+                  <legend className="px-1 text-xs font-semibold">{mode === "absolute" ? "Absolute value charts" : "% achieved charts"}</legend>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["stacked", "grouped"] as const).flatMap(layout => (["horizontal", "vertical"] as const).map(direction => {
+                      const selected = valueMode === mode && chartLayout === layout && orientation === direction;
+                      const label = `${layout === "stacked" ? "Stacked" : "Grouped"} ${direction}`;
+                      return <label key={`${layout}-${direction}`} className={`cursor-pointer rounded-md border p-2 ${selected ? "border-[var(--fs-primary)] bg-[var(--fs-primary-soft)]" : "border-transparent hover:bg-slate-50"}`}>
+                        <ChartChoicePreview layout={layout} orientation={direction} />
+                        <span className="mt-2 flex items-center gap-1.5 text-xs text-[var(--fs-muted)]"><input type="radio" name="indicator-chart-choice" aria-label={`${mode === "absolute" ? "Absolute values" : "Percentage achieved"}: ${label}`} checked={selected} onChange={() => { setValueMode(mode); setChartLayout(layout); setOrientation(direction); }} />{label}</span>
+                      </label>;
+                    }))}
+                  </div>
+                </fieldset>)}
+              </div>}
+              {["by_period", "achievement"].includes(chartType) && <p className="m-0 text-sm text-[var(--fs-muted)]">Line chart · reporting periods on the horizontal axis</p>}
+              {chartType === "status" && <p className="m-0 text-sm text-[var(--fs-muted)]">Status summary for the selected indicator</p>}
+            </section>}
+            {kind === "indicator" && <section className="grid gap-4 rounded-lg border border-[var(--fs-border)] p-5">
+              <h3 className="m-0 border-b border-[var(--fs-border)] pb-4 text-lg font-semibold">Data source</h3>
+              <div className="grid grid-cols-2 gap-6 max-sm:grid-cols-1">
+                <div className="grid content-start gap-3">
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={hideTargets} onChange={event => setHideTargets(event.target.checked)} />Don't show target values</label>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showIndicatorKey} onChange={event => setShowIndicatorKey(event.target.checked)} />Show indicators key</label>
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={filterDates} onChange={event => setFilterDates(event.target.checked)} />Filter data by date range</label>
+                  {filterDates && <div className="grid grid-cols-2 gap-3"><Field label="From date"><input type="date" className={fieldClass} value={widgetFrom} max={widgetTo || undefined} onChange={event => setWidgetFrom(event.target.value)} /></Field><Field label="Through date"><input type="date" className={fieldClass} value={widgetTo} min={widgetFrom || undefined} onChange={event => setWidgetTo(event.target.value)} /></Field></div>}
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showProject} onChange={event => setShowProject(event.target.checked)} />Show Project under title</label>
+                </div>
+                <div><Field label="Select indicators to add to the widget"><select required className={fieldClass} value={source} onChange={event => setSource(event.target.value)} disabled={indicators.isLoading || indicators.isError}>
+                  <option value="">Select an indicator</option>
+                  {source && !indicators.data?.some(item => item.id === source) && <option value={source}>Existing indicator (unavailable)</option>}
+                  {(indicators.data ?? []).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select></Field>
+                {indicators.isLoading && <LoadingState variant="inline" label="Loading indicators…" />}
+                {indicators.isError && <p role="alert" className="text-sm text-red-700">Could not load indicators. <button type="button" className="underline" onClick={() => void indicators.refetch()}>Retry</button></p>}
+                {!indicators.isLoading && !indicators.isError && !indicators.data?.length && <p className="text-xs text-[var(--fs-muted)]">No indicators are available in this project.</p>}
+                </div>
+              </div>
+            </section>}
+            {kind !== "indicator" && <section className="grid gap-3 rounded-lg border border-[var(--fs-border)] p-5">
+            <h3 className="m-0 text-lg font-semibold">{kind === "text" ? "Widget content" : "Data selection"}</h3>
             {kind === "text" ? (
-              <Field label="Text">
-                <textarea
-                  className={fieldClass}
-                  rows={5}
-                  maxLength={4000}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-              </Field>
+              <div className="grid gap-3">
+                <fieldset className="flex gap-5 border-0 p-0 text-xs"><legend className="mb-2 text-[var(--fs-muted)]">Content</legend><label className="flex items-center gap-2"><input type="radio" name="widget-content" checked={!imageOnly} onChange={() => setImageOnly(false)} />Text & image</label><label className="flex items-center gap-2"><input type="radio" name="widget-content" checked={imageOnly} onChange={() => setImageOnly(true)} />Image only</label></fieldset>
+                <DescriptionEditor value={text} onChange={setText} disabled={save.isPending} label="Text" maxLength={4000} allowImages imageOnly={imageOnly} />
+              </div>
             ) : (
               <Field
                 label={
-                  kind === "indicator" ? "Indicator" : "Saved visualization"
+                  "Saved visualization"
                 }
               >
                 <select
@@ -835,73 +840,75 @@ export function DashboardsPage() {
                   value={source}
                   onChange={(e) => {
                     setSource(e.target.value);
-                    const item = (kind === "indicator" ? indicators.data : analyses.data)?.find(item => item.id === e.target.value);
-                    if (!titleEdited && item) setWidgetTitle("name" in item ? item.name : item.title);
+                    const item = analyses.data?.find(item => item.id === e.target.value);
+                    if (!titleEdited && item) setWidgetTitle(item.title);
                   }}
                 >
                   <option value="">Choose a source</option>
                   {editingWidget &&
                     source &&
-                    !(
-                      kind === "indicator" ? indicators.data : analyses.data
-                    )?.some((item) => item.id === source) && (
+                    !analyses.data?.some((item) => item.id === source) && (
                       <option value={source}>
                         Existing source (unavailable)
                       </option>
                     )}
-                  {(kind === "indicator"
-                    ? (indicators.data ?? [])
-                    : (analyses.data ?? [])
-                  ).map((item) => (
+                  {(analyses.data ?? []).map((item) => (
                     <option key={item.id} value={item.id}>
-                      {"name" in item ? item.name : item.title}
+                      {item.title}
                     </option>
                   ))}
                 </select>
               </Field>
             )}
-            {kind !== "text" &&
-              (kind === "indicator"
-                ? indicators.isLoading
-                : analyses.isLoading) && (
-                <LoadingState variant="panel" label="Loading widget sources…" />
-              )}
-            {kind !== "text" &&
-              !(kind === "indicator" ? indicators.isError : analyses.isError) &&
-              !(kind === "indicator"
-                ? indicators.isLoading
-                : analyses.isLoading) &&
-              !(kind === "indicator" ? indicators.data : analyses.data)
-                ?.length && (
-                <p className="text-xs text-[var(--fs-muted)]">
-                  No{" "}
-                  {kind === "indicator" ? "indicators" : "saved visualizations"}{" "}
-                  are available in this project. Create a source before adding
-                  this widget.
-                </p>
-              )}
+            {kind === "analysis" && <Link className="text-xs font-medium text-[var(--fs-primary)]" to={`/projects/${projectUrlKey(project ?? { id: projectId })}/analytics`}>Open survey analysis to create or configure charts</Link>}
+            </section>}
+            {kind === "analysis" && analyses.isLoading && <LoadingState variant="panel" label="Loading widget sources…" />}
+            {kind === "analysis" && !analyses.isError && !analyses.isLoading && !analyses.data?.length && <p className="text-xs text-[var(--fs-muted)]">No saved visualizations are available in this project. Create a source before adding this widget.</p>}
             {kind === "analysis" && analyses.isError && (
               <div role="alert" className="text-sm text-red-700">
                 Could not load saved visualizations: {analyses.error.message}
                 <button type="button" className="ml-2 font-semibold underline" onClick={() => void analyses.refetch()}>Retry</button>
               </div>
             )}
+            <div className="flex justify-end gap-2 border-t border-[var(--fs-border)] pt-3">
+            <Button variant="secondary" type="button" onClick={() => setWidgetEditor(false)}>Cancel</Button>
             <Button
               type="submit"
               disabled={
                 save.isPending ||
                 !widgetTitle.trim() ||
-                (kind !== "text" && !source)
+                (kind === "indicator" && !chartType) ||
+                (kind !== "text" && !source) ||
+                (filterDates && Boolean(widgetFrom && widgetTo && widgetFrom > widgetTo))
               }
             >
-              {editingWidget ? "Save widget" : "Add widget"}
+              {save.isPending ? "Saving…" : editingWidget ? "Save widget" : "Add widget"}
             </Button>
+            </div>
           </form>
-        </Dialog>
+        </section>
       )}
     </Page>
   );
 }
+function ChartChoicePreview({ layout, orientation }: { layout: "stacked" | "grouped"; orientation: "horizontal" | "vertical" }) {
+  const stacked = layout === "stacked";
+  return <svg viewBox="0 0 150 90" className="h-24 w-full" aria-hidden="true">
+    {[68, 52, 44, 35].map((length, index) => {
+      const position = 8 + index * 19;
+      return <g key={index}>
+        {orientation === "horizontal" ? <>
+          <rect x={5} y={position} width={stacked ? length * 0.35 : length * 0.8} height={stacked ? 11 : 5} fill="#57bda9" />
+          <rect x={stacked ? 5 + length * 0.35 : 5} y={stacked ? position : position + 6} width={stacked ? length * 0.65 : length} height={stacked ? 11 : 5} fill="#a9dcd1" />
+        </> : <>
+          <rect x={position + 20} y={80 - (stacked ? length * 0.35 : length * 0.8)} width={stacked ? 11 : 5} height={stacked ? length * 0.35 : length * 0.8} fill="#57bda9" />
+          <rect x={stacked ? position + 20 : position + 26} y={80 - length} width={stacked ? 11 : 5} height={stacked ? length * 0.65 : length} fill="#a9dcd1" />
+        </>}
+      </g>;
+    })}
+  </svg>;
+}
+
 function Tool({
   title,
   onClick,
@@ -950,6 +957,10 @@ function Widget({
   from: string;
   through: string;
 }) {
+  if (widget.filter_dates) {
+    from = widget.date_from ?? "";
+    through = widget.date_to ?? "";
+  }
   const response = useQuery({
     queryKey: [
       "dashboard-widget",
@@ -982,11 +993,7 @@ function Widget({
       : undefined;
   const error = response.error;
   if (widget.kind === "text")
-    return (
-      <p className="m-0 whitespace-pre-wrap p-5 text-sm leading-7 text-[var(--fs-muted)]">
-        {widget.text || "No text provided."}
-      </p>
-    );
+    return <div className="p-5 text-sm leading-7 [&_img]:max-w-full [&_img]:h-auto [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_a]:text-blue-700 [&_a]:underline" dangerouslySetInnerHTML={{ __html: descriptionMarkup(widget.text || "No text provided.", true) }} />;
   if (error && !response.data)
     return (
       <div className="p-5">
@@ -1010,6 +1017,45 @@ function Widget({
           The source indicator is no longer available.
         </p>
       );
+    const indicatorLabel = widget.show_indicator_key && item.code ? `${item.code} - ${item.name}` : item.name;
+    if (widget.chart_type) {
+      if (widget.chart_type === "status") return <div className="space-y-3 p-5">{feedback}<p className="m-0 text-sm font-medium">{item.name}</p><p className="m-0 text-lg capitalize">{item.status.replaceAll("_", " ")}</p><p className="m-0 text-sm text-[var(--fs-muted)]">{item.target_achieved == null ? "Target achievement not reported" : item.target_achieved ? "Target achieved" : "Target not achieved"}</p></div>;
+      if (item.unit === "text") return <div className="p-5">{feedback}<p className="text-sm">This chart requires a numeric indicator. Choose a numeric indicator or use the status widget.</p></div>;
+      const chartData = widget.chart_type === "overall_target"
+        ? [{ name: indicatorLabel, actual: item.current_value, target: item.target_value }]
+        : (item.history ?? []).map(point => ({ name: point.period, actual: point.value, target: point.target_value,
+            achieved: point.value == null || point.target_value == null ? null
+              : item.baseline_value != null && point.target_value !== item.baseline_value
+                && ((item.direction === "decrease" && point.target_value < item.baseline_value) || (item.direction !== "decrease" && point.target_value > item.baseline_value))
+                ? 100 * (point.value - item.baseline_value) / (point.target_value - item.baseline_value)
+                : item.direction === "decrease" ? (point.value > 0 && point.target_value > 0 ? point.target_value / point.value * 100 : point.target_achieved ? 100 : null)
+                : point.target_value > 0 && point.value >= 0 ? point.value / point.target_value * 100 : point.target_achieved ? 100 : null }));
+      if (!chartData.length) return <div className="p-5">{feedback}<p className="text-sm text-[var(--fs-muted)]">No reporting-period results are available for this chart.</p></div>;
+      const bars = widget.chart_type === "overall_target" || widget.chart_type === "periodic_targets";
+      const horizontal = widget.orientation === "horizontal" && bars;
+      const percentage = widget.value_mode === "percentage";
+      const stacked = widget.chart_layout === "stacked";
+      const barData = chartData.map(point => {
+        const achieved = "achieved" in point ? point.achieved : item.progress_percent;
+        const actual = percentage ? achieved : point.actual;
+        const target = percentage ? (point.target != null ? 100 : null) : point.target;
+        return { ...point, actual, target: stacked && target != null && actual != null ? Math.max(0, target - actual) : target };
+      });
+      return <div className="h-full min-h-[200px] p-5" aria-label={indicatorChartTypes.find(([key]) => key === widget.chart_type)?.[1]}>
+        {feedback}
+        <ResponsiveContainer width="100%" height="90%">
+          {bars ? <BarChart data={barData} layout={horizontal ? "vertical" : "horizontal"}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type={horizontal ? "number" : "category"} dataKey={horizontal ? undefined : "name"} unit={horizontal && percentage ? "%" : undefined} />
+            <YAxis type={horizontal ? "category" : "number"} dataKey={horizontal ? "name" : undefined} width={horizontal ? 120 : 55} unit={!horizontal && percentage ? "%" : undefined} />
+            <Tooltip /><Legend /><Bar dataKey="actual" name={percentage ? "% achieved" : "Actual"} stackId={stacked ? "results" : undefined} fill="#57bda9" />{!widget.hide_targets && <Bar dataKey="target" name={stacked ? "Remaining to target" : percentage ? "Target (100%)" : "Target"} stackId={stacked ? "results" : undefined} fill="#a9dcd1" />}
+          </BarChart> : <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis unit={widget.chart_type === "achievement" ? "%" : undefined} /><Tooltip /><Legend />
+            <Line type="monotone" dataKey={widget.chart_type === "achievement" ? "achieved" : "actual"} name={widget.chart_type === "achievement" ? "% achieved" : "Actual"} stroke="var(--fs-primary)" />
+          </LineChart>}
+        </ResponsiveContainer>
+      </div>;
+    }
     return (
       <div className="p-5" aria-busy={response.isFetching}>
         {feedback}
@@ -1021,12 +1067,12 @@ function Widget({
             mapping.
           </p>
         ) : null}
-        <MetricCard label={item.name} icon={Target} value={
+        <MetricCard label={indicatorLabel} icon={Target} value={
           item.unit === "text"
             ? (item.qualitative_value ?? "Not reported")
             : value(item.current_value) + (item.current_value != null && item.unit === "percentage" ? "%" : "")
         } />
-        {item.unit !== "text" && (
+        {item.unit !== "text" && !widget.hide_targets && (
           <>
             <p className="text-xs text-[var(--fs-muted)]">
               Overall target: {value(item.target_value)}
@@ -1081,18 +1127,11 @@ function Widget({
       </p>
     );
   return (
-    <div aria-busy={response.isFetching} className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "p-5"}>
+    <div aria-busy={response.isFetching} className={presentation ? "flex min-w-0 flex-1 flex-col p-6 max-sm:p-3" : "flex h-full min-h-[240px] flex-col p-5 max-sm:p-3"}>
       {feedback}
-      <div style={{ height: presentation ? compactPresentation ? "clamp(250px, 36dvh, 380px)" : "clamp(280px, calc(100dvh - 400px), 540px)" : Math.max(160, (widget.height ?? 420) - 170) }}>
+      <div className={presentation ? "" : "min-h-[200px] flex-1"} style={{ height: presentation ? compactPresentation ? "clamp(250px, 36dvh, 380px)" : "clamp(280px, calc(100dvh - 400px), 540px)" : undefined }}>
         <SurveyResultChart result={result.data} chart={saved.chart} />
       </div>
-      {saved.chart !== "table" && <details className="my-3 border-t border-slate-200 pt-2 text-sm text-slate-600"><summary className="cursor-pointer py-2 font-medium text-brand">View chart data</summary><SurveyResultsTable result={result.data} /></details>}
-      <Link
-        to={`/projects/${project}/analytics?visualization=${encodeURIComponent(widget.source_id ?? "")}`}
-        className="text-xs text-[var(--fs-primary)]"
-      >
-        Explore source data →
-      </Link>
     </div>
   );
 }

@@ -75,9 +75,9 @@ def test_saved_doughnut_is_listed_and_can_be_used_as_dashboard_widget(analysis_c
 
 def test_layout_filters_reload_duplicate_delete_and_conflict(sync_client):
     client, engine, _, headers = sync_client
-    first, second = widget(), widget(title="Notes", height=480, width=2)
+    first, second = widget(), widget(title="Notes", height=480, width=2, description="Reporting context", show_description=True, image_only=False)
     dashboard = create(sync_client, [first, second], date_from="2026-10-01", date_to="2026-10-31")
-    assert dashboard["widgets"][0]["height"] == 360  # Legacy width-only payload.
+    assert dashboard["widgets"][0]["height"] == 480  # Legacy width-only payload.
     saved = {**dashboard, "widgets": [dashboard["widgets"][1], {**dashboard["widgets"][0], "height": 600}]}
     saved["title"] = "Updated evidence"
     response = client.put(f"/dashboards/{dashboard['id']}", headers=headers, json=saved)
@@ -86,6 +86,8 @@ def test_layout_filters_reload_duplicate_delete_and_conflict(sync_client):
     assert current["version"] == dashboard["version"] + 1
     loaded = client.get(f"/dashboards/{dashboard['id']}", headers=headers).json()
     assert loaded == current
+    assert loaded["widgets"][0]["description"] == "Reporting context"
+    assert loaded["widgets"][0]["show_description"] is True
     with Session(engine) as db:
         row = db.get(AnalyticalDashboard, UUID(dashboard["id"]))
         assert row.widgets[0]["id"] == second["id"] and row.widgets[1]["height"] == 600
