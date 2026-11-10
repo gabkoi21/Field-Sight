@@ -416,3 +416,25 @@ def test_reporting_downgrade_refuses_saved_history(sync_client, monkeypatch):
         assert client.get(f"/reports/{report['id']}", headers=headers).status_code == 200
     finally:
         get_settings.cache_clear()
+
+
+def test_preview_calculates_only_included_indicators(sync_client):
+    from app.routes.indicators import _read
+
+    client, _, project, headers = sync_client
+    selected = client.post(
+        f"/projects/{project}/indicators",
+        headers=headers,
+        json={"name": "Included result", "code": "INCLUDE", "manual_aggregation": "sum"},
+    ).json()
+    client.post(
+        f"/projects/{project}/indicators",
+        headers=headers,
+        json={"name": "Unrelated result", "code": "EXCLUDE", "manual_aggregation": "sum"},
+    )
+    report = create(client, project, headers, indicator_ids=[selected["id"]])
+    with patch("app.routes.reports._read", wraps=_read) as calculate:
+        captured = preview(client, report, headers)
+    assert len(captured["data"]["indicators"]) == 1
+    assert calculate.call_count == 1
+    assert captured["data"]["indicators"][0]["id"] == selected["id"]

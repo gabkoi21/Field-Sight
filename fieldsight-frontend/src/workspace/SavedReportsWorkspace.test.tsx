@@ -64,8 +64,10 @@ it("creates a report with template sections, period and authored narratives then
 });
 it("reopens and saves a draft with its expected revision", async () => {
   vi.mocked(apiClient.savedReports).mockResolvedValue({items: [report], total: 1});
-  setup(); fireEvent.click(await screen.findByRole("button", {name: "October results"}));
-  const title = await screen.findByLabelText("Report title");
+  vi.mocked(apiClient.savedReport).mockImplementation(() => new Promise(() => {}));
+  setup(); fireEvent.click(await screen.findByRole("button", {name: "Edit report: October results"}));
+  const title = screen.getByLabelText("Report title");
+  expect(apiClient.savedReport).not.toHaveBeenCalled();
   fireEvent.change(title, {target: {value: "Revised report"}});
   fireEvent.click(screen.getByRole("button", {name: "Save draft"}));
   await screen.findByText("Draft saved.");
@@ -109,4 +111,20 @@ it("renders actual-target and trend charts with separate overall and period targ
   expect(screen.getByRole("cell", {name: "2026-10"})).toBeTruthy();
   expect(screen.getByRole("cell", {name: "10"})).toBeTruthy();
   expect(document.querySelectorAll("svg").length).toBeGreaterThanOrEqual(2);
+});
+
+it("retries a failed preview without saving the draft again", async () => {
+  vi.mocked(apiClient.reportPreview).mockRejectedValueOnce(new Error("Preview timed out")).mockResolvedValueOnce(preview);
+  setup(); await screen.findByText(/No saved reports yet/);
+  fireEvent.click(screen.getByRole("button", {name: "Create report"}));
+  fireEvent.click(screen.getByRole("button", {name: "3. Report content"}));
+  fireEvent.click(screen.getByRole("button", {name: "Save and preview"}));
+  await screen.findByText("Preview timed out");
+  expect(screen.getByText("Draft saved.")).toBeTruthy();
+  expect(screen.queryByRole("button", {name: "Retry loading reports"})).toBeNull();
+  fireEvent.click(screen.getByRole("button", {name: "Retry preview"}));
+  await screen.findByRole("article", {name: "Report preview"});
+  expect(apiClient.createReport).toHaveBeenCalledTimes(1);
+  expect(apiClient.updateReport).not.toHaveBeenCalled();
+  expect(apiClient.reportPreview).toHaveBeenCalledTimes(2);
 });

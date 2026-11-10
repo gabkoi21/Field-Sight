@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { DeleteConfirmation } from "../components/ui/DeleteConfirmation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -70,6 +70,7 @@ export function SavedReportsWorkspace() {
   const [record, setRecord] = useState<SavedReport | null>(null);
   const [form, setForm] = useState<ReportInput | null>(null);
   const [preview, setPreview] = useState<ReportPreview | null>(null);
+  const [retryPreviewId, setRetryPreviewId] = useState<string | null>(null);
   const [step, setStep] = useState(1);
   const [kind, setKind] = useState<PeriodKind>("monthly");
   const [year, setYear] = useState(new Date().getUTCFullYear());
@@ -90,13 +91,13 @@ export function SavedReportsWorkspace() {
     try { await action(); } catch (e) { setError(e instanceof Error ? e.message : "Report action failed. Please try again."); }
     finally { setPending(false); }
   }
-  function change(changes: Partial<ReportInput>) { setForm(current => current ? {...current, ...changes} : current); setPreview(null); }
+  function change(changes: Partial<ReportInput>) { setForm(current => current ? {...current, ...changes} : current); setPreview(null); setRetryPreviewId(null); }
   function newReport() {
     const template = templates.data?.[0]; if (!template) return;
     const now = new Date(); const currentPart = now.getUTCMonth() + 1;
     const dates = reportPeriod("monthly", now.getUTCFullYear(), currentPart);
     setKind("monthly"); setYear(now.getUTCFullYear()); setPart(currentPart);
-    setRecord(null); setPreview(null); setStep(1); setError(""); setNotice(""); setEditing(true);
+    setRecord(null); setPreview(null); setRetryPreviewId(null); setStep(1); setError(""); setNotice(""); setEditing(true);
     setForm({title: `${project?.name ?? "Project"} — ${template.name}`, description: "", template_key: template.key,
       reporting_period_start: dates[0], reporting_period_end: dates[1], sections: Object.fromEntries(template.sections.map(k => [k, ""])), indicator_ids: []});
   }
@@ -111,12 +112,21 @@ export function SavedReportsWorkspace() {
     if (!form || invalid) throw new Error("Enter a title and a valid reporting period.");
     const saved = record ? await apiClient.updateReport(record.id, {...inputOf(form), expected_revision: record.revision_number}) : await apiClient.createReport(projectId, inputOf(form));
     setRecord(saved); setForm(inputOf(saved)); setPreview(null);
-    await cache.invalidateQueries({queryKey: ["saved-reports", projectId]});
+    void cache.invalidateQueries({queryKey: ["saved-reports", projectId]});
     return saved;
+  }
+  async function preparePreview(id: string) {
+    setRetryPreviewId(id);
+    const captured = await apiClient.reportPreview(id);
+    setPreview(captured); setStep(4); setRetryPreviewId(null);
+  }
+  function showReport(report: SavedReport) {
+    setRecord(report); setForm(inputOf(report)); setEditing(true); setKind("custom"); setPreview(null);
+    setStep(report.status === "published" ? 4 : 1); setError(""); setNotice(""); setRetryPreviewId(null);
   }
   async function open(id: string) {
     const report = await apiClient.savedReport(id);
-    setRecord(report); setForm(inputOf(report)); setEditing(true); setKind("custom"); setPreview(null); setStep(report.status === "published" ? 4 : 1);
+    showReport(report);
     if (report.status === "published") setPreview(await apiClient.reportPreview(id));
   }
   async function download() {
@@ -128,7 +138,8 @@ export function SavedReportsWorkspace() {
   return <Page className="sm:[&>header]:flex-row sm:[&>header]:!items-center" title="Reporting" breadcrumb={`FieldSight / ${project?.name ?? "Project"}`} description=""
     actions={<Button disabled={pending || templates.isLoading || !templates.data || !projectId} onClick={newReport}>Create report</Button>}>
     <WorkspaceGate>
-      {(error || reports.error || templates.error) && <Notice error>{error || reports.error?.message || templates.error?.message}<Button variant="secondary" disabled={pending} onClick={() => {void reports.refetch(); void templates.refetch();}}>Retry loading reports</Button></Notice>}
+      {error && <Notice error>{error}{retryPreviewId && <Button variant="secondary" disabled={pending} onClick={() => void run(async () => {setNotice("Draft saved."); await preparePreview(retryPreviewId);})}>Retry preview</Button>}</Notice>}
+      {(reports.error || templates.error) && <Notice error>{reports.error?.message || templates.error?.message}<Button variant="secondary" disabled={pending} onClick={() => {void reports.refetch(); void templates.refetch();}}>Retry loading reports</Button></Notice>}
       {notice && <Notice>{notice}</Notice>}
       {!editing ? <Panel className="p-5">
         <div className="mb-4 flex flex-col gap-3 border-b border-[var(--fs-border)] pb-4 sm:flex-row sm:items-center sm:justify-between">
@@ -143,18 +154,13 @@ export function SavedReportsWorkspace() {
         </div>
         {reports.isLoading ? <LoadingState label="Loading saved reports…" /> : reports.data?.items.length === 0 ? <p>No saved reports yet. Create a report to start documenting this project's results.</p> : <div className="overflow-x-auto"><table className="fs-data-table w-full min-w-[960px] table-fixed text-left text-sm [&_td]:align-middle [&_th]:align-middle"><colgroup><col className="w-[36%]" /><col className="w-[21%]" /><col className="w-[10%]" /><col className="w-[19%]" /><col className="w-[14%]" /></colgroup><thead className="[&_th]:!bg-[var(--fs-primary-soft)] [&_th]:!py-2.5 [&_th]:!text-[11px] [&_th]:!font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:!text-[var(--fs-muted)]"><tr><th>Report</th><th>Period (UTC)</th><th>Status</th><th>Created / published</th><th className="text-right">Actions</th></tr></thead><tbody>{reports.data?.items.map(r => <tr key={r.id}>
           <td><button className="block w-full break-words text-left text-sm font-medium leading-6 text-[var(--fs-primary)] hover:underline" disabled={pending} onClick={() => void run(() => open(r.id))}>{r.title}</button></td><td className="whitespace-nowrap text-xs tabular-nums">{r.reporting_period_start} — {r.reporting_period_end}</td><td><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${r.status === "published" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{label(r.status)}</span></td><td className="text-xs leading-6 tabular-nums">{formatDateTime(r.created_at)}{r.published_at && <><br />{formatDateTime(r.published_at)}</>}</td>
-          <td><div className="flex items-center justify-end gap-2">
+          <td><div className="flex items-center justify-end gap-1.5">
             {r.status === "draft" && <button type="button" aria-label={`Edit report: ${r.title}`} title="Edit report" disabled={pending}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:border-emerald-400 hover:bg-emerald-100 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => void run(() => open(r.id))}><Pencil size={17} aria-hidden="true" /></button>}
-            <button type="button" aria-label={`Duplicate report: ${r.title}`} title="Duplicate report" disabled={pending}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:border-blue-400 hover:bg-blue-100 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => void run(async () => {const copy = await apiClient.duplicateReport(r.id); await open(copy.id); await cache.invalidateQueries({queryKey: ["saved-reports", projectId]});})}>
-              <Copy size={17} aria-hidden="true" />
-            </button>
+              className="inline-flex h-7 w-7 min-h-7 min-w-7 items-center justify-center rounded-md border max-sm:min-h-11 max-sm:min-w-11 border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:border-emerald-400 hover:bg-emerald-100 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => showReport(r)}><Pencil size={14} aria-hidden="true" /></button>}
             {r.status === "draft" && <button type="button" aria-label={`Delete draft report: ${r.title}`} title="Delete draft report" disabled={pending}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-700 transition-colors hover:border-red-400 hover:bg-red-100 focus-visible:outline-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={() => setDeleting(r)}><Trash2 size={17} aria-hidden="true" /></button>}
+              className="inline-flex h-7 w-7 min-h-7 min-w-7 items-center justify-center rounded-md border max-sm:min-h-11 max-sm:min-w-11 border-red-200 bg-red-50 text-red-700 transition-colors hover:border-red-400 hover:bg-red-100 focus-visible:outline-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => setDeleting(r)}><Trash2 size={14} aria-hidden="true" /></button>}
           </div></td>
         </tr>)}</tbody></table></div>}
         <nav aria-label="Report pagination" className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--fs-border)] pt-4">
@@ -189,7 +195,7 @@ export function SavedReportsWorkspace() {
           </fieldset><p className="text-xs">Narratives are optional user-authored plain text. They do not change source data.</p>
           {Object.entries(form.sections).map(([key, value]) => <Field label={label(key)} key={key}><textarea rows={key === "executive_summary" ? 6 : 4} maxLength={30000} className={fieldClass} value={value} onChange={e => change({sections: {...form.sections, [key]: e.target.value}})} /></Field>)}
           </>}
-          <div className="flex flex-wrap gap-3"><Button variant="secondary" disabled={pending || step === 1} onClick={() => setStep(step - 1)}>Previous step</Button>{step < 3 ? <Button disabled={pending || invalid} onClick={() => setStep(step + 1)}>Continue</Button> : <Button disabled={pending || invalid} onClick={() => void run(async () => {const saved = await save(); setPreview(await apiClient.reportPreview(saved.id)); setStep(4);})}>{pending ? "Preparing preview…" : "Save and preview"}</Button>}</div>
+          <div className="flex flex-wrap gap-3"><Button variant="secondary" disabled={pending || step === 1} onClick={() => setStep(step - 1)}>Previous step</Button>{step < 3 ? <Button disabled={pending || invalid} onClick={() => setStep(step + 1)}>Continue</Button> : <Button disabled={pending || invalid} onClick={() => void run(async () => {const saved = await save(); setNotice("Draft saved."); await preparePreview(saved.id);})}>{pending ? "Preparing preview…" : "Save and preview"}</Button>}</div>
         </fieldset></Panel>}
         {(readonly || step >= 4) && preview && <Panel><ReportDocument preview={preview} /></Panel>}
         {!readonly && step === 4 && <Button disabled={pending || !preview} onClick={() => setStep(5)}>Continue to publication</Button>}

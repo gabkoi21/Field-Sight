@@ -24,7 +24,7 @@ from app.models.identity import Organization, User, utc_now
 from app.models.operations import Indicator, Project, ResultFrameworkNode, Submission, SyncRun
 from app.models.reporting import Report, ReportSnapshot
 from app.routes.auth import get_current_user
-from app.routes.indicators import list_indicators
+from app.routes.indicators import _read, list_indicators
 from app.routes.intelligence import _project
 from app.routes.kobo import _organization_admin_id
 from app.schemas.reports import (
@@ -160,9 +160,24 @@ def _consistent_session(db: Session) -> Iterator[Session]:
 def _capture(report: Report, user: User, db: Session) -> dict:
     project = _project(report.project_id, user, db)
     organization = db.get(Organization, report.organization_id)
-    all_results = list_indicators(project.id, user, db, report.reporting_period_start, report.reporting_period_end)
-    selected = set(report.content["indicator_ids"])
-    results = [item.model_dump(mode="json") for item in all_results if str(item.id) in selected]
+    selected = {UUID(value) for value in report.content["indicator_ids"]}
+    included = (
+        db.exec(
+            select(Indicator)
+            .where(
+                Indicator.project_id == project.id,
+                Indicator.organization_id == project.organization_id,
+                col(Indicator.id).in_(selected),
+            )
+            .order_by(col(Indicator.is_active).desc(), col(Indicator.name))
+        ).all()
+        if selected
+        else []
+    )
+    results = [
+        _read(item, db, report.reporting_period_start, report.reporting_period_end).model_dump(mode="json")
+        for item in included
+    ]
     if len(results) != len(selected):
         raise HTTPException(409, "An included indicator is no longer available. Edit the draft selection.")
     counts_query = select(Submission.review_status, func.count()).where(
@@ -315,7 +330,6 @@ def duplicate_report(report_id: UUID, user: CurrentUser, db: Database) -> Report
 
 @router.get("/reports/{report_id}/preview", response_model=ReportPreview)
 def preview_report(report_id: UUID, user: CurrentUser, db: Database) -> ReportPreview:
-    _report(report_id, user, db)
     with _consistent_session(db) as stable:
         report = _report(report_id, user, stable)
         if report.status == "published":
@@ -327,7 +341,6 @@ def preview_report(report_id: UUID, user: CurrentUser, db: Database) -> ReportPr
 
 @router.post("/reports/{report_id}/publish", response_model=ReportRead)
 def publish_report(report_id: UUID, body: PublicationInput, user: CurrentUser, db: Database) -> ReportRead:
-    _report(report_id, user, db)
     with _consistent_session(db) as stable:
         report = _report(report_id, user, stable)
         if report.status == "published":
