@@ -508,6 +508,11 @@ def delete_project(
     # Local cleanup and provider deletion are independent retryable operations.
     from app.models.operations import ProjectAction
 
+    from app.models.reporting import Report
+
+    if db.exec(select(Report.id).where(Report.project_id == project.id).limit(1)).first():
+        raise HTTPException(409, "Archive this project to preserve its saved reports and publication history.")
+
     if db.exec(select(ProjectAction.id).where(ProjectAction.project_id == project.id).limit(1)).first():
         raise HTTPException(409, "Archive this project to preserve its action register and audit history.")
     try:

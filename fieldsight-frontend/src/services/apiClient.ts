@@ -1049,7 +1049,22 @@ export interface MonthlyOrganizationActivity {
   months: { month: number; organization_id: string | null; organization_name: string | null; submissions: number; tied_organizations: number }[];
 }
 
+export type ReportTemplate = { key: "monthly" | "quarterly" | "donor"; name: string; sections: string[] };
+export type ReportInput = { template_key: ReportTemplate["key"]; title: string; description: string; reporting_period_start: string; reporting_period_end: string; sections: Record<string, string>; indicator_ids: string[] };
+export type SavedReport = ReportInput & { id: string; project_id: string; organization_id: string; status: "draft" | "published"; revision_number: number; created_at: string; updated_at: string; created_by_id: string; updated_by_id: string; published_at: string | null; published_by_id: string | null };
+export type ReportPreview = { content_hash: string; data: { report: SavedReport; project: { name: string; description: string }; organization: { name: string }; indicators: Indicator[]; review_counts: Record<string, number>; methodology: string; framework: { title: string; node_type: string }[]; published_at?: string } };
+
 export const apiClient = {
+  reportTemplates: () => request<ReportTemplate[]>("/report-templates"),
+  savedReports: (project: string, offset = 0) => request<{items: SavedReport[]; total: number}>(`/projects/${project}/reports?offset=${offset}&limit=25`),
+  createReport: (project: string, body: ReportInput) => request<SavedReport>(`/projects/${project}/reports`, {method: "POST", body: JSON.stringify(body)}),
+  savedReport: (id: string) => request<SavedReport>(`/reports/${id}`),
+  updateReport: (id: string, body: ReportInput & {expected_revision: number}) => request<SavedReport>(`/reports/${id}`, {method: "PATCH", body: JSON.stringify(body)}),
+  deleteReport: (id: string, revision: number) => request<void>(`/reports/${id}?expected_revision=${revision}`, {method: "DELETE"}),
+  duplicateReport: (id: string) => request<SavedReport>(`/reports/${id}/duplicate`, {method: "POST"}),
+  reportPreview: (id: string) => request<ReportPreview>(`/reports/${id}/preview`),
+  publishReport: (id: string, revision: number, hash: string) => request<SavedReport>(`/reports/${id}/publish`, {method: "POST", body: JSON.stringify({expected_revision: revision, preview_hash: hash})}),
+  savedReportPdf: (id: string, hash?: string) => request<ArrayBuffer>(`/reports/${id}/export.pdf${hash ? `?preview_hash=${hash}` : ""}`),
   exportTable: (project: string, form: string, options: TableExportOptions) => request<TableDownload>(`/projects/${project}/tables/${encodeURIComponent(form)}/export`, { method: "POST", body: JSON.stringify(options) }, true, true),
   tableExportSchedules: (project: string, form: string) => request<TableExportSchedule[]>(`/projects/${project}/tables/${encodeURIComponent(form)}/export-schedules`),
   createTableExportSchedule: (project: string, form: string, options: TableExportOptions) => request(`/projects/${project}/tables/${encodeURIComponent(form)}/export-schedules`, { method: "POST", body: JSON.stringify({ options }) }),

@@ -112,10 +112,10 @@ export function WorkspaceTabs() {
         { label: "Forms", to: `/forms?project_id=${projectId}`, icon: FileText },
         { label: "Data tables", to: `/data-tables?project_id=${projectId}`, icon: Table2 },
         { label: "Explore & analyze", to: `/projects/${projectId}/analytics`, icon: BarChart3 },
-        { label: "Actions & Follow-ups", to: `/projects/${projectId}/actions`, icon: ClipboardList },
+        { label: "Actions & Follow-ups", to: `/projects/${projectId}/actions`, icon: ClipboardList, hidden: true },
         { label: "Indicators", to: `/projects/${projectId}/indicators`, icon: Target },
         { label: "Dashboards", to: `/dashboards?project_id=${projectId}`, icon: LayoutDashboard },
-      ].map(({ label, to, icon: Icon }) => (
+      ].filter(item => !item.hidden).map(({ label, to, icon: Icon }) => (
         <NavLink
           key={label}
           to={to}

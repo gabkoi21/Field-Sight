@@ -299,7 +299,7 @@ export function DashboardsPage() {
   const invalid = Boolean(from && through && from > through);
   return (
     <Page
-      className="mx-auto w-full max-w-[1680px] !space-y-5 [&>a:first-child]:min-h-8 [&>header]:items-center"
+      className="mx-auto w-full max-w-[1680px] !space-y-5 [&>a:first-child]:min-h-8 [&>header]:!flex-row [&>header]:flex-wrap [&>header]:items-center [&>header>div:first-child]:min-w-[220px] [&>header>div:last-child]:shrink-0 [&>header>div:last-child]:ml-auto max-sm:!space-y-4"
       backTo={projectId ? `/projects/${projectUrlKey(project ?? { id: projectId })}/details` : "/projects"}
       breadcrumb={project?.name ?? "Select a project"}
       title="Project dashboards"
@@ -361,8 +361,8 @@ export function DashboardsPage() {
         ) : (
           <>
             <Panel className="overflow-hidden">
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fs-border)] px-5 py-4">
-                <div className="min-w-0 basis-[230px] flex-1">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--fs-border)] px-5 py-4 max-sm:px-3 max-sm:py-3">
+                <div className="min-w-0 basis-[230px] flex-1 max-sm:basis-full">
                   <label className="sr-only" htmlFor="dashboard-picker">
                     Dashboard
                   </label>
@@ -383,19 +383,19 @@ export function DashboardsPage() {
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5 print:hidden">
+                <div className="flex flex-wrap items-center gap-1.5 print:hidden max-sm:w-full">
                   <Button
                     disabled={save.isPending}
                     onClick={() => openWidget()}
-                    className="!min-h-10 !rounded-lg !px-4 !py-2 !text-sm"
+                    className="!min-h-10 !rounded-lg !px-4 !py-2 !text-sm max-sm:w-full"
                   >
                     <Plus size={14} />
                     Add new widget
                   </Button>
                 </div>
               </header>
-              <div className="flex flex-wrap items-center justify-between gap-x-3 border-b border-[var(--fs-border)] px-5 print:hidden">
-              <nav aria-label="Dashboard sections" className="flex min-w-0 overflow-x-auto">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 border-b border-[var(--fs-border)] px-5 print:hidden max-sm:px-3">
+              <nav aria-label="Dashboard sections" className="flex min-w-0 max-w-full overflow-x-auto max-xl:w-full">
                 {([
                   ["Dashboard", LayoutDashboard], ["Details", FileText],
                   ["Settings", Settings], ["Styles", Palette],
@@ -408,7 +408,7 @@ export function DashboardsPage() {
                   </button>
                 ))}
               </nav>
-              <div aria-label="Dashboard actions" className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5 py-1.5">
+              <div aria-label="Dashboard actions" className="ml-auto flex shrink-0 flex-wrap items-center gap-1.5 py-1.5 max-xl:w-full max-xl:justify-end max-xl:border-t max-xl:border-[var(--fs-border)]">
                   <Tool
                     title="Expand dashboard"
                     compact
@@ -481,12 +481,12 @@ export function DashboardsPage() {
             ) : filterDashboard !== dashboard.id ? (
               <LoadingState variant="panel" label="Preparing selected dashboard…" />
             ) : (
-              <div className="grid grid-cols-2 items-start gap-6 max-lg:grid-cols-1">
+              <div className="grid grid-cols-2 items-start gap-6 max-lg:grid-cols-1 max-sm:gap-4">
                 {dashboard.widgets.map((widget) => (
                   <div
                     key={widget.id}
                     data-widget-id={widget.id}
-                    className={`max-lg:!h-auto print:!h-auto min-w-0 ${widget.width === 2 ? "col-span-2 max-lg:col-span-1" : ""} ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[var(--fs-primary)]" : ""}`}
+                    className={`max-lg:!h-[420px] print:!h-auto min-w-0 ${widget.width === 2 ? "col-span-2 max-lg:col-span-1" : ""} ${dragging === widget.id ? "opacity-60" : ""} ${dropTarget === widget.id && dragging !== widget.id ? "rounded-lg ring-2 ring-[var(--fs-primary)]" : ""}`}
                     style={{
                       height: widget.height ?? 480,
                     }}

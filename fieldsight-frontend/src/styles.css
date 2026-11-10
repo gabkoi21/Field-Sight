@@ -261,6 +261,9 @@
   .workspace-collapsed #fieldsight-navigation > button { margin:6px; padding:0; gap:0; justify-content:center; }
   .fieldsight-workspace #fieldsight-navigation > button svg { transition:transform 240ms cubic-bezier(.22,1,.36,1); }
   .workspace-collapsed #fieldsight-navigation > button svg { transform:rotate(180deg); }
+  .workspace-collapsed #fieldsight-navigation .navigation-footer { padding:8px 6px; }
+  .workspace-collapsed #fieldsight-navigation .navigation-collapse { padding:0; gap:0; justify-content:center; }
+  .workspace-collapsed #fieldsight-navigation .navigation-collapse svg { transform:rotate(180deg); }
 }
 
 /* The full-bleed login panel should not reserve an empty scrollbar strip. */

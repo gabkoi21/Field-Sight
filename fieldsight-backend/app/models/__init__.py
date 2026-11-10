@@ -30,3 +30,5 @@ __all__ = [
     "Sector",
     "User",
 ]
+
+from app.models import reporting as reporting

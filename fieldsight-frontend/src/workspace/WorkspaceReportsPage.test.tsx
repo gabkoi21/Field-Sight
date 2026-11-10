@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { WorkspaceReportsPage } from "./WorkspaceReportsPage";
+import { LiveProjectReport as WorkspaceReportsPage } from "./WorkspaceReportsPage";
 import { apiClient } from "../services/apiClient";
 vi.mock("../services/apiClient", () => ({ apiClient: { indicators: vi.fn(), tables: vi.fn() } }));
 vi.mock("./WorkspaceContext", () => ({ useWorkspace: () => ({ projectId: "p1", project: { id: "p1", name: "Health" }, loading: false }) }));

@@ -119,12 +119,6 @@ function Shell({ loading }: { loading: boolean }) {
         { name: "Kobo connections", path: "/forms/connections", icon: Link2 },
       ],
     },
-    {
-      title: "Administration",
-      items: [
-        { name: "Organization settings", path: "/settings", icon: Settings },
-      ],
-    },
   ];
   function active(path: string) {
     path = cleanProjectPath(path);
@@ -183,7 +177,12 @@ function Shell({ loading }: { loading: boolean }) {
             </div>
           ))}
         </nav></SidebarScrollArea>
-        <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="fieldsight-navigation" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(value => !value)} className="m-3 hidden min-h-11 items-center gap-3 rounded-lg px-3 text-sm text-white hover:bg-white/10 focus-visible:outline-white md:flex"><span className="navigation-label">Collapse</span><PanelLeftClose size={19} className="shrink-0" aria-hidden="true" /></button>
+        <div className="navigation-footer shrink-0 border-t border-white/10 p-3">
+          <Link to="/settings" title="Settings" aria-label="Settings" aria-current={active("/settings") ? "page" : undefined} onClick={() => setOpen(false)} className={`flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-sm no-underline hover:bg-white/10 focus-visible:outline-white ${active("/settings") ? "bg-[#0b51b7]/50 font-semibold text-white" : "text-[#b5c7d5]"}`}>
+            <Settings size={17} className="shrink-0" aria-hidden="true" /><span className="navigation-label">Settings</span>
+          </Link>
+        <button type="button" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} aria-controls="fieldsight-navigation" title={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed(value => !value)} className="navigation-collapse mt-1 hidden min-h-11 w-full items-center gap-2.5 rounded-lg px-3 text-sm text-[#b5c7d5] hover:bg-white/10 hover:text-white focus-visible:outline-white md:flex"><PanelLeftClose size={17} className="shrink-0" aria-hidden="true" /><span className="navigation-label">Collapse</span></button>
+        </div>
       </aside>
       <main ref={main} className="min-h-screen pt-16 md:ml-[240px]">
         <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center gap-2 sm:gap-4 border-b border-[var(--fs-border)] bg-white px-4 sm:px-6">

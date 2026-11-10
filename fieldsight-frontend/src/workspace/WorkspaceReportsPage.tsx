@@ -1,3 +1,4 @@
+import { SavedReportsWorkspace } from "./SavedReportsWorkspace";
 import { formatDateTime } from "../utils/dateFormat";
 import { ProjectLink as Link } from "./projectRouting";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import {
   fieldClass,
 } from "./WorkspaceUI";
 
-export function WorkspaceReportsPage() {
+export function LiveProjectReport() {
   const { projectId, project } = useWorkspace();
   const [from, setFrom] = useState("");
   const [through, setThrough] = useState("");
@@ -115,7 +116,7 @@ export function WorkspaceReportsPage() {
             Export CSV
           </Button>
           <Button variant="secondary" onClick={() => pdf.mutate()} disabled={invalid || pdf.isPending || !projectId || reportLoading || reportUnavailable}>
-            <Download size={14} />{pdf.isPending ? "Generating PDF…" : "Download PDF"}
+            <Download size={14} />{pdf.isPending ? "Generating PDFâ€¦" : "Download PDF"}
           </Button>
           <Button onClick={() => window.print()} disabled={invalid || reportLoading || indicators.isFetching || reportUnavailable}>
             <Printer size={14} />
@@ -155,10 +156,10 @@ export function WorkspaceReportsPage() {
             {e?.message}
           </Notice>
         ))}
-        {indicators.isFetching && indicators.data && <LoadingState variant="inline" label="Updating report…" />}
+        {indicators.isFetching && indicators.data && <LoadingState variant="inline" label="Updating reportâ€¦" />}
         {(indicators.error || tables.error) && <Button variant="secondary" onClick={() => { void indicators.refetch(); void tables.refetch(); }}>Retry report data</Button>}
         {reportLoading && !invalid ? (
-          <LoadingState variant="panel" label="Preparing project report…" />
+          <LoadingState variant="panel" label="Preparing project reportâ€¦" />
         ) : (
           !invalid && !reportUnavailable && (
             <>
@@ -174,11 +175,11 @@ export function WorkspaceReportsPage() {
                 </p>
                 <div className="mt-5 flex flex-wrap gap-8 text-xs text-[var(--fs-muted)]">
                   <span>
-                    Window: {from || "All dates"} — {through || "Present"}
+                    Window: {from || "All dates"} â€” {through || "Present"}
                   </span>
                   <span>Generated: {formatDateTime(new Date())}</span>
                   <span>
-                    {indicators.data?.length ?? 0} indicators ·{" "}
+                    {indicators.data?.length ?? 0} indicators Â·{" "}
                     {tables.data?.length ?? 0} source tables
                   </span>
                 </div>
@@ -223,7 +224,7 @@ export function WorkspaceReportsPage() {
                           </td>
                           <td className="px-5">
                             {item.unit === "text"
-                              ? "—"
+                              ? "â€”"
                               : number(item.target_value)}
                           </td>
                           <td className="px-5">
@@ -258,7 +259,7 @@ export function WorkspaceReportsPage() {
                 <ul className="space-y-2 pl-4 text-xs leading-6 text-[var(--fs-muted)]">
                   {tables.data?.map((table) => (
                     <li key={table.id}>
-                      {table.title} · {table.source} · {table.records} stored
+                      {table.title} Â· {table.source} Â· {table.records} stored
                       rows before date or quality filters
                     </li>
                   ))}
@@ -280,4 +281,17 @@ export function WorkspaceReportsPage() {
       </WorkspaceGate>
     </Page>
   );
+}
+
+
+export function WorkspaceReportsPage() {
+  const { projectId } = useWorkspace();
+  const [view, setView] = useState<"saved" | "live">("saved");
+  return <>
+    <nav aria-label="Report views" className="mb-5 flex flex-wrap items-center gap-2 print:hidden">
+      <Button variant={view === "saved" ? "primary" : "secondary"} onClick={() => setView("saved")}>Saved reports</Button>
+      <Button variant={view === "live" ? "primary" : "secondary"} onClick={() => setView("live")}>Live project report</Button>
+    </nav>
+    {view === "live" ? <LiveProjectReport key={projectId} /> : <SavedReportsWorkspace key={projectId} />}
+  </>;
 }
